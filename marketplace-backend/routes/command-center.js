@@ -75,9 +75,9 @@ export function registerCommandCenter(app) {
     })
   }
 
-  app.get('/command-center', requireAuth, requireMfa, canView, handleSummary)
-  app.get('/command-center/summary', requireAuth, requireMfa, canView, handleSummary)
-  app.get('/management/summary', requireAuth, requireMfa, canView, handleSummary)
+  app.get('/command-center', requireAuth, requireMfa, requirePermission('accounting.view'), handleSummary)
+  app.get('/command-center/summary', requireAuth, requireMfa, requirePermission('accounting.view'), handleSummary)
+  app.get('/management/summary', requireAuth, requireMfa, requirePermission('accounting.view'), handleSummary)
 
   // ── 2. Multi-Department Exceptions Queue ───────────────────────────────────
   const handleExceptions = async (req, res) => {

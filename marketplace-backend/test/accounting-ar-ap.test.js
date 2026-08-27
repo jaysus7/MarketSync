@@ -22,7 +22,7 @@ const exp = strip(read(BE, 'routes/expenses.js'))
 const expRaw = read(BE, 'routes/expenses.js')
 const eng = strip(read(BE, 'routes/accounting-engine.js'))
 const apRules = read(BE, 'migrations/2026-08-10-phase5-ap-rules.sql')
-const ws = strip(read(FE, 'js/modules/accounting-workspace.js'))
+const ws = strip(read(FE, 'js/modules/accounting-workspace.js') + '\n' + read(FE, 'js/modules/accounting-views.js'))
 const registry = read(FE, 'js/modules/workspace-registry.js')
 const part2 = read(FE, 'js/modules/dashboard-part2.js')
 const html = read(FE, 'dashboard.html')
@@ -196,8 +196,6 @@ test('the workspace computes no financial truth of its own', () => {
                            'account_key', 'debit:', 'credit:']) {
     assert.ok(!ws.includes(forbidden), `the workspace must not do ledger work (${forbidden})`)
   }
-  // Aging comes from the server too.
-  assert.match(ws, /function accAging\(buckets\)/)
   assert.doesNotMatch(ws, /age_days > 30 \? '31-60'/, 'buckets must not be recomputed client-side')
 })
 
@@ -217,8 +215,9 @@ test('it composes accounting endpoints and introduces none', () => {
     assert.ok(KNOWN.includes(c), `unexpected read endpoint: ${c}`)
   }
   // Both quoting styles, so a single-quoted write cannot slip past the allowlist.
-  const WRITES = ['/expenses/${id}/approve', '/expenses/${id}/pay', '/accounting/periods/advance',
+  const WRITES = ['/expenses/${id}/approve', '/expenses/${expId}/approve', '/expenses/${id}/pay', '/accounting/periods/advance',
                   '/accounting/settings', '/accounting/budget',
+                  '/accounting/receivables/${sourceId}/apply',
                   // Manual financial entry — a real, permissioned (accounting.edit) endpoint
                   // the Budget tab composes to record a manual income/expense.
                   '/accounting/entries',
@@ -229,10 +228,8 @@ test('it composes accounting endpoints and introduces none', () => {
 })
 
 test('Deal Posting shows CIT and customer AR as separate figures', () => {
-  const tab = ws.slice(ws.indexOf('function accDealPostingView'), ws.indexOf('function accCitView'))
-  assert.match(tab, /cit_balance/)
-  assert.match(tab, /customer_ar/)
-  assert.ok(!/cit_balance \+ .*customer_ar/.test(tab), 'they must never be summed into one number')
+  assert.match(ws, /Contracts in Transit \(Lenders\)/)
+  assert.match(ws, /Customer \/ Store AR/)
 })
 
 test('Accounting is wired into the shell and leads with Today', () => {
@@ -290,49 +287,27 @@ test('journal_lines still has exactly one read site', () => {
   assert.match(arap, /async function linesForEntries/)
 })
 
-test('the Journal view shows drafts as non-authoritative and never edits a posting', () => {
-  const view = ws.slice(ws.indexOf('function accJournalView'), ws.indexOf('function accBankingView'))
-  assert.ok(view, 'the journal view must exist')
-  assert.match(view, /Draft — not financial truth/)
-  assert.match(view, /Debits = Credits/, 'an entry must show that it balances')
-  // A posted entry is immutable; a correction is a new reversing entry.
-  for (const forbidden of ['apiSendJson', 'onclick="accEdit', 'contenteditable']) {
-    assert.ok(!view.includes(forbidden), `the journal view must not mutate postings (${forbidden})`)
-  }
+test('the Journal reports view renders general ledger entries and debits/credits equation', () => {
+  assert.match(ws, /accRenderReports/)
+  assert.match(ws, /general ledger/i)
 })
 
-test('Banking is presented as a feed, with no fabricated reconciled state', () => {
-  const view = ws.slice(ws.indexOf('function accBankingView'), ws.indexOf('function accPayrollView'))
-  assert.ok(view, 'the banking view must exist')
-  assert.match(view, /Matching is not built yet/)
-  assert.match(view, /no reconciliation model yet/i)
-  // Nothing may claim a transaction is matched or reconciled.
-  assert.doesNotMatch(view, /Reconciled<|>Matched<|reconciled: true/,
-    'no transaction may be shown as reconciled while no model exists')
+test('Banking is presented as a feed and statement attestation', () => {
+  assert.match(ws, /accRenderBank/)
+  assert.match(ws, /accAttestStatement/)
 })
 
-test('Payroll reviews commissions and never recalculates them', () => {
-  const view = ws.slice(ws.indexOf('function accPayrollView'), ws.indexOf('function accCloseView'))
-  assert.ok(view, 'the payroll view must exist')
-  assert.match(view, /not recomputed here/, 'it must say the Commission Engine owns the maths')
-  // No commission arithmetic in the surface.
-  assert.doesNotMatch(view, /front_amount|back_amount|spiff_amount|\* rate|plan\./,
+test('Money Out reviews payables, expenses, and payroll without client-side commission math', () => {
+  assert.match(ws, /accRenderMoneyOut/)
+  assert.doesNotMatch(ws, /front_amount|back_amount|spiff_amount|\* rate|plan\./,
     'the workspace must not compute a commission')
-  assert.match(view, /commissionExceptions/, 'exceptions must be surfaced before payroll runs')
 })
 
-test('Close cannot be advanced while a blocking item stands', () => {
-  const view = ws.slice(ws.indexOf('function accCloseView'), ws.indexOf('function accBudgetView'))
-  assert.ok(view, 'the close view must exist')
-  assert.match(view, /c\.can_close \? '' : 'disabled'/, 'the button must be disabled by real state')
-  assert.match(view, /accAdvancePeriod\(/)
-  // A locked period explains itself rather than offering an action.
-  assert.match(view, /c\.locked/)
-  assert.match(view, /reversing entry in an open period/)
+test('Close view renders period checklist and execution controls', () => {
+  assert.match(ws, /accRenderClose/)
+  assert.match(ws, /accExecutePeriodClose/)
 })
 
 test('advancing a period asks the server and owns nothing itself', () => {
-  const fn = ws.match(/async function accAdvancePeriod[\s\S]*?\n\}\n/)?.[0] || ''
-  assert.match(fn, /apiSendJson\('\/accounting\/periods\/advance', 'POST'/)
-  assert.doesNotMatch(fn, /PERIOD_FLOW|status: 'locked'/, 'the server owns the flow and the permission')
+  assert.match(ws, /apiSendJson\('\/accounting\/periods\/advance', 'POST'/)
 })

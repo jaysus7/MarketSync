@@ -600,7 +600,7 @@ window.accOpenDealModal = function(dealId) {
           <span>Journal Entry Balance Check:</span>
           <span>BALANCED (Debits: $37,850.00 = Credits: $37,850.00)</span>
         </div>
-        <div class="text-[11px] text-emerald-700 dark:text-emerald-400">Posted entry verified against posted journal_entries substrate.</div>
+        <div class="text-[11px] text-emerald-700 dark:text-emerald-400">Posted entry verified against posted general ledger records.</div>
       </div>
 
       <div class="flex justify-end gap-2 pt-2">
