@@ -505,7 +505,7 @@ function renderIntegrations(data) {
     <span class="inline-flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-300"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>${connected} connected</span>
     <span class="inline-flex items-center gap-1.5 font-semibold text-slate-500 dark:text-slate-400"><span class="w-2 h-2 rounded-full bg-slate-400"></span>${liveAvail} available to connect</span>
   </div>`;
-  host.innerHTML = summary + cats.map(cat => `
+  host.innerHTML = summary + `<div id="social-connections-card" class="mb-6"></div>` + cats.map(cat => `
     <div class="mb-6">
       <div class="mb-2">
         <h3 class="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">${esc(cat)}</h3>
@@ -524,6 +524,7 @@ function renderIntegrations(data) {
   // Calendar sync (Google / Outlook) — its own card at the top, loaded async.
   host.insertAdjacentHTML('afterbegin', '<div id="calsync-card" class="mb-6"></div>');
   loadCalendarSyncCard();
+  loadSocialConnectionsCard();
   // Outbound listing syndication (AutoTrader / Trader.ca / Kijiji / Google) — a feed
   // card the dealer hands to each platform. Loaded async so the hub renders instantly.
   host.insertAdjacentHTML('beforeend', '<div id="synd-card" class="mb-6"></div>');
@@ -531,6 +532,25 @@ function renderIntegrations(data) {
   // Guided setup sent us here to finish a specific integration — scroll to + flash it.
   if (typeof focusIntegrationCard === 'function') focusIntegrationCard();
 }
+async function loadSocialConnectionsCard() {
+  const host = document.getElementById('social-connections-card'); if (!host) return;
+  try {
+    const { accounts = [] } = await apiGetJson('/social/accounts', { retries: 1 });
+    const providers = ['facebook', 'tiktok', 'youtube', 'linkedin'];
+    host.innerHTML = `<div class="mb-2"><h3 class="text-xs font-bold uppercase tracking-wide text-slate-400">Social</h3><p class="text-[11px] text-slate-400 mt-0.5">Connect a provider, choose the Page, professional account or channel, and keep its authorization encrypted on MarketSync.</p></div><div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4"><div class="grid grid-cols-1 md:grid-cols-2 gap-2">${providers.map(provider => { const rows = accounts.filter(a => a.provider === provider); return `<div class="flex items-center justify-between gap-3 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2"><div class="min-w-0"><div class="text-sm font-bold text-slate-900 dark:text-white capitalize">${provider === 'youtube' ? 'Google / YouTube' : provider}</div><div class="text-[11px] text-slate-500 truncate">${rows.length ? rows.map(a => esc(a.display_name)).join(', ') : 'Not connected'}</div></div><button onclick="connectSocialProvider('${provider}', this)" class="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg ${rows.length ? 'border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200' : 'bg-indigo-600 text-white'}">${rows.length ? 'Add / reconnect' : 'Connect'}</button></div>` }).join('')}</div></div>`;
+  } catch (e) { host.innerHTML = `<div class="text-xs text-rose-500">${esc(e.message || 'Could not load social connections')}</div>`; }
+}
+async function connectSocialProvider(provider, btn) {
+  const old = btn.textContent; btn.disabled = true; btn.textContent = 'Opening…';
+  try { const d = await apiGetJson(`/social/connect/${provider}`, { retries: 1 }); if (!d.url) throw new Error('Provider is not configured yet.'); window.location.href = d.url; }
+  catch (e) { btn.disabled = false; btn.textContent = old; showToast(e.message || 'Could not start connection', 'error'); }
+}
+async function selectSocialConnection(sessionId, accountId) {
+  try { await apiSendJson(`/social/oauth/sessions/${encodeURIComponent(sessionId)}/select`, 'POST', { external_account_id: accountId }); showToast('Social account connected', 'success'); loadIntegrations(); }
+  catch (e) { showToast(e.message || 'Could not finish connection', 'error'); }
+}
+window.connectSocialProvider = connectSocialProvider;
+window.selectSocialConnection = selectSocialConnection;
 let __syndCfg = null;
 async function loadSyndicationCard() {
   const host = document.getElementById('synd-card'); if (!host) return;

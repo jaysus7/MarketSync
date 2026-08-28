@@ -406,6 +406,24 @@ window.toast = showToast;
     } catch { }
   })()
 
+  ; (function bootstrapSocialReturn() {
+    try {
+      const q = new URLSearchParams(window.location.search)
+      if (q.get('social') !== 'select' || !q.get('session')) return
+      window.addEventListener('DOMContentLoaded', async () => {
+        try {
+          const session = await apiGetJson(`/social/oauth/sessions/${encodeURIComponent(q.get('session'))}`)
+          const choices = session?.session?.candidates || []
+          const picked = choices.length === 1 ? choices[0].external_account_id : window.prompt(`Choose a ${session.session.provider} account:\n${choices.map((c, i) => `${i + 1}. ${c.display_name}`).join('\n')}\nEnter a number`)
+          const accountId = choices.length === 1 ? picked : choices[Number(picked) - 1]?.external_account_id
+          if (accountId && typeof selectSocialConnection === 'function') await selectSocialConnection(q.get('session'), accountId)
+        } catch (e) { showToast(e.message || 'Could not load social account choices', 'error') }
+      })
+      q.delete('social'); q.delete('provider'); q.delete('session')
+      history.replaceState(null, '', window.location.pathname + (q.toString() ? '?' + q.toString() : ''))
+    } catch { }
+  })()
+
 // Keys that should survive localStorage.clear() (user-level UI preferences, not session data)
 const PERSIST_KEYS = ['ms_tour_done', 'ms_ext_cta_dismissed'];
 function clearLocalStorage() {

@@ -18,6 +18,24 @@ export const PROVIDER_THREW = 'PROVIDER_THREW'
 // The networks the product talks about.
 export const KNOWN_PROVIDERS = ['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'youtube']
 
+export const SOCIAL_CAPABILITIES = {
+  facebook: { can_publish_text: true, can_publish_image: true, can_publish_video: true, can_read_comments: true, can_read_insights: true },
+  instagram: { can_publish_text: false, can_publish_image: true, can_publish_video: true, can_read_comments: true, can_read_insights: true },
+  tiktok: { can_publish_text: false, can_publish_image: false, can_publish_video: true, can_read_comments: false, can_read_insights: false },
+  youtube: { can_publish_text: false, can_publish_image: false, can_publish_video: true, can_read_comments: true, can_read_insights: true },
+  linkedin: { can_publish_text: true, can_publish_image: true, can_publish_video: true, can_read_comments: false, can_read_insights: false },
+  x: { can_publish_text: true, can_publish_image: true, can_publish_video: true, can_read_comments: false, can_read_insights: false },
+}
+
+export function providerCapabilities(provider, evidence = {}) {
+  const base = SOCIAL_CAPABILITIES[String(provider || '').toLowerCase()] || {}
+  const out = {}
+  for (const [key, value] of Object.entries(base)) out[key] = value === true && evidence[key] !== false
+  out.publish = out.can_publish_text || out.can_publish_image || out.can_publish_video
+  out.schedule = String(provider || '').toLowerCase() !== 'tiktok'
+  return out
+}
+
 const ADAPTERS = new Map()
 const STATE_SECRET = process.env.OAUTH_STATE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'ms-social-oauth-state-secret'
 
@@ -96,13 +114,17 @@ export function verifySocialOAuthState(state) {
     const [body, mac] = String(state || '').split('.')
     if (!body || !mac) return null
     const expect = crypto.createHmac('sha256', STATE_SECRET).update(body).digest('base64url')
-    if (!crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(expect))) return null
+    if (mac.length !== expect.length || !crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(expect))) return null
     const data = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'))
     if (!data.ts || Date.now() - data.ts > 15 * 60 * 1000) return null // 15 minutes TTL
     return data
   } catch {
     return null
   }
+}
+
+export function socialOAuthStateHash(state) {
+  return crypto.createHash('sha256').update(String(state || '')).digest('hex')
 }
 
 /**
@@ -276,6 +298,39 @@ export async function socialOAuthExchangeCode(provider, code) {
   throw new Error(`OAuth code exchange not implemented for ${provider}`)
 }
 
+export async function socialOAuthRefreshToken(provider, refreshToken) {
+  const p = String(provider || '').toLowerCase()
+  const cfg = socialOAuthConfig(p)
+  if (!cfg.configured || !refreshToken) throw new Error('A refresh token is not available; reconnect this account.')
+  let url = 'https://oauth2.googleapis.com/token'
+  let body = { grant_type: 'refresh_token', refresh_token: refreshToken, client_id: cfg.id, client_secret: cfg.secret }
+  if (p === 'tiktok') {
+    url = 'https://open.tiktokapis.com/v2/oauth/token/'
+    body = { client_key: cfg.id, client_secret: cfg.secret, grant_type: 'refresh_token', refresh_token: refreshToken }
+  } else if (p === 'facebook' || p === 'instagram') {
+    url = `https://graph.facebook.com/v21.0/oauth/access_token?${new URLSearchParams({ grant_type: 'fb_exchange_token', client_id: cfg.id, client_secret: cfg.secret, fb_exchange_token: refreshToken })}`
+    body = null
+  } else if (p === 'linkedin') {
+    url = 'https://www.linkedin.com/oauth/v2/accessToken'
+  }
+  const r = await fetch(url, { method: body ? 'POST' : 'GET', headers: body ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}, body: body ? new URLSearchParams(body) : undefined })
+  const data = await r.json().catch(() => ({}))
+  if (!r.ok || data.error) throw new Error(data.error_description || data.error?.message || data.message || 'Token refresh failed.')
+  const d = data.data || data
+  return { ...d, access_token: d.access_token, refresh_token: d.refresh_token || refreshToken, expires_in: Number(d.expires_in || 3600) }
+}
+
+export async function socialOAuthRevokeToken(provider, accessToken) {
+  const p = String(provider || '').toLowerCase()
+  if (!accessToken) return { ok: true, supported: false }
+  let r
+  if (p === 'facebook' || p === 'instagram') r = await fetch(`https://graph.facebook.com/v21.0/me/permissions?access_token=${encodeURIComponent(accessToken)}`, { method: 'DELETE' })
+  else if (p === 'youtube') r = await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(accessToken)}`, { method: 'POST' })
+  else if (p === 'tiktok') r = await fetch('https://open.tiktokapis.com/v2/oauth/revoke/', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_key: socialOAuthConfig(p).id, token: accessToken }) })
+  else return { ok: true, supported: false }
+  return { ok: r.ok, supported: true }
+}
+
 /**
  * Fetch authoritative account profile and capabilities from provider API.
  */
@@ -293,7 +348,7 @@ export async function socialOAuthFetchProfile(provider, tokens) {
           external_account_id: page.id,
           display_name: page.name,
           handle: page.name ? `@${page.name.replace(/\s+/g, '').toLowerCase()}` : null,
-          capabilities: { publish: true, schedule: true, video: true, reels: true, stories: true, pages: true },
+        capabilities: providerCapabilities('facebook'),
           token_expires_at: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000).toISOString() : null,
         }
       }
@@ -306,7 +361,7 @@ export async function socialOAuthFetchProfile(provider, tokens) {
         external_account_id: user.id,
         display_name: user.name || 'Facebook User',
         handle: user.name ? `@${user.name.replace(/\s+/g, '').toLowerCase()}` : null,
-        capabilities: { publish: true, schedule: true, video: true, reels: true, stories: true, pages: false },
+        capabilities: providerCapabilities('facebook'),
         token_expires_at: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000).toISOString() : null,
       }
     }
@@ -322,7 +377,7 @@ export async function socialOAuthFetchProfile(provider, tokens) {
         external_account_id: ig.id,
         display_name: ig.name || ig.username || 'Instagram Business',
         handle: ig.username ? `@${ig.username}` : null,
-        capabilities: { publish: true, schedule: true, video: true, reels: true, stories: true },
+        capabilities: providerCapabilities('instagram'),
         token_expires_at: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000).toISOString() : null,
       }
     }
@@ -339,7 +394,7 @@ export async function socialOAuthFetchProfile(provider, tokens) {
         external_account_id: user.sub,
         display_name: user.name || `${user.given_name || ''} ${user.family_name || ''}`.trim() || 'LinkedIn User',
         handle: user.email || null,
-        capabilities: { publish: true, schedule: true, video: true, articles: true },
+        capabilities: providerCapabilities('linkedin'),
         token_expires_at: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000).toISOString() : null,
       }
     }
@@ -358,7 +413,7 @@ export async function socialOAuthFetchProfile(provider, tokens) {
         display_name: ch.snippet?.title || 'YouTube Channel',
         handle: ch.snippet?.customUrl || null,
         avatar_url: ch.snippet?.thumbnails?.default?.url || null,
-        capabilities: { publish: true, schedule: true, video: true, shorts: true },
+        capabilities: providerCapabilities('youtube'),
         token_expires_at: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000).toISOString() : null,
       }
     }
@@ -376,7 +431,7 @@ export async function socialOAuthFetchProfile(provider, tokens) {
         external_account_id: user?.open_id || tokens.open_id,
         display_name: user?.display_name || 'TikTok User',
         avatar_url: user?.avatar_url || null,
-        capabilities: { publish: true, schedule: false, video: true },
+        capabilities: providerCapabilities('tiktok'),
         token_expires_at: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000).toISOString() : null,
       }
     }
@@ -384,6 +439,26 @@ export async function socialOAuthFetchProfile(provider, tokens) {
   }
 
   throw new Error(`Profile fetch not implemented for ${provider}`)
+}
+
+// Discovery is separate from connection persistence so the caller can present every
+// Page/channel/profile the provider authorized and let the dealer choose one.
+export async function socialOAuthDiscoverAccounts(provider, tokens) {
+  const p = String(provider || '').toLowerCase()
+  if (p === 'facebook') {
+    const r = await fetch(`https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username,name}&access_token=${encodeURIComponent(tokens.access_token)}`)
+    const data = await r.json().catch(() => ({}))
+    if (!r.ok || data.error) throw new Error(data.error?.message || 'Could not discover Meta Pages.')
+    return (data.data || []).flatMap(page => {
+      const pageToken = { ...tokens, access_token: page.access_token || tokens.access_token, refresh_token: page.access_token || tokens.refresh_token }
+      const rows = [{ external_account_id: page.id, display_name: page.name || 'Facebook Page', handle: null, account_kind: 'page', capabilities: providerCapabilities('facebook'), _credentials: pageToken }]
+      const ig = page.instagram_business_account
+      if (ig?.id) rows.push({ external_account_id: ig.id, display_name: ig.name || ig.username || 'Instagram Professional Account', handle: ig.username ? `@${ig.username}` : null, account_kind: 'instagram', capabilities: providerCapabilities('instagram'), _credentials: pageToken })
+      return rows
+    })
+  }
+  const profile = await socialOAuthFetchProfile(p, tokens)
+  return [{ ...profile, account_kind: p, _credentials: tokens }]
 }
 
 /**
