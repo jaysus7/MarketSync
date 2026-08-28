@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 process.env.NODE_ENV = 'test'
 process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://placeholder.supabase.co'
@@ -16,6 +17,8 @@ import {
   KNOWN_PROVIDERS,
 } from '../providers/social-providers.js'
 import { deriveProviderCapabilities } from '../routes/social.js'
+
+const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8')
 
 // ── 1. OAuth Configuration & State Signature Security ───────────────────────
 
@@ -111,4 +114,34 @@ test('capabilities are derived authoritatively and cannot be arbitrarily fabrica
 
   const unknownCaps = deriveProviderCapabilities('unknown')
   assert.equal(unknownCaps.schedule, false)
+})
+
+test('OAuth selection is one-time, dealership-scoped, and keeps candidate credentials encrypted', () => {
+  const migration = read('../migrations/2026-08-27-social-oauth-connections.sql')
+  const social = read('../routes/social.js')
+  assert.match(migration, /create table if not exists public\.social_oauth_sessions/)
+  assert.match(migration, /dealership_id uuid not null references public\.dealerships/)
+  assert.match(migration, /state_hash text not null unique/)
+  assert.match(migration, /candidate_credentials_enc text/)
+  assert.match(social, /app\.get\('\/social\/oauth\/sessions\/:id'/)
+  assert.match(social, /app\.post\('\/social\/oauth\/sessions\/:id\/select'/)
+  assert.match(social, /\.eq\('dealership_id', req\.dealershipId\)\.eq\('user_id', req\.user\.id\)/)
+  assert.match(social, /status: 'consumed'/)
+  assert.match(social, /state_hash: socialOAuthStateHash/)
+})
+
+test('provider capabilities expose explicit text/image/video/comment/insight decisions', () => {
+  const providers = read('../providers/social-providers.js')
+  for (const key of ['can_publish_text', 'can_publish_image', 'can_publish_video', 'can_read_comments', 'can_read_insights']) assert.match(providers, new RegExp(key))
+  assert.match(providers, /tiktok: \{ can_publish_text: false, can_publish_image: false, can_publish_video: true/)
+  assert.match(providers, /socialOAuthRefreshToken/)
+  assert.match(providers, /socialOAuthRevokeToken/)
+})
+
+test('disconnect revokes provider access before clearing encrypted credentials', () => {
+  const social = read('../routes/social.js')
+  const route = social.match(/app\.delete\('\/social\/accounts\/:id'[\s\S]*?\n  \}\)/)?.[0] || ''
+  assert.match(route, /socialOAuthRevokeToken/)
+  assert.match(route, /credentials_enc: null/)
+  assert.match(route, /status: 'revoked'/)
 })

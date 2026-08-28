@@ -26,6 +26,7 @@ import { requirePermission, hasPermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { dealerLocalToUtc } from '../utils/dealerTime.js'
 import { encryptJson, PII_ENCRYPTION_VERSION } from '../crypto-pii.js'
+import { decryptJson } from '../crypto-pii.js'
 import {
   KNOWN_PROVIDERS,
   socialOAuthConfigured,
@@ -34,6 +35,11 @@ import {
   socialOAuthAuthorizeUrl,
   socialOAuthExchangeCode,
   socialOAuthFetchProfile,
+  socialOAuthDiscoverAccounts,
+  socialOAuthStateHash,
+  socialOAuthRefreshToken,
+  socialOAuthRevokeToken,
+  providerCapabilities,
 } from '../providers/social-providers.js'
 
 const PROVIDERS = KNOWN_PROVIDERS
@@ -60,11 +66,13 @@ export function deriveProviderCapabilities(provider, customCaps = {}) {
 
 // Never select credentials_enc. Listing columns rather than '*' is what keeps a token from
 // leaking into a response by accident when the table grows a column.
+const SECRET_COLUMNS = ['provider', 'credentials_enc'].join(', ')
+const REFRESH_COLUMNS = ['id', 'dealership_id', 'provider', 'credentials_enc', 'status', 'ownership', 'owner_user_id'].join(', ')
 const SAFE_COLUMNS = [
   'id', 'dealership_id', 'provider', 'external_account_id', 'display_name', 'handle',
   'avatar_url', 'ownership', 'owner_user_id', 'status', 'capabilities',
   'token_expires_at', 'connected_by', 'connected_at', 'last_verified_at', 'last_error',
-  'created_at', 'updated_at',
+  'capability_evidence', 'created_at', 'updated_at',
 ].join(', ')
 
 /**
@@ -310,55 +318,51 @@ export function registerSocial(app) {
       }
 
       const tokens = await socialOAuthExchangeCode(provider, String(req.query.code || ''))
-      const profile = await socialOAuthFetchProfile(provider, tokens)
-
-      if (!profile?.external_account_id || !profile?.display_name) {
-        return done(false, 'Provider returned incomplete account information.')
-      }
-
+      const candidates = await socialOAuthDiscoverAccounts(provider, tokens)
+      if (!candidates.length) return done(false, 'No eligible Page, professional account, channel, or profile was found.')
+      const tokenMap = Object.fromEntries(candidates.map(c => [c.external_account_id, c._credentials || tokens]))
+      const safeCandidates = candidates.map(({ _credentials, ...candidate }) => ({ ...candidate, capabilities: providerCapabilities(provider, candidate.capabilities) }))
       const credentials_enc = encryptJson(tokens)
-      if (!credentials_enc) {
-        return done(false, 'Failed to securely encrypt tokens.')
-      }
-
-      const row = {
-        dealership_id: st.did,
-        provider,
-        external_account_id: profile.external_account_id,
-        display_name: profile.display_name,
-        handle: profile.handle ? String(profile.handle).slice(0, 120) : null,
-        avatar_url: profile.avatar_url ? String(profile.avatar_url).slice(0, 500) : null,
-        ownership: st.ownership || 'dealership',
-        owner_user_id: st.ownership === 'user' ? (st.ownerUserId || st.uid) : null,
-        capabilities: profile.capabilities || deriveProviderCapabilities(provider),
-        connected_by: st.uid,
-        status: 'connected',
-        token_expires_at: profile.token_expires_at || null,
-        credentials_enc,
-        credentials_encryption_version: PII_ENCRYPTION_VERSION,
-        connected_at: new Date().toISOString(),
-        last_verified_at: new Date().toISOString(),
-        last_error: null,
-        updated_at: new Date().toISOString(),
-      }
-
-      const { data, error } = await supabaseAdmin.from('social_accounts')
-        .upsert(row, { onConflict: 'dealership_id,provider,external_account_id' })
-        .select(SAFE_COLUMNS).single()
-
+      const { data: session, error } = await supabaseAdmin.from('social_oauth_sessions').insert({
+        dealership_id: st.did, user_id: st.uid, provider, state_hash: socialOAuthStateHash(String(req.query.state)),
+        ownership: st.ownership || 'dealership', owner_user_id: st.ownership === 'user' ? (st.ownerUserId || st.uid) : null,
+        credentials_enc, candidate_credentials_enc: encryptJson(tokenMap), candidates: safeCandidates,
+        credentials_encryption_version: PII_ENCRYPTION_VERSION, expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      }).select('id').single()
       if (error) return done(false, error.message)
-
-      audit(
-        { user: { id: st.uid }, dealershipId: st.did, headers: req.headers },
-        'social.account_connected',
-        { after_state: { id: data.id, provider, ownership: row.ownership, display_name: row.display_name } }
-      )
-
-      done(true, profile.display_name)
+      res.redirect(`${FRONTEND_URL}/dashboard.html?social=select&provider=${encodeURIComponent(provider)}&session=${encodeURIComponent(session.id)}`)
     } catch (e) {
       console.error('[social] callback failed:', e.message)
       done(false, e.message)
     }
+  })
+
+  app.get('/social/oauth/sessions/:id', requireAuth, requireMfa, canView, async (req, res) => {
+    const { data: session } = await supabaseAdmin.from('social_oauth_sessions').select('id, dealership_id, provider, ownership, candidates, status, expires_at').eq('id', req.params.id).eq('dealership_id', req.dealershipId).eq('user_id', req.user.id).maybeSingle()
+    if (!session || session.status !== 'pending' || new Date(session.expires_at) <= new Date()) return res.status(404).json({ error: 'Connection selection expired.' })
+    res.json({ session: { id: session.id, provider: session.provider, ownership: session.ownership, candidates: session.candidates } })
+  })
+
+  app.post('/social/oauth/sessions/:id/select', requireAuth, requireMfa, canEdit, async (req, res) => {
+    const { data: session } = await supabaseAdmin.from('social_oauth_sessions').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).eq('user_id', req.user.id).maybeSingle()
+    if (!session || session.status !== 'pending' || new Date(session.expires_at) <= new Date()) return res.status(404).json({ error: 'Connection selection expired.' })
+    const candidate = (session.candidates || []).find(c => c.external_account_id === req.body?.external_account_id)
+    if (!candidate) return res.status(400).json({ error: 'That provider account was not offered by the authorization.' })
+    const tokenMap = decryptJson(session.candidate_credentials_enc) || {}
+    const credentials = tokenMap[candidate.external_account_id] || decryptJson(session.credentials_enc)
+    if (!credentials?.access_token) return res.status(500).json({ error: 'The encrypted authorization is unavailable.' })
+    const now = new Date().toISOString()
+    const { data: existing } = await supabaseAdmin.from('social_accounts').select('id').eq('dealership_id', session.dealership_id).eq('provider', session.provider).eq('external_account_id', candidate.external_account_id).maybeSingle()
+    if (existing) {
+      const existingAuthorization = await canActOnAccount(req, existing.id, 'publish')
+      if (!existingAuthorization.allowed && session.ownership === 'user' && session.owner_user_id !== req.user.id) return res.status(403).json({ error: existingAuthorization.reason })
+    }
+    const row = { dealership_id: session.dealership_id, provider: session.provider, external_account_id: candidate.external_account_id, display_name: candidate.display_name, handle: candidate.handle || null, ownership: session.ownership, owner_user_id: session.owner_user_id, capabilities: providerCapabilities(session.provider, candidate.capabilities), capability_evidence: { source: 'oauth-provider', account_kind: candidate.account_kind }, connected_by: session.user_id, status: 'connected', credentials_enc: encryptJson(credentials), credentials_encryption_version: PII_ENCRYPTION_VERSION, connected_at: now, last_verified_at: now, last_error: null, updated_at: now }
+    const { data: account, error } = await supabaseAdmin.from('social_accounts').upsert(row, { onConflict: 'dealership_id,provider,external_account_id' }).select(SAFE_COLUMNS).single()
+    if (error) return res.status(500).json({ error: error.message })
+    await supabaseAdmin.from('social_oauth_sessions').update({ status: 'consumed', selected_account_id: account.id, consumed_at: now }).eq('id', session.id).eq('status', 'pending')
+    audit(req, 'social.account_connected', { after_state: { id: account.id, provider: session.provider, display_name: account.display_name } })
+    res.json({ ok: true, account })
   })
 
   // Disallow direct client self-declaration or raw credential submission
@@ -398,14 +402,43 @@ export function registerSocial(app) {
     const mine = await canActOnAccount(req, req.params.id, 'publish')
     if (!mine.allowed) return res.status(403).json({ error: `You cannot change access you do not have. ${mine.reason}` })
     try {
-      const { error } = await supabaseAdmin.from('social_accounts')
-        .delete()
-        .eq('dealership_id', req.dealershipId)
-        .eq('id', req.params.id)
+      const { data: stored } = await supabaseAdmin.from('social_accounts').select(SECRET_COLUMNS).eq('dealership_id', req.dealershipId).eq('id', req.params.id).maybeSingle()
+      if (!stored) return res.status(404).json({ error: 'That social account was not found.' })
+      const credentials = decryptJson(stored.credentials_enc)
+      await socialOAuthRevokeToken(stored.provider, credentials?.access_token).catch(() => null)
+      const { error } = await supabaseAdmin.from('social_accounts').update({ status: 'revoked', credentials_enc: null, updated_at: new Date().toISOString(), last_error: null }).eq('dealership_id', req.dealershipId).eq('id', req.params.id)
       if (error) return res.status(500).json({ error: error.message })
       audit(req, 'social.account_disconnected', { before_state: { id: req.params.id } })
-      res.json({ ok: true })
+      res.json({ ok: true, status: 'revoked' })
     } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.post('/social/accounts/:id/refresh', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data: row } = await supabaseAdmin.from('social_accounts').select(REFRESH_COLUMNS).eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!row) return res.status(404).json({ error: 'That social account was not found.' })
+    const accessCheck = row.status === 'connected' ? await canActOnAccount(req, row.id, 'publish') : { allowed: true }
+    if (!accessCheck.allowed) return res.status(403).json({ error: accessCheck.reason })
+    if (row.ownership === 'user' && row.owner_user_id !== req.user?.id && !(await hasPermission(req, 'marketing.publish').catch(() => false))) return res.status(403).json({ error: 'You cannot refresh another user-owned account.' })
+    const creds = decryptJson(row.credentials_enc)
+    try {
+      const next = await socialOAuthRefreshToken(row.provider, creds?.refresh_token || creds?.access_token)
+      const merged = { ...creds, ...next, expires_at: Date.now() + Math.max(60, Number(next.expires_in || 3600) - 60) * 1000 }
+      const { data, error } = await supabaseAdmin.from('social_accounts').update({ status: 'connected', credentials_enc: encryptJson(merged), token_expires_at: new Date(merged.expires_at).toISOString(), last_verified_at: new Date().toISOString(), last_error: null, updated_at: new Date().toISOString() }).eq('id', row.id).eq('dealership_id', req.dealershipId).select(SAFE_COLUMNS).single()
+      if (error) return res.status(500).json({ error: error.message })
+      res.json({ ok: true, account: data })
+    } catch (e) {
+      await supabaseAdmin.from('social_accounts').update({ status: 'expired', last_error: String(e.message || 'Refresh failed').slice(0, 300), updated_at: new Date().toISOString() }).eq('id', row.id).eq('dealership_id', req.dealershipId)
+      res.status(409).json({ error: e.message || 'Reconnect this account.' })
+    }
+  })
+
+  app.get('/social/accounts/:id/health', requireAuth, canView, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data: row } = await supabaseAdmin.from('social_accounts').select('id, provider, display_name, status, token_expires_at, last_verified_at, last_error, capabilities').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!row) return res.status(404).json({ error: 'That social account was not found.' })
+    const expired = row.token_expires_at && new Date(row.token_expires_at) <= new Date()
+    res.json({ ok: row.status === 'connected' && !expired, status: expired ? 'expired' : row.status, account: row })
   })
 
   // Grant one account to one user. Granting is itself an authorized act: you may only give

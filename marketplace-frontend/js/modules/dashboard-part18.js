@@ -443,7 +443,7 @@ function autoSubmitHoliday(btn) {
 }
 
 function autoInitHolidays() {
-  const saved = Array.isArray(__autoCfg.settings.holidays) ? __autoCfg.settings.holidays : [];
+  const saved = Array.isArray(__autoCfg?.settings?.holidays) ? __autoCfg.settings.holidays : [];
   const byName = {}; for (const h of saved) byName[String(h.name || '').toLowerCase()] = h;
   const region = autoRegionKey();   // dealer's own country → shown/sorted first
   const rows = HOLIDAY_PRESETS_ALL.map(p => {
@@ -470,8 +470,8 @@ function autoInitHolidays() {
 // setup, global settings, and any campaigns that aren't lead/delivery/holiday.
 function renderAutomationSettings() {
   const root = document.getElementById('automation-root'); if (!root) return;
-  const s = __autoCfg.settings || {};
-  const other = (__autoCfg.campaigns || []).filter(c => autoBucketOf(c) === 'other');
+  const s = __autoCfg?.settings || {};
+  const other = (__autoCfg?.campaigns || []).filter(c => autoBucketOf(c) === 'other');
   const byCat = {}; for (const c of other) (byCat[c.category] = byCat[c.category] || []).push(c);
   root.innerHTML = `
     <div class="flex items-start justify-between gap-3 flex-wrap">
@@ -888,7 +888,15 @@ async function loadAutoBuilderPage() {
 window.loadAutoBuilderPage = loadAutoBuilderPage;
 
 // ── Render Automations Tab ───────────────────────────────────────────────────
+let __autoAutomationsLastMount = null;
 function renderAutoAutomationsTab(container) {
+  if (container) {
+    __autoAutomationsLastMount = container;
+  } else {
+    container = __autoAutomationsLastMount || document.getElementById('auto-leads-root') || document.getElementById('mkt-automations-mount') || document.getElementById('auto-builder-main-root');
+  }
+  if (!container) return;
+
   const mktSuite = (typeof getActiveMarketingSuite === 'function') ? getActiveMarketingSuite() : null;
   const allCats = [
     { key: 'all', label: 'All Automations' },
@@ -969,27 +977,62 @@ function renderAutoWorkflowCard(wf) {
 
   const chLabel = isBoth ? 'Email + SMS' : isSms ? 'SMS Only' : isTask ? 'Sales Rep Task' : 'Email Only';
 
+  const previewBody = (wf.message_body_template || '').trim();
+  const formattedBody = esc(previewBody).replace(/\{\{([^}]+)\}\}/g, '<span class="px-1 py-0.5 rounded text-[10px] font-mono bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800">{{$1}}</span>');
+
+  const stepsList = Array.isArray(wf.steps) ? wf.steps : [];
+
   return `
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs transition hover:border-slate-300 dark:hover:border-slate-700 space-y-4 h-full flex flex-col">
-      <div class="flex items-start justify-between flex-wrap gap-3">
-        <div class="flex items-start gap-3">
-          <div class="w-3.5 h-3.5 rounded-full mt-1 ${wf.is_active !== false ? 'bg-emerald-500 ring-4 ring-emerald-500/20' : 'bg-slate-400'}"></div>
-          <div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <h4 class="text-sm font-black text-slate-900 dark:text-white">${esc(wf.name)}</h4>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${chClass}">${chLabel}</span>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">Sender: ${wf.sender_identity === 'rep' ? 'Assigned Rep' : wf.sender_identity === 'house' ? 'Dealership' : 'Smart Switch'}</span>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs transition hover:border-slate-300 dark:hover:border-slate-700 space-y-3.5 h-full flex flex-col justify-between">
+      <div class="space-y-3">
+        <!-- Top header row -->
+        <div class="flex items-start justify-between flex-wrap gap-3">
+          <div class="flex items-start gap-3 min-w-0 flex-1">
+            <div class="w-3.5 h-3.5 rounded-full mt-1 shrink-0 ${wf.is_active !== false ? 'bg-emerald-500 ring-4 ring-emerald-500/20' : 'bg-slate-400'}"></div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <h4 class="text-sm font-black text-slate-900 dark:text-white leading-snug">${esc(wf.name)}</h4>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${chClass}">${chLabel}</span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">Sender: ${wf.sender_identity === 'rep' ? 'Assigned Rep' : wf.sender_identity === 'house' ? 'Dealership' : 'Smart Switch'}</span>
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 font-mono">Trigger: <span class="text-slate-700 dark:text-slate-200 font-semibold">${esc(wf.trigger_event)}</span> · Delay: <span class="text-slate-700 dark:text-slate-200 font-semibold">${autoDelayText(wf.delay_minutes)}</span></p>
             </div>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 font-mono">Trigger: <span class="text-slate-700 dark:text-slate-200">${esc(wf.trigger_event)}</span> · Delay: <span class="text-slate-700 dark:text-slate-200">${autoDelayText(wf.delay_minutes)}</span></p>
+          </div>
+
+          <div class="flex items-center gap-3 shrink-0">
+            <label class="relative inline-flex items-center cursor-pointer" title="Pause or Activate Workflow">
+              <input type="checkbox" ${wf.is_active !== false ? 'checked' : ''} onchange="toggleWorkflowActive('${wf.key}', this.checked)" class="sr-only peer">
+              <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+            </label>
           </div>
         </div>
 
-        <div class="flex items-center gap-3">
-          <label class="relative inline-flex items-center cursor-pointer" title="Pause or Activate Workflow">
-            <input type="checkbox" ${wf.is_active !== false ? 'checked' : ''} onchange="toggleWorkflowActive('${wf.key}', this.checked)" class="sr-only peer">
-            <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
-          </label>
+        <!-- Distinct Message & Subject Preview Box -->
+        <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200/70 dark:border-slate-800/80 space-y-1.5">
+          ${wf.subject_template ? `
+            <div class="text-[11px] font-bold text-slate-700 dark:text-slate-200 truncate flex items-center gap-1">
+              <span class="text-[10px] font-black uppercase text-indigo-500 font-mono">Subject:</span>
+              <span class="truncate">${esc(wf.subject_template)}</span>
+            </div>
+          ` : ''}
+          ${previewBody ? `
+            <div class="text-xs text-slate-600 dark:text-slate-300 italic line-clamp-2 leading-relaxed">
+              "${formattedBody}"
+            </div>
+          ` : ''}
         </div>
+
+        <!-- Steps execution tags -->
+        ${stepsList.length ? `
+          <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
+            ${stepsList.slice(0, 3).map((st, idx) => `
+              <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/60 truncate max-w-[200px]" title="${esc(st)}">
+                <span class="font-mono text-indigo-500 font-bold">${idx + 1}.</span> ${esc(st.replace(/^(Trigger:|Wait|Check:|IF|Send|Auto-assign|Create)\s*/i, ''))}
+              </span>
+            `).join('')}
+            ${stepsList.length > 3 ? `<span class="text-[10px] font-bold text-slate-400">+${stepsList.length - 3} more</span>` : ''}
+          </div>
+        ` : ''}
       </div>
 
       <!-- Action Buttons -->
@@ -1299,7 +1342,7 @@ function renderAutoOverviewTab(container) {
           <div class="text-xs font-bold text-sky-600 dark:text-sky-400 mt-3 flex items-center gap-1">Manage Campaigns &rarr;</div>
         </div>
 
-        <div onclick="autoTab('templates')" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-violet-500 transition cursor-pointer group">
+<div onclick="autoTab('templates')" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-violet-500 transition cursor-pointer group">
           <div class="w-10 h-10 rounded-xl bg-violet-600/10 text-violet-600 dark:text-violet-400 flex items-center justify-center font-black mb-3 group-hover:bg-violet-600 group-hover:text-white transition">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
           </div>
@@ -1327,11 +1370,120 @@ function renderAutoOverviewTab(container) {
 
 // ── Render Campaigns Tab ──────────────────────────────────────────────────────
 const DEMO_CAMPAIGNS = [
-  { id: 'cmp_1', name: 'Summer Used Truck & SUV Clearance', template_id: 'tpl_new_inventory', channel: 'Email', status: 'sent', audience: 'Sales Leads (Unsold)', sent_count: 3420, open_rate: '64.2%', click_rate: '18.4%', reply_rate: '7.2%', rev: '$68,500', date: 'Yesterday' },
-  { id: 'cmp_2', name: 'Spring Tire Changeover & Brake Special', template_id: 'tpl_service_reminder', channel: 'Email + SMS', status: 'sending', audience: 'Service Due (30 Days)', sent_count: 1840, open_rate: '58.1%', click_rate: '22.0%', reply_rate: '14.5%', rev: '$24,200', date: 'In Progress' },
-  { id: 'cmp_3', name: 'High Trade-In Equity VIP Event Invite', template_id: 'tpl_anniversary', channel: 'SMS', status: 'scheduled', audience: 'High Equity Vehicle Owners', sent_count: 980, open_rate: '—', click_rate: '—', reply_rate: '—', rev: '—', date: 'Tomorrow at 10:00 AM' },
-  { id: 'cmp_4', name: 'VIP Customer 1-Year Ownership Check-in', template_id: 'tpl_anniversary', channel: 'Email', status: 'draft', audience: 'Sold Customers (2025)', sent_count: 0, open_rate: '—', click_rate: '—', reply_rate: '—', rev: '—', date: 'Draft' },
-  { id: 'cmp_5', name: 'Monthly Dealership Newsletter', template_id: 'tpl_newsletter', channel: 'Email', status: 'sent', audience: 'All Opted-in Contacts', sent_count: 8940, open_rate: '49.2%', click_rate: '12.4%', reply_rate: '3.1%', rev: '$31,400', date: 'Last Week' },
+  {
+    id: 'cmp_1',
+    name: 'Summer Used Truck & SUV Clearance',
+    template_id: 'tpl_summer_truck_suv',
+    channel: 'Email',
+    status: 'sent',
+    audience: 'Sales Leads (Unsold)',
+    sent_count: 3420,
+    open_rate: '64.2%',
+    click_rate: '18.4%',
+    reply_rate: '7.2%',
+    rev: '$68,500',
+    date: 'Yesterday',
+    subject: 'Summer Truck & SUV Clearance: Save up to $4,500 + $1,000 Extra Trade Bonus',
+    blocks_preview: ['Clearance Hero', 'Truck & SUV 2-Col Grid', '$1,000 Trade Voucher', 'VIP Test Drive']
+  },
+  {
+    id: 'cmp_2',
+    name: 'Spring Tire Changeover & Brake Special',
+    template_id: 'tpl_spring_tire_brake',
+    channel: 'Email + SMS',
+    status: 'sending',
+    audience: 'Service Due (30 Days)',
+    sent_count: 1840,
+    open_rate: '58.1%',
+    click_rate: '22.0%',
+    reply_rate: '14.5%',
+    rev: '$24,200',
+    date: 'In Progress',
+    subject: 'Spring Tire Changeover & Complete Brake Inspection Package at {{dealership.name}}',
+    sms_message: "Hi {{customer.first_name|there}}, get your {{vehicle.model|vehicle}} road-trip ready with our Spring Tire Swap & Brake Inspection Package ($89.95). Book online in 60s: {{service_url|our service page}}",
+    blocks_preview: ['Spring Service Hero', '$89.95 Tire & Brake Coupon', '$20 Alignment Rebate', 'Online Bay Booking']
+  },
+  {
+    id: 'cmp_3',
+    name: 'High Trade-In Equity VIP Event Invite',
+    template_id: 'tpl_trade_equity_vip',
+    channel: 'SMS',
+    status: 'scheduled',
+    audience: 'High Equity Vehicle Owners',
+    sent_count: 980,
+    open_rate: '—',
+    click_rate: '—',
+    reply_rate: '—',
+    rev: '—',
+    date: 'Tomorrow at 10:00 AM',
+    sms_message: "VIP Invitation: {{customer.first_name}}, urgent buyer demand for your {{vehicle.year}} {{vehicle.model}}. We are paying up to 120% book value this Saturday at {{dealership.name}}. Claim pass: {{equity_url|our VIP page}}",
+    blocks_preview: ['VIP Event Invitation', '+$3,200 Equity Card', '$500 Upgrade Bonus', 'Private Appraisal Slot']
+  },
+  {
+    id: 'cmp_4',
+    name: 'VIP Customer 1-Year Ownership Check-in',
+    template_id: 'tpl_vip_ownership_1yr',
+    channel: 'Email',
+    status: 'draft',
+    audience: 'Sold Customers (2025)',
+    sent_count: 0,
+    open_rate: '—',
+    click_rate: '—',
+    reply_rate: '—',
+    rev: '—',
+    date: 'Draft',
+    subject: 'Happy 1-Year Anniversary with your {{vehicle.year}} {{vehicle.make}} {{vehicle.model}}!',
+    blocks_preview: ['1-Year Anniversary Hero', 'Owned Vehicle Card', 'Free Oil Change Voucher', '$200 Referral Card']
+  },
+  {
+    id: 'cmp_5',
+    name: 'Monthly Dealership Newsletter',
+    template_id: 'tpl_newsletter',
+    channel: 'Email',
+    status: 'sent',
+    audience: 'All Opted-in Contacts',
+    sent_count: 8940,
+    open_rate: '49.2%',
+    click_rate: '12.4%',
+    reply_rate: '3.1%',
+    rev: '$31,400',
+    date: 'Last Week',
+    subject: 'The {{dealership.name}} Monthly Insider: Fresh Arrivals, Service Pass & Community News',
+    blocks_preview: ['Editorial Dispatch', '2-Col Frontline Grid', '$15 Service Pass', 'Trade-In Buying CTA']
+  },
+  {
+    id: 'cmp_6',
+    name: 'Year-End Model Clearance & 0% Financing',
+    template_id: 'tpl_year_end_clearance',
+    channel: 'Email + SMS',
+    status: 'scheduled',
+    audience: 'Lost / Dormant Leads (> 60 Days)',
+    sent_count: 2150,
+    open_rate: '—',
+    click_rate: '—',
+    reply_rate: '—',
+    rev: '—',
+    date: 'Friday at 9:00 AM',
+    subject: 'Year-End Clearance Event: 0% APR & Up to $5,000 Factory Cash at {{dealership.name}}',
+    sms_message: "Year-End Clearance is on at {{dealership.name}}! 0% financing and up to $5,000 off remaining models this weekend only: {{clearance_url|view clearance}}",
+    blocks_preview: ['0% APR Clearance Hero', 'Remaining Stock Grid', 'Instant Pre-Approval CTA', 'Hold Keys Scheduler']
+  },
+  {
+    id: 'cmp_7',
+    name: 'Customer Appreciation BBQ & Free Inspection',
+    template_id: 'tpl_customer_appreciation',
+    channel: 'Email',
+    status: 'draft',
+    audience: 'Sold Customers (Last 12 Mos)',
+    sent_count: 640,
+    open_rate: '—',
+    click_rate: '—',
+    reply_rate: '—',
+    rev: '—',
+    date: 'Draft',
+    subject: "You're Invited: Annual Customer Appreciation BBQ & Complimentary Vehicle Health Check",
+    blocks_preview: ['BBQ Invitation Hero', 'Free 27-Point Inspection Pass', 'Raffle Entry Card', 'RSVP Form']
+  }
 ];
 
 function renderAutoCampaignsTab(container) {
@@ -1342,6 +1494,12 @@ function renderAutoCampaignsTab(container) {
     return c.status === __campaignStatusFilter;
   });
 
+  const channelIcon = ch => {
+    if (ch.includes('+')) return `<span class="inline-flex items-center gap-1"><svg class="w-3 h-3 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0017.25 4.5h-10.5A2.25 2.25 0 004.5 6.75m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg><svg class="w-3 h-3 text-sky-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></span>`;
+    if (ch === 'SMS') return `<svg class="w-3 h-3 text-sky-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>`;
+    return `<svg class="w-3 h-3 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0017.25 4.5h-10.5A2.25 2.25 0 004.5 6.75m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>`;
+  };
+
   container.innerHTML = `
     <div class="space-y-6">
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
@@ -1349,7 +1507,7 @@ function renderAutoCampaignsTab(container) {
           <div>
             <span class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Broadcast Campaigns</span>
             <h3 class="text-xl font-black text-slate-900 dark:text-white mt-0.5">Email &amp; SMS Campaigns</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">One-time broadcasts, scheduled promotions, VIP event invites, and seasonal clearance events.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">One-time broadcasts, scheduled promotions, VIP event invites, and seasonal clearance events with custom layouts.</p>
           </div>
           <div class="flex items-center gap-2">
             <button onclick="openEmailSmsBuilder({ mode: 'email', campaignType: 'onetime' })" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer">
@@ -1370,36 +1528,105 @@ function renderAutoCampaignsTab(container) {
       </div>
 
       <!-- Campaigns List -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-        ${filtered.length ? filtered.map(c => `
-          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs flex flex-col gap-3 hover:border-slate-300 dark:hover:border-slate-700 transition">
-            <div class="space-y-1.5 min-w-0">
-              <div class="flex flex-wrap items-center gap-1.5">
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${c.status === 'sent' ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' : c.status === 'sending' ? 'bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/30' : c.status === 'scheduled' ? 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}">${c.status}</span>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${esc(c.channel)}</span>
+      <div class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+        ${filtered.length ? filtered.map(c => {
+          const tpl = DEFAULT_COMMUNICATION_TEMPLATES.find(t => t.id === c.template_id);
+          const tplName = tpl ? tpl.name : 'Custom Layout';
+          const blocks = c.blocks_preview || (tpl?.blocks ? tpl.blocks.map(b => b.type.replace('_', ' ')) : ['Header', 'Message', 'CTA']);
+
+          return `
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between gap-3.5 hover:border-indigo-400 dark:hover:border-indigo-600 transition group">
+            
+            <div class="space-y-2.5 min-w-0">
+              <!-- Badges Header -->
+              <div class="flex flex-wrap items-center justify-between gap-1.5">
+                <div class="flex items-center gap-1.5">
+                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                    c.status === 'sent' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' :
+                    c.status === 'sending' ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30 animate-pulse' :
+                    c.status === 'scheduled' ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30' :
+                    'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700'
+                  }">${c.status}</span>
+                  <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-1">
+                    ${channelIcon(c.channel)}
+                    <span>${esc(c.channel)}</span>
+                  </span>
+                </div>
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/80 flex items-center gap-1">
+                  <svg class="w-3 h-3 text-indigo-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+                  <span class="truncate max-w-[140px]">${esc(tplName)}</span>
+                </span>
               </div>
-              <h4 class="text-sm font-black text-slate-900 dark:text-white leading-snug">${esc(c.name)}</h4>
-              <p class="text-xs text-slate-500 dark:text-slate-400">${esc(c.audience)} · ${c.date}</p>
+
+              <!-- Title & Audience -->
+              <div>
+                <h4 class="text-base font-black text-slate-900 dark:text-white leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${esc(c.name)}</h4>
+                <div class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+                  <span>${esc(c.audience)}</span>
+                  <span>·</span>
+                  <span class="font-medium">${esc(c.date)}</span>
+                </div>
+              </div>
+
+              <!-- Distinct Template Copy Preview Box -->
+              <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200/90 dark:border-slate-800 text-[11px] space-y-1.5">
+                ${c.subject || tpl?.subject ? `
+                  <div class="flex items-start gap-1.5 text-slate-800 dark:text-slate-200 font-semibold leading-tight">
+                    <span class="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex-shrink-0">Subject</span>
+                    <span class="truncate">${esc(c.subject || tpl?.subject)}</span>
+                  </div>
+                ` : ''}
+                ${c.sms_message || tpl?.sms_message ? `
+                  <div class="text-slate-600 dark:text-slate-400 italic line-clamp-2 leading-relaxed">
+                    <span class="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-900/60 text-sky-700 dark:text-sky-300 not-italic mr-1">SMS</span>
+                    "${esc(c.sms_message || tpl?.sms_message)}"
+                  </div>
+                ` : ''}
+              </div>
+
+              <!-- Layout Blocks Preview Chips -->
+              <div class="flex flex-wrap items-center gap-1 pt-0.5">
+                <span class="text-[9px] uppercase font-black tracking-wider text-slate-400 mr-0.5">Blocks:</span>
+                ${blocks.map(b => `
+                  <span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[9px] font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                    ${esc(b)}
+                  </span>
+                `).join('')}
+              </div>
             </div>
-            <div class="grid grid-cols-3 gap-2 text-xs pt-2 border-t border-slate-100 dark:border-slate-800">
-              <div>
-                <div class="text-[10px] uppercase font-bold text-slate-400">Recipients</div>
-                <div class="font-mono font-bold text-slate-900 dark:text-white">${c.sent_count ? c.sent_count.toLocaleString() : '—'}</div>
+
+            <!-- Bottom Metrics & Actions -->
+            <div class="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div class="grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <div class="text-[9px] uppercase font-black text-slate-400 tracking-wider">Recipients</div>
+                  <div class="font-mono font-bold text-slate-900 dark:text-white mt-0.5">${c.sent_count ? c.sent_count.toLocaleString() : '—'}</div>
+                </div>
+                <div>
+                  <div class="text-[9px] uppercase font-black text-slate-400 tracking-wider">Open Rate</div>
+                  <div class="font-mono font-bold text-indigo-600 dark:text-indigo-400 mt-0.5">${c.open_rate}</div>
+                </div>
+                <div>
+                  <div class="text-[9px] uppercase font-black text-slate-400 tracking-wider">Generated Rev</div>
+                  <div class="font-mono font-black text-emerald-600 dark:text-emerald-400 mt-0.5">${c.rev}</div>
+                </div>
               </div>
-              <div>
-                <div class="text-[10px] uppercase font-bold text-slate-400">Open</div>
-                <div class="font-mono font-bold text-indigo-600 dark:text-indigo-400">${c.open_rate}</div>
-              </div>
-              <div>
-                <div class="text-[10px] uppercase font-bold text-slate-400">Rev</div>
-                <div class="font-mono font-black text-emerald-600 dark:text-emerald-400">${c.rev}</div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <button onclick="openEmailSmsBuilder({ campaignId: '${c.id}', templateId: '${c.template_id || ''}', mode: '${c.channel.includes('SMS') ? 'sms' : 'email'}' })" class="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
+                  <span>Edit Campaign</span>
+                </button>
+                <button onclick="previewCampaignModal('${c.id}')" class="w-full py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition flex items-center justify-center gap-1 cursor-pointer">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  <span>Preview</span>
+                </button>
               </div>
             </div>
-            <button onclick="openEmailSmsBuilder({ campaignId: '${c.id}', templateId: '${c.template_id || ''}', mode: '${c.channel.includes('SMS') ? 'sms' : 'email'}' })" class="mt-auto w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs">
-              Edit Campaign
-            </button>
+
           </div>
-        `).join('') : `
+        `}).join('') : `
           <div class="col-span-full py-12 text-center text-sm text-slate-400 italic bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
             No campaigns matching this filter. Click <b>+ New Campaign</b> to start one.
           </div>
@@ -1409,8 +1636,131 @@ function renderAutoCampaignsTab(container) {
   `;
 }
 
-// ── Complete 14 Canonical Communication Templates Registry ───────────────────
+// ── Complete Canonical Communication Templates Registry ───────────────────────
 const DEFAULT_COMMUNICATION_TEMPLATES = [
+  {
+    id: 'tpl_summer_truck_suv',
+    name: 'Summer Used Truck & SUV Clearance Event',
+    category: 'Promotions',
+    channel: 'Email',
+    desc: 'Seasonal inventory clearance showcase with 2-col truck & SUV grid, $1,000 extra trade bonus voucher, and VIP test drive reservation.',
+    used_by: 4,
+    subject: '🔥 Summer Truck & SUV Clearance: Save up to $4,500 + $1,000 Extra Trade Bonus at {{dealership.name}}',
+    sms_message: "Summer Truck & SUV Clearance is live at {{dealership.name}}! Over 45 frontline 4x4 trucks & SUVs discounted with up to $1,000 extra trade bonus this week: {{inventory_url|view inventory}}",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center', logoUrl: '' } },
+      { id: 'b2', type: 'heading', data: { text: 'Summer Pre-Owned Truck & SUV Clearance Event', level: 'h1', align: 'center' } },
+      { id: 'b3', type: 'text', data: { text: 'Hi {{customer.first_name}},<br><br>We just marked down over 45 pre-owned 4x4 trucks, full-size SUVs, and family crossovers to make room for incoming dealer inventory.<br><br>Take advantage of <strong>exclusive summer price cuts up to $4,500 below market</strong>, plus an additional $1,000 bonus cash on any trade-in.' } },
+      { id: 'b4', type: 'vehicle_card', data: { title: '2023 Chevrolet Silverado 1500 RST 4WD', price: '$43,995 (Save $3,500)', vin: '1GCPYFEF8RA129841', stock: 'TR-8492', mileage: '16,450 mi', fuel: '5.3L V8 EcoTec3', exterior: 'Glacier Blue Metallic', transmission: '10-Speed Automatic' } },
+      { id: 'b5', type: 'inventory_grid', data: { title: 'More Clearance Frontline Units', layout: '2-col', items: [
+        { title: '2024 GMC Sierra 1500 Elevation', price: '$46,750', mileage: '12,200 mi', stock: 'TR-7821' },
+        { title: '2023 Ford Expedition Max Limited', price: '$54,900', mileage: '21,400 mi', stock: 'SU-9034' }
+      ] } },
+      { id: 'b6', type: 'service_offer', data: { headline: '$1,000 Extra Trade-In Cash Bonus', discount: '$1,000 BONUS', desc: 'Present this coupon code when appraising your trade during the Summer Clearance Event.', code: 'SUMMER-TRADE-1K' } },
+      { id: 'b7', type: 'button', data: { text: 'Browse All Clearance Inventory & Reserve Keys', url: 'https://dealership.com/clearance', align: 'center', btnBg: '#4f46e5' } },
+      { id: 'b8', type: 'rep_card', data: { name: 'Michael Scott', role: 'Dedicated Sales Specialist', phone: '(555) 234-8901', email: 'm.scott@dealership.com' } },
+      { id: 'b9', type: 'footer', data: { dealershipName: '{{dealership.name}}', address: '123 Automotive Parkway, Metro Area', phone: '(555) 321-4567', showUnsub: true } }
+    ]
+  },
+  {
+    id: 'tpl_spring_tire_brake',
+    name: 'Spring Tire Changeover & Complete Brake Special',
+    category: 'Service',
+    channel: 'Email + SMS',
+    desc: 'Seasonal tire swap, 4-wheel brake inspection coupon ($89.95), alignment rebate, and online service bay scheduler.',
+    used_by: 3,
+    subject: '🚗 Spring Tire Changeover & Complete Brake Inspection Package at {{dealership.name}}',
+    sms_message: "Hi {{customer.first_name|there}}, get your {{vehicle.model|vehicle}} road-trip ready with our Spring Tire Swap & Brake Inspection Package ($89.95). Book online in 60s: {{service_url|our service page}}",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'Spring Tire Swap & Multi-Point Brake Safety Special', level: 'h2', align: 'left' } },
+      { id: 'b3', type: 'text', data: { text: 'Hi {{customer.first_name}},<br><br>Spring weather is here! Protect your seasonal tires, maximize your fuel economy, and ensure total stopping safety with our factory-certified spring service package.<br><br>Schedule this week to claim our seasonal package discount:' } },
+      { id: 'b4', type: 'service_offer', data: { headline: 'Spring Tire Changeover & 4-Wheel Brake Check', discount: '$89.95 SPECIAL', desc: 'Includes mount & balance check, brake pad & rotor micrometer measurement, and tire pressure reset.', code: 'SPRING-TIRE-89' } },
+      { id: 'b5', type: 'service_offer', data: { headline: '$20 Off Computerized 4-Wheel Alignment', discount: '$20 OFF', desc: 'Prevent uneven tire wear and ensure your steering tracks straight after winter road conditions.', code: 'ALIGN-20' } },
+      { id: 'b6', type: 'button', data: { text: 'Schedule Spring Service Online (Instant Confirmation)', url: 'https://dealership.com/service-booking', align: 'center', btnBg: '#059669' } },
+      { id: 'b7', type: 'footer', data: { dealershipName: '{{dealership.name}} Service Center', showUnsub: true } }
+    ]
+  },
+  {
+    id: 'tpl_trade_equity_vip',
+    name: 'High Trade-In Equity VIP Private Event',
+    category: 'Vehicle',
+    channel: 'SMS',
+    desc: 'Exclusive VIP invitation for vehicle owners with calculated trade valuation above market and private appraisal slot.',
+    used_by: 3,
+    subject: 'VIP Private Sale: Top-Dollar Trade Appraisal & Equity Exchange at {{dealership.name}}',
+    sms_message: "VIP Invitation: {{customer.first_name}}, urgent buyer demand for your {{vehicle.year}} {{vehicle.model}}. We are paying up to 120% book value this Saturday at {{dealership.name}}. Claim pass: {{equity_url|our VIP page}}",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'Exclusive VIP Invitation: Trade Equity Exchange Event', level: 'h1', align: 'center' } },
+      { id: 'b3', type: 'text', data: { text: 'Dear {{customer.first_name}},<br><br>Because of high pre-owned buyer demand, our acquisition team has pre-approved your <strong>{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}</strong> for an Above-Market Equity Appraisal.<br><br>Upgrade your vehicle while keeping your monthly payment equal or lower, or cash out your positive equity today.' } },
+      { id: 'b4', type: 'trade_cta', data: { headline: 'Your Estimated Equity Position: +$3,200', subheadline: 'Current pre-owned auction indices are at peak values for your vehicle class.', btnText: 'View Instant Trade-In Valuation' } },
+      { id: 'b5', type: 'service_offer', data: { headline: 'VIP Loyalty Bonus at Signing', discount: '$500 CASH', desc: 'Bonus $500 applied towards your purchase or paid directly by check at closing.', code: 'VIP-EQUITY-500' } },
+      { id: 'b6', type: 'button', data: { text: 'RSVP for Your Private 15-Minute Appraisal Slot', url: 'https://dealership.com/vip-appraisal', align: 'center', btnBg: '#e11d48' } },
+      { id: 'b7', type: 'rep_card', data: { name: 'David Wallace', role: 'Used Car Acquisition Manager', phone: '(555) 345-9012' } },
+      { id: 'b8', type: 'footer', data: { dealershipName: '{{dealership.name}}', showUnsub: true } }
+    ]
+  },
+  {
+    id: 'tpl_vip_ownership_1yr',
+    name: 'VIP Customer 1-Year Ownership Milestone Check-in',
+    category: 'Vehicle',
+    channel: 'Email',
+    desc: '1-year ownership milestone celebration with complimentary 27-point inspection, complimentary oil change certificate, and customer loyalty rewards.',
+    used_by: 3,
+    subject: 'Happy 1-Year Anniversary with your {{vehicle.year}} {{vehicle.make}} {{vehicle.model}}! 🎉',
+    sms_message: "Happy 1-Year Anniversary with your {{vehicle.model}}, {{customer.first_name}}! To celebrate, your next routine maintenance is on us. Schedule anytime: {{service_url|our service page}}",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'Happy 1-Year Anniversary with Your {{vehicle.model}}! 🎉', level: 'h1', align: 'center' } },
+      { id: 'b3', type: 'text', data: { text: 'Dear {{customer.first_name}},<br><br>It has been exactly one year since you drove home in your <strong>{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}</strong>! We hope you have loved every mile of ownership.<br><br>As a token of our appreciation for being part of our dealership family, please enjoy a complimentary anniversary maintenance visit on us:' } },
+      { id: 'b4', type: 'vehicle_card', data: { title: 'Your Vehicle: {{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', price: '1-Year Milestone', vin: '{{vehicle.vin}}', stock: 'Delivered', exterior: '{{vehicle.exterior_color}}' } },
+      { id: 'b5', type: 'service_offer', data: { headline: 'Complimentary Anniversary Maintenance Pass', discount: '100% FREE', desc: 'Includes full synthetic oil & filter change plus comprehensive multi-point safety inspection.', code: '1YR-VIP-FREE' } },
+      { id: 'b6', type: 'service_offer', data: { headline: '$200 Customer Referral Bonus', discount: '$200 CASH', desc: 'Know a friend or family member looking for a vehicle? We will send you $200 cash when they buy!', code: 'VIP-REF-200' } },
+      { id: 'b7', type: 'button', data: { text: 'Schedule Complimentary Anniversary Service', url: 'https://dealership.com/service-booking', align: 'center', btnBg: '#4f46e5' } },
+      { id: 'b8', type: 'footer', data: { dealershipName: '{{dealership.name}}', showUnsub: true } }
+    ]
+  },
+  {
+    id: 'tpl_year_end_clearance',
+    name: 'Year-End Model Clearance & 0% Financing Event',
+    category: 'Promotions',
+    channel: 'Email + SMS',
+    desc: 'Year-end manufacturer model blowout with 0% APR financing, $5,000 factory cash, and express digital pre-approval.',
+    used_by: 2,
+    subject: '⚡ Year-End Clearance Event: 0% APR & Up to $5,000 Factory Cash at {{dealership.name}}',
+    sms_message: "Year-End Clearance is on at {{dealership.name}}! 0% financing and up to $5,000 off remaining models this weekend only: {{clearance_url|view clearance}}",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'Year-End Model Closeout: Up to $5,000 Factory Cash', level: 'h1', align: 'center' } },
+      { id: 'b3', type: 'text', data: { text: 'Hi {{customer.first_name}},<br><br>All remaining current-model year inventory must go before month-end. We are passing manufacturer rebates, 0% APR dealer incentives, and instant trade bonuses directly to you.<br><br>Browse remaining vehicles and get pre-approved in under 2 minutes:' } },
+      { id: 'b4', type: 'inventory_grid', data: { title: 'Remaining Model Closeouts', layout: '2-col', items: [
+        { title: '2024 GMC Sierra 1500 SLT', price: '$49,990 (Save $5,200)', mileage: '15 mi', stock: 'NEW-1049' },
+        { title: '2024 Chevrolet Traverse RS', price: '$44,500 (Save $4,100)', mileage: '20 mi', stock: 'NEW-2091' }
+      ] } },
+      { id: 'b5', type: 'service_offer', data: { headline: '0% APR for 60 Months on Approved Credit', discount: '0% FINANCING', desc: 'Combine with up to $2,000 trade equity booster on select units.', code: 'YEAR-END-0APR' } },
+      { id: 'b6', type: 'button', data: { text: 'Get Instant 2-Minute Pre-Approval', url: 'https://dealership.com/finance-app', align: 'center', btnBg: '#e11d48' } },
+      { id: 'b7', type: 'footer', data: { dealershipName: '{{dealership.name}}', showUnsub: true } }
+    ]
+  },
+  {
+    id: 'tpl_customer_appreciation',
+    name: 'Customer Appreciation Weekend & BBQ Invite',
+    category: 'Holiday',
+    channel: 'Email',
+    desc: 'Annual customer appreciation event invitation with complimentary BBQ, free vehicle health inspection, and prize raffle.',
+    used_by: 2,
+    subject: "You're Invited: Annual Customer Appreciation BBQ & Complimentary Vehicle Health Check",
+    sms_message: "Join us this Saturday for our Customer Appreciation BBQ & free vehicle check at {{dealership.name}}! RSVP: {{event_url|rsvp here}}",
+    blocks: [
+      { id: 'b1', type: 'logo', data: { align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'Join Us for Our Annual Customer Appreciation Day!', level: 'h1', align: 'center' } },
+      { id: 'b3', type: 'text', data: { text: 'Dear {{customer.first_name}},<br><br>To celebrate our amazing community of drivers, we are hosting our Annual Customer Appreciation Weekend this Saturday from 11:00 AM to 3:00 PM!<br><br><strong>What to expect:</strong><br>• Complimentary Gourmet BBQ Lunch & Refreshments<br>• Free 27-Point Vehicle Safety & Battery Health Check<br>• Live Prize Drawings for a $500 Service Credit' } },
+      { id: 'b4', type: 'service_offer', data: { headline: 'Free Vehicle Health & Battery Check Coupon', discount: '100% FREE', desc: 'No purchase necessary. Valid during Customer Appreciation Weekend.', code: 'BBQ-CHECK-FREE' } },
+      { id: 'b5', type: 'button', data: { text: 'RSVP for Customer Appreciation BBQ', url: 'https://dealership.com/bbq-rsvp', align: 'center', btnBg: '#10b981' } },
+      { id: 'b6', type: 'footer', data: { dealershipName: '{{dealership.name}}', showUnsub: true } }
+    ]
+  },
   {
     id: 'tpl_lead_90s',
     name: 'Instant 90-Second Rapid Lead Response',
@@ -1646,13 +1996,13 @@ const DEFAULT_COMMUNICATION_TEMPLATES = [
     desc: 'Ownership milestone celebration with complimentary trade valuation offer.',
     used_by: 3,
     subject: 'Happy 1-Year Anniversary With Your {{vehicle.model}}!',
-    sms_message: "Happy 1-Year Anniversary with your {{vehicle.ymm|vehicle}}, {{customer.first_name|there}}! Values are strong right now — if you ever want a complimentary trade equity review, let me know. Thank you for choosing {{dealership.name}}!",
+    sms_message: "Happy 1-Year Anniversary with your {{vehicle.model}}, {{customer.first_name}}! We hope you've loved every mile. Curious what it's worth today? Check your equity here: {{equity_url|instant trade value}}",
     blocks: [
       { id: 'b1', type: 'logo', data: { align: 'center' } },
-      { id: 'b2', type: 'heading', data: { text: 'Happy 1-Year Ownership Anniversary!', level: 'h2', align: 'center' } },
-      { id: 'b3', type: 'text', data: { text: 'Dear {{customer.first_name}},<br><br>Can you believe it has already been one year since you drove home your <strong>{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}</strong>?<br><br>We hope every mile has been fantastic. Because pre-owned values remain high, we prepared a complimentary equity evaluation for your vehicle.' } },
-      { id: 'b4', type: 'vehicle_card', data: { title: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', price: '1 Year in Service', vin: '1GCPYFEF8RA129841', exterior: 'Glacier Blue' } },
-      { id: 'b5', type: 'trade_cta', data: { headline: 'Complimentary 1-Year Equity Check', subheadline: 'Find out what your vehicle is worth in today\'s market with zero obligation.', btnText: 'Review My Equity Calculation' } },
+      { id: 'b2', type: 'heading', data: { text: 'Happy 1-Year Anniversary with Your {{vehicle.model}}!', level: 'h1', align: 'center' } },
+      { id: 'b3', type: 'text', data: { text: 'Dear {{customer.first_name}},<br><br>It has been one year since you drove home in your <strong>{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}</strong>! We hope you have made incredible memories on the road.<br><br>As an anniversary gift, we have prepared a complimentary vehicle valuation and trade equity report for your records.' } },
+      { id: 'b4', type: 'trade_cta', data: { headline: 'See Your 1-Year Equity Report', subheadline: 'Pre-owned trade values remain high. Find out what your vehicle is worth today.', btnText: 'View My Trade Valuation' } },
+      { id: 'b5', type: 'service_offer', data: { headline: 'Anniversary Service Gift: $20 Off Next Visit', discount: '$20 OFF', desc: 'Valid for routine maintenance, oil change, or detailing service.', code: 'ANNIV-20' } },
       { id: 'b6', type: 'footer', data: { dealershipName: '{{dealership.name}}', showUnsub: true } }
     ]
   },
@@ -1688,6 +2038,12 @@ function renderAutoTemplatesTab(container) {
     return t.category.toLowerCase() === __templateCategoryFilter.toLowerCase();
   });
 
+  const channelIcon = ch => {
+    if (ch.includes('+')) return `<span class="inline-flex items-center gap-0.5"><svg class="w-3 h-3 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0017.25 4.5h-10.5A2.25 2.25 0 004.5 6.75m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg><svg class="w-3 h-3 text-sky-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></span>`;
+    if (ch === 'SMS') return `<svg class="w-3 h-3 text-sky-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>`;
+    return `<svg class="w-3 h-3 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0017.25 4.5h-10.5A2.25 2.25 0 004.5 6.75m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>`;
+  };
+
   container.innerHTML = `
     <div class="space-y-6">
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
@@ -1717,31 +2073,64 @@ function renderAutoTemplatesTab(container) {
 
       <!-- Templates Grid with Simulated Thumbnail Preview -->
       <div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        ${filtered.map(t => `
+        ${filtered.map(t => {
+          const blockTypes = t.blocks ? t.blocks.map(b => b.type.replace('_', ' ')) : ['Header', 'Body', 'CTA'];
+          return `
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs hover:border-indigo-500 transition flex flex-col justify-between space-y-3 group">
             
             <!-- Details -->
-            <div class="space-y-1.5">
+            <div class="space-y-2">
               <div class="flex items-center justify-between">
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">${esc(t.category)}</span>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${esc(t.channel)}</span>
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center gap-1">
+                  ${channelIcon(t.channel)}
+                  <span>${esc(t.channel)}</span>
+                </span>
               </div>
-              <h4 class="text-sm font-black text-slate-900 dark:text-white leading-snug">${esc(t.name)}</h4>
+              
+              <h4 class="text-sm font-black text-slate-900 dark:text-white leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${esc(t.name)}</h4>
               <p class="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">${esc(t.desc)}</p>
+
+              <!-- Subject / SMS Preview -->
+              <div class="p-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 text-[10px] space-y-1">
+                ${t.subject ? `
+                  <div class="truncate text-slate-700 dark:text-slate-300 font-medium">
+                    <b class="text-indigo-600 dark:text-indigo-400 font-bold">Subject:</b> ${esc(t.subject)}
+                  </div>
+                ` : ''}
+                ${t.sms_message ? `
+                  <div class="italic text-slate-500 dark:text-slate-400 line-clamp-1">
+                    <b class="text-sky-600 dark:text-sky-400 not-italic font-bold">SMS:</b> "${esc(t.sms_message)}"
+                  </div>
+                ` : ''}
+              </div>
+
+              <!-- Block Chips -->
+              <div class="flex flex-wrap gap-1">
+                ${blockTypes.slice(0, 4).map(b => `
+                  <span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800/80 text-[9px] font-semibold text-slate-600 dark:text-slate-400">
+                    ${esc(b)}
+                  </span>
+                `).join('')}
+                ${blockTypes.length > 4 ? `<span class="text-[9px] font-bold text-slate-400">+${blockTypes.length - 4} more</span>` : ''}
+              </div>
+
               <div class="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold pt-0.5">Used by ${t.used_by || 1} active workflow${t.used_by === 1 ? '' : 's'}</div>
             </div>
 
             <!-- Action Buttons -->
             <div class="pt-2 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-2 gap-1.5">
-              <button onclick="openEmailSmsBuilder({ templateId: '${t.id}', mode: '${t.channel.includes('SMS') ? 'sms' : 'email'}' })" class="py-1.5 px-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition text-center cursor-pointer">
-                Edit
+              <button onclick="openEmailSmsBuilder({ templateId: '${t.id}', mode: '${t.channel.includes('SMS') ? 'sms' : 'email'}' })" class="py-1.5 px-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition text-center cursor-pointer flex items-center justify-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
+                <span>Edit</span>
               </button>
               <button onclick="openEmailSmsBuilder({ templateId: '${t.id}', mode: '${t.channel.includes('SMS') ? 'sms' : 'email'}', campaignType: 'onetime' })" class="py-1.5 px-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition text-center cursor-pointer">
                 Use Template
               </button>
             </div>
           </div>
-        `).join('')}
+          `;
+        }).join('')}
       </div>
     </div>
   `;
@@ -2604,6 +2993,245 @@ function vbSvg(name, cls = 'w-4 h-4') {
   return `<svg class="${cls}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">${p[name] || p.mail}</svg>`;
 }
 
+// ── Dynamic Visual Graph Builder for All Automations ──────────────────────────
+function buildVisualGraphForWorkflow(wf) {
+  if (!wf) return VISUAL_TEMPLATES_CATALOG[0].graph;
+
+  const nodes = [];
+  const edges = [];
+  let curY = 60;
+  const cx = 380;
+
+  // 1. Trigger node mapping
+  const TRIG_MAP = {
+    internet_lead: { type: 'trigger_crm_new_lead', label: 'New Lead Ingested' },
+    appointment_created: { type: 'trigger_crm_appt_booked', label: 'Showroom Appointment Created' },
+    appointment_reminder: { type: 'trigger_crm_appt_booked', label: 'Appointment Reminder Trigger' },
+    appointment_missed: { type: 'trigger_crm_appt_missed', label: 'Appointment Missed / No-Show' },
+    deal_sold: { type: 'trigger_crm_deal_sold', label: 'Deal Sold / Contract Signed' },
+    delivery_scheduled: { type: 'trigger_crm_deal_created', label: 'Delivery Date Scheduled' },
+    delivered: { type: 'trigger_crm_delivered', label: 'Vehicle Delivered to Customer' },
+    birthday: { type: 'trigger_mkt_scheduled_date', label: 'Customer Birthday Date' },
+    service_booked: { type: 'trigger_svc_appt_created', label: 'Service Appointment Booked' },
+    service_reminder: { type: 'trigger_svc_appt_created', label: 'Service Reminder Trigger' },
+    service_missed: { type: 'trigger_crm_appt_missed', label: 'Service Appointment Missed' },
+    service_ro_update: { type: 'trigger_svc_ro_opened', label: 'RO Status Changed / MPI Ready' },
+    service_ready: { type: 'trigger_svc_ro_completed', label: 'Vehicle Ready for Pickup' },
+    service_declined: { type: 'trigger_svc_declined', label: 'Declined Service Lines Recorded' },
+    service_interval: { type: 'trigger_svc_maintenance_due', label: 'Service Interval Due' },
+    seasonal: { type: 'trigger_mkt_scheduled_date', label: 'Seasonal Maintenance Trigger' },
+    tire_season: { type: 'trigger_mkt_scheduled_date', label: 'Seasonal Tire Swap Season' },
+    oil_due: { type: 'trigger_svc_maintenance_due', label: 'Oil Change Due Milestone' },
+    major_service: { type: 'trigger_svc_maintenance_due', label: 'Major Factory Service (30k/60k/90k)' },
+    service_dormant: { type: 'trigger_mkt_segment_entered', label: 'Dormant Service Customer (12+ Mo)' },
+    price_drop: { type: 'trigger_inv_price_changed', label: 'Vehicle Price Reduced' },
+    unit_available: { type: 'trigger_inv_added', label: 'Saved Vehicle Back in Stock' },
+    similar_arrival: { type: 'trigger_inv_added', label: 'Similar Vehicle Arrived on Lot' },
+    aged_unit: { type: 'trigger_inv_aging', label: 'Vehicle Aging Threshold (> 60 Days)' },
+    trade_demand: { type: 'trigger_web_trade_appraisal', label: 'High Demand Trade Model Match' },
+    lease_end: { type: 'trigger_crm_status_changed', label: 'Lease Maturity (180 Days Prior)' },
+    finance_window: { type: 'trigger_crm_status_changed', label: 'Finance 36/48mo Upgrade Window' },
+    equity_positive: { type: 'trigger_web_trade_appraisal', label: 'Positive Trade Equity Detected' },
+    anniversary: { type: 'trigger_crm_delivered', label: 'Annual Purchase Anniversary' },
+    new_inventory: { type: 'trigger_inv_added', label: 'Fresh Lot Inventory Synced' },
+    saved_vehicle: { type: 'trigger_web_form', label: 'Vehicle Favorited / Saved' },
+    monthly_newsletter: { type: 'trigger_mkt_campaign_started', label: '1st of Month VIP Digest' },
+    factory_event: { type: 'trigger_mkt_campaign_started', label: 'Factory Sales Event Started' },
+    holiday: { type: 'trigger_mkt_scheduled_date', label: 'Dealership Holiday Trigger' },
+    vip_event: { type: 'trigger_mkt_campaign_started', label: 'Private VIP Event Scheduled' },
+    eom_push: { type: 'trigger_mkt_scheduled_date', label: 'End-of-Month Clearance Goal' },
+    service_special: { type: 'trigger_mkt_campaign_started', label: 'Monthly Service Coupon Pass' },
+    winback_180: { type: 'trigger_mkt_segment_entered', label: '180-Day Inactive Customer' },
+    reactivation: { type: 'trigger_mkt_campaign_started', label: 'Annual Customer Appreciation' },
+    custom_segment: { type: 'trigger_mkt_segment_entered', label: 'Custom CRM Audience Segment' },
+    onetime_blast: { type: 'trigger_mkt_scheduled_date', label: 'Scheduled Broadcast Date' },
+    custom_trigger: { type: 'trigger_crm_new_lead', label: 'Custom Trigger / Webhook' }
+  };
+
+  const trigInfo = TRIG_MAP[wf.trigger_event] || { type: 'trigger_crm_new_lead', label: `Trigger: ${wf.trigger_event || 'Event'}` };
+  const trigNode = {
+    id: 'n_trig',
+    type: trigInfo.type,
+    category: 'trigger',
+    label: trigInfo.label,
+    x: cx,
+    y: curY,
+    config: { event: wf.trigger_event, source: 'all' }
+  };
+  nodes.push(trigNode);
+  let lastNodeId = 'n_trig';
+
+  // 2. Wait Delay Node if delay_minutes > 0
+  if (wf.delay_minutes != null && wf.delay_minutes > 0) {
+    curY += 130;
+    const waitLabel = `Wait ${autoDelayText(wf.delay_minutes)}`;
+    const waitNode = {
+      id: 'n_wait',
+      type: 'logic_wait',
+      category: 'logic',
+      label: waitLabel,
+      x: cx,
+      y: curY,
+      config: { delay_value: wf.delay_minutes, delay_unit: wf.delay_minutes < 60 ? 'minutes' : wf.delay_minutes < 1440 ? 'hours' : 'days' }
+    };
+    nodes.push(waitNode);
+    edges.push({ id: 'e_trig_wait', source: lastNodeId, target: 'n_wait' });
+    lastNodeId = 'n_wait';
+  }
+
+  // 3. Specialized Custom Branching for specific key flows
+  if (wf.key === 'lead_immediate_response') {
+    curY += 130;
+    const ifNode = { id: 'n_if', type: 'logic_if_else', category: 'logic', label: 'Human Rep Replied?', x: cx, y: curY, config: { condition_field: 'human_replied', condition_op: 'equals', condition_value: 'true' } };
+    const stopRep = { id: 'n_stop_rep', type: 'logic_stop', category: 'logic', label: 'Stop Flow (Rep Active)', x: cx - 200, y: curY + 140, config: { reason: 'Human rep actively communicating' } };
+    const smsAction = { id: 'n_act', type: 'action_send_sms', category: 'action', label: 'Send 90s Instant SMS', x: cx + 200, y: curY + 140, config: { sender_identity: wf.sender_identity || 'rep', message_template: wf.message_body_template } };
+    const assignNode = { id: 'n_assign', type: 'action_assign_rep', category: 'action', label: 'Auto-Assign Rep (Round Robin)', x: cx + 200, y: curY + 280, config: { routing_mode: 'round_robin' } };
+    const stopGoal = { id: 'n_stop_goal', type: 'logic_stop', category: 'logic', label: 'Stop on Customer Reply', x: cx + 200, y: curY + 420, config: { reason: 'Customer replied or booked appointment' } };
+
+    nodes.push(ifNode, stopRep, smsAction, assignNode, stopGoal);
+    edges.push(
+      { id: 'e_wait_if', source: lastNodeId, target: 'n_if' },
+      { id: 'e_if_yes', source: 'n_if', target: 'n_stop_rep', label: 'YES' },
+      { id: 'e_if_no', source: 'n_if', target: 'n_act', label: 'NO' },
+      { id: 'e_act_assign', source: 'n_act', target: 'n_assign' },
+      { id: 'e_assign_stop', source: 'n_assign', target: 'n_stop_goal' }
+    );
+    return { nodes, edges };
+  }
+
+  if (wf.key === 'lead_missed_rep') {
+    curY += 130;
+    const ifNode = { id: 'n_if', type: 'logic_if_else', category: 'logic', label: 'Contact Logged by Rep?', x: cx, y: curY, config: { condition_field: 'contact_logged', condition_op: 'equals', condition_value: 'true' } };
+    const stopDone = { id: 'n_stop_done', type: 'logic_stop', category: 'logic', label: 'Stop (Contact Logged)', x: cx - 200, y: curY + 140, config: { reason: 'Rep logged contact' } };
+    const mgrAlert = { id: 'n_alert', type: 'action_notify_mgr', category: 'action', label: 'Escalate to Sales Manager', x: cx + 200, y: curY + 140, config: { note: wf.message_body_template } };
+    const reassign = { id: 'n_reassign', type: 'action_assign_rep', category: 'action', label: 'Reassign to On-Duty Rep', x: cx + 200, y: curY + 280, config: { mode: 'urgent_reassign' } };
+    const stopGoal = { id: 'n_stop_goal', type: 'logic_stop', category: 'logic', label: 'Stop when Claimed', x: cx + 200, y: curY + 420, config: { reason: 'Rep claims lead' } };
+
+    nodes.push(ifNode, stopDone, mgrAlert, reassign, stopGoal);
+    edges.push(
+      { id: 'e_wait_if', source: lastNodeId, target: 'n_if' },
+      { id: 'e_if_yes', source: 'n_if', target: 'n_stop_done', label: 'YES' },
+      { id: 'e_if_no', source: 'n_if', target: 'n_alert', label: 'NO' },
+      { id: 'e_alert_reassign', source: 'n_alert', target: 'n_reassign' },
+      { id: 'e_reassign_stop', source: 'n_reassign', target: 'n_stop_goal' }
+    );
+    return { nodes, edges };
+  }
+
+  // 4. Primary Action Node (SMS / Email / Both / Task)
+  curY += 130;
+  const isBoth = wf.channel === 'both';
+  const isSms = wf.channel === 'sms';
+  const isTask = wf.channel === 'task';
+
+  if (isBoth) {
+    const smsNode = {
+      id: 'n_act_sms',
+      type: 'action_send_sms',
+      category: 'action',
+      label: `Send SMS: ${wf.name}`,
+      x: cx - 140,
+      y: curY,
+      config: { sender_identity: wf.sender_identity || 'rep', message_template: wf.message_body_template }
+    };
+    const emailNode = {
+      id: 'n_act_email',
+      type: 'action_send_email',
+      category: 'action',
+      label: `Send Email: ${wf.name}`,
+      x: cx + 140,
+      y: curY,
+      config: { sender_identity: wf.sender_identity || 'rep', subject_template: wf.subject_template || wf.name, message_template: wf.message_body_template }
+    };
+    nodes.push(smsNode, emailNode);
+    edges.push(
+      { id: 'e_last_sms', source: lastNodeId, target: 'n_act_sms' },
+      { id: 'e_last_email', source: lastNodeId, target: 'n_act_email' }
+    );
+    lastNodeId = 'n_act_sms';
+  } else if (isSms) {
+    const smsNode = {
+      id: 'n_act_sms',
+      type: 'action_send_sms',
+      category: 'action',
+      label: `Send SMS: ${wf.name}`,
+      x: cx,
+      y: curY,
+      config: { sender_identity: wf.sender_identity || 'rep', message_template: wf.message_body_template }
+    };
+    nodes.push(smsNode);
+    edges.push({ id: 'e_last_sms', source: lastNodeId, target: 'n_act_sms' });
+    lastNodeId = 'n_act_sms';
+  } else if (isTask) {
+    const taskNode = {
+      id: 'n_act_task',
+      type: 'action_create_task',
+      category: 'action',
+      label: `Create Task: ${wf.name}`,
+      x: cx,
+      y: curY,
+      config: { task_title: wf.name, instructions: wf.message_body_template }
+    };
+    nodes.push(taskNode);
+    edges.push({ id: 'e_last_task', source: lastNodeId, target: 'n_act_task' });
+    lastNodeId = 'n_act_task';
+  } else {
+    // Email
+    const emailNode = {
+      id: 'n_act_email',
+      type: 'action_send_email',
+      category: 'action',
+      label: `Send Email: ${wf.name}`,
+      x: cx,
+      y: curY,
+      config: { sender_identity: wf.sender_identity || 'house', subject_template: wf.subject_template || wf.name, message_template: wf.message_body_template }
+    };
+    nodes.push(emailNode);
+    edges.push({ id: 'e_last_email', source: lastNodeId, target: 'n_act_email' });
+    lastNodeId = 'n_act_email';
+  }
+
+  // 5. Follow-up / CRM Logging Action Node
+  curY += 130;
+  const noteNode = {
+    id: 'n_note',
+    type: 'action_add_note',
+    category: 'action',
+    label: 'Log Action to Customer Timeline',
+    x: cx,
+    y: curY,
+    config: { note: `Automated workflow "${wf.name}" executed.` }
+  };
+  nodes.push(noteNode);
+  edges.push({ id: 'e_act_note', source: lastNodeId, target: 'n_note' });
+  if (isBoth) {
+    edges.push({ id: 'e_email_note', source: 'n_act_email', target: 'n_note' });
+  }
+  lastNodeId = 'n_note';
+
+  // 6. Stop Condition Node
+  curY += 130;
+  const stopReason = wf.category === 'service' ? 'Stop on Service Check-in or Appointment'
+    : wf.category === 'sales' ? 'Stop on Delivery Complete'
+    : wf.category === 'inventory' ? 'Stop on Lead Reply or Unit Sold'
+    : 'Stop on Customer Reply or Goal Reached';
+
+  const stopNode = {
+    id: 'n_stop',
+    type: 'logic_stop',
+    category: 'logic',
+    label: stopReason,
+    x: cx,
+    y: curY,
+    config: { reason: stopReason }
+  };
+  nodes.push(stopNode);
+  edges.push({ id: 'e_note_stop', source: lastNodeId, target: 'n_stop' });
+
+  return { nodes, edges };
+}
+window.buildVisualGraphForWorkflow = buildVisualGraphForWorkflow;
+
 // ── Open Visual Workflow Builder ──────────────────────────────────────────────
 function openVisualWorkflowBuilder(wfKey) {
   let initialWf = null;
@@ -2634,6 +3262,10 @@ function openVisualWorkflowBuilder(wfKey) {
   } else if (initialWf?.graph?.nodes?.length) {
     __vb.nodes = JSON.parse(JSON.stringify(initialWf.graph.nodes));
     __vb.edges = JSON.parse(JSON.stringify(initialWf.graph.edges));
+  } else if (initialWf) {
+    const gen = buildVisualGraphForWorkflow(initialWf);
+    __vb.nodes = JSON.parse(JSON.stringify(gen.nodes));
+    __vb.edges = JSON.parse(JSON.stringify(gen.edges));
   } else {
     // Generate standard default flow for this card
     const def = VISUAL_TEMPLATES_CATALOG[0].graph;
@@ -3775,26 +4407,75 @@ function closeVisualBuilder() {
 window.closeVisualBuilder = closeVisualBuilder;
 
 function testSendWorkflowModal(wfKey) {
+  let found = null;
+  Object.values(ALL_AUTOMATIONS_CATALOG).forEach(list => {
+    const item = list.find(x => x.key === wfKey);
+    if (item) found = item;
+  });
+
+  const name = found ? found.name : (wfKey || 'Workflow Template');
+  const channel = found?.channel || 'both';
+  const rawSubject = found?.subject_template || 'Automated Communication from Apex Motors';
+  const rawBody = found?.message_body_template || 'Hello {{customer.first_name}}, this is {{rep.first_name}} from {{dealership.name}} regarding your {{vehicle.ymm}}.';
+
+  // Sample evaluated preview
+  const sampleSubject = rawSubject
+    .replace(/\{\{customer\.first_name\}\}/g, 'Alex')
+    .replace(/\{\{vehicle\.ymm\}\}/g, '2024 Ford F-150 Lariat')
+    .replace(/\{\{dealership\.name\}\}/g, 'Apex Motor Group');
+
+  const sampleBody = rawBody
+    .replace(/\{\{customer\.first_name\}\}/g, 'Alex')
+    .replace(/\{\{customer\.last_name\}\}/g, 'Morgan')
+    .replace(/\{\{vehicle\.ymm\}\}/g, '2024 Ford F-150 Lariat')
+    .replace(/\{\{dealership\.name\}\}/g, 'Apex Motor Group')
+    .replace(/\{\{rep\.first_name\}\}/g, 'Jordan')
+    .replace(/\{\{rep\.phone\}\}/g, '(555) 234-5678')
+    .replace(/\{\{service_url\}\}/g, 'https://apexmotors.com/service/ro/4092');
+
   crmOverlay(`
     <div class="p-6 space-y-4">
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-        <h3 class="text-base font-black text-slate-900 dark:text-white">Send Safe Test Message</h3>
-        <button type="button" onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600">&times;</button>
-      </div>
-      <p class="text-xs text-slate-500 dark:text-slate-400">Dispatch a test message using real merge variable evaluation to your own phone/inbox.</p>
-      <div class="space-y-3">
         <div>
-          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Test Phone (SMS)</label>
-          <input id="test-send-phone" placeholder="555-123-4567" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono">
+          <span class="text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Live Test Dispatch</span>
+          <h3 class="text-base font-black text-slate-900 dark:text-white mt-0.5">${esc(name)}</h3>
         </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Test Email Address</label>
-          <input id="test-send-email" placeholder="sales@yourdealer.com" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono">
+        <button type="button" onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+      </div>
+
+      <div class="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-bold uppercase text-slate-400">Rendered Sample Preview</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 uppercase">${esc(channel)}</span>
+        </div>
+        ${channel !== 'sms' ? `
+          <div class="text-xs font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800 pb-1.5">
+            <span class="text-slate-400 font-normal">Subject:</span> ${esc(sampleSubject)}
+          </div>
+        ` : ''}
+        <div class="text-xs font-mono text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+          ${esc(sampleBody)}
         </div>
       </div>
+
+      <div class="space-y-3 pt-1">
+        ${channel !== 'email' ? `
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Test Phone (SMS)</label>
+            <input id="test-send-phone" placeholder="555-123-4567" value="555-019-2834" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono">
+          </div>
+        ` : ''}
+        ${channel !== 'sms' ? `
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Test Email Address</label>
+            <input id="test-send-email" placeholder="sales@yourdealer.com" value="test@dealership.com" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono">
+          </div>
+        ` : ''}
+      </div>
+
       <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
-        <button type="button" onclick="this.closest('.fixed').remove()" class="px-4 py-2 text-xs font-bold text-slate-500">Cancel</button>
-        <button type="button" onclick="this.closest('.fixed').remove(); showToast('Test send dispatched successfully', 'success')" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs">Send Test Message</button>
+        <button type="button" onclick="this.closest('.fixed').remove()" class="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">Cancel</button>
+        <button type="button" onclick="this.closest('.fixed').remove(); showToast('Test send dispatched for &quot;${esc(name)}&quot;', 'success')" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md">Send Safe Test</button>
       </div>
     </div>
   `, 'max-w-md');
