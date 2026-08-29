@@ -95,6 +95,7 @@ import { registerHqAgentsRoutes } from './routes/hq-agents.js'
 import { registerHqCrm } from './routes/hq-crm.js'
 import { registerHqFinance } from './routes/hq-finance.js'
 import { registerHqWebsite } from './routes/hq-website.js'
+import { registerHqPulse } from './routes/hq-pulse.js'
 
 const app = express()
 const PORT = process.env.PORT || 10000
@@ -238,6 +239,7 @@ registerHqAgentsRoutes(app)
 registerHqCrm(app)
 registerHqFinance(app)
 registerHqWebsite(app)
+registerHqPulse(app)
 registerSeoRoutes(app)
 registerDiscoverabilityRoutes(app)
 registerWebhookRoutes(app)
