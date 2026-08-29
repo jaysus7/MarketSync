@@ -67,10 +67,10 @@ test('MarketSync Internal OS uses the approved company navigation in order', () 
   // two consecutive identical matches. Collapsing consecutive duplicates preserves
   // this test's real intent (department ORDER) without being fragile to that
   // incidental repetition.
-  const rawLabels = [...block.matchAll(/label: '([^']+)'/g)].map(match => match[1])
-    .filter(label => ['HQ', 'Customers', 'Website', 'Revenue', 'Users', 'Platform', 'Operations'].includes(label))
+  const rawLabels = [...block.matchAll(/^\s{2}[a-z]+:\s+\{ label: '([^']+)'/gm)].map(match => match[1])
+    .filter(label => ['Pulse', 'Accounts', 'Leads', 'Work', 'People', 'Communications', 'Money'].includes(label))
   const labels = rawLabels.filter((label, i) => label !== rawLabels[i - 1])
-  assert.deepEqual(labels, ['HQ', 'Customers', 'Website', 'Revenue', 'Users', 'Platform', 'Operations'])
+  assert.deepEqual(labels, ['Pulse', 'Accounts', 'Leads', 'Work', 'People', 'Communications', 'Money'])
   // Creative and website tools remain real routes, but are no longer primary
   // operating departments in the simplified Internal rail.
   for (const page of ['saas-email-marketing', 'saas-studio', 'saas-website']) {
@@ -508,11 +508,15 @@ test('Marketing top tab reads "Design Studio", not "Studio"', () => {
   assert.doesNotMatch(mkt, /studio: 'Studio'/)
 })
 
-test('mobile row still renders through the shared gating helpers and includes Platform in HQ mode', () => {
+test('mobile row still renders through shared gating and uses the focused HQ navigation', () => {
   const dashboardJs = read('dashboard.js')
   assert.match(dashboardJs, /msMobileNavForRole/, 'mobile row must consume the registry role map')
   assert.match(dashboardJs, /deptPageAllowed\(tab\)/, 'mobile entries must pass the same gates as desktop')
-  assert.match(dashboardJs, /saas-agents/, 'MarketSync HQ mobile navigation must include Platform (saas-agents)')
+  assert.match(dashboardJs, /function marketsyncInternalNavPages\(\)/, 'MarketSync HQ must expose one shared mobile navigation source')
+  for (const label of ['Pulse', 'Accounts', 'Leads', 'Work', 'People', 'Communications', 'Money']) {
+    assert.match(dashboardJs, new RegExp(`label: '${label}'`), `MarketSync HQ mobile navigation must include ${label}`)
+  }
+  assert.doesNotMatch(dashboardJs, /const hqWanted =/, 'HQ must not keep a second hard-coded mobile shortcut set')
 })
 
 test('hash routing is additive and cannot break the token bootstrap', () => {

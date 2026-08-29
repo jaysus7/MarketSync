@@ -1637,40 +1637,43 @@ window.deptGo = deptGo;
 // The MarketSync owner's SaaS back office is its own flat department list —
 // the company operating system, not a dealership.
 const SAAS_DEPARTMENTS = {
-  pulse:          { label: 'HQ',             icon: 'chart',    accent: 'market', always: true, pages: [{ page: 'saas-command', label: 'Overview' }] },
-  accounts:       { label: 'Customers',      icon: 'building', accent: 'market', always: true, pages: [
-    { page: 'saas-customers', label: 'Dealerships' },
+  pulse:          { label: 'Pulse',          icon: 'chart',    accent: 'market', always: true, pages: [{ page: 'saas-command', label: 'Pulse' }] },
+  accounts:       { label: 'Accounts',       icon: 'building', accent: 'market', always: true, pages: [
+    { page: 'saas-customers', label: 'Accounts' },
     { page: 'saas-trials', label: 'Trials' },
     { page: 'saas-onboarding', label: 'Onboarding' },
-    { page: 'saas-followups', label: 'Customer Health' },
   ] },
-  website:        { label: 'Website',        icon: 'globe',    accent: 'market', always: true, pages: [
-    { page: 'saas-website', label: 'Overview' },
+  leads:          { label: 'Leads',          icon: 'funnel',   accent: 'market', always: true, pages: [
+    { page: 'saas-funnel', label: 'Leads' },
   ] },
-  money:          { label: 'Revenue',        icon: 'currency', accent: 'market', always: true, pages: [
-    { page: 'saas-billing', label: 'Billing' },
-    { page: 'saas-accounting', label: 'Company money' },
-    { page: 'saas-products', label: 'Product Catalog' },
-  ] },
-  people:         { label: 'Users',          icon: 'users',    accent: 'market', always: true, pages: [
-    { page: 'owner-users', label: 'Accounts & access' },
-    { page: 'saas-all-users', label: 'All Users' },
-    { page: 'saas-roles', label: 'HQ Roles' },
-    { page: 'saas-employees', label: 'HQ Staff' },
-  ] },
-  platform:       { label: 'Platform',       icon: 'bolt',     accent: 'market', always: true, pages: [
+  work:           { label: 'Work',           icon: 'check',    accent: 'market', always: true, pages: [
+    { page: 'saas-followups', label: 'Follow-ups' },
     { page: 'saas-agents', label: 'AI Agent Hub' },
     { page: 'saas-entitlements', label: 'Entitlements' },
     { page: 'saas-flags', label: 'Feature flags' },
     { page: 'saas-usage', label: 'Usage' },
     { page: 'saas-integrations', label: 'Integrations' },
-  ] },
-  work:           { label: 'Operations',     icon: 'check',    accent: 'market', always: true, pages: [
-    { page: 'saas-automation', label: 'Support' },
     { page: 'saas-audit', label: 'Audit log' },
     { page: 'saas-security', label: 'Security' },
     { page: 'saas-health', label: 'System health' },
     { page: 'config', label: 'Configuration' },
+  ] },
+  people:         { label: 'People',         icon: 'users',    accent: 'market', always: true, pages: [
+    { page: 'saas-employees', label: 'People' },
+    { page: 'owner-users', label: 'Accounts & access' },
+    { page: 'saas-all-users', label: 'All Users' },
+    { page: 'saas-roles', label: 'HQ Roles' },
+  ] },
+  communications: { label: 'Communications', icon: 'chat',    accent: 'market', always: true, pages: [
+    { page: 'saas-automation', label: 'Email, SMS & Automations' },
+    { page: 'saas-email-marketing', label: 'Campaigns' },
+    { page: 'saas-studio', label: 'Design Studio' },
+    { page: 'saas-website', label: 'Website' },
+  ] },
+  money:          { label: 'Money',          icon: 'currency', accent: 'market', always: true, pages: [
+    { page: 'saas-accounting', label: 'Company money' },
+    { page: 'saas-billing', label: 'Billing' },
+    { page: 'saas-products', label: 'Product Catalog' },
   ] },
 };
 let __deptNavBuilt = false;

@@ -1691,7 +1691,7 @@ function hqTrialRow(t) {
   </button>`;
 }
 ENGINES['saas-command'] = {
-  rootId: 'saas-command-root', title: 'Pulse', subtitle: 'What is happening across MarketSync and what needs attention',
+  rootId: 'saas-command-root', title: 'MarketSync Pulse', subtitle: 'Run customers, sales, team, communications, revenue, and platform operations from one place.',
   icon: 'chart', accent: 'indigo', hideRail: true, hideTabBar: true, tabOrder: ['overview'],
   fetch: () => apiGetJson('/saas/overview'),
   quickActions: [
@@ -1719,11 +1719,21 @@ ENGINES['saas-command'] = {
       const customerRows = (d.top_accounts || []).slice(0, 5).map(a => `<button onclick="switchPage('saas-customers')" class="w-full flex items-center justify-between gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0 text-left"><span class="font-semibold text-sm text-slate-700 dark:text-slate-200 truncate">${esc(a.name || 'Customer')}</span><span class="font-black text-sm text-slate-900 dark:text-white">${engMoney0(a.mrr)}/month</span></button>`).join('') || engEmpty('No paying customers yet.');
       body.innerHTML = `
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          ${engKpi('Monthly customer payments', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('Customers', (d.customers ?? ((d.active_customers || 0) + (d.trial_accounts || 0))).toLocaleString(), 'text-indigo-600 dark:text-indigo-400')}
+          ${engKpi('Monthly recurring revenue', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
+          ${engKpi('Active accounts', (d.customers ?? ((d.active_customers || 0) + (d.trial_accounts || 0))).toLocaleString(), 'text-indigo-600 dark:text-indigo-400')}
           ${engKpi('Trials', (d.trial_accounts || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
-          ${engKpi('New This Month', (d.new_this_month || 0).toLocaleString())}
+          ${engKpi('New accounts this month', (d.new_this_month || 0).toLocaleString())}
         </div>
+        ${engCard('Operate MarketSync', `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          ${[
+            ['Accounts', 'Customer records, trials and onboarding', 'building', "switchPage('saas-customers')"],
+            ['Leads', 'New interest and conversion work', 'funnel', "switchPage('saas-funnel')"],
+            ['Work', 'Owned follow-ups and due dates', 'check', "switchPage('saas-followups')"],
+            ['People', 'HQ staff, roles and access', 'users', "switchPage('saas-employees')"],
+            ['Communications', 'Email, SMS, templates and automations', 'chat', "switchPage('saas-automation')"],
+            ['Money', 'Revenue, billing and company spending', 'currency', "switchPage('saas-accounting')"],
+          ].map(([label, copy, icon, action]) => `<button onclick="${action}" class="ms-hq-launch"><span class="ms-hq-launch__icon">${svgIcon(icon, 'w-5 h-5')}</span><span><b>${label}</b><small>${copy}</small></span>${svgIcon('chevronRight', 'w-4 h-4 ms-hq-launch__chevron')}</button>`).join('')}
+        </div>`)}
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
           ${engCard('Needs attention', attention.join('<div class="h-2"></div>') || '<div class="py-8 text-center"><div class="font-black text-emerald-600 dark:text-emerald-400">Everything looks good</div><div class="text-xs text-slate-500 mt-1">Nothing urgent needs your attention.</div></div>')}
           ${engCard('Trials to contact', `<div class="space-y-1.5">${trialRows}</div><button onclick="switchPage('owner-users')" class="mt-3 w-full rounded-lg bg-blue-600 hover:bg-blue-500 px-3 py-2 text-sm font-black text-white">Review all trials</button>`)}
