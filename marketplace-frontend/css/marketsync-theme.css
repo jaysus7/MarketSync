@@ -3075,17 +3075,18 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
   #ms-studio-master-modal > .flex-shrink-0:first-child > div:nth-child(2) { height: auto !important; min-height: 54px; padding: 7px 10px !important; overflow-x: auto; }
   #ms-studio-master-modal > .flex-shrink-0:first-child > div:nth-child(2) > div:first-child { display: none; }
   #ms-studio-master-modal > .flex-shrink-0:first-child > div:nth-child(2) > div:last-child { width: 100%; overflow-x: auto; justify-content: flex-start; }
-  #ms-studio-master-modal > .flex-1 { display: block !important; position: relative; overflow: hidden !important; min-height: 0; }
-  #ms-studio-master-modal #studio-canvas-viewport { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; overflow: auto; padding: 16px; }
+  #ms-studio-master-modal > .flex-1 { display: flex !important; flex-direction: column; position: relative; overflow: hidden !important; min-height: 0; }
+  #ms-studio-master-modal > .flex-1 > .w-16 { display: flex !important; flex-direction: row; align-items: center; gap: 6px; width: 100%; height: 68px; min-height: 68px; padding: 6px 10px; overflow-x: auto; overflow-y: hidden; border-right: 0; border-bottom: 1px solid rgba(148,163,184,.2); order: 0; z-index: 30; background: rgba(15,23,42,.92); backdrop-filter: blur(18px) saturate(1.35); }
+  #ms-studio-master-modal > .flex-1 > .w-16 button { flex: 0 0 68px; width: 68px; height: 56px; min-height: 56px; white-space: nowrap; }
+  #ms-studio-master-modal #studio-canvas-viewport { position: relative; flex: 1 1 auto; width: 100%; height: auto; min-height: 0; overflow: auto; padding: 16px; order: 1; }
   #ms-studio-master-modal #studio-artboard-container { position: absolute; left: 50%; top: 50%; max-width: none; }
   #ms-studio-master-modal #studio-tool-panel,
-  #ms-studio-master-modal #studio-inspector-panel { position: absolute; top: 0; bottom: 0; width: min(86vw, 330px) !important; max-width: 330px; height: 100%; z-index: 50; box-shadow: 0 18px 45px rgba(0,0,0,.45); transition: transform .2s ease; }
+  #ms-studio-master-modal #studio-inspector-panel { position: absolute; top: 68px; bottom: 0; width: min(86vw, 330px) !important; max-width: 330px; height: auto; z-index: 50; box-shadow: 0 18px 45px rgba(0,0,0,.45); transition: transform .2s ease; }
   #ms-studio-master-modal #studio-tool-panel { left: 0; transform: translateX(-105%); }
   #ms-studio-master-modal #studio-inspector-panel { right: 0; transform: translateX(105%); }
   #ms-studio-master-modal #studio-tool-panel.ms-studio-mobile-open,
   #ms-studio-master-modal #studio-inspector-panel.ms-studio-mobile-open { transform: translateX(0); }
   #ms-studio-master-modal > footer { min-height: 72px; height: auto !important; padding: 8px 10px !important; flex-wrap: nowrap; overflow-x: auto; }
   #ms-studio-master-modal > footer .ml-auto { margin-left: 0 !important; }
-  #ms-studio-master-modal .w-16 { display: none; }
   #ms-studio-master-modal .w-60 { width: min(86vw, 330px) !important; }
 }
