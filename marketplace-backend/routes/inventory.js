@@ -341,6 +341,15 @@ export function registerRoutes(app) {
     if (error) return res.status(500).json({ error: error.message })
     res.json({ ok: true })
   })
+  app.patch('/dealership/site-media/:id', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const altText = String(req.body?.alt_text || '').trim().slice(0, 180)
+    const { data, error } = await supabaseAdmin.from('dealer_website_media').update({ alt_text: altText || null, updated_at: new Date().toISOString() })
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).select('id, alt_text, updated_at').maybeSingle()
+    if (error) return res.status(500).json({ error: error.message })
+    if (!data) return res.status(404).json({ error: 'Media not found' })
+    res.json({ media: data })
+  })
 
   // GET /inventory/:id/carfax — resolve the Carfax report link for a vehicle by
   // scraping the badge off its source listing page (cached after first hit).
