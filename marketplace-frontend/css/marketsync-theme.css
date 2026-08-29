@@ -3063,6 +3063,14 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
  * artboard into an unusable sliver. */
 .studio-mobile-panel-button { display: none; }
 .ms-studio-grid-on::before { content:""; position:absolute; inset:0; pointer-events:none; z-index:19; background-image:linear-gradient(rgba(96,165,250,.16) 1px, transparent 1px),linear-gradient(90deg, rgba(96,165,250,.16) 1px, transparent 1px); background-size:40px 40px; }
+#ms-studio-master-modal [class*="bg-blue-500"],
+#ms-studio-master-modal [class*="bg-blue-600"],
+#ms-studio-master-modal [class*="bg-indigo-500"],
+#ms-studio-master-modal [class*="bg-indigo-600"],
+#ms-studio-master-modal [class*="bg-sky-600"] { color: #fff !important; }
+#ms-studio-master-modal button[class*="bg-blue-"],
+#ms-studio-master-modal button[class*="bg-indigo-"],
+#ms-studio-master-modal button[class*="bg-sky-"] { text-shadow: 0 1px 1px rgba(0,0,0,.18); }
 @media (max-width: 768px) {
   #ms-studio-master-modal { overflow: hidden !important; }
   #ms-studio-master-modal > .flex-shrink-0:first-child { min-height: 0; }
