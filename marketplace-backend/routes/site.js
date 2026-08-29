@@ -719,10 +719,24 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       const { data: current, error: readError } = await supabaseAdmin.from('website_change_sets').select('id, status, site_id').eq('id', req.params.id).eq('site_id', req.dealershipId).single()
       if (readError || !current) return res.status(404).json({ error: 'Change set not found.' })
       if (current.status !== 'review') return res.status(409).json({ error: `Only change sets in review can be approved (current status: ${current.status}).` })
-      const { data: changeSet, error } = await supabaseAdmin.from('website_change_sets').update({ status: 'approved', approved_by: req.user?.id, updated_at: new Date().toISOString() }).eq('id', current.id).select('id, site_id, name, description, version_tag, status, created_by, approved_by, created_at, updated_at').single()
+      // Make approval a compare-and-set operation. If two administrators act
+      // at once, only the first request can transition review → approved.
+      const { data: changeSet, error } = await supabaseAdmin.from('website_change_sets').update({ status: 'approved', approved_by: req.user?.id, updated_at: new Date().toISOString() }).eq('id', current.id).eq('site_id', req.dealershipId).eq('status', 'review').is('approved_by', null).select('id, site_id, name, description, version_tag, status, created_by, approved_by, created_at, updated_at').maybeSingle()
       if (error) throw error
+      if (!changeSet) return res.status(409).json({ error: 'This change set was already approved or changed by another reviewer.' })
       audit(req, 'site.change_set_approved', { after_state: { change_set_id: changeSet.id } })
       res.json({ change_set: changeSet })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.get('/dealership/site/audit-log', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    try {
+      const { data, error } = await supabaseAdmin.from('audit_log')
+        .select('id, action, actor_id, actor_email, created_at, meta')
+        .eq('dealership_id', req.dealershipId).like('action', 'site.%')
+        .order('created_at', { ascending: false }).limit(100)
+      if (error) throw error
+      res.json({ events: data || [] })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
