@@ -1153,7 +1153,10 @@ ENGINES['marketing-overview'] = {
                 label: `${c.lead_type || 'Conversation'}${c.channel ? ' · ' + c.channel : ''}`,
                 sub: [mktLabel(c.status), c.last_message_at ? String(c.last_message_at).slice(0, 16).replace('T', ' ') : '', c.lead_score != null ? 'score ' + c.lead_score : ''].filter(Boolean).join(' · '),
                 actionLabel: c.status === 'waiting_dealer' ? 'Reply' : 'View',
-                onclick: "engineTab('marketing-overview','chatbot')",
+                // Open the actual thread from every categorized card. Routing to
+                // the already-active chatbot tab made the View button appear to
+                // do nothing, especially from the Open / With a person cards.
+                onclick: c.id ? `aiOpenConversation('${esc(c.id)}')` : "engineTab('marketing-overview','chatbot')",
               })
             : mktRow({ title: c.lead_type || 'Conversation', sub: mktLabel(c.status) }))).join('')
         : '<div class="text-sm text-slate-400 py-4">None right now.</div>';
