@@ -59,6 +59,21 @@ async function responsiveImageVariants(buffer) {
   return variants
 }
 
+async function uploadResponsiveRenditions(buffer, stem) {
+  const variantUrls = {}
+  const variants = await responsiveImageVariants(buffer)
+  for (const [width, formats] of Object.entries(variants)) {
+    variantUrls[width] = {}
+    for (const [format, bytes] of Object.entries(formats)) {
+      const variantPath = `${stem}-${width}.${format}`
+      const { error } = await supabaseAdmin.storage.from('vehicle-photos').upload(variantPath, bytes, { contentType: `image/${format}`, upsert: false })
+      if (error) throw error
+      variantUrls[width][format] = supabaseAdmin.storage.from('vehicle-photos').getPublicUrl(variantPath).data.publicUrl
+    }
+  }
+  return variantUrls
+}
+
 // AI background swap: cut the vehicle out and drop it on the dealer's branded
 // background in one call (remove.bg). Returns a composited buffer, or null if the
 // feature isn't configured / the call fails (caller then keeps the original).
@@ -319,19 +334,9 @@ export function registerRoutes(app) {
     const { error: upErr } = await supabaseAdmin.storage.from('vehicle-photos').upload(path, webp, { contentType: 'image/webp', upsert: false })
     if (upErr) return res.status(500).json({ error: upErr.message })
     const { data: { publicUrl } } = supabaseAdmin.storage.from('vehicle-photos').getPublicUrl(path)
-    const variantUrls = {}
+    let variantUrls = {}
     try {
-      const variants = await responsiveImageVariants(req.file.buffer)
-      const stem = path.slice(0, -'.webp'.length)
-      for (const [width, formats] of Object.entries(variants)) {
-        variantUrls[width] = {}
-        for (const [format, bytes] of Object.entries(formats)) {
-          const variantPath = `${stem}-${width}.${format}`
-          const { error } = await supabaseAdmin.storage.from('vehicle-photos').upload(variantPath, bytes, { contentType: `image/${format}`, upsert: false })
-          if (error) throw error
-          variantUrls[width][format] = supabaseAdmin.storage.from('vehicle-photos').getPublicUrl(variantPath).data.publicUrl
-        }
-      }
+      variantUrls = await uploadResponsiveRenditions(req.file.buffer, path.slice(0, -'.webp'.length))
     } catch (e) {
       console.warn('[site-image] responsive variants unavailable:', e.message)
     }
@@ -353,6 +358,36 @@ export function registerRoutes(app) {
       created_by: req.user?.id || null,
     }).catch(() => {})
     res.json({ ok: true, url: publicUrl, folder, optimized_variants: variantUrls })
+  })
+
+  // Replace an item in place so section references, folder, alt text, and the
+  // media-library identity remain stable while the bytes are optimized again.
+  app.post('/dealership/site-media/:id/replace', requireAuth, requireMfa, requirePermission('site.manage'), photoUpload.single('image'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!req.file) return res.status(400).json({ error: 'No image uploaded' })
+    const { data: current, error: readError } = await supabaseAdmin.from('dealer_website_media').select('id, storage_path')
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (readError) return res.status(500).json({ error: readError.message })
+    if (!current) return res.status(404).json({ error: 'Media not found' })
+    let webp
+    try { webp = await toWebp(req.file.buffer, { max: 2200, quality: 85 }) } catch (e) { return res.status(500).json({ error: 'Could not process image: ' + e.message }) }
+    const path = `${req.dealershipId}/_site/img-${Date.now()}-${randomBytes(6).toString("hex")}.webp`
+    const { error: uploadError } = await supabaseAdmin.storage.from('vehicle-photos').upload(path, webp, { contentType: 'image/webp', upsert: false })
+    if (uploadError) return res.status(500).json({ error: uploadError.message })
+    let optimizedVariants = {}
+    try { optimizedVariants = await uploadResponsiveRenditions(req.file.buffer, path.slice(0, -'.webp'.length)) }
+    catch (e) { console.warn('[site-media] replacement variants unavailable:', e.message) }
+    const metadata = await sharp(webp).metadata().catch(() => ({}))
+    const publicUrl = supabaseAdmin.storage.from('vehicle-photos').getPublicUrl(path).data.publicUrl
+    const { data: media, error: updateError } = await supabaseAdmin.from('dealer_website_media').update({
+      filename: req.file.originalname || 'website-image.webp', storage_path: path, public_url: publicUrl,
+      mime_type: 'image/webp', file_size_bytes: webp.length, width: metadata.width || null,
+      height: metadata.height || null, optimized_variants: optimizedVariants, updated_at: new Date().toISOString(),
+    }).eq('id', current.id).eq('dealership_id', req.dealershipId).select('*').maybeSingle()
+    if (updateError) return res.status(500).json({ error: updateError.message })
+    if (!media) return res.status(404).json({ error: 'Media not found' })
+    await supabaseAdmin.storage.from('vehicle-photos').remove([current.storage_path]).catch(() => {})
+    res.json({ ok: true, media })
   })
 
   // Private dealership-scoped media index used by the Website Builder library.
