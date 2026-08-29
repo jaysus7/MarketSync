@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware.js'
 import { getCurrentAccessContext, hasProductAccess, hasFeature } from '../access.js'
 import { runComprehensiveDiscoverabilityAudit } from '../services/discoverabilityMonitoringService.js'
 import { crawlSite, crawlUrl, assertSafeUrl, createPersistedCrawlRun, getLatestPersistedCrawl, getPersistedCrawlPages, getPersistedCrawlFindings } from '../services/discoverabilityCrawlerService.js'
+import { buildCanonicalFactObject, normalizeBenchmarkEvidence, calculateGeoMetrics, generateGeoQueries } from '../services/aeoGeoTruthService.js'
 import {
   generateRecommendationsFromAudit,
   canAutoApplyRecommendation,
@@ -116,6 +117,35 @@ export default function registerDiscoverabilityRoutes(app) {
       success: true,
       geo: audit?.pillars?.geo || {}
     })
+  })
+
+  app.get('/discoverability/aeo/facts', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    const [{ data: dealer }, { data: inventory }] = await Promise.all([
+      supabaseAdmin.from('dealerships').select('*').eq('id', req.dealershipId).maybeSingle(),
+      supabaseAdmin.from('inventory').select('id, vin, year, make, model, trim, status, price, updated_at').eq('dealership_id', req.dealershipId).limit(500)
+    ])
+    const facts = buildCanonicalFactObject(dealer || {}, inventory || [])
+    res.json({ success: true, facts, querySet: generateGeoQueries(facts) })
+  })
+
+  app.post('/discoverability/geo/benchmark/evidence', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    const records = Array.isArray(req.body?.records) ? req.body.records : []
+    let normalized
+    try { normalized = records.map(normalizeBenchmarkEvidence) } catch (error) { return res.status(400).json({ error: error.message }) }
+    const metrics = calculateGeoMetrics(normalized)
+    let persistence = { status: 'not_requested', runId: null }
+    if (normalized.length) {
+      try {
+        const { data: run, error: runError } = await supabaseAdmin.from('discoverability_ai_benchmark_runs').insert({ dealership_id: req.dealershipId, query_set_version: req.body?.querySetVersion || 'canonical-facts-v1', evidence_type: normalized[0].evidenceType, locale: normalized[0].locale }).select('id').maybeSingle()
+        if (runError) throw runError
+        const { error } = await supabaseAdmin.from('discoverability_ai_benchmark_evidence').insert(normalized.map(record => ({ run_id: run?.id, query: record.query, engine: record.engine, model: record.model, dealership_mentioned: record.dealershipMentioned, dealership_cited: record.dealershipCited, cited_urls: record.citedUrls, response_excerpt_hash: record.responseExcerptHash, competitors_mentioned: record.competitorsMentioned, factual_accuracy: record.factualAccuracy, evidence_type: record.evidenceType, measured_at: record.timestamp, evidence: record.evidence || {} })))
+        if (error) throw error
+        persistence = { status: 'persisted', runId: run?.id || null }
+      } catch (error) { persistence = { status: 'unavailable', error: error.message, runId: null } }
+    }
+    res.json({ success: true, metrics, records: normalized, persistence })
   })
 
   // ── 4. Synthetic AI Model Benchmark Runner ──────────────────────────────────
