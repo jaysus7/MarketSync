@@ -714,7 +714,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
-  app.post('/dealership/site/change-sets/:id/approve', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+  app.post('/dealership/site/change-sets/:id/approve', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.approve'), async (req, res) => {
     if (!canGovernWebsite(req)) return res.status(403).json({ error: 'Only dealership owners or administrators can approve website changes.' })
     try {
       const { data: current, error: readError } = await supabaseAdmin.from('website_change_sets').select('id, status, site_id, created_by').eq('id', req.params.id).eq('site_id', req.dealershipId).single()
