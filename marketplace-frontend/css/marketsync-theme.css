@@ -1229,6 +1229,17 @@ body.website-builder-mode {
   box-shadow: 0 4px 12px 0 rgba(79, 70, 229, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.2) !important;
 }
 
+/* Compact hero actions: horizontal breathing room without the oversized
+   vertical block caused by inherited hero/button sizing rules. */
+.website-open-builder-btn {
+  padding: .5rem 1.25rem !important;
+  min-height: 0 !important;
+  height: auto !important;
+  line-height: 1.25rem !important;
+  font-size: .75rem !important;
+  white-space: nowrap !important;
+}
+
 .liquid-glass-btn-secondary,
 .btn-liquid-glass-secondary {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(241, 245, 249, 0.6) 100%) !important;
