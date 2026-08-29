@@ -624,7 +624,8 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     try {
       const { data, error } = await supabaseAdmin.from('dealer_website_revisions').select('id, revision_number, state, change_summary, created_by, created_at, published_at').eq('dealership_id', req.dealershipId).order('revision_number', { ascending: false }).limit(80)
       if (error) throw error
-      res.json({ revisions: data || [] })
+      const { data: deployments } = await supabaseAdmin.from('website_deployments').select('id, status, trigger_type, published_summary, deployed_at, verified_at, verified_status, created_at').eq('site_id', req.dealershipId).order('created_at', { ascending: false }).limit(20)
+      res.json({ revisions: data || [], deployments: deployments || [] })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
@@ -751,6 +752,22 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     if (!Object.keys(update).length) return res.json({ ok: true, revision: revisionInfo })
     const { error } = await supabaseAdmin.from('dealerships').update(update).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
+    if (builderAction === 'publish' && revisionInfo) {
+      // Dealer websites are rendered from the published Supabase projection, so
+      // this deployment is synchronous. Keep an auditable deployment record in
+      // the shared deployment table used by HQ rather than inventing a second
+      // history system for dealer sites.
+      await supabaseAdmin.from('website_deployments').insert({
+        site_id: req.dealershipId,
+        trigger_type: 'publish',
+        status: 'verified',
+        published_summary: { revision_id: revisionInfo.id, revision_number: revisionInfo.number, change_summary: rawBody.change_summary || 'Published website builder changes' },
+        deployed_at: new Date().toISOString(),
+        verified_at: new Date().toISOString(),
+        verified_status: 'Database-backed public site state confirmed',
+        created_by: req.user?.id,
+      })
+    }
     audit(req, 'site.configuration_updated', { after_state: { fields: Object.keys(update), site_published: update.site_published, site_slug: update.site_slug, custom_domain: update.custom_domain } })
     res.json({ ok: true, site_slug: update.site_slug, site_published: update.site_published, custom_domain: update.custom_domain, domain_target: SITE_HOST, revision: revisionInfo })
   })
