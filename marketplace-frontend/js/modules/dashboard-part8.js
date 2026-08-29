@@ -542,11 +542,32 @@ async function loadSocialConnectionsCard() {
 }
 async function connectSocialProvider(provider, btn) {
   const old = btn.textContent; btn.disabled = true; btn.textContent = 'Opening…';
-  try { const d = await apiGetJson(`/social/connect/${provider}`, { retries: 1 }); if (!d.url) throw new Error('Provider is not configured yet.'); window.location.href = d.url; }
-  catch (e) { btn.disabled = false; btn.textContent = old; showToast(e.message || 'Could not start connection', 'error'); }
+  try { const d = await apiGetJson(`/social/connect/${encodeURIComponent(provider)}?ownership=user&return_to=integrations`, { retries: 0 }); if (!d.url) throw new Error('Provider is not configured yet.'); window.location.href = d.url; }
+  catch (e) { btn.disabled = false; btn.textContent = old; showToast(e.message === 'MFA_REQUIRED' ? 'Complete multi-factor authentication before connecting a social account.' : (e.message || 'Could not start connection'), 'error', 7000); }
 }
-async function selectSocialConnection(sessionId, accountId) {
-  try { await apiSendJson(`/social/oauth/sessions/${encodeURIComponent(sessionId)}/select`, 'POST', { external_account_id: accountId }); showToast('Social account connected', 'success'); loadIntegrations(); }
+function showSocialAccountChooser(provider, choices, sessionId, returnTo = 'integrations') {
+  document.getElementById('ms-social-account-chooser')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'ms-social-account-chooser';
+  overlay.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4';
+  overlay.innerHTML = `<div class="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+    <div class="flex items-start justify-between gap-4"><div><div class="text-lg font-black text-white">Choose your ${esc(provider)} account</div><div class="mt-1 text-sm text-slate-400">Select where MarketSync should publish.</div></div><button type="button" data-close class="text-2xl leading-none text-slate-400 hover:text-white">×</button></div>
+    <div class="mt-4 grid gap-2">${choices.map((c, i) => `<button type="button" data-choice="${i}" class="flex w-full items-center justify-between rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-left hover:border-indigo-400 hover:bg-indigo-500/10"><span><span class="block font-bold text-white">${esc(c.display_name || 'Account')}</span><span class="block text-xs text-slate-400">${esc(c.handle || c.account_kind || 'Authorized account')}</span></span><span class="text-sm font-bold text-indigo-300">Use account →</span></button>`).join('')}</div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('[data-close]').onclick = () => overlay.remove();
+  overlay.querySelectorAll('[data-choice]').forEach(btn => { btn.onclick = async () => { overlay.remove(); await selectSocialConnection(sessionId, choices[Number(btn.dataset.choice)].external_account_id, returnTo); }; });
+}
+window.showSocialAccountChooser = showSocialAccountChooser;
+async function selectSocialConnection(sessionId, accountId, returnTo = 'integrations') {
+  try {
+    await apiSendJson(`/social/oauth/sessions/${encodeURIComponent(sessionId)}/select`, 'POST', { external_account_id: accountId });
+    showToast('Social account connected — ready to post.', 'success');
+    if (returnTo === 'social-scheduler' && typeof switchPage === 'function') {
+      switchPage('social-scheduler');
+      setTimeout(() => { if (typeof loadStudioSchedulerPosts === 'function') loadStudioSchedulerPosts(); }, 250);
+    } else loadIntegrations();
+  }
   catch (e) { showToast(e.message || 'Could not finish connection', 'error'); }
 }
 window.connectSocialProvider = connectSocialProvider;

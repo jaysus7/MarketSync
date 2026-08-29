@@ -414,12 +414,13 @@ window.toast = showToast;
         try {
           const session = await apiGetJson(`/social/oauth/sessions/${encodeURIComponent(q.get('session'))}`)
           const choices = session?.session?.candidates || []
-          const picked = choices.length === 1 ? choices[0].external_account_id : window.prompt(`Choose a ${session.session.provider} account:\n${choices.map((c, i) => `${i + 1}. ${c.display_name}`).join('\n')}\nEnter a number`)
-          const accountId = choices.length === 1 ? picked : choices[Number(picked) - 1]?.external_account_id
-          if (accountId && typeof selectSocialConnection === 'function') await selectSocialConnection(q.get('session'), accountId)
+          const returnTo = q.get('return_to') === 'social-scheduler' ? 'social-scheduler' : 'integrations'
+          if (choices.length === 1 && typeof selectSocialConnection === 'function') await selectSocialConnection(q.get('session'), choices[0].external_account_id, returnTo)
+          else if (choices.length && typeof showSocialAccountChooser === 'function') showSocialAccountChooser(session.session.provider, choices, q.get('session'), returnTo)
+          else showToast('No eligible account was found for this sign-in.', 'error', 7000)
         } catch (e) { showToast(e.message || 'Could not load social account choices', 'error') }
       })
-      q.delete('social'); q.delete('provider'); q.delete('session')
+      q.delete('social'); q.delete('provider'); q.delete('session'); q.delete('return_to')
       history.replaceState(null, '', window.location.pathname + (q.toString() ? '?' + q.toString() : ''))
     } catch { }
   })()

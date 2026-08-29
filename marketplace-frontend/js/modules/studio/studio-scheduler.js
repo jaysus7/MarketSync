@@ -1580,7 +1580,7 @@ async function studioSocialConnectionsRender() {
                 <div class="text-xs text-slate-500 dark:text-slate-400 truncate">${esc(cfg.subtitle)}</div>
               </div>
             </div>
-            <button type="button" onclick="studioSocialConnectPlatform('${p}')" class="text-xs font-bold px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition shrink-0 cursor-pointer">Connect ${esc(cfg.name)}</button>
+          <button type="button" onclick="studioSocialConnectPlatform('${p}')" class="text-xs font-bold px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition shrink-0 cursor-pointer">Sign in &amp; connect</button>
           </div>`;
       }
     }).join('');
@@ -1644,8 +1644,11 @@ window.studioSocialConnectForm = studioSocialConnectForm;
 
 async function studioSocialConnectPlatform(provider) {
   const cfg = STUDIO_SOCIAL_PLATFORMS[provider] || { name: provider };
+  if (window.__studioSocialOauthInFlight) return;
+  window.__studioSocialOauthInFlight = true;
   try {
-    const oauthRes = await apiGetJson(`/social/connect/${encodeURIComponent(provider)}?ownership=dealership`);
+    showToast(`Opening ${cfg.name} sign-in…`, 'info');
+    const oauthRes = await apiGetJson(`/social/connect/${encodeURIComponent(provider)}?ownership=user&return_to=social-scheduler`, { retries: 0 });
     if (oauthRes?.url) {
       window.location.href = oauthRes.url;
       return;
@@ -1655,7 +1658,9 @@ async function studioSocialConnectPlatform(provider) {
       return;
     }
   } catch (e) {
-    showToast(e.message || `${cfg.name} integration setup required.`, 'error');
+    showToast(e?.message === 'MFA_REQUIRED' ? 'Complete multi-factor authentication before connecting a social account.' : (e.message || `${cfg.name} integration setup required.`), 'error', 7000);
+  } finally {
+    window.__studioSocialOauthInFlight = false;
   }
 }
 window.studioSocialConnectPlatform = studioSocialConnectPlatform;
