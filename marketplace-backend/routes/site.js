@@ -892,6 +892,34 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
+  // Re-check a completed dealer deployment without publishing again. The live
+  // site is database-backed today, so verification compares the deployment's
+  // recorded revision with the current published projection and site state.
+  // Keeping this as a separate operation makes post-publish/cache checks safe
+  // to retry and gives the UI an honest failure state.
+  app.post('/dealership/site/deployments/:id/verify', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    try {
+      const { data: deployment, error: deploymentError } = await supabaseAdmin.from('website_deployments')
+        .select('id, site_id, status, published_summary, deployed_at, verified_at, verified_status')
+        .eq('id', req.params.id).eq('site_id', req.dealershipId).single()
+      if (deploymentError || !deployment) return res.status(404).json({ error: 'Deployment not found' })
+      const { data: site, error: siteError } = await supabaseAdmin.from('dealerships').select('site_published, site_slug').eq('id', req.dealershipId).single()
+      if (siteError) throw siteError
+      const live = await latestDealerWebsiteRevision(req.dealershipId, 'published')
+      const expectedRevisionId = String(deployment.published_summary?.revision_id || '')
+      const verified = !!site?.site_published && !!live?.id && (!expectedRevisionId || expectedRevisionId === String(live.id))
+      const verifiedStatus = verified
+        ? `Database-backed production projection confirmed at revision ${live.revision_number}`
+        : 'Production projection does not match the deployment revision'
+      const { data: updated, error: updateError } = await supabaseAdmin.from('website_deployments').update({
+        status: verified ? 'verified' : 'failed', verified_at: new Date().toISOString(), verified_status: verifiedStatus, updated_at: new Date().toISOString(),
+      }).eq('id', deployment.id).eq('site_id', req.dealershipId).select('id, status, trigger_type, published_summary, deployed_at, verified_at, verified_status').single()
+      if (updateError) throw updateError
+      audit(req, verified ? 'site.deployment_verified' : 'site.deployment_verification_failed', { after_state: { deployment_id: deployment.id, revision_id: live?.id || null, expected_revision_id: expectedRevisionId || null, verified } })
+      res.status(verified ? 200 : 409).json({ verified, deployment: updated, site: { site_published: !!site?.site_published, site_slug: site?.site_slug || null }, live_revision: live ? { id: live.id, number: live.revision_number } : null })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
   // ── ADMIN: update slug / publish / site content ────────────────────────────
   app.put('/dealership/site', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
