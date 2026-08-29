@@ -116,6 +116,17 @@ function canGovernWebsite(req) {
   const role = req.profile?.role || req.user?.user_metadata?.role
   return ['OWNER', 'DEALER_ADMIN'].includes(role) || ['dealer_owner', 'dealer_admin', 'platform_owner', 'platform_admin'].includes(req.profile?.account_role || req.profile?.system_role)
 }
+function canGovernGroupWebsite(req) {
+  const role = req.profile?.role || req.user?.user_metadata?.role
+  return role === 'DEALER_GROUP' || ['dealer_group_owner', 'platform_owner', 'platform_admin'].includes(req.profile?.account_role || req.profile?.system_role)
+}
+async function groupWebsiteGovernance(groupId) {
+  if (!groupId) return { group_id: null, locked_fields: [], approval_required: false }
+  const { data, error } = await supabaseAdmin.from('dealer_groups').select('id, website_governance').eq('id', groupId).maybeSingle()
+  if (error || !data) return { group_id: groupId, locked_fields: [], approval_required: false }
+  const policy = data.website_governance && typeof data.website_governance === 'object' ? data.website_governance : {}
+  return { group_id: data.id, locked_fields: Array.isArray(policy.locked_fields) ? policy.locked_fields.filter(k => SITE_LOCKABLE_FIELDS.includes(k)) : [], approval_required: policy.approval_required === true }
+}
 
 // Builder persistence is revision-first. The branding JSON remains the published
 // compatibility projection for the existing renderer, while draft edits live here
@@ -644,9 +655,11 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
 
   app.get('/dealership/site/governance', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const { data, error } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
+    const { data, error } = await supabaseAdmin.from('dealerships').select('branding, group_id').eq('id', req.dealershipId).single()
     if (error) return res.status(500).json({ error: error.message })
-    res.json({ locked_fields: Array.isArray(data?.branding?.site_locked_fields) ? data.branding.site_locked_fields.filter(k => SITE_LOCKABLE_FIELDS.includes(k)) : [], approval_required: data?.branding?.site_approval_required === true, can_manage: canGovernWebsite(req) })
+    const groupPolicy = await groupWebsiteGovernance(data?.group_id)
+    const localLocks = Array.isArray(data?.branding?.site_locked_fields) ? data.branding.site_locked_fields.filter(k => SITE_LOCKABLE_FIELDS.includes(k)) : []
+    res.json({ locked_fields: [...new Set([...groupPolicy.locked_fields, ...localLocks])], local_locked_fields: localLocks, inherited_locked_fields: groupPolicy.locked_fields, approval_required: data?.branding?.site_approval_required === true || groupPolicy.approval_required, inherited_approval_required: groupPolicy.approval_required, group_id: groupPolicy.group_id, can_manage: canGovernWebsite(req), can_manage_group: canGovernGroupWebsite(req) })
   })
   app.patch('/dealership/site/governance', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
@@ -659,6 +672,27 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     if (error) return res.status(500).json({ error: error.message })
     audit(req, 'site.governance_updated', { after_state: { locked_fields: lockedFields } })
     res.json({ ok: true, locked_fields: lockedFields, approval_required: branding.site_approval_required === true })
+  })
+
+  app.get('/dealership/site/group-governance', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: dealer, error } = await supabaseAdmin.from('dealerships').select('group_id').eq('id', req.dealershipId).single()
+    if (error) return res.status(500).json({ error: error.message })
+    const policy = await groupWebsiteGovernance(dealer?.group_id)
+    res.json({ ...policy, can_manage: canGovernGroupWebsite(req) })
+  })
+
+  app.patch('/dealership/site/group-governance', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!canGovernGroupWebsite(req)) return res.status(403).json({ error: 'Only dealer-group owners or platform administrators can manage inherited website controls.' })
+    const { data: dealer, error: dealerError } = await supabaseAdmin.from('dealerships').select('group_id').eq('id', req.dealershipId).single()
+    if (dealerError || !dealer?.group_id) return res.status(409).json({ error: 'This dealership is not attached to a dealer group.' })
+    const lockedFields = Array.isArray(req.body?.locked_fields) ? [...new Set(req.body.locked_fields.filter(k => SITE_LOCKABLE_FIELDS.includes(k)))] : []
+    const policy = { locked_fields: lockedFields, approval_required: req.body?.approval_required === true }
+    const { error } = await supabaseAdmin.from('dealer_groups').update({ website_governance: policy }).eq('id', dealer.group_id)
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'site.group_governance_updated', { after_state: { group_id: dealer.group_id, ...policy } })
+    res.json({ ok: true, group_id: dealer.group_id, ...policy })
   })
 
   app.get('/dealership/site/revisions', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
@@ -785,7 +819,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     const rawBody = req.body || {}
     const b = { ...(rawBody.content && typeof rawBody.content === 'object' ? rawBody.content : {}), ...rawBody }
     const update = {}
-    const { data: currentSite } = await supabaseAdmin.from('dealerships').select('name, branding, site_slug, site_published, city, province, postal_code, website_url').eq('id', req.dealershipId).maybeSingle()
+    const { data: currentSite } = await supabaseAdmin.from('dealerships').select('name, branding, group_id, site_slug, site_published, city, province, postal_code, website_url').eq('id', req.dealershipId).maybeSingle()
     const builderAction = ['draft', 'publish'].includes(rawBody.builder_action) ? rawBody.builder_action : null
     let revisionSaved = false
     let revisionInfo = null
@@ -793,12 +827,13 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     // Apply brand governance to every site write, including the legacy Settings
     // form. Previously only visual-builder writes were checked, which allowed a
     // settings request without builder_action to bypass an administrator lock.
-    const lockedFields = Array.isArray(currentSite?.branding?.site_locked_fields) ? currentSite.branding.site_locked_fields : []
+    const groupPolicy = await groupWebsiteGovernance(currentSite?.group_id)
+    const lockedFields = [...new Set([...(Array.isArray(currentSite?.branding?.site_locked_fields) ? currentSite.branding.site_locked_fields : []), ...groupPolicy.locked_fields])]
     if (lockedFields.length && !canGovernWebsite(req)) {
       const attempted = lockedFields.filter(key => rawBody[key] !== undefined || (rawBody.content && rawBody.content[key] !== undefined))
       if (attempted.length) return res.status(403).json({ error: `Locked brand fields cannot be changed by this role: ${attempted.join(', ')}`, code: 'WEBSITE_BRAND_FIELD_LOCKED', fields: attempted })
     }
-    if (builderAction === 'publish' && currentSite?.branding?.site_approval_required === true) {
+    if (builderAction === 'publish' && (currentSite?.branding?.site_approval_required === true || groupPolicy.approval_required)) {
       const baseRevisionId = rawBody.base_revision_id ? String(rawBody.base_revision_id).slice(0, 80) : ''
       if (!baseRevisionId) return res.status(409).json({ error: 'This website requires approval. Save a draft and request approval before publishing.', code: 'WEBSITE_APPROVAL_REQUIRED' })
       const { data: items, error: itemError } = await supabaseAdmin.from('website_change_set_items').select('change_set_id').eq('item_id', baseRevisionId).limit(20)
