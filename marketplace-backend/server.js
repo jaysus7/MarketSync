@@ -93,6 +93,7 @@ import { registerHR } from './routes/hr.js'
 import { registerStaffChat } from './routes/staff-chat.js'
 import { registerHqAgentsRoutes } from './routes/hq-agents.js'
 import { registerHqCrm } from './routes/hq-crm.js'
+import { registerHqFinance } from './routes/hq-finance.js'
 
 const app = express()
 const PORT = process.env.PORT || 10000
@@ -234,6 +235,7 @@ registerHR(app)
 registerStaffChat(app)
 registerHqAgentsRoutes(app)
 registerHqCrm(app)
+registerHqFinance(app)
 registerSeoRoutes(app)
 registerDiscoverabilityRoutes(app)
 registerWebhookRoutes(app)
