@@ -329,6 +329,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
         <button onclick="setStudioTool('videos')" id="tool-btn-videos" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-base">▶</span>Videos</button>
         <button onclick="setStudioTool('record')" id="tool-btn-record" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition ${window.__studioActiveTool==='record'?'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50':''}"><span class="text-base">●</span>Record</button>
         <button onclick="setStudioTool('uploads')" id="tool-btn-uploads" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-base">↑</span>Uploads</button>
+        <button onclick="setStudioTool('media')" id="tool-btn-media" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-base mb-0.5">▧</span>Media</button>
         <button onclick="setStudioTool('shapes')" id="tool-btn-shapes" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/></svg>Shapes
         </button>
@@ -600,6 +601,9 @@ function renderStudioTemplateCards(filter = 'all') {
 }
 
 function renderStudioToolPanelContent(tool) {
+  if (tool === 'media') {
+    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Media library</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Reusable dealership images and videos. Select an asset to place it on the artboard.</p></div><input id="studio-media-query" oninput="filterStudioMediaLibrary(this.value)" placeholder="Search your media…" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white"><div id="studio-media-library" class="grid grid-cols-2 gap-2"><div class="col-span-2 p-5 text-center text-xs text-slate-500">Loading media…</div></div></div>`;
+  }
   if (tool === 'layers') {
     const objects = window.__studioAdapter?.fabricCanvas?.getObjects?.() || [];
     const rows = objects.slice().reverse().map((object, reversedIndex) => {
@@ -737,6 +741,7 @@ function renderStudioInspectorHtml(selected) {
     <h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-3">Property Inspector</h3>
     <div class="space-y-3">
       <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3">
+        <div class="grid grid-cols-2 gap-2"><label class="text-[10px] font-bold text-slate-500">X<input type="number" value="${Math.round(object?.left || 0)}" onchange="studioSetObjectGeometry('left', this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label><label class="text-[10px] font-bold text-slate-500">Y<input type="number" value="${Math.round(object?.top || 0)}" onchange="studioSetObjectGeometry('top', this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label><label class="text-[10px] font-bold text-slate-500">Width<input type="number" value="${Math.round(object?.getScaledWidth?.() || object?.width || 0)}" onchange="studioSetObjectGeometry('width', this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label><label class="text-[10px] font-bold text-slate-500">Height<input type="number" value="${Math.round(object?.getScaledHeight?.() || object?.height || 0)}" onchange="studioSetObjectGeometry('height', this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label></div>
         <div><label class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Colour</label><input type="color" value="${color}" onchange="studioSetObjectStyle('color', this.value)" class="mt-1 w-full h-9 rounded-lg bg-transparent cursor-pointer"></div>
         <div><div class="flex justify-between"><label class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Transparency</label><span id="studio-opacity-value" class="text-[11px] text-sky-400">${100-opacity}%</span></div><input type="range" min="0" max="100" value="${opacity}" oninput="document.getElementById('studio-opacity-value').textContent=(100-Number(this.value))+'%'" onchange="studioSetObjectStyle('opacity', Number(this.value)/100)" class="w-full accent-blue-500"></div>
       </div>
@@ -857,8 +862,40 @@ function setStudioTool(tool) {
   if (tool === 'photos') setTimeout(() => searchStudioLibrary('car dealership'), 0);
   if (tool === 'videos') setTimeout(() => searchStudioVideos('car dealership'), 0);
   if (tool === 'uploads') setTimeout(loadStudioUploadedVideos, 0);
+  if (tool === 'media') setTimeout(loadStudioMediaLibrary, 0);
   if (tool === 'text') setTimeout(loadStudioGoogleFonts, 0);
 }
+
+let __studioMediaAssets = [];
+async function loadStudioMediaLibrary() {
+  const target = document.getElementById('studio-media-library'); if (!target) return;
+  try {
+    const data = await apiGetJson('/marketing/assets');
+    __studioMediaAssets = data?.assets || [];
+    filterStudioMediaLibrary(document.getElementById('studio-media-query')?.value || '');
+  } catch (_) { target.innerHTML = '<div class="col-span-2 p-4 text-center text-xs text-rose-400">Media library unavailable.</div>'; }
+}
+function filterStudioMediaLibrary(query = '') {
+  const target = document.getElementById('studio-media-library'); if (!target) return;
+  const q = String(query).toLowerCase();
+  const assets = __studioMediaAssets.filter(asset => `${asset.title || ''} ${asset.alt_text || ''}`.toLowerCase().includes(q));
+  target.innerHTML = assets.length ? assets.map(asset => {
+    const src = asset.public_url || asset.url; const isVideo = asset.kind === 'video';
+    return `<button type="button" onclick="addLibrary${isVideo ? 'Video' : 'Image'}ToCanvas('${escS(src)}','${escS(asset.title || 'Media asset')}')" class="relative overflow-hidden rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-left hover:border-indigo-500"><${isVideo ? 'video' : 'img'} src="${escS(src)}" ${isVideo ? 'muted preload="metadata"' : `alt="${escS(asset.alt_text || asset.title || '')}"`} class="w-full aspect-square object-cover"></${isVideo ? 'video' : 'img'}><span class="block px-2 py-1 text-[9px] truncate text-slate-700 dark:text-slate-200">${escS(asset.title || 'Untitled')}</span></button>`;
+  }).join('') : '<div class="col-span-2 p-4 text-center text-xs text-slate-500">No matching media.</div>';
+}
+window.loadStudioMediaLibrary = loadStudioMediaLibrary;
+window.filterStudioMediaLibrary = filterStudioMediaLibrary;
+
+function studioSetObjectGeometry(property, value) {
+  const object = window.__studioAdapter?.fabricCanvas?.getActiveObject(); const number = Number(value);
+  if (!object || !Number.isFinite(number) || number < 0) return;
+  if (property === 'width') object.scaleToWidth(Math.max(1, number));
+  else if (property === 'height') object.scaleToHeight(Math.max(1, number));
+  else object.set(property, number);
+  object.setCoords(); window.__studioAdapter?.fabricCanvas?.requestRenderAll(); window.__studioAdapter?.saveHistory();
+}
+window.studioSetObjectGeometry = studioSetObjectGeometry;
 
 // The dealership photo for a vehicle, across the field names inventory returns.
 function studioVehiclePhoto(v) {
