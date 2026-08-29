@@ -783,9 +783,12 @@ function deskRenderForm(contactId) {
   const fld = (label, html) => `<div><label class="text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-300 font-bold block mb-1">${label}</label>${html}</div>`;
   const txt = (id, v, ph = '', type = 'text', extra = '') => `<input id="${id}" type="${type}" value="${esc(v == null ? '' : String(v))}" placeholder="${ph}" ${extra} class="${iCls}">`;
   const money = (id, v, ph = '0.00') => `<input id="${id}" type="text" inputmode="decimal" data-money value="${v == null ? '' : msFmtMoney(v)}" placeholder="${ph}" oninput="deskRenderSummary()" class="${iCls}">`;
-  const card = (title, body, sub = '') => `<div class="ms-c ms-c--glass overflow-hidden mb-4">
-    <div class="px-5 py-3.5 border-b border-slate-200/80 dark:border-slate-700 flex items-center justify-between"><h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">${title}</h3>${sub ? `<p class="text-xs text-slate-500">${sub}</p>` : ''}</div>
-    <div class="p-5">${body}</div></div>`;
+  const card = (title, body, sub = '') => {
+    const open = /Vehicle|Trade-in|Finance terms/i.test(title) || (/Insurance/i.test(title) && (ins.company || ins.policy || ins.agent || ins.phone || ins.expiry));
+    return `<details class="ms-c ms-c--glass overflow-hidden mb-4 desk-section" ${open ? 'open' : ''}>
+      <summary class="desk-section-summary px-5 py-3.5 border-b border-slate-200/80 dark:border-slate-700 flex items-center justify-between gap-3 cursor-pointer select-none"><span class="flex items-center gap-2"><span class="desk-section-chevron text-slate-400">›</span><h3 class="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">${title}</h3></span>${sub ? `<p class="text-xs text-slate-500 text-right">${sub}</p>` : ''}</summary>
+      <div class="p-5">${body}</div></details>`;
+  };
 
   const customerHeaderHtml = b ? `
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 mb-5 shadow-sm flex items-center justify-between gap-4 flex-wrap">
@@ -828,6 +831,12 @@ function deskRenderForm(contactId) {
   `;
 
   wrap.innerHTML = `
+    <div class="desk-workflow-steps" aria-label="Deal workflow">
+      <span class="desk-workflow-step desk-workflow-step-active"><b>1</b> Customer</span><i></i>
+      <span class="desk-workflow-step desk-workflow-step-active"><b>2</b> Vehicle &amp; trade</span><i></i>
+      <span class="desk-workflow-step"><b>3</b> Structure</span><i></i>
+      <span class="desk-workflow-step"><b>4</b> Documents</span>
+    </div>
     ${customerHeaderHtml}
 
     <div class="mb-4">

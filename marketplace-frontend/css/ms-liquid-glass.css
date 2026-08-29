@@ -215,11 +215,24 @@ body.ms-glass-site button.bg-emerald-600 {
 .appraisal-page .appraisal-workflow > .rounded-2xl { box-shadow: 0 14px 38px rgba(0,0,0,.13), inset 0 1px 0 rgba(255,255,255,.07); }
 .appraisal-page aside > .rounded-2xl { box-shadow: 0 14px 38px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.07); }
 .appraisal-page aside #appr-list { scrollbar-width: thin; }
+.desk-section-summary { list-style: none; }
+.desk-section-summary::-webkit-details-marker { display: none; }
+.desk-section-chevron { display: inline-block; font-size: 1.25rem; line-height: 1; transform: rotate(0deg); transition: transform 150ms ease; }
+.desk-section[open] > .desk-section-summary .desk-section-chevron { transform: rotate(90deg); }
+.desk-workflow-steps { display: flex; align-items: center; gap: .65rem; margin: 0 0 1rem; padding: .65rem .85rem; border: 1px solid rgba(148,190,230,.22); border-radius: .9rem; background: rgba(9,20,39,.34); color: #94a3b8; }
+.desk-workflow-step { display: inline-flex; align-items: center; gap: .4rem; font-size: .7rem; font-weight: 800; white-space: nowrap; }
+.desk-workflow-step b { display: grid; place-items: center; width: 1.35rem; height: 1.35rem; border: 1px solid rgba(148,190,230,.3); border-radius: 999px; font-size: .65rem; }
+.desk-workflow-step-active { color: #e2e8f0; }
+.desk-workflow-step-active b { background: #2563eb; border-color: #60a5fa; color: #fff; }
+.desk-workflow-steps > i { height: 1px; flex: 1 1 1rem; background: rgba(148,190,230,.2); }
 @media (max-width: 640px) {
   .appraisal-page .appraisal-stepper { gap: .35rem; padding: .6rem; }
   .appraisal-page .appraisal-step { gap: .35rem; }
   .appraisal-page .appraisal-step small { display: none; }
   .appraisal-page .appraisal-stepper > i { min-width: .5rem; }
+  .desk-workflow-steps { gap: .3rem; overflow-x: auto; }
+  .desk-workflow-step { font-size: .65rem; }
+  .desk-workflow-steps > i { min-width: .5rem; }
 }
 
 @supports not ((backdrop-filter: blur(1px))) {
