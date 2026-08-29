@@ -228,6 +228,8 @@ class StudioFabricAdapter {
         rx: obj.rx || ms.rx || 0,
         z: idx + 1,
         name: ms.name || `Object ${idx + 1}`
+        ,responsive: ms.responsive || undefined,
+        children: obj.type === 'group' ? obj.getObjects().map(child => ({ type: child.type, text: child.text || '', name: child.msData?.name || child.type })) : undefined
       };
     });
 
