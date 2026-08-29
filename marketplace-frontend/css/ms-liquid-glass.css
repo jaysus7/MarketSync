@@ -7,10 +7,10 @@
   --ms-glass-saturation: 145%;
   --ms-glass-light: rgba(255, 255, 255, .66);
   --ms-glass-light-strong: rgba(255, 255, 255, .82);
-  --ms-glass-dark: rgba(9, 20, 39, .68);
-  --ms-glass-dark-strong: rgba(8, 18, 35, .84);
-  --ms-glass-line: rgba(255, 255, 255, .42);
-  --ms-glass-line-dark: rgba(148, 190, 230, .22);
+  --ms-glass-dark: rgba(9, 20, 39, .46);
+  --ms-glass-dark-strong: rgba(8, 18, 35, .64);
+  --ms-glass-line: rgba(255, 255, 255, .46);
+  --ms-glass-line-dark: rgba(148, 190, 230, .3);
   --ms-glass-shadow: 0 20px 60px rgba(15, 23, 42, .16), inset 0 1px 0 rgba(255, 255, 255, .58);
   --ms-glass-shadow-dark: 0 24px 70px rgba(0, 0, 0, .34), inset 0 1px 0 rgba(255, 255, 255, .13);
   --ms-glass-canvas: radial-gradient(circle at 10% 0%, rgba(76, 190, 255, .22), transparent 34%), radial-gradient(circle at 92% 12%, rgba(116, 89, 255, .2), transparent 36%), linear-gradient(135deg, #e8f7ff 0%, #f4f3ff 52%, #e8f9f5 100%);
@@ -125,8 +125,8 @@ html[data-ms-glass="global"].dark :is(input,select,textarea) { background: rgba(
 .ws-studio-container {
   --ws-bg: var(--ms-glass-canvas) !important;
   --ws-panel: var(--ms-glass-dark) !important;
-  --ws-panel-sub: rgba(16, 36, 63, .72) !important;
-  --ws-panel-raised: rgba(31, 61, 96, .78) !important;
+  --ws-panel-sub: rgba(16, 36, 63, .54) !important;
+  --ws-panel-raised: rgba(31, 61, 96, .58) !important;
   --ws-border: var(--ms-glass-line-dark) !important;
   --ws-input-bg: rgba(7, 20, 38, .72) !important;
   --ws-input-border: rgba(148, 190, 230, .3) !important;
@@ -135,8 +135,8 @@ html[data-ms-glass="global"].dark :is(input,select,textarea) { background: rgba(
 }
 .ws-studio-container[data-ws-theme="light"] {
   --ws-panel: var(--ms-glass-light) !important;
-  --ws-panel-sub: rgba(255,255,255,.54) !important;
-  --ws-panel-raised: var(--ms-glass-light-strong) !important;
+  --ws-panel-sub: rgba(255,255,255,.42) !important;
+  --ws-panel-raised: rgba(255,255,255,.64) !important;
   --ws-border: var(--ms-glass-line) !important;
   --ws-input-bg: rgba(255,255,255,.72) !important;
   --ws-input-border: rgba(100,116,139,.32) !important;
@@ -159,6 +159,29 @@ html[data-ms-glass="global"].dark :is(input,select,textarea) { background: rgba(
   color: var(--ws-input-text, var(--ws-text)) !important;
   backdrop-filter: blur(14px) saturate(130%);
   -webkit-backdrop-filter: blur(14px) saturate(130%);
+}
+
+/* Generated hero CTAs share this contract. It prevents long labels from
+ * collapsing into narrow pills while keeping the button treatment readable
+ * over photographs and translucent panels. */
+body.ms-glass-site .pt-2.flex.flex-wrap > button,
+body.ms-glass-site button.bg-gradient-to-r,
+body.ms-glass-site button.brand-bg,
+body.ms-glass-site button.bg-indigo-600,
+body.ms-glass-site button.bg-emerald-600 {
+  min-height: 48px;
+  min-width: 148px;
+  padding: .75rem 1.5rem !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.ws-studio-container button {
+  min-height: 32px;
+  padding-inline: .75rem;
+  white-space: nowrap;
 }
 
 @supports not ((backdrop-filter: blur(1px))) {
