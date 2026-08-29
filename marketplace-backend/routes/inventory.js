@@ -305,9 +305,11 @@ export function registerRoutes(app) {
     // Keep an indexed library record alongside the storage object so the builder
     // can reuse uploaded media without asking dealers to paste URLs around.
     const metadata = await sharp(webp).metadata().catch(() => ({}))
+    const folder = String(req.body?.folder || 'Library').trim().replace(/\s+/g, ' ').slice(0, 80) || 'Library'
     await supabaseAdmin.from('dealer_website_media').insert({
       dealership_id: req.dealershipId,
       filename: req.file.originalname || `site-image-${Date.now()}.webp`,
+      folder,
       storage_path: path,
       public_url: publicUrl,
       mime_type: 'image/webp',
@@ -316,7 +318,7 @@ export function registerRoutes(app) {
       height: metadata.height || null,
       created_by: req.user?.id || null,
     }).catch(() => {})
-    res.json({ ok: true, url: publicUrl })
+    res.json({ ok: true, url: publicUrl, folder })
   })
 
   // Private dealership-scoped media index used by the Website Builder library.
@@ -344,7 +346,10 @@ export function registerRoutes(app) {
   app.patch('/dealership/site-media/:id', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const altText = String(req.body?.alt_text || '').trim().slice(0, 180)
-    const { data, error } = await supabaseAdmin.from('dealer_website_media').update({ alt_text: altText || null, updated_at: new Date().toISOString() })
+    const folder = String(req.body?.folder || '').trim().replace(/\s+/g, ' ').slice(0, 80)
+    const patch = { alt_text: altText || null, updated_at: new Date().toISOString() }
+    if (folder) patch.folder = folder
+    const { data, error } = await supabaseAdmin.from('dealer_website_media').update(patch)
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).select('id, alt_text, updated_at').maybeSingle()
     if (error) return res.status(500).json({ error: error.message })
     if (!data) return res.status(404).json({ error: 'Media not found' })

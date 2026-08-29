@@ -967,6 +967,7 @@ async function uploadSiteImage(targetId, file) {
 let __wsPhotoPickCallback = null;
 let __wsPhotoActiveTab = 'pexels';
 let __wsMediaQuery = '';
+let __wsMediaFolder = 'all';
 let __wsMediaCache = [];
 
 function openWsPhotoPicker(onPick) {
@@ -1049,7 +1050,7 @@ function renderWsPhotoTabBody() {
     `;
   }
   if (__wsPhotoActiveTab === 'media') {
-    return `<div class="space-y-3"><div class="flex items-center justify-between gap-2 flex-wrap"><div class="text-xs text-slate-500 dark:text-slate-400">Uploaded images are reusable across every page.</div><button type="button" onclick="setWsPhotoTab('upload')" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-black">Upload new</button></div><input id="ws-media-query" type="search" value="${esc(__wsMediaQuery)}" oninput="filterWsMedia(this.value)" placeholder="Search filename or alt text…" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-medium focus:outline-none focus:border-indigo-500"><div id="ws-media-grid" class="grid grid-cols-3 gap-2"><div class="col-span-3 py-10 text-center text-xs text-slate-400">Loading your media…</div></div></div>`;
+    return `<div class="space-y-3"><div class="flex items-center justify-between gap-2 flex-wrap"><div class="text-xs text-slate-500 dark:text-slate-400">Uploaded images are reusable across every page.</div><button type="button" onclick="setWsPhotoTab('upload')" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-black">Upload new</button></div><div class="flex gap-2"><input id="ws-media-query" type="search" value="${esc(__wsMediaQuery)}" oninput="filterWsMedia(this.value)" placeholder="Search filename or alt text…" class="min-w-0 flex-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-medium focus:outline-none focus:border-indigo-500"><select id="ws-media-folder" onchange="filterWsMediaFolder(this.value)" class="w-32 px-2 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-bold"><option value="all">All folders</option></select></div><div id="ws-media-grid" class="grid grid-cols-3 gap-2"><div class="col-span-3 py-10 text-center text-xs text-slate-400">Loading your media…</div></div></div>`;
   }
   // Pexels
   return `
@@ -1122,10 +1123,13 @@ async function loadWsMediaLibrary() {
   try {
     const data = await apiGetJson('/dealership/site-media', { retries: 1 });
     __wsMediaCache = data?.media || [];
+    const folderSelect = document.getElementById('ws-media-folder');
+    if (folderSelect) folderSelect.innerHTML = ['all', ...new Set(__wsMediaCache.map(m => m.folder || 'Library'))].map(folder => `<option value="${esc(folder)}" ${folder === __wsMediaFolder ? 'selected' : ''}>${folder === 'all' ? 'All folders' : esc(folder)}</option>`).join('');
     renderWsMediaGrid();
   } catch { box.innerHTML = '<div class="col-span-3 py-10 text-center text-xs text-rose-500">Could not load your media library.</div>'; }
 }
 function filterWsMedia(query) { __wsMediaQuery = String(query || ''); renderWsMediaGrid(); }
+function filterWsMediaFolder(folder) { __wsMediaFolder = String(folder || 'all'); renderWsMediaGrid(); }
 function wsMediaUsageCount(url) {
   const needle = String(url || ''); if (!needle) return 0;
   try {
@@ -1136,7 +1140,7 @@ function wsMediaUsageCount(url) {
 function renderWsMediaGrid() {
   const box = document.getElementById('ws-media-grid'); if (!box) return;
   const q = __wsMediaQuery.toLowerCase().trim();
-  const media = __wsMediaCache.filter(m => !q || `${m.filename || ''} ${m.alt_text || ''}`.toLowerCase().includes(q));
+  const media = __wsMediaCache.filter(m => (__wsMediaFolder === 'all' || (m.folder || 'Library') === __wsMediaFolder) && (!q || `${m.filename || ''} ${m.alt_text || ''}`.toLowerCase().includes(q)));
   box.innerHTML = media.length ? media.map(m => { const usage = wsMediaUsageCount(m.public_url); return `<div class="group relative aspect-video rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 hover:border-indigo-500 transition"><button type="button" onclick="pickWsPhoto('${esc(m.public_url)}')" class="w-full h-full"><img src="${esc(m.public_url)}" alt="${esc(m.alt_text || m.filename || 'Website image')}" loading="lazy" class="w-full h-full object-cover"></button><div class="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/80 to-transparent text-[10px] text-white font-bold truncate">${esc(m.filename || 'Website image')} ${m.width && m.height ? `· ${m.width}×${m.height}` : ''} ${m.file_size_bytes ? `· ${(Number(m.file_size_bytes) / 1024).toFixed(0)} KB` : ''} · ${usage ? `${usage} use${usage === 1 ? '' : 's'}` : 'Unused'}</div><input aria-label="Alt text" value="${esc(m.alt_text || '')}" placeholder="Alt text" onkeydown="event.stopPropagation()" onchange="updateWsMediaAlt('${m.id}', this.value)" class="absolute left-1 right-1 bottom-7 hidden group-hover:block rounded bg-black/75 border border-white/30 px-1.5 py-1 text-[10px] text-white placeholder:text-white/60"><button type="button" onclick="deleteWsMedia('${m.id}')" class="absolute top-1 right-1 hidden group-hover:block rounded-md bg-black/70 px-1.5 py-1 text-[10px] text-white">Delete</button></div>`; }).join('') : `<div class="col-span-3 py-10 text-center text-xs text-slate-400 italic">${q ? 'No media matches this search.' : 'No uploaded website media yet.'}</div>`;
 }
 async function deleteWsMedia(id) {
@@ -1149,6 +1153,7 @@ async function updateWsMediaAlt(id, altText) {
 }
 window.loadWsMediaLibrary = loadWsMediaLibrary;
 window.filterWsMedia = filterWsMedia;
+window.filterWsMediaFolder = filterWsMediaFolder;
 window.deleteWsMedia = deleteWsMedia;
 window.updateWsMediaAlt = updateWsMediaAlt;
 
