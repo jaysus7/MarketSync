@@ -4,6 +4,8 @@ import { getCurrentAccessContext, hasProductAccess, hasFeature } from '../access
 import { runComprehensiveDiscoverabilityAudit } from '../services/discoverabilityMonitoringService.js'
 import { crawlSite, crawlUrl, assertSafeUrl, createPersistedCrawlRun, getLatestPersistedCrawl, getPersistedCrawlPages, getPersistedCrawlFindings } from '../services/discoverabilityCrawlerService.js'
 import { buildCanonicalFactObject, normalizeBenchmarkEvidence, calculateGeoMetrics, generateGeoQueries } from '../services/aeoGeoTruthService.js'
+import { disconnectedSearchProvider, verifySearchProperty, normalizeSearchConsoleResponse, detectSearchOpportunities, detectCannibalization, detectContentGaps, detectInventoryDemandGaps, clusterSearchQuery, mapVdpSearchPerformance, searchScore, createSearchImpactRecord } from '../services/searchIntelligenceService.js'
+import { queueIndexNowSubmission, recordIndexNowResult } from '../services/indexNowService.js'
 import {
   generateRecommendationsFromAudit,
   canAutoApplyRecommendation,
@@ -507,6 +509,86 @@ export default function registerDiscoverabilityRoutes(app) {
       ],
       message: 'External discoverability sources checked; unavailable providers remain unmeasured.'
     })
+  })
+
+  // ── 17A. Provider-neutral Search Intelligence ──────────────────────────────
+  app.get('/discoverability/search/connection', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    const { data: settings } = await supabaseAdmin.from('seo_settings').select('gsc_connected, gsc_property').eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data: dealer } = await supabaseAdmin.from('dealerships').select('website_url').eq('id', req.dealershipId).maybeSingle()
+    const status = settings?.gsc_connected ? verifySearchProperty(dealer?.website_url, settings.gsc_property) : { status: 'not_connected', websiteUrl: dealer?.website_url || null, property: settings?.gsc_property || null }
+    res.json({ success: true, provider: settings?.gsc_connected ? 'google_search_console' : null, connection: status })
+  })
+
+  app.post('/discoverability/search/sync', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    const { data: dealer } = await supabaseAdmin.from('dealerships').select('website_url').eq('id', req.dealershipId).maybeSingle()
+    const propertyCheck = verifySearchProperty(dealer?.website_url, req.body?.property)
+    if (propertyCheck.status === 'fail') return res.status(409).json({ error: 'Search property does not match dealership website', propertyCheck })
+    if (!req.body?.payload) return res.json({ success: true, search: disconnectedSearchProvider(req.body?.provider || 'google_search_console') })
+    const search = normalizeSearchConsoleResponse(req.body.payload, { provider: req.body.provider, property: req.body.property, dateRange: req.body.dateRange, fetchedAt: new Date().toISOString() })
+    const opportunities = detectSearchOpportunities(search, req.body.options)
+    const queryRows = search.queries.map(row => ({ ...row, cluster: clusterSearchQuery(row.query) }))
+    try {
+      const { data: run } = await supabaseAdmin.from('discoverability_search_sync_runs').insert({ dealership_id: req.dealershipId, provider: search.provider, property: search.property, status: search.status, date_range: search.dateRange, fetched_at: search.fetchedAt }).select('id').maybeSingle()
+      if (run?.id) await supabaseAdmin.from('discoverability_search_metrics').insert([...queryRows.map(row => ({ run_id: run.id, metric_type: 'query', query: row.query, clicks: row.clicks, impressions: row.impressions, ctr: row.ctr, position: row.position })), ...search.pages.map(row => ({ run_id: run.id, metric_type: 'page', page_url: row.page, clicks: row.clicks, impressions: row.impressions, ctr: row.ctr, position: row.position })), ...search.queryPagePairs.map(row => ({ run_id: run.id, metric_type: 'query_page', query: row.query, page_url: row.page, country: row.country, device: row.device, metric_date: row.date, clicks: row.clicks, impressions: row.impressions, ctr: row.ctr, position: row.position }))])
+      for (const opportunity of opportunities) await supabaseAdmin.from('discoverability_search_opportunities').insert({ dealership_id: req.dealershipId, opportunity_type: opportunity.type, query: opportunity.query, opportunity_score: opportunity.opportunityScore, evidence: opportunity.evidence })
+    } catch (error) { return res.status(503).json({ error: 'Search evidence persistence is unavailable', detail: error.message }) }
+    res.json({ success: true, search: { ...search, queries: queryRows }, opportunities })
+  })
+
+  app.get('/discoverability/search/overview', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    try {
+      const { data: run } = await supabaseAdmin.from('discoverability_search_sync_runs').select('*').eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+      if (!run) return res.json({ success: true, search: disconnectedSearchProvider(), opportunities: [], freshness: null })
+      const { data: metrics } = await supabaseAdmin.from('discoverability_search_metrics').select('*').eq('run_id', run.id).order('impressions', { ascending: false }).limit(5000)
+      const { data: opportunities } = await supabaseAdmin.from('discoverability_search_opportunities').select('*').eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(200)
+      const rows = metrics || []
+      res.json({ success: true, run, metrics: rows, opportunities: opportunities || [], freshness: { provider: run.provider, dateRange: run.date_range, fetchedAt: run.fetched_at } })
+    } catch (error) { res.status(503).json({ error: 'Search evidence persistence is unavailable', detail: error.message }) }
+  })
+
+  app.get('/discoverability/search/:kind', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    const tableByKind = { queries: 'query', pages: 'page', 'query-page': 'query_page', opportunities: null, indexnow: null }
+    if (!(req.params.kind in tableByKind)) return res.status(404).json({ error: 'Unknown Search Intelligence resource' })
+    try {
+      if (req.params.kind === 'opportunities') {
+        const { data, error } = await supabaseAdmin.from('discoverability_search_opportunities').select('*').eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).range(0, 199)
+        if (error) throw error
+        return res.json({ success: true, opportunities: data || [] })
+      }
+      if (req.params.kind === 'indexnow') {
+        const { data, error } = await supabaseAdmin.from('discoverability_indexnow_submissions').select('*').eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).range(0, 199)
+        if (error) throw error
+        return res.json({ success: true, submissions: data || [] })
+      }
+      const { data: run, error: runError } = await supabaseAdmin.from('discoverability_search_sync_runs').select('id, provider, property, status, date_range, fetched_at, created_at').eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+      if (runError) throw runError
+      if (!run) return res.json({ success: true, run: null, metrics: [] })
+      const { data, error } = await supabaseAdmin.from('discoverability_search_metrics').select('*').eq('run_id', run.id).eq('metric_type', tableByKind[req.params.kind]).order('impressions', { ascending: false }).range(0, 1999)
+      if (error) throw error
+      res.json({ success: true, run, metrics: data || [] })
+    } catch (error) { res.status(503).json({ error: 'Search evidence persistence is unavailable', detail: error.message }) }
+  })
+
+  app.get('/discoverability/geo/benchmark/latest', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    try {
+      const { data: run } = await supabaseAdmin.from('discoverability_ai_benchmark_runs').select('*').eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+      if (!run) return res.json({ success: true, benchmark: { status: 'not_measured', records: [] } })
+      const { data: evidence } = await supabaseAdmin.from('discoverability_ai_benchmark_evidence').select('*').eq('run_id', run.id).order('measured_at', { ascending: false }).limit(500)
+      const records = (evidence || []).map(item => ({ query: item.query, engine: item.engine, model: item.model, locale: run.locale, timestamp: item.measured_at, dealershipMentioned: item.dealership_mentioned, dealershipCited: item.dealership_cited, citedUrls: item.cited_urls || [], factualAccuracy: item.factual_accuracy, evidenceType: item.evidence_type, responseExcerptHash: item.response_excerpt_hash, competitorsMentioned: item.competitors_mentioned || [], evidence: item.evidence || null }))
+      res.json({ success: true, benchmark: { run, metrics: calculateGeoMetrics(records), records } })
+    } catch (error) { res.status(503).json({ error: 'AI benchmark persistence is unavailable', detail: error.message }) }
+  })
+
+  app.post('/discoverability/search/indexnow', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    const submission = queueIndexNowSubmission({ dealershipId: req.dealershipId, url: req.body?.url, reason: req.body?.reason || 'published_change', published: req.body?.published === true })
+    if (submission.status === 'queued') { try { await supabaseAdmin.from('discoverability_indexnow_submissions').insert({ dealership_id: req.dealershipId, url: submission.url, reason: submission.reason, provider: submission.provider, status: submission.status }) } catch {} }
+    res.json({ success: submission.status !== 'invalid_url', submission })
   })
 
   // ── 18. Live Public Website Crawl & Evidence ───────────────────────────────
