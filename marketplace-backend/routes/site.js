@@ -726,6 +726,43 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
+  app.post('/groups/website/change-sets/:id/approve', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.approve'), async (req, res) => {
+    if (!canGovernGroupWebsite(req) || !req.profile?.group_id) return res.status(403).json({ error: 'Dealer-group approval authority required.' })
+    try {
+      const { data: current, error: readError } = await supabaseAdmin.from('website_change_sets').select('id, site_id, status, created_by, name').eq('id', req.params.id).single()
+      if (readError || !current) return res.status(404).json({ error: 'Change set not found.' })
+      const { data: rooftop } = await supabaseAdmin.from('dealerships').select('id, name').eq('id', current.site_id).eq('group_id', req.profile.group_id).maybeSingle()
+      if (!rooftop) return res.status(404).json({ error: 'Change set is not part of your dealer group.' })
+      if (current.status !== 'review') return res.status(409).json({ error: `Only change sets in review can be approved (current status: ${current.status}).` })
+      if (current.created_by && current.created_by === req.user?.id) return res.status(403).json({ error: 'A change set must be approved by a different reviewer than its requester.', code: 'WEBSITE_APPROVAL_SEPARATION_REQUIRED' })
+      const { data: changeSet, error } = await supabaseAdmin.from('website_change_sets').update({ status: 'approved', approved_by: req.user?.id, reviewed_by: req.user?.id, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', current.id).eq('site_id', rooftop.id).eq('status', 'review').is('approved_by', null).select('id, site_id, name, status, created_by, approved_by, reviewed_at, updated_at').maybeSingle()
+      if (error) throw error
+      if (!changeSet) return res.status(409).json({ error: 'This change set was already reviewed or changed by another user.' })
+      audit(req, 'site.group_change_set_approved', { after_state: { change_set_id: changeSet.id, dealership_id: rooftop.id } })
+      await createNotification({ dealershipId: rooftop.id, type: 'website_approval', title: 'Website change set approved', body: `${changeSet.name} was approved by dealer-group leadership and can be published.`, linkPage: 'website', targetUserId: changeSet.created_by || null })
+      res.json({ change_set: changeSet, dealership: rooftop })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.post('/groups/website/change-sets/:id/reject', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.approve'), async (req, res) => {
+    if (!canGovernGroupWebsite(req) || !req.profile?.group_id) return res.status(403).json({ error: 'Dealer-group approval authority required.' })
+    const feedback = String(req.body?.feedback || '').trim().slice(0, 1000)
+    if (!feedback) return res.status(400).json({ error: 'Reviewer feedback is required when rejecting a change set.' })
+    try {
+      const { data: current, error: readError } = await supabaseAdmin.from('website_change_sets').select('id, site_id, status, created_by, name').eq('id', req.params.id).single()
+      if (readError || !current) return res.status(404).json({ error: 'Change set not found.' })
+      const { data: rooftop } = await supabaseAdmin.from('dealerships').select('id, name').eq('id', current.site_id).eq('group_id', req.profile.group_id).maybeSingle()
+      if (!rooftop) return res.status(404).json({ error: 'Change set is not part of your dealer group.' })
+      if (current.status !== 'review') return res.status(409).json({ error: 'This change set was already reviewed or changed by another user.' })
+      const { data: changeSet, error } = await supabaseAdmin.from('website_change_sets').update({ status: 'rejected', review_feedback: feedback, reviewed_by: req.user?.id, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', current.id).eq('site_id', rooftop.id).eq('status', 'review').select('id, site_id, name, status, created_by, review_feedback, reviewed_by, reviewed_at, updated_at').maybeSingle()
+      if (error) throw error
+      if (!changeSet) return res.status(409).json({ error: 'This change set was already reviewed or changed by another user.' })
+      audit(req, 'site.group_change_set_rejected', { after_state: { change_set_id: changeSet.id, dealership_id: rooftop.id, feedback } })
+      await createNotification({ dealershipId: rooftop.id, type: 'website_approval', title: 'Website change set needs changes', body: `${changeSet.name}: ${feedback}`, linkPage: 'website', targetUserId: changeSet.created_by || null })
+      res.json({ change_set: changeSet, dealership: rooftop })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
   app.get('/dealership/site/revisions', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     try {
       const { data, error } = await supabaseAdmin.from('dealer_website_revisions').select('id, revision_number, state, change_summary, created_by, created_at, published_at').eq('dealership_id', req.dealershipId).order('revision_number', { ascending: false }).limit(80)
