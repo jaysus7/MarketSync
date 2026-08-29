@@ -1141,7 +1141,7 @@ function renderWsMediaGrid() {
   const box = document.getElementById('ws-media-grid'); if (!box) return;
   const q = __wsMediaQuery.toLowerCase().trim();
   const media = __wsMediaCache.filter(m => (__wsMediaFolder === 'all' || (m.folder || 'Library') === __wsMediaFolder) && (!q || `${m.filename || ''} ${m.alt_text || ''}`.toLowerCase().includes(q)));
-  box.innerHTML = media.length ? media.map(m => { const usage = wsMediaUsageCount(m.public_url); return `<div class="group relative aspect-video rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 hover:border-indigo-500 transition"><button type="button" onclick="pickWsPhoto('${esc(m.public_url)}')" class="w-full h-full"><img src="${esc(m.public_url)}" alt="${esc(m.alt_text || m.filename || 'Website image')}" loading="lazy" class="w-full h-full object-cover"></button><div class="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/80 to-transparent text-[10px] text-white font-bold truncate">${esc(m.filename || 'Website image')} ${m.width && m.height ? `· ${m.width}×${m.height}` : ''} ${m.file_size_bytes ? `· ${(Number(m.file_size_bytes) / 1024).toFixed(0)} KB` : ''} · ${usage ? `${usage} use${usage === 1 ? '' : 's'}` : 'Unused'}</div><input aria-label="Alt text" value="${esc(m.alt_text || '')}" placeholder="Alt text" onkeydown="event.stopPropagation()" onchange="updateWsMediaAlt('${m.id}', this.value)" class="absolute left-1 right-1 bottom-7 hidden group-hover:block rounded bg-black/75 border border-white/30 px-1.5 py-1 text-[10px] text-white placeholder:text-white/60"><button type="button" onclick="deleteWsMedia('${m.id}')" class="absolute top-1 right-1 hidden group-hover:block rounded-md bg-black/70 px-1.5 py-1 text-[10px] text-white">Delete</button></div>`; }).join('') : `<div class="col-span-3 py-10 text-center text-xs text-slate-400 italic">${q ? 'No media matches this search.' : 'No uploaded website media yet.'}</div>`;
+  box.innerHTML = media.length ? media.map(m => { const usage = wsMediaUsageCount(m.public_url); return `<div class="group relative aspect-video rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 hover:border-indigo-500 transition"><button type="button" onclick="pickWsPhoto('${esc(m.public_url)}')" class="w-full h-full"><img src="${esc(m.public_url)}" alt="${esc(m.alt_text || m.filename || 'Website image')}" loading="lazy" class="w-full h-full object-cover"></button><div class="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/85 to-transparent text-[10px] text-white font-bold truncate">${esc(m.filename || 'Website image')} · ${esc(m.folder || 'Library')} ${m.width && m.height ? `· ${m.width}×${m.height}` : ''} ${m.file_size_bytes ? `· ${(Number(m.file_size_bytes) / 1024).toFixed(0)} KB` : ''} · ${usage ? `${usage} use${usage === 1 ? '' : 's'}` : 'Unused'}</div><input aria-label="Alt text" value="${esc(m.alt_text || '')}" placeholder="Alt text" onkeydown="event.stopPropagation()" onchange="updateWsMediaAlt('${m.id}', this.value)" class="absolute left-1 right-1 bottom-7 hidden group-hover:block rounded bg-black/75 border border-white/30 px-1.5 py-1 text-[10px] text-white placeholder:text-white/60"><div class="absolute top-1 left-1 hidden group-hover:flex gap-1"><button type="button" onclick="moveWsMedia('${m.id}','${esc(m.folder || 'Library')}')" class="rounded-md bg-black/75 px-1.5 py-1 text-[10px] text-white">Move</button></div><button type="button" onclick="deleteWsMedia('${m.id}')" class="absolute top-1 right-1 hidden group-hover:block rounded-md bg-black/70 px-1.5 py-1 text-[10px] text-white">Delete</button></div>`; }).join('') : `<div class="col-span-3 py-10 text-center text-xs text-slate-400 italic">${q ? 'No media matches this search.' : 'No uploaded website media yet.'}</div>`;
 }
 async function deleteWsMedia(id) {
   if (!confirm('Delete this uploaded image from the media library?')) return;
@@ -1151,11 +1151,20 @@ async function updateWsMediaAlt(id, altText) {
   try { await apiSendJson(`/dealership/site-media/${encodeURIComponent(id)}`, 'PATCH', { alt_text: altText }); showToast('Alt text saved', 'success'); }
   catch (e) { showToast(e.message || 'Could not save alt text', 'error'); }
 }
+async function moveWsMedia(id, currentFolder) {
+  const folder = prompt('Folder name', currentFolder || 'Library');
+  if (folder == null) return;
+  const next = String(folder).trim().replace(/\s+/g, ' ').slice(0, 80);
+  if (!next) return showToast('Enter a folder name', 'error');
+  try { await apiSendJson(`/dealership/site-media/${encodeURIComponent(id)}`, 'PATCH', { folder: next }); await loadWsMediaLibrary(); showToast('Media moved', 'success'); }
+  catch (e) { showToast(e.message || 'Could not move media', 'error'); }
+}
 window.loadWsMediaLibrary = loadWsMediaLibrary;
 window.filterWsMedia = filterWsMedia;
 window.filterWsMediaFolder = filterWsMediaFolder;
 window.deleteWsMedia = deleteWsMedia;
 window.updateWsMediaAlt = updateWsMediaAlt;
+window.moveWsMedia = moveWsMedia;
 
 window.openWsPhotoPicker = openWsPhotoPicker;
 

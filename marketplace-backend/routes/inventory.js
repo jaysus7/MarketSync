@@ -350,7 +350,7 @@ export function registerRoutes(app) {
     const patch = { alt_text: altText || null, updated_at: new Date().toISOString() }
     if (folder) patch.folder = folder
     const { data, error } = await supabaseAdmin.from('dealer_website_media').update(patch)
-      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).select('id, alt_text, updated_at').maybeSingle()
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).select('id, alt_text, folder, updated_at').maybeSingle()
     if (error) return res.status(500).json({ error: error.message })
     if (!data) return res.status(404).json({ error: 'Media not found' })
     res.json({ media: data })
