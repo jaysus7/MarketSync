@@ -3227,6 +3227,9 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 #ms-studio-master-modal #studio-tool-panel .text-slate-500,
 #ms-studio-master-modal #studio-tool-panel .text-slate-400 { color: #64748b !important; }
 #ms-studio-master-modal #studio-tool-panel .text-white { color: #fff !important; }
+#ms-studio-master-modal .studio-template-preview { position: relative; width: 100%; overflow: hidden; background-position: center; }
+#ms-studio-master-modal .studio-template-preview img { display: block; max-width: none; }
+#ms-studio-master-modal .studio-template-preview > div { pointer-events: none; }
 #ms-studio-master-modal .studio-page-stack {
   position: absolute; left: 18px; top: 54px; bottom: 28px; width: 124px; z-index: 24;
   overflow-y: auto; padding: 4px; display: flex; flex-direction: column; gap: 12px;
