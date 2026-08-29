@@ -464,10 +464,18 @@
           <div class="text-center text-xs text-slate-500 py-4">© ${new Date().getFullYear()} ${esc(s.name)} · Powered by <a href="https://marketsync.io" target="_blank" rel="noopener" class="font-bold text-slate-400 hover:text-indigo-400 transition cursor-pointer">MarketSync</a></div>
         </footer>`;
     }
+    function responsiveImageSrcset(url){
+      const raw=String(url||'');
+      const match=raw.match(/^(https?:\/\/[^/]+\/storage\/v1)\/object\/public\/(.+)$/i);
+      if(!match) return '';
+      const path=match[2].split('?')[0];
+      return [480,768,1200,1600].map(w=>`${match[1]}/render/image/public/${path}?width=${w}&quality=82&format=webp ${w}w`).join(', ');
+    }
     function ensureImagePerformanceAndA11y(){
       const host=document.getElementById('app'); if(!host) return;
       host.querySelectorAll('img').forEach((img)=>{
         img.decoding='async';
+        if(!img.getAttribute('srcset')){ const srcset=responsiveImageSrcset(img.currentSrc||img.src); if(srcset){ img.setAttribute('srcset',srcset); img.setAttribute('sizes',img.classList.contains('object-cover')?'(max-width: 768px) 100vw, 50vw':'100vw'); } }
         if(!img.getAttribute('alt')){
           const vehicle=img.closest('button')?.getAttribute('onclick')?.match(/openVehicle\('([^']+)/)?.[1];
           img.alt=vehicle?'Vehicle photo':(img.closest('header,footer')?'Dealership logo':'Dealership website image');
