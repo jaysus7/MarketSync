@@ -1451,8 +1451,9 @@
     // instantly. It also outlines home sections and reports clicks so the builder
     // can select/edit the section you click. Same origin → postMessage is safe.
     const PREVIEW = new URLSearchParams(location.search).get('preview')==='1';
+    const previewHost = window.opener && window.opener !== window ? window.opener : parent;
     let previewSession = null;
-    const postPreview=(message)=>{ try{ parent.postMessage({...message,session:previewSession},location.origin); }catch(e){} };
+    const postPreview=(message)=>{ try{ previewHost.postMessage({...message,session:previewSession},location.origin); }catch(e){} };
     if(PREVIEW){
       document.documentElement.setAttribute('data-preview','1');
       // Every element that maps to a setting outlines on hover, so it is visible
@@ -1463,7 +1464,7 @@
         +'[data-preview="1"] [data-ms-field]:has([data-ms-field]:hover){outline-color:transparent}';
       document.head.appendChild(pvStyle);
       window.addEventListener('message',(ev)=>{
-        if(ev.source!==parent || ev.origin!==location.origin) return;
+        if(ev.source!==previewHost || ev.origin!==location.origin) return;
         const m=ev.data||{}; if(m.type!=='ms-preview-apply') return;
         if(!previewSession) previewSession=typeof m.session==='string'&&m.session.length<=120?m.session:null;
         if(!previewSession || m.session!==previewSession) return;
@@ -1486,7 +1487,7 @@
           setTimeout(markPreviewSections,120);
         }catch(e){}
       });
-      const notifyReady=()=>{ try{ parent.postMessage({type:'ms-preview-ready'},location.origin); }catch(e){} };
+      const notifyReady=()=>{ try{ previewHost.postMessage({type:'ms-preview-ready'},location.origin); }catch(e){} };
       window.addEventListener('load',notifyReady); setTimeout(notifyReady,400);
     }
     // Outline top-level home sections, let them be dragged to reorder, and show a

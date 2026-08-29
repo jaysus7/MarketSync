@@ -1915,6 +1915,7 @@ window.setBuilderMode = setBuilderMode;
 // postMessage and render instantly (never saved until "Save"). Clicking a section in
 let __livePreviewReady = false, __liveMsgWired = false, __livePushTimer = null;
 let __livePreviewToken = null, __livePreviewOrigin = null;
+let __draftPreviewWindow = null, __draftPreviewReady = false, __draftPreviewToken = null;
 let __wsUndoStack = [], __wsRedoStack = [], __wsHistoryTimer = null, __wsHistoryMute = false, __wsLastSnapshot = null;
 let __wsAutosaveTimer = null;
 
@@ -2082,35 +2083,53 @@ function markWsSaved() {
 }
 window.markWsSaved = markWsSaved;
 
+function wsLivePreviewPayload() {
+  wsFlushTarget();
+  const c = __siteCfg?.content || {};
+  const site = {
+    sections: __homeSections, pages: __sitePages, builtins: __siteBuiltins, staff: __siteStaff,
+    design_theme: c.design_theme || 'modern', quick_palette: c.quick_palette || 'chevy_blue',
+    primary_color: c.primary_color || '#1e3a8a', secondary_color: c.secondary_color || '#3b82f6',
+    accent_color: c.accent_color || '#f59e0b', heading_font: c.heading_font || 'Inter', body_font: c.body_font || 'Inter',
+    tagline: c.tagline, about: c.about, hero_url: c.hero_url, logo_url: c.logo_url,
+  };
+  let view = 'home';
+  if (typeof __wsTarget === 'string' && __wsTarget.startsWith('b:')) {
+    const k = __wsTarget.slice(2); view = k === 'contact' ? 'inquiry' : k;
+  } else if (typeof __wsTarget === 'number' && __sitePages[__wsTarget]) {
+    const p = __sitePages[__wsTarget];
+    const pslug = p.slug || slugifyTitle(p.title || p.id || ('page-' + __wsTarget));
+    p.slug = pslug; view = 'page:' + pslug;
+  }
+  return { site, view };
+}
+
+function wsOpenDraftPreview() {
+  const slug = __siteCfg?.site_slug;
+  if (!slug) { showToast('Save a site address before opening preview', 'error'); return; }
+  try { __draftPreviewToken = crypto.randomUUID(); } catch { __draftPreviewToken = Math.random().toString(36).slice(2); }
+  __draftPreviewReady = false;
+  __draftPreviewWindow = window.open(`${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1&draft_preview=1&builder_v=20260829_draft_preview_v1`, '_blank');
+  if (!__draftPreviewWindow) { showToast('Preview was blocked by the browser. Allow pop-ups for this site and try again.', 'error'); return; }
+  setTimeout(() => { if (__draftPreviewWindow && !__draftPreviewWindow.closed) livePreviewPush(); }, 250);
+}
+window.wsOpenDraftPreview = wsOpenDraftPreview;
+
 function livePreviewPush() {
   const ifr = document.getElementById('ws-preview-frame');
-  if (!ifr || !ifr.contentWindow || !__livePreviewReady) return;
+  if ((!ifr || !ifr.contentWindow || !__livePreviewReady) && (!__draftPreviewWindow || __draftPreviewWindow.closed || !__draftPreviewReady)) return;
   clearTimeout(__livePushTimer);
   __livePushTimer = setTimeout(() => {
     try {
-      wsFlushTarget();
-      const c = __siteCfg?.content || {};
-      const site = {
-        sections: __homeSections, pages: __sitePages, builtins: __siteBuiltins, staff: __siteStaff,
-        design_theme: c.design_theme || 'modern',
-        quick_palette: c.quick_palette || 'chevy_blue',
-        primary_color: c.primary_color || '#1e3a8a',
-        secondary_color: c.secondary_color || '#3b82f6',
-        accent_color: c.accent_color || '#f59e0b',
-        heading_font: c.heading_font || 'Inter',
-        body_font: c.body_font || 'Inter',
-        tagline: c.tagline, about: c.about, hero_url: c.hero_url, logo_url: c.logo_url,
-      };
-      if (typeof __wsTarget === 'string' && __wsTarget.startsWith('b:')) { const k = __wsTarget.slice(2); view = k === 'contact' ? 'inquiry' : k; }
-      else if (typeof __wsTarget === 'number' && __sitePages[__wsTarget]) {
-        const p = __sitePages[__wsTarget];
-        const pslug = p.slug || slugifyTitle(p.title || p.id || ('page-' + __wsTarget));
-        p.slug = pslug;
-        view = 'page:' + pslug;
-      }
+      const { site, view } = wsLivePreviewPayload();
       if (!__livePreviewToken) { try { __livePreviewToken = crypto.randomUUID(); } catch { __livePreviewToken = Math.random().toString(36).slice(2); } }
-      __livePreviewOrigin = new URL(ifr.src, location.href).origin;
-      ifr.contentWindow.postMessage({ type: 'ms-preview-apply', session: __livePreviewToken, site, view }, __livePreviewOrigin);
+      if (ifr && ifr.contentWindow && __livePreviewReady) {
+        __livePreviewOrigin = new URL(ifr.src, location.href).origin;
+        ifr.contentWindow.postMessage({ type: 'ms-preview-apply', session: __livePreviewToken, site, view }, __livePreviewOrigin);
+      }
+      if (__draftPreviewWindow && !__draftPreviewWindow.closed && __draftPreviewReady) {
+        __draftPreviewWindow.postMessage({ type: 'ms-preview-apply', session: __draftPreviewToken, site, view }, location.origin);
+      }
     } catch {}
   }, 40);
 }
@@ -2354,8 +2373,13 @@ function wireLiveMessages() {
   window.addEventListener('message', (ev) => {
     const frame = document.getElementById('ws-preview-frame');
     const allowedOrigin = __livePreviewOrigin || (frame ? new URL(frame.src, location.href).origin : location.origin);
-    if (!frame || ev.source !== frame.contentWindow || ev.origin !== allowedOrigin) return;
+    const isDraftPreview = __draftPreviewWindow && !__draftPreviewWindow.closed && ev.source === __draftPreviewWindow && ev.origin === location.origin;
+    if ((!frame || ev.source !== frame.contentWindow || ev.origin !== allowedOrigin) && !isDraftPreview) return;
     const m = ev.data || {};
+    if (isDraftPreview) {
+      if (m.type === 'ms-preview-ready') { __draftPreviewReady = true; livePreviewPush(); }
+      return;
+    }
     if (m.session && m.session !== __livePreviewToken) return;
     if (m.type === 'ms-preview-ready') { __livePreviewReady = true; livePreviewPush(); }
     else if (m.type === 'ms-preview-click' && typeof m.index === 'number') {
@@ -3154,7 +3178,7 @@ function renderLiveBuilder(body) {
           <button onclick="wsRedo()" class="px-2.5 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] border border-[var(--ws-border)] text-xs font-bold transition cursor-pointer" title="Redo (⌘/Ctrl+Shift+Z)">↷</button>
           <button onclick="wsRunAudit()" class="px-2.5 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] border border-[var(--ws-border)] text-xs font-bold transition cursor-pointer" title="Run SEO and accessibility audit">Audit</button>
           <span class="ws-saved-badge px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40">SAVED</span>
-          <a href="${SITE_BASE}?d=${encodeURIComponent(slug)}" target="_blank" class="px-3 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-bold transition">Preview ↗</a>
+          <button type="button" onclick="wsOpenDraftPreview()" class="px-3 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-bold transition">Preview ↗</button>
           <button onclick="saveWebsite(this)" class="px-4 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md transition cursor-pointer">Publish Site</button>
         </div>
       </div>
