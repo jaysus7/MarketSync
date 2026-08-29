@@ -1980,6 +1980,40 @@ body {
    are content surfaces: solid background, their own border, and the lead tile's
    accent edge from ms-design-system.css. */
 
+/* KPI tiles still carry utility classes for light-mode compatibility, but the
+   dashboard shell can be dark without a `.dark` ancestor (notably during the
+   first shell paint). Keep these cards readable in that state too. The previous
+   light fallback made the row look disabled: pale grey surfaces, white numbers,
+   and nearly invisible labels. */
+.ms-pulse-board .ms-kpi {
+  background: linear-gradient(145deg, rgba(28, 42, 69, .86), rgba(10, 18, 34, .78)) !important;
+  border-color: rgba(148, 163, 184, .22) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 12px 28px rgba(0,0,0,.18) !important;
+  color: #f8fafc !important;
+}
+
+.ms-pulse-board .ms-kpi .ms-kpi__value {
+  color: #f8fafc !important;
+}
+
+.ms-pulse-board .ms-kpi .ms-kpi__label {
+  color: #a9b8ce !important;
+}
+
+.ms-pulse-board .ms-kpi .ms-kpi__hint {
+  color: #60a5fa !important;
+}
+
+.ms-pulse-board .ms-kpi[data-emphasis="lead"],
+.ms-pulse-board .ms-kpi[data-emphasis="alert"] {
+  border-color: rgba(245, 158, 11, .78);
+}
+
+.ms-pulse-board .ms-kpi[data-emphasis="lead"] .ms-kpi__value,
+.ms-pulse-board .ms-kpi[data-emphasis="alert"] .ms-kpi__value {
+  color: #fbbf24;
+}
+
 /* A department header is a title plus an action group. On a phone the group is two
    or three buttons that cannot fit beside the title, and the row did not wrap — so
    "Open Accounting Workspace" ran off the right edge of the card. The header itself
