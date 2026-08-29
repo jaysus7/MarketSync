@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../shared.js'
 import { runAutomatedSeoAudit } from './seoMonitoringService.js'
 import { generateRecommendationsFromAudit } from './recommendationEngine.js'
+import { auditWebsiteDiscoverabilityContracts } from './websiteDiscoverabilityContracts.js'
 
 /**
  * MarketSync Discoverability Intelligence Monitoring Service
@@ -16,7 +17,7 @@ export async function runComprehensiveDiscoverabilityAudit(dealershipId, options
   // 1. Fetch dealership record
   const { data: dealer } = await supabaseAdmin
     .from('dealerships')
-    .select('id, name, city, state, address, zip_code, phone, website_url, ai_chatbot_active')
+    .select('id, name, city, state, address, zip_code, phone, website_url, ai_chatbot_active, branding, site_published, site_slug')
     .eq('id', dealershipId)
     .single()
 
@@ -36,6 +37,9 @@ export async function runComprehensiveDiscoverabilityAudit(dealershipId, options
   const city = dealer.city || 'Local'
   const isGscConnected = !!settings?.gsc_connected
   const timestamp = new Date().toISOString()
+  const builderContent = { ...(dealer.branding || {}) }
+  if (Array.isArray(pages) && pages.length) builderContent.pages = pages
+  const websiteBuilderAudit = auditWebsiteDiscoverabilityContracts(builderContent, dealer)
 
   // ── PILLAR 1: SEO HEALTH (0-100) ──────────────────────────────────────────
   const seoScore = seoAudit?.healthScore || (dealer.website_url ? 84 : 70)
@@ -217,6 +221,15 @@ export async function runComprehensiveDiscoverabilityAudit(dealershipId, options
 
   // ── PILLAR 6: VALIDATION & ACCURACY (CRITICAL / HIGH / MED / LOW) ─────────
   const validationIssues = []
+
+  // The builder contract is the source of truth for page-level discoverability.
+  // Keep these findings in the existing validation pillar so the Discoverability
+  // UI and the Builder cannot disagree about whether a page is optimized.
+  validationIssues.push(...websiteBuilderAudit.issues.map(item => ({
+    ...item,
+    category: 'Website Builder contract',
+    affectedUrl: item.affectedUrl || '/',
+  })))
   
   // Rule 1: Check NAP
   if (!dealer.phone || !dealer.address || !dealer.zip_code) {
@@ -318,7 +331,8 @@ export async function runComprehensiveDiscoverabilityAudit(dealershipId, options
       geo: geoData,
       sxo: sxoData,
       aso: asoData,
-      validation: validationData
+      validation: validationData,
+      websiteBuilder: websiteBuilderAudit
     },
     recommendations,
     history: {
