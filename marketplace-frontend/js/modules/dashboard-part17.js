@@ -1607,6 +1607,7 @@ async function loadWebsitePage() {
   __siteStaff = Array.isArray(__siteCfg.content?.staff) ? __siteCfg.content.staff.slice() : [];
   __siteBuiltins = normBuiltins(__siteCfg.content?.builtins);
   __wsTarget = 'home'; __siteSections = __homeSections;
+  wsOfferRecovery();
 
   // Handle returning Stripe checkout session or deep link parameters
   const params = new URLSearchParams(location.search);
@@ -1875,6 +1876,81 @@ window.setBuilderMode = setBuilderMode;
 // the section palette + reorderable list on the right. Edits post to the iframe via
 // postMessage and render instantly (never saved until "Save"). Clicking a section in
 let __livePreviewReady = false, __liveMsgWired = false, __livePushTimer = null;
+let __livePreviewToken = null, __livePreviewOrigin = null;
+let __wsUndoStack = [], __wsRedoStack = [], __wsHistoryTimer = null, __wsHistoryMute = false;
+let __wsAutosaveTimer = null;
+
+function wsSnapshot() {
+  return JSON.parse(JSON.stringify({
+    content: __siteCfg?.content || {}, home: __homeSections || [], pages: __sitePages || [],
+    builtins: __siteBuiltins || {}, staff: __siteStaff || [], menu: __menuOrder || [], target: __wsTarget
+  }));
+}
+function wsRestoreSnapshot(snap) {
+  if (!snap || !__siteCfg) return;
+  __siteCfg.content = snap.content || {};
+  __homeSections = snap.home || []; __sitePages = snap.pages || [];
+  __siteBuiltins = snap.builtins || {}; __siteStaff = snap.staff || [];
+  __menuOrder = snap.menu || []; __wsTarget = snap.target || 'home';
+  __siteSections = typeof __wsTarget === 'number' && __sitePages[__wsTarget] ? __sitePages[__wsTarget].sections : __homeSections;
+  markWsUnsaved(); renderWsBody(); livePreviewPush();
+}
+function wsQueueHistory() {
+  if (__wsHistoryMute) return;
+  if (!__wsHistoryTimer) {
+    __wsUndoStack.push(wsSnapshot());
+    if (__wsUndoStack.length > 80) __wsUndoStack.shift();
+    __wsRedoStack = [];
+  }
+  clearTimeout(__wsHistoryTimer);
+  __wsHistoryTimer = setTimeout(() => { __wsHistoryTimer = null; }, 350);
+  clearTimeout(__wsAutosaveTimer);
+  __wsAutosaveTimer = setTimeout(wsPersistRecovery, 500);
+}
+function wsUndo() { if (!__wsUndoStack.length) return showToast('Nothing to undo', 'info'); const current = wsSnapshot(); const prior = __wsUndoStack.pop(); __wsRedoStack.push(current); __wsHistoryMute = true; wsRestoreSnapshot(prior); __wsHistoryMute = false; }
+function wsRedo() { if (!__wsRedoStack.length) return showToast('Nothing to redo', 'info'); const current = wsSnapshot(); const next = __wsRedoStack.pop(); __wsUndoStack.push(current); __wsHistoryMute = true; wsRestoreSnapshot(next); __wsHistoryMute = false; }
+window.wsUndo = wsUndo; window.wsRedo = wsRedo;
+function wsPersistRecovery() {
+  if (!__siteCfg?.site_slug || !window.__wsHasUnsavedChanges) return;
+  try { localStorage.setItem(`ms_ws_recovery:${__siteCfg.site_slug}`, JSON.stringify({ savedAt: Date.now(), snapshot: wsSnapshot() })); } catch {}
+}
+function wsOfferRecovery() {
+  if (!__siteCfg?.site_slug) return;
+  try {
+    const raw = localStorage.getItem(`ms_ws_recovery:${__siteCfg.site_slug}`); if (!raw) return;
+    const data = JSON.parse(raw); if (!data?.snapshot || Date.now() - Number(data.savedAt || 0) > 7 * 86400000) return;
+    if (confirm('Restore your unsaved Website Builder session from ' + new Date(data.savedAt).toLocaleString() + '?')) { wsRestoreSnapshot(data.snapshot); showToast('Unsaved session restored', 'success'); }
+    else localStorage.removeItem(`ms_ws_recovery:${__siteCfg.site_slug}`);
+  } catch {}
+}
+window.addEventListener('keydown', e => {
+  if (!document.documentElement.classList.contains('website-builder-mode')) return;
+  const tag = String(e.target?.tagName || '').toLowerCase();
+  if ((tag === 'input' || tag === 'textarea' || tag === 'select') && !(e.metaKey || e.ctrlKey)) return;
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? wsRedo() : wsUndo(); }
+  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); wsRedo(); }
+});
+window.addEventListener('beforeunload', e => {
+  if (window.__wsHasUnsavedChanges && document.documentElement.classList.contains('website-builder-mode')) {
+    wsPersistRecovery(); e.preventDefault(); e.returnValue = '';
+  }
+});
+
+function wsRunAudit() {
+  const c = __siteCfg?.content || {}, sections = __siteSections || [];
+  const issues = [];
+  const title = String(c.seo_title || '').trim(), desc = String(c.seo_description || '').trim();
+  if (!title) issues.push('SEO title is missing'); else if (title.length > 60) issues.push('SEO title is over 60 characters');
+  if (!desc) issues.push('Meta description is missing'); else if (desc.length > 160) issues.push('Meta description is over 160 characters');
+  sections.forEach((s, i) => {
+    const v = s?.settings || {};
+    for (const key of ['image', 'image_url', 'background_image']) if (v[key] && !v[`${key}_alt`] && !v.alt) issues.push(`Section ${i + 1} image needs alt text`);
+    if (s?.type === 'html') issues.push(`Section ${i + 1} uses custom HTML — review before publishing`);
+  });
+  showToast(issues.length ? `${issues.length} publish issue${issues.length === 1 ? '' : 's'} found: ${issues[0]}` : 'No SEO or accessibility issues found', issues.length ? 'error' : 'success');
+  return issues;
+}
+window.wsRunAudit = wsRunAudit;
 
 // The preview can finish loading before its postMessage-ready event reaches the
 // parent (especially after switching Builder tabs). The iframe onload hook is a
@@ -1886,6 +1962,7 @@ function livePreviewLoaded() {
 window.livePreviewLoaded = livePreviewLoaded;
 
 function refreshWebsitePreview() {
+  wsQueueHistory();
   markWsUnsaved();
   livePreviewPush();
 }
@@ -1937,7 +2014,9 @@ function livePreviewPush() {
         p.slug = pslug;
         view = 'page:' + pslug;
       }
-      ifr.contentWindow.postMessage({ type: 'ms-preview-apply', site, view }, '*');
+      if (!__livePreviewToken) { try { __livePreviewToken = crypto.randomUUID(); } catch { __livePreviewToken = Math.random().toString(36).slice(2); } }
+      __livePreviewOrigin = new URL(ifr.src, location.href).origin;
+      ifr.contentWindow.postMessage({ type: 'ms-preview-apply', session: __livePreviewToken, site, view }, __livePreviewOrigin);
     } catch {}
   }, 40);
 }
@@ -2179,7 +2258,11 @@ function wireLiveMessages() {
     setTimeout(() => row.classList.remove('ring-2', 'ring-indigo-500', 'rounded-lg'), 1400);
   };
   window.addEventListener('message', (ev) => {
+    const frame = document.getElementById('ws-preview-frame');
+    const allowedOrigin = __livePreviewOrigin || (frame ? new URL(frame.src, location.href).origin : location.origin);
+    if (!frame || ev.source !== frame.contentWindow || ev.origin !== allowedOrigin) return;
     const m = ev.data || {};
+    if (m.session && m.session !== __livePreviewToken) return;
     if (m.type === 'ms-preview-ready') { __livePreviewReady = true; livePreviewPush(); }
     else if (m.type === 'ms-preview-click' && typeof m.index === 'number') {
       // m.field is set when the click landed on a specific editable element
@@ -2963,6 +3046,9 @@ function renderLiveBuilder(body) {
         </div>
 
         <div class="flex items-center gap-2">
+          <button onclick="wsUndo()" class="px-2.5 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] border border-[var(--ws-border)] text-xs font-bold transition cursor-pointer" title="Undo (⌘/Ctrl+Z)">↶</button>
+          <button onclick="wsRedo()" class="px-2.5 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] border border-[var(--ws-border)] text-xs font-bold transition cursor-pointer" title="Redo (⌘/Ctrl+Shift+Z)">↷</button>
+          <button onclick="wsRunAudit()" class="px-2.5 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] border border-[var(--ws-border)] text-xs font-bold transition cursor-pointer" title="Run SEO and accessibility audit">Audit</button>
           <span class="ws-saved-badge px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40">SAVED</span>
           <a href="${SITE_BASE}?d=${encodeURIComponent(slug)}" target="_blank" class="px-3 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-bold transition">Preview ↗</a>
           <button onclick="saveWebsite(this)" class="px-4 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md transition cursor-pointer">Publish Site</button>
@@ -3771,7 +3857,7 @@ async function saveWebsite(btn) {
     theme: c.theme || 'classic',
   };
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
-  try { await apiSendJson('/dealership/site', 'PUT', body); showToast('Website saved', 'success'); btn.disabled = false; btn.textContent = orig; }
+  try { await apiSendJson('/dealership/site', 'PUT', body); try { localStorage.removeItem(`ms_ws_recovery:${__siteCfg.site_slug}`); } catch {} markWsSaved(); showToast('Website saved', 'success'); btn.disabled = false; btn.textContent = orig; }
   catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message, 'error'); }
 }
 //  AI-per-section: Boost / Fresh / Short / Long / SEO on any copy field, plus a
