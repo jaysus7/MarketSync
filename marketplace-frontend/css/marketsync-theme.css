@@ -1643,6 +1643,55 @@ body.website-builder-mode {
 [data-ws-theme="light"].website-builder-mode #ws-left-drawer-content button,
 [data-ws-theme="light"].website-builder-mode #ws-inspector-panel button { text-shadow: none !important; }
 
+/* Website Builder chrome sizing guard. The editor rails are overlays, so a
+   generic `w-64`/text-xs utility must not be allowed to collapse them into
+   unreadable strips or clip the inspector off the viewport. */
+.website-builder-mode #ws-left-dock-wrapper,
+.website-builder-mode #ws-right-dock-wrapper {
+  top: 1rem !important;
+  max-width: calc(100vw - 2rem) !important;
+}
+.website-builder-mode #ws-left-dock-wrapper { left: 1rem !important; }
+.website-builder-mode #ws-right-dock-wrapper { right: 1rem !important; }
+.website-builder-mode #ws-left-dock-wrapper > nav {
+  width: 3.5rem !important;
+  min-width: 3.5rem !important;
+  padding: .65rem .35rem !important;
+  gap: .4rem !important;
+}
+.website-builder-mode #ws-left-dock-wrapper > nav .ws-nav-rail-btn,
+.website-builder-mode #ws-left-dock-wrapper > nav #ws-left-collapse-btn {
+  width: 2.7rem !important;
+  min-width: 2.7rem !important;
+  height: 2.7rem !important;
+  min-height: 2.7rem !important;
+  font-size: .68rem !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+.website-builder-mode #ws-left-drawer-content {
+  width: min(20rem, calc(100vw - 7rem)) !important;
+  min-width: min(20rem, calc(100vw - 7rem)) !important;
+}
+.website-builder-mode #ws-inspector-panel {
+  width: min(22rem, calc(100vw - 3rem)) !important;
+  min-width: min(22rem, calc(100vw - 3rem)) !important;
+}
+.website-builder-mode .ws-top-action-bar button,
+.website-builder-mode .ws-top-action-bar select {
+  min-height: 2rem !important;
+  white-space: nowrap !important;
+}
+.website-builder-mode .ws-top-action-bar { min-height: 3.25rem !important; }
+@media (max-width: 768px) {
+  .website-builder-mode #ws-left-dock-wrapper { left: .5rem !important; }
+  .website-builder-mode #ws-right-dock-wrapper { right: .5rem !important; }
+  .website-builder-mode #ws-left-drawer-content,
+  .website-builder-mode #ws-inspector-panel { min-width: 0 !important; }
+  .website-builder-mode #ws-left-drawer-content { width: min(86vw, 21rem) !important; }
+  .website-builder-mode #ws-inspector-panel { width: min(86vw, 22rem) !important; }
+}
+
 /* Shared Liquid Glass dashboard chrome and bold Apple-style workspace headers.
    Re-declared (identically) in the "Liquid Glass workspace layer" block below —
    that duplication predates this merge; harmless in CSS (last write wins, same
