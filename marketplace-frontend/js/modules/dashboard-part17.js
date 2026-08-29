@@ -3934,10 +3934,11 @@ function wsGovernanceFieldLabel(field) {
 async function wsSaveGovernance(btn) {
   if (!__wsGovernance?.can_manage) return;
   const fields = [...document.querySelectorAll('[data-ws-governance-lock]:checked')].map(el => el.value);
+  const approvalRequired = !!document.querySelector('[data-ws-approval-required]')?.checked;
   const original = btn?.textContent || '';
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   try {
-    const result = await apiSendJson('/dealership/site/governance', 'PATCH', { locked_fields: fields });
+    const result = await apiSendJson('/dealership/site/governance', 'PATCH', { locked_fields: fields, approval_required: approvalRequired });
     __wsGovernance = { ...__wsGovernance, ...result, locked_fields: Array.isArray(result?.locked_fields) ? result.locked_fields : fields };
     renderWsBody();
     showToast('Brand protection updated', 'success');
@@ -4009,8 +4010,9 @@ function wsDesign() {
         <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Lock brand-critical fields so local editors can build pages without changing approved dealership identity or SEO controls.</p>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${['logo_url','primary_color','secondary_color','accent_color','heading_font','body_font','seo_title','seo_description','head_html'].map(field => `<label class="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300"><input type="checkbox" value="${field}" data-ws-governance-lock ${wsFieldLocked(field) ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">${wsGovernanceFieldLabel(field)}</label>`).join('')}</div>
+      <label class="flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/20 px-2.5 py-2.5 text-xs font-semibold text-amber-800 dark:text-amber-300"><input type="checkbox" data-ws-approval-required ${__wsGovernance.approval_required ? 'checked' : ''} class="accent-amber-600 w-4 h-4 mt-0.5"><span>Require approval before publishing<div class="font-normal text-[11px] mt-0.5 text-amber-700 dark:text-amber-400">Editors can save drafts and request review, but only an approved change set can reach production.</div></span></label>
       <button type="button" onclick="wsSaveGovernance(this)" class="w-full rounded-xl bg-slate-900 dark:bg-indigo-600 hover:bg-slate-800 dark:hover:bg-indigo-500 text-white text-xs font-bold px-3 py-2.5 transition">Save brand protection</button>
-    </div>` : (Array.isArray(__wsGovernance?.locked_fields) && __wsGovernance.locked_fields.length ? `<div class="border-t border-slate-100 dark:border-slate-800 pt-4"><div class="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/20 px-3 py-3"><div class="text-xs font-black text-amber-800 dark:text-amber-300">Some brand settings are protected</div><p class="text-[11px] text-amber-700 dark:text-amber-400 mt-1">An administrator has locked: ${__wsGovernance.locked_fields.map(wsGovernanceFieldLabel).join(', ')}. Contact an administrator to change them.</p></div></div>` : '')}
+    </div>` : (Array.isArray(__wsGovernance?.locked_fields) && __wsGovernance.locked_fields.length || __wsGovernance?.approval_required ? `<div class="border-t border-slate-100 dark:border-slate-800 pt-4"><div class="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/20 px-3 py-3"><div class="text-xs font-black text-amber-800 dark:text-amber-300">Enterprise website controls are active</div>${__wsGovernance.approval_required ? '<p class="text-[11px] text-amber-700 dark:text-amber-400 mt-1">Publishing requires an approved change set. Save a draft, then use Request Approval.</p>' : ''}${__wsGovernance.locked_fields?.length ? `<p class="text-[11px] text-amber-700 dark:text-amber-400 mt-1">Protected fields: ${__wsGovernance.locked_fields.map(wsGovernanceFieldLabel).join(', ')}. Contact an administrator to change them.</p>` : ''}</div></div>` : '')}
   </div>`;
 }
 // Pages tab: extra content pages + auto-built model/offer pages (moved here from Settings).

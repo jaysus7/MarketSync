@@ -646,7 +646,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const { data, error } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
     if (error) return res.status(500).json({ error: error.message })
-    res.json({ locked_fields: Array.isArray(data?.branding?.site_locked_fields) ? data.branding.site_locked_fields.filter(k => SITE_LOCKABLE_FIELDS.includes(k)) : [], can_manage: canGovernWebsite(req) })
+    res.json({ locked_fields: Array.isArray(data?.branding?.site_locked_fields) ? data.branding.site_locked_fields.filter(k => SITE_LOCKABLE_FIELDS.includes(k)) : [], approval_required: data?.branding?.site_approval_required === true, can_manage: canGovernWebsite(req) })
   })
   app.patch('/dealership/site/governance', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
@@ -654,11 +654,11 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     const lockedFields = Array.isArray(req.body?.locked_fields) ? [...new Set(req.body.locked_fields.filter(k => SITE_LOCKABLE_FIELDS.includes(k)))] : []
     const { data: current, error: readError } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
     if (readError) return res.status(500).json({ error: readError.message })
-    const branding = { ...(current?.branding || {}), site_locked_fields: lockedFields }
+    const branding = { ...(current?.branding || {}), site_locked_fields: lockedFields, site_approval_required: req.body?.approval_required === true }
     const { error } = await supabaseAdmin.from('dealerships').update({ branding }).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
     audit(req, 'site.governance_updated', { after_state: { locked_fields: lockedFields } })
-    res.json({ ok: true, locked_fields: lockedFields })
+    res.json({ ok: true, locked_fields: lockedFields, approval_required: branding.site_approval_required === true })
   })
 
   app.get('/dealership/site/revisions', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
@@ -700,6 +700,14 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
         status: 'review', created_by: req.user?.id,
       }).select('id, site_id, name, description, version_tag, status, created_by, created_at, updated_at').single()
       if (error) throw error
+      const { error: itemError } = await supabaseAdmin.from('website_change_set_items').insert({
+        change_set_id: changeSet.id, item_type: 'page', item_id: revision.id, action: 'publish',
+        diff_payload: { revision_id: revision.id, revision_number: revision.revision_number, change_summary: revision.change_summary || null },
+      })
+      if (itemError) {
+        await supabaseAdmin.from('website_change_sets').delete().eq('id', changeSet.id).eq('site_id', req.dealershipId)
+        throw itemError
+      }
       audit(req, 'site.change_set_submitted', { after_state: { change_set_id: changeSet.id, revision_id: revision.id, revision_number: revision.revision_number } })
       res.status(201).json({ change_set: changeSet, revision: { id: revision.id, number: revision.revision_number } })
     } catch (e) { res.status(500).json({ error: e.message }) }
@@ -763,6 +771,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     const builderAction = ['draft', 'publish'].includes(rawBody.builder_action) ? rawBody.builder_action : null
     let revisionSaved = false
     let revisionInfo = null
+    let approvedChangeSet = null
     // Apply brand governance to every site write, including the legacy Settings
     // form. Previously only visual-builder writes were checked, which allowed a
     // settings request without builder_action to bypass an administrator lock.
@@ -770,6 +779,19 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     if (lockedFields.length && !canGovernWebsite(req)) {
       const attempted = lockedFields.filter(key => rawBody[key] !== undefined || (rawBody.content && rawBody.content[key] !== undefined))
       if (attempted.length) return res.status(403).json({ error: `Locked brand fields cannot be changed by this role: ${attempted.join(', ')}`, code: 'WEBSITE_BRAND_FIELD_LOCKED', fields: attempted })
+    }
+    if (builderAction === 'publish' && currentSite?.branding?.site_approval_required === true) {
+      const baseRevisionId = rawBody.base_revision_id ? String(rawBody.base_revision_id).slice(0, 80) : ''
+      if (!baseRevisionId) return res.status(409).json({ error: 'This website requires approval. Save a draft and request approval before publishing.', code: 'WEBSITE_APPROVAL_REQUIRED' })
+      const { data: items, error: itemError } = await supabaseAdmin.from('website_change_set_items').select('change_set_id').eq('item_id', baseRevisionId).limit(20)
+      if (itemError) return res.status(500).json({ error: itemError.message })
+      const changeSetIds = (items || []).map(item => item.change_set_id).filter(Boolean)
+      if (changeSetIds.length) {
+        const { data: approved, error: approvalError } = await supabaseAdmin.from('website_change_sets').select('id, status, name').eq('site_id', req.dealershipId).eq('status', 'approved').in('id', changeSetIds).limit(1).maybeSingle()
+        if (approvalError) return res.status(500).json({ error: approvalError.message })
+        approvedChangeSet = approved || null
+      }
+      if (!approvedChangeSet) return res.status(409).json({ error: 'This website requires an approved change set for the current draft revision.', code: 'WEBSITE_APPROVAL_REQUIRED' })
     }
     if (builderAction) {
       // Editors send the draft revision they loaded. Reject stale writes rather
@@ -892,6 +914,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       // history system for dealer sites.
       await supabaseAdmin.from('website_deployments').insert({
         site_id: req.dealershipId,
+        change_set_id: approvedChangeSet?.id || null,
         trigger_type: 'publish',
         status: 'verified',
         published_summary: { revision_id: revisionInfo.id, revision_number: revisionInfo.number, change_summary: rawBody.change_summary || 'Published website builder changes' },
@@ -900,6 +923,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
         verified_status: 'Database-backed public site state confirmed',
         created_by: req.user?.id,
       })
+      if (approvedChangeSet?.id) await supabaseAdmin.from('website_change_sets').update({ status: 'published', published_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', approvedChangeSet.id).eq('site_id', req.dealershipId)
     }
     audit(req, 'site.configuration_updated', { after_state: { fields: Object.keys(update), site_published: update.site_published, site_slug: update.site_slug, custom_domain: update.custom_domain } })
     res.json({ ok: true, site_slug: update.site_slug, site_published: update.site_published, custom_domain: update.custom_domain, domain_target: SITE_HOST, revision: revisionInfo, current_revision: revisionInfo })
