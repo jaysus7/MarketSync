@@ -1,4 +1,4 @@
-@import url('css/ms-liquid-glass.css');
+@import url('css/ms-liquid-glass.css?v=20260828_global_v3');
 /* MarketSync marketing — shared page styles (paired with site-nav.js chrome).
    Every marketing page links this so the look is identical everywhere. */
 :root{--ac:#2563eb;--ink:#0b1220;color-scheme:light dark;}
