@@ -642,7 +642,7 @@ function aiSetReplyAs(who, ch) {
 window.aiSetReplyAs = aiSetReplyAs;
 
 async function aiOpenConversation(id) {
-  const overlay = crmOverlay(`<div class="p-5"><div class="text-sm text-slate-400 py-16 text-center">Loading…</div></div>`, 'max-w-2xl');
+  const overlay = crmOverlay(`<div class="p-5"><div class="text-sm text-slate-400 py-16 text-center">Loading…</div></div>`, 'max-w-3xl');
   const panel = overlay.firstElementChild;
   let convo = null, messages = [], memory = [], qualification = null, scoreDetails = null, leadBrief = null;
   try {
@@ -766,8 +766,8 @@ async function aiOpenConversation(id) {
     </div>
   `;
 
-  panel.innerHTML = `<div class="p-5 space-y-4">
-    <div class="flex items-start justify-between gap-3">
+  panel.innerHTML = `<div class="p-5 md:p-6 space-y-5">
+    <div class="flex items-start justify-between gap-3 pb-4 border-b border-slate-200/80 dark:border-slate-800">
       <div class="min-w-0">
         <div class="flex items-center gap-2 flex-wrap">
           <h2 class="text-lg font-black text-slate-900 dark:text-white truncate">${convo.contact_name ? esc(convo.contact_name) : 'AI Conversation'}</h2>
@@ -784,9 +784,15 @@ async function aiOpenConversation(id) {
       ${reasonsList.length ? reasonsList.map(r => `<div class="text-xs text-slate-700 dark:text-slate-300 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>${esc(r)}</div>`).join('') : '<div class="text-xs text-slate-400">Early inquiry / browsing</div>'}
     </div>
 
-    ${briefCard}
+    <section aria-labelledby="ai-brief-heading" class="space-y-2">
+      <div class="flex items-center justify-between gap-3"><h3 id="ai-brief-heading" class="text-[11px] font-black uppercase tracking-[0.16em] text-sky-600 dark:text-sky-400">Decision support</h3><span class="text-[10px] text-slate-400">AI-generated · review before sending</span></div>
+      ${briefCard}
+    </section>
 
-    <div id="ai-convo-log" class="space-y-2 max-h-64 overflow-y-auto p-1 border-t border-b border-slate-100 dark:border-slate-800 py-3">${bubbles || '<div class="text-sm text-slate-400 text-center py-6">No messages.</div>'}</div>
+    <section aria-labelledby="ai-transcript-heading" class="space-y-2">
+      <div class="flex items-center justify-between gap-3"><h3 id="ai-transcript-heading" class="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Conversation</h3><span class="text-[10px] text-slate-400">${messages.length} ${messages.length === 1 ? 'message' : 'messages'}</span></div>
+      <div id="ai-convo-log" class="space-y-2 max-h-64 overflow-y-auto rounded-2xl bg-slate-50/70 dark:bg-slate-950/45 border border-slate-200/80 dark:border-slate-800 p-3">${bubbles || '<div class="text-sm text-slate-400 text-center py-6">No messages.</div>'}</div>
+    </section>
 
     <!-- Offline Visitor Fallback Alert -->
     ${!isOnline ? `
@@ -804,7 +810,8 @@ async function aiOpenConversation(id) {
     ` : ''}
 
     <!-- Reply Box with Independent Sender & Channel Selectors -->
-    <div class="border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 rounded-2xl p-3 space-y-3">
+    <section aria-labelledby="ai-reply-heading" class="border border-indigo-500/20 bg-indigo-500/[0.035] dark:bg-slate-900/60 rounded-2xl p-3.5 space-y-3">
+      <div class="flex items-center justify-between gap-3"><h3 id="ai-reply-heading" class="text-[11px] font-black uppercase tracking-[0.16em] text-indigo-600 dark:text-indigo-400">Next action</h3><span class="text-[10px] text-slate-400">Compose a reply</span></div>
       <div class="grid sm:grid-cols-2 gap-3 pb-1 border-b border-slate-200 dark:border-slate-800">
         <!-- Sender Selector -->
         <div>
@@ -844,9 +851,9 @@ async function aiOpenConversation(id) {
         <div class="flex-1"></div>
         <button onclick="aiRefreshConvo('${id}')" class="text-xs font-bold text-slate-400 hover:text-slate-200 px-2 py-2" title="Refresh">↻ Refresh</button>
       </div>
-    </div>
+    </section>
 
-    <div class="flex items-center gap-1 pt-1 border-t border-slate-100 dark:border-slate-800 flex-wrap">
+    <div class="flex items-center gap-1 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap">
       <button onclick="aiPrintConversation()" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">Save / Print PDF</button>
       <div class="relative">
         <button onclick="document.getElementById('ai-share-menu').classList.toggle('hidden')" class="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-2">↗ Share</button>
