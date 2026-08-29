@@ -2,6 +2,35 @@
 -- The existing studio_designs.scene remains the current draft for backwards
 -- compatibility; revisions are immutable checkpoints used for history/rollback.
 
+-- Some deployments received the Studio API before the original backend-only
+-- schema migration. Bootstrap the minimum design record here so this additive
+-- migration remains safe on those older staging databases. Existing tables are
+-- left untouched; optional product foreign keys are intentionally added by the
+-- owning product migrations when those tables exist.
+CREATE TABLE IF NOT EXISTS public.studio_designs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  dealership_id UUID NOT NULL REFERENCES public.dealerships(id) ON DELETE CASCADE,
+  owner_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  ownership TEXT NOT NULL DEFAULT 'dealership',
+  name TEXT NOT NULL DEFAULT 'Untitled Design',
+  format_key TEXT NOT NULL DEFAULT 'square',
+  width INT NOT NULL DEFAULT 1080,
+  height INT NOT NULL DEFAULT 1080,
+  scene JSONB NOT NULL DEFAULT '{"version":2,"pages":[]}'::jsonb,
+  vehicle_id UUID,
+  campaign_id UUID,
+  template_id UUID,
+  preview_asset_id UUID,
+  created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
+);
+
+ALTER TABLE public.studio_designs ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.studio_designs TO service_role;
+GRANT SELECT ON TABLE public.studio_designs TO authenticated;
+
 ALTER TABLE public.studio_designs
   ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'draft',
   ADD COLUMN IF NOT EXISTS revision_number INT NOT NULL DEFAULT 0,
@@ -46,20 +75,25 @@ ALTER TABLE public.studio_design_revisions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.studio_design_revisions FORCE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "studio_revisions_select" ON public.studio_design_revisions;
-CREATE POLICY "studio_revisions_select" ON public.studio_design_revisions
-  FOR SELECT TO authenticated
-  USING (
-    dealership_id = authz.current_dealership_id()
-    AND (authz.has_permission(dealership_id, 'marketing.view') OR authz.is_platform_staff())
-  );
-
 DROP POLICY IF EXISTS "studio_revisions_insert" ON public.studio_design_revisions;
-CREATE POLICY "studio_revisions_insert" ON public.studio_design_revisions
-  FOR INSERT TO authenticated
-  WITH CHECK (
-    dealership_id = authz.current_dealership_id()
-    AND (authz.has_permission(dealership_id, 'marketing.edit') OR authz.is_platform_staff())
-  );
+DO $$
+BEGIN
+  -- Older staging projects do not yet expose the shared authz helpers. Keep
+  -- RLS enabled there and install the tenant policies automatically once the
+  -- authorization migration is present.
+  IF to_regprocedure('authz.current_dealership_id()') IS NOT NULL
+     AND to_regprocedure('authz.has_permission(uuid,text)') IS NOT NULL
+     AND to_regprocedure('authz.is_platform_staff()') IS NOT NULL THEN
+    CREATE POLICY "studio_revisions_select" ON public.studio_design_revisions
+      FOR SELECT TO authenticated
+      USING (dealership_id = authz.current_dealership_id()
+        AND (authz.has_permission(dealership_id, 'marketing.view') OR authz.is_platform_staff()));
+    CREATE POLICY "studio_revisions_insert" ON public.studio_design_revisions
+      FOR INSERT TO authenticated
+      WITH CHECK (dealership_id = authz.current_dealership_id()
+        AND (authz.has_permission(dealership_id, 'marketing.edit') OR authz.is_platform_staff()));
+  END IF;
+END $$;
 
 GRANT ALL ON TABLE public.studio_design_revisions TO service_role;
 GRANT SELECT ON TABLE public.studio_design_revisions TO authenticated;
