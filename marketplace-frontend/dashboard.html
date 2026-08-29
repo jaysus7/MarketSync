@@ -3128,7 +3128,7 @@
       </div>
 
       <!-- ── Trade Appraisal Page ─────────────────────────────────────────── -->
-      <div data-page-content="appraisal" class="page-content hidden space-y-6">
+      <div data-page-content="appraisal" class="page-content hidden space-y-6 appraisal-page">
         <div class="flex items-center justify-between gap-4 flex-wrap pb-2 border-b border-slate-200/80 dark:border-slate-800">
           <div>
             <h2 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">Trade Appraisal</h2>
@@ -3140,15 +3140,23 @@
           </button>
         </div>
 
+        <div class="appraisal-stepper" aria-label="Appraisal workflow">
+          <div class="appraisal-step appraisal-step-active"><span>1</span><div><b>Identify</b><small>Vehicle &amp; customer</small></div></div>
+          <i aria-hidden="true"></i>
+          <div class="appraisal-step"><span>2</span><div><b>Evaluate</b><small>Condition &amp; market</small></div></div>
+          <i aria-hidden="true"></i>
+          <div class="appraisal-step"><span>3</span><div><b>Decide</b><small>Disposition &amp; save</small></div></div>
+        </div>
+
         <!-- Appraisal flow on the left; Appraisals list pinned right on wide screens -->
-        <div class="grid gap-6 items-start xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div class="grid gap-5 items-start xl:grid-cols-[minmax(0,1fr)_300px] 2xl:grid-cols-[minmax(0,1fr)_340px]">
           <div class="space-y-6 min-w-0">
 
         <!-- Appraisal workflow — three columns:
              Col 1: Vehicle & VIN + Customer Contact Details
              Col 2: Condition & Appraisal
              Col 3: Market & Value (Shrunk/Compact) + Salesperson & Disposition (under Market & Value) -->
-        <div class="grid gap-5 items-start md:grid-cols-2 xl:grid-cols-3">
+        <div class="appraisal-workflow grid gap-4 items-start md:grid-cols-2 xl:grid-cols-3">
 
           <!-- Column 1 — Vehicle & VIN + Customer Details -->
           <div class="space-y-5 min-w-0">
@@ -3319,7 +3327,7 @@
         <!-- Deal Details: -->
 
         <!-- Bottom Section — Trade-In Disclosure (Full width below) -->
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm ai-accordion-open">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
           <button type="button" onclick="this.closest('.rounded-2xl').classList.toggle('ai-accordion-open')" class="w-full px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
             <div class="flex items-center gap-2">
               <span class="w-1.5 h-4 rounded-full bg-blue-600 flex-shrink-0"></span>

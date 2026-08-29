@@ -175,6 +175,53 @@ body.ms-glass-site button.bg-emerald-600 {
   white-space: nowrap;
 }
 
+/* Trade appraisal hierarchy: make the three decisions scan as a workflow and
+ * keep optional/legal detail visually quiet until it is needed. */
+.appraisal-page .appraisal-stepper {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  padding: .7rem 1rem;
+  border: 1px solid rgba(148,190,230,.22);
+  border-radius: 1rem;
+  background: rgba(9,20,39,.38);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+}
+.appraisal-page .appraisal-step {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  min-width: 0;
+  color: #94a3b8;
+}
+.appraisal-page .appraisal-step span {
+  display: grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 1px solid rgba(148,190,230,.3);
+  font-size: .7rem;
+  font-weight: 900;
+}
+.appraisal-page .appraisal-step b,
+.appraisal-page .appraisal-step small { display: block; line-height: 1.2; }
+.appraisal-page .appraisal-step b { color: #e2e8f0; font-size: .75rem; }
+.appraisal-page .appraisal-step small { margin-top: .12rem; font-size: .65rem; color: #64748b; }
+.appraisal-page .appraisal-step-active span { background: #2563eb; border-color: #60a5fa; color: white; box-shadow: 0 0 0 3px rgba(37,99,235,.16); }
+.appraisal-page .appraisal-stepper > i { height: 1px; flex: 1 1 2rem; min-width: 1rem; background: rgba(148,190,230,.2); }
+.appraisal-page .appraisal-workflow > .space-y-5 > .rounded-2xl,
+.appraisal-page .appraisal-workflow > .rounded-2xl { box-shadow: 0 14px 38px rgba(0,0,0,.13), inset 0 1px 0 rgba(255,255,255,.07); }
+.appraisal-page aside > .rounded-2xl { box-shadow: 0 14px 38px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.07); }
+.appraisal-page aside #appr-list { scrollbar-width: thin; }
+@media (max-width: 640px) {
+  .appraisal-page .appraisal-stepper { gap: .35rem; padding: .6rem; }
+  .appraisal-page .appraisal-step { gap: .35rem; }
+  .appraisal-page .appraisal-step small { display: none; }
+  .appraisal-page .appraisal-stepper > i { min-width: .5rem; }
+}
+
 @supports not ((backdrop-filter: blur(1px))) {
   .ms-glass-surface,.ms-glass-panel,
   body.ms-glass-site :is(div,section,article,aside,form,details,header,footer,nav).bg-white,
