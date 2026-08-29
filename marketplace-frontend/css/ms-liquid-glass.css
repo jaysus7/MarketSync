@@ -33,6 +33,37 @@
   box-shadow: var(--ms-glass-shadow-dark);
 }
 
+/* Any standalone product or marketing page that uses one of the shared CSS
+ * bundles gets the same canvas and named glass cards without needing a body
+ * class or a page-specific patch. */
+body:not(.ms-app-booting) {
+  background: var(--ms-glass-canvas) !important;
+  background-attachment: fixed;
+}
+body:not(.ms-app-booting) :is(.glass,.glass-card,.glass-panel,.liquid-glass-card,.liquid-glass-panel,.ms-glass-surface,.ms-glass-panel) {
+  background: var(--ms-glass-light) !important;
+  border-color: var(--ms-glass-line) !important;
+  box-shadow: var(--ms-glass-shadow);
+  backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
+  -webkit-backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
+}
+body:not(.ms-app-booting) :is(div,section,article,aside,form,details,header,footer,nav).bg-white,
+body:not(.ms-app-booting) :is(div,section,article,aside,form,details,header,footer,nav).dark\:bg-slate-900 {
+  background: var(--ms-glass-light) !important;
+  border-color: var(--ms-glass-line) !important;
+  box-shadow: var(--ms-glass-shadow);
+  backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
+  -webkit-backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
+}
+@media (prefers-color-scheme: dark) {
+  body:not(.ms-app-booting) :is(.glass,.glass-card,.glass-panel,.liquid-glass-card,.liquid-glass-panel,.ms-glass-surface,.ms-glass-panel),
+  body:not(.ms-app-booting) :is(div,section,article,aside,form,details,header,footer,nav).dark\:bg-slate-900 {
+    background: var(--ms-glass-dark) !important;
+    border-color: var(--ms-glass-line-dark) !important;
+    box-shadow: var(--ms-glass-shadow-dark);
+  }
+}
+
 /* The public site is one materialized canvas. Semantic containers are selected
  * instead of buttons so calls-to-action retain reliable contrast. */
 body.ms-glass-site {
