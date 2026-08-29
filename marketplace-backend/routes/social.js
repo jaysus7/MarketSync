@@ -266,7 +266,9 @@ export function registerSocial(app) {
       })
     }
 
-    const ownership = req.query.ownership === 'user' ? 'user' : 'dealership'
+    // A normal Connect action belongs to the signed-in user. Shared dealership
+    // pages remain available explicitly with ownership=dealership.
+    const ownership = req.query.ownership === 'dealership' ? 'dealership' : 'user'
     let ownerUserId = null
 
     if (ownership === 'user') {
@@ -290,6 +292,7 @@ export function registerSocial(app) {
         p: provider,
         ownership,
         ownerUserId: ownership === 'user' ? ownerUserId : null,
+        returnTo: req.query.return_to === 'social-scheduler' ? 'social-scheduler' : 'integrations',
         kind: 'social',
       })
       const authUrl = socialOAuthAuthorizeUrl(provider, state)
@@ -330,7 +333,8 @@ export function registerSocial(app) {
         credentials_encryption_version: PII_ENCRYPTION_VERSION, expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
       }).select('id').single()
       if (error) return done(false, error.message)
-      res.redirect(`${FRONTEND_URL}/dashboard.html?social=select&provider=${encodeURIComponent(provider)}&session=${encodeURIComponent(session.id)}`)
+      const returnTo = st.returnTo === 'social-scheduler' ? '&return_to=social-scheduler' : ''
+      res.redirect(`${FRONTEND_URL}/dashboard.html?social=select&provider=${encodeURIComponent(provider)}&session=${encodeURIComponent(session.id)}${returnTo}`)
     } catch (e) {
       console.error('[social] callback failed:', e.message)
       done(false, e.message)
