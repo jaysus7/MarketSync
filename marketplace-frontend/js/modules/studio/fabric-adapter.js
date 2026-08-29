@@ -116,7 +116,24 @@ class StudioFabricAdapter {
 
     const page = Array.isArray(scene.pages) ? (scene.pages.find(p => p.id === this.activePageId) || scene.pages[0]) : null;
     if (page) this.activePageId = page.id;
-    const elements = page?.objects || scene.elements || scene.layers || [];
+    const elements = [...(page?.objects || scene.elements || scene.layers || [])];
+    const repeaters = Array.isArray(scene.components) ? scene.components.filter(component => component.type === 'repeater') : [];
+    if (repeaters.length) {
+      let inventory = (typeof window !== 'undefined' && Array.isArray(window.__catalogCache)) ? window.__catalogCache : [];
+      if (!inventory.length && typeof apiGetJson === 'function') {
+        try { const data = await apiGetJson('/inventory/all'); inventory = Array.isArray(data) ? data : (data?.vehicles || data?.inventory || []); } catch (_) { inventory = []; }
+      }
+      repeaters.forEach((repeater, repeaterIndex) => {
+        inventory.slice(0, 3).forEach((vehicle, index) => {
+          const x = 60 + index * 330;
+          const y = 80 + repeaterIndex * 260;
+          elements.push({ type: 'shape', shapeType: 'rect', x, y, width: 290, height: 210, fill: '#172554', rx: 18, opacity: .96, name: `${repeater.name} card`, repeaterPreview: true });
+          elements.push({ type: 'text', x: x + 18, y: y + 24, width: 250, text: `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || 'Vehicle'}`.trim(), fontSize: 22, fontWeight: '800', fill: '#FFFFFF', name: `${repeater.name} title`, repeaterPreview: true });
+          elements.push({ type: 'text', x: x + 18, y: y + 78, width: 250, text: vehicle.price ? `$${Number(vehicle.price).toLocaleString()}` : 'Price available', fontSize: 26, fontWeight: '900', fill: '#67E8F9', name: `${repeater.name} price`, repeaterPreview: true });
+          elements.push({ type: 'text', x: x + 18, y: y + 136, width: 250, text: vehicle.stock_number || vehicle.stock_no || 'Inventory item', fontSize: 16, fontWeight: '600', fill: '#CBD5E1', name: `${repeater.name} stock`, repeaterPreview: true });
+        });
+      });
+    }
     for (const rawEl of elements) {
       const el = window.msStudioResolveObject ? window.msStudioResolveObject(rawEl, this.activeBreakpoint) : rawEl;
       if (el.type === 'text') {
@@ -202,7 +219,7 @@ class StudioFabricAdapter {
 
   exportScene() {
     if (!this.fabricCanvas) return this.currentScene;
-    const objects = this.fabricCanvas.getObjects();
+    const objects = this.fabricCanvas.getObjects().filter(obj => !obj.msData?.repeaterPreview);
     const elements = objects.map((obj, idx) => {
       const ms = obj.msData || {};
       return {

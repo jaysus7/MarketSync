@@ -748,6 +748,7 @@ function addStudioStructure(type) {
     : window.msStudioCreateComponent('Reusable component', []);
   document.components = [...(document.components || []), item];
   adapter.currentScene = window.msStudioDocumentToScene(document);
+  adapter.renderScene(adapter.currentScene);
   window.__msStudioStore?.update(document);
   if (window.msStudioScheduleAutosave) window.msStudioScheduleAutosave(adapter.currentScene);
   setStudioTool('layers');
