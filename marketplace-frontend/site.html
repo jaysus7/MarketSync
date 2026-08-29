@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Inventory</title>
   <link rel="stylesheet" href="css/tailwind-built.css?v=20260825_header_spacing_v1">
+  <link rel="stylesheet" href="css/ms-liquid-glass.css?v=20260828_global_v1">
   <style>
     :root{--brand:#1e3a8a;--brand2:#0f172a}
     .brand-bg{background:var(--brand)} .brand-text{color:var(--brand)} .brand2-bg{background:var(--brand2)} .brand-border{border-color:var(--brand)}
@@ -32,7 +33,7 @@
     .prose a{color:var(--brand);text-decoration:underline}
   </style>
 </head>
-<body class="bg-slate-50 text-slate-900">
+<body class="bg-slate-50 text-slate-900 ms-glass-site">
   <div id="app"><div class="min-h-screen flex items-center justify-center text-slate-400 text-sm">Loading…</div></div>
 
   <script>
@@ -146,6 +147,43 @@
       if(title){ document.title=title; metaTag('meta[property="og:title"]',['property','og:title'],title); }
       if(desc){ metaTag('meta[name="description"]',['name','description'],desc); metaTag('meta[property="og:description"]',['property','og:description'],desc); }
     }
+    function setCanonical(url){
+      let el=document.head.querySelector('link[rel="canonical"]');
+      if(!el){ el=document.createElement('link'); el.rel='canonical'; document.head.appendChild(el); }
+      el.href=url;
+    }
+    function setDiscoveryAlternate(s){
+      if(!s?.slug) return;
+      let el=document.head.querySelector('link[data-ms-discovery]');
+      if(!el){ el=document.createElement('link'); el.rel='alternate'; el.type='application/json'; el.dataset.msDiscovery='1'; document.head.appendChild(el); }
+      el.href=`${API}/site/${encodeURIComponent(s.slug)}/discovery`;
+    }
+    // Structured discovery is generated from the same live site payload used by
+    // the page renderer. This keeps SEO, AI discovery, and the visible site from
+    // drifting into separate keyword/content inventories.
+    function applyDiscoverySchema(s){
+      if(!s?.discovery_enabled) return;
+      const terms=[...(s.discovery_terms||[]),...(s.discovery_intents||[])].filter(Boolean).slice(0,60);
+      const base=location.origin+location.pathname+(SLUG?`?d=${encodeURIComponent(SLUG)}`:'');
+      const siteUrl=base;
+      const graph=[
+        {'@type':'WebSite','@id':siteUrl+'#website','url':siteUrl,'name':s.name||'Dealership','description':s.discovery_summary||s.seo_description||s.about||undefined,
+          'potentialAction':{'@type':'SearchAction','target':siteUrl+'#inventory?q={search_term_string}','query-input':'required name=search_term_string'}},
+        {'@type':'AutoDealer','@id':siteUrl+'#dealer','name':s.name||'Dealership','url':siteUrl,'telephone':s.phone||undefined,'address':s.address?{'@type':'PostalAddress','streetAddress':s.address,'addressLocality':s.city||undefined,'addressRegion':s.province||undefined,'postalCode':s.postal_code||undefined}:undefined},
+      ];
+      const viewUrl=VIEW==='home'?siteUrl:siteUrl+'#'+(VIEW.startsWith('page:')?VIEW.slice(5):VIEW);
+      const currentPage=VIEW.startsWith('page:')?findSitePage(VIEW.slice(5)):null;
+      graph.push({'@type':currentPage?'WebPage':'CollectionPage','@id':viewUrl+'#page','url':viewUrl,'name':currentPage?.title||document.title,'description':currentPage?.seo_description||undefined,'isPartOf':{'@id':siteUrl+'#website'},'about':{'@id':siteUrl+'#dealer'},'keywords':terms.length?terms.join(', '):undefined});
+      if(VIEW==='inventory'||VIEW==='home'){
+        const items=(DATA.vehicles||[]).slice(0,100).map((v,i)=>({'@type':'ListItem','position':i+1,'url':siteUrl+'#inventory/'+encodeURIComponent(v.id),'item':{'@type':'Vehicle','name':[v.year,v.make,v.model,v.trim].filter(Boolean).join(' '),'vehicleMake':v.make||undefined,'model':v.model||undefined,'vehicleModelDate':v.year?String(v.year):undefined,'offers':v.price?{'@type':'Offer','price':v.price,'priceCurrency':'CAD','availability':'https://schema.org/InStock'}:undefined,'image':v.image_urls||undefined}}));
+        if(items.length) graph.push({'@type':'ItemList','@id':viewUrl+'#inventory','name':s.discovery_summary||'Available vehicles','numberOfItems':items.length,'itemListElement':items});
+      }
+      const json=JSON.stringify({'@context':'https://schema.org','@graph':graph}).replace(/<\/script/gi,'<\\/script');
+      let el=document.getElementById('ms-discovery-schema');
+      if(!el){ el=document.createElement('script'); el.id='ms-discovery-schema'; el.type='application/ld+json'; document.head.appendChild(el); }
+      el.textContent=json;
+      setDiscoveryAlternate(s);
+    }
     function stripText(html,max){ const d=document.createElement('div'); d.innerHTML=html||''; let t=(d.textContent||'').replace(/\s+/g,' ').trim(); if(max&&t.length>max) t=t.slice(0,max-1).replace(/\s+\S*$/,'').trim()+'…'; return t; }
     function findSitePage(query){
       if(!query || !DATA || !DATA.site) return null;
@@ -180,6 +218,9 @@
         else { title=`${D[0]} | ${name}`; desc=`${D[1]} at ${name}${loc}.`; }
       }
       setMeta(title,desc);
+      const canonicalBase=location.origin+location.pathname+(SLUG?`?d=${encodeURIComponent(SLUG)}`:'');
+      setCanonical(VIEW==='home'?canonicalBase:canonicalBase+'#'+(VIEW.startsWith('page:')?VIEW.slice(5):VIEW));
+      applyDiscoverySchema(s);
     }
     function injectHead(html){ if(!html) return; try{ const t=document.createElement('div'); t.innerHTML=html; Array.from(t.childNodes).forEach(n=>{ if(n.nodeType===1&&n.tagName==='SCRIPT'){ const s=document.createElement('script'); for(const a of n.attributes) s.setAttribute(a.name,a.value); s.textContent=n.textContent; document.head.appendChild(s);} else if(n.nodeType===1) document.head.appendChild(n); }); }catch(e){} }
     // Typography → dealer-chosen Google Fonts (heading + body), or a named preset.

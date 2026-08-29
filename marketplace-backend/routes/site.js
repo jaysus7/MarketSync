@@ -213,6 +213,18 @@ function cleanStaff(arr) {
   })).filter(m => m.name)
 }
 
+// Discovery is the semantic layer shared by the public website, SEO metadata,
+// and the MarketSync Discovery surface. Keep synonyms structured and bounded so
+// they improve recall without becoming keyword-stuffed page copy.
+function cleanDiscoveryTerms(value) {
+  const values = Array.isArray(value) ? value : String(value || '').split(',')
+  const seen = new Set()
+  return values.map(v => String(v || '').trim().replace(/\s+/g, ' ').slice(0, 80))
+    .filter(v => v.length >= 2 && v.length <= 80)
+    .filter(v => { const k = v.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true })
+    .slice(0, 40)
+}
+
 // The section palette for the page builder. Each is dealership-aware on render.
 const SECTION_TYPES = ['hero', 'feature_cards', 'featured_inventory', 'inventory_grid', 'text_image', 'body_style', 'payment_calc', 'ad_banner', 'finance_cta', 'trade_cta', 'service_cta', 'staff', 'reviews', 'faq', 'blog', 'cta_banner', 'gallery', 'map', 'contact', 'html']
 function cleanSections(arr) {
@@ -273,6 +285,12 @@ function siteContent(d) {
     seo_description: b.seo_description || null,
     seo_keywords: b.seo_keywords || null,
     seo_image: b.seo_image || null,
+    // Shared semantic discovery contract. SEO may use these as supporting
+    // signals, while Discovery uses them to match natural-language intent.
+    discovery_summary: b.discovery_summary || null,
+    discovery_terms: cleanDiscoveryTerms(b.discovery_terms),
+    discovery_intents: cleanDiscoveryTerms(b.discovery_intents),
+    discovery_enabled: b.discovery_enabled !== false,
     // Dealer-controlled custom code: sanitized for shared-origin safety
     head_html: b.site_head_html ? stripScriptsFromHead(b.site_head_html) : null,
     widgets: cleanWidgets(b.site_widgets),
@@ -575,7 +593,11 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
   // ── ADMIN: update slug / publish / site content ────────────────────────────
   app.put('/dealership/site', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
-    const b = req.body || {}
+    // The visual builder sends its complete draft under `content`, while the
+    // settings form sends fields at the top level. Normalize both contracts at
+    // the route boundary so SEO/Discovery edits cannot silently disappear.
+    const rawBody = req.body || {}
+    const b = { ...(rawBody.content && typeof rawBody.content === 'object' ? rawBody.content : {}), ...rawBody }
     const update = {}
 
     if (b.site_slug !== undefined) {
@@ -633,7 +655,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     }
 
     // Merge site content into the shared branding jsonb (don't wipe sticker fields).
-    const contentKeys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color', 'accent_color', 'facebook_url', 'instagram_url', 'typography', 'heading_font', 'body_font', 'hero_photos', 'seo_title', 'seo_description', 'seo_keywords', 'seo_image']
+    const contentKeys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color', 'accent_color', 'facebook_url', 'instagram_url', 'typography', 'heading_font', 'body_font', 'hero_photos', 'seo_title', 'seo_description', 'seo_keywords', 'seo_image', 'discovery_summary', 'discovery_terms', 'discovery_intents', 'discovery_enabled']
     const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.inventory_source !== undefined || b.theme !== undefined || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined || b.builtins !== undefined || b.menu_order !== undefined || b.sales_chat !== undefined || b.chat_name !== undefined || b.chat_kb !== undefined || b.chat_instructions !== undefined || b.chat_disclaimer !== undefined
     if (touchesContent) {
       const { data: cur } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
@@ -646,6 +668,10 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       if (b.chat_instructions !== undefined) branding.site_chat_instructions = String(b.chat_instructions || '').slice(0, 4000) || null
       if (b.chat_disclaimer !== undefined) branding.site_chat_disclaimer = String(b.chat_disclaimer || '').slice(0, 600) || null
       if (b.head_html !== undefined) branding.site_head_html = stripScriptsFromHead(String(b.head_html || '')).slice(0, 20000) || null
+      if (b.discovery_summary !== undefined) branding.discovery_summary = String(b.discovery_summary || '').trim().slice(0, 600) || null
+      if (b.discovery_terms !== undefined) branding.discovery_terms = cleanDiscoveryTerms(b.discovery_terms)
+      if (b.discovery_intents !== undefined) branding.discovery_intents = cleanDiscoveryTerms(b.discovery_intents)
+      if (b.discovery_enabled !== undefined) branding.discovery_enabled = b.discovery_enabled !== false
       if (b.widgets !== undefined) branding.site_widgets = cleanWidgets(b.widgets)
       if (b.pages !== undefined) branding.site_pages = cleanPages(b.pages)
       if (b.staff !== undefined) branding.site_team = cleanStaff(b.staff)
