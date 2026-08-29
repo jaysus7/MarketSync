@@ -1,0 +1,145 @@
+/* MarketSync Liquid Glass foundation.
+ * Keep this file page-agnostic: new public pages, dashboard views, and builder
+ * surfaces should inherit the same material without one-off repainting.
+ */
+:root {
+  --ms-glass-blur: 24px;
+  --ms-glass-saturation: 145%;
+  --ms-glass-light: rgba(255, 255, 255, .66);
+  --ms-glass-light-strong: rgba(255, 255, 255, .82);
+  --ms-glass-dark: rgba(9, 20, 39, .68);
+  --ms-glass-dark-strong: rgba(8, 18, 35, .84);
+  --ms-glass-line: rgba(255, 255, 255, .42);
+  --ms-glass-line-dark: rgba(148, 190, 230, .22);
+  --ms-glass-shadow: 0 20px 60px rgba(15, 23, 42, .16), inset 0 1px 0 rgba(255, 255, 255, .58);
+  --ms-glass-shadow-dark: 0 24px 70px rgba(0, 0, 0, .34), inset 0 1px 0 rgba(255, 255, 255, .13);
+  --ms-glass-canvas: radial-gradient(circle at 10% 0%, rgba(76, 190, 255, .22), transparent 34%), radial-gradient(circle at 92% 12%, rgba(116, 89, 255, .2), transparent 36%), linear-gradient(135deg, #e8f7ff 0%, #f4f3ff 52%, #e8f9f5 100%);
+}
+
+/* Reusable material primitives for future templates and generated sections. */
+.ms-glass-canvas { background: var(--ms-glass-canvas); background-attachment: fixed; }
+.ms-glass-surface,
+.ms-glass-panel {
+  background: var(--ms-glass-light);
+  border: 1px solid var(--ms-glass-line);
+  box-shadow: var(--ms-glass-shadow);
+  backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
+  -webkit-backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
+}
+.ms-glass-surface-strong { background: var(--ms-glass-light-strong); }
+.ms-glass-surface-dark {
+  background: var(--ms-glass-dark);
+  border-color: var(--ms-glass-line-dark);
+  box-shadow: var(--ms-glass-shadow-dark);
+}
+
+/* The public site is one materialized canvas. Semantic containers are selected
+ * instead of buttons so calls-to-action retain reliable contrast. */
+body.ms-glass-site {
+  background: var(--ms-glass-canvas) !important;
+  background-attachment: fixed;
+}
+body.ms-glass-site #app { min-height: 100vh; background: transparent; }
+body.ms-glass-site :is(div,section,article,aside,form,details,header,footer,nav).bg-white,
+body.ms-glass-site :is(div,section,article,aside,form,details,header,footer,nav).dark\:bg-slate-900 {
+  background: var(--ms-glass-light) !important;
+  border-color: var(--ms-glass-line) !important;
+  box-shadow: var(--ms-glass-shadow);
+  backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
+  -webkit-backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
+}
+body.ms-glass-site :is(div,section,article,aside,form,details,header,footer,nav).bg-slate-900 { background: var(--ms-glass-dark) !important; border-color: var(--ms-glass-line-dark) !important; color: #f8fafc; }
+body.ms-glass-site :is(input,select,textarea) {
+  background: rgba(255,255,255,.72);
+  border-color: rgba(148,163,184,.48);
+  box-shadow: inset 0 1px 2px rgba(15,23,42,.06), 0 1px 0 rgba(255,255,255,.55);
+}
+
+/* Dashboard-wide mode. This applies to current and future MarketSync views. */
+html[data-ms-glass="global"] body {
+  background: var(--ms-glass-canvas) !important;
+  background-attachment: fixed;
+}
+html[data-ms-glass="global"] :is(#dashboard-nav,#dept-tabbar,.ms-app-shell,.ms-glass-target),
+html[data-ms-glass="global"] :is(div,section,article,aside,form,details,header,footer,nav).rounded-xl.bg-white,
+html[data-ms-glass="global"] :is(div,section,article,aside,form,details,header,footer,nav).rounded-2xl.bg-white,
+html[data-ms-glass="global"] :is(div,section,article,aside,form,details,header,footer,nav).dark\:bg-slate-900 {
+  background: var(--ms-glass-light) !important;
+  border-color: var(--ms-glass-line) !important;
+  box-shadow: var(--ms-glass-shadow);
+  backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
+  -webkit-backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
+}
+html[data-ms-glass="global"] :is(input,select,textarea) {
+  background: rgba(255,255,255,.76) !important;
+  border-color: rgba(148,163,184,.48) !important;
+  color: #0f172a;
+}
+html[data-ms-glass="global"] :is(button,a).bg-white { background: rgba(255,255,255,.82) !important; }
+html[data-ms-glass="global"].dark {
+  --ms-glass-canvas: radial-gradient(circle at 8% 0%, rgba(22, 132, 190, .26), transparent 34%), radial-gradient(circle at 92% 8%, rgba(85, 64, 190, .24), transparent 36%), linear-gradient(135deg, #071426 0%, #0b1830 52%, #071d25 100%);
+}
+html[data-ms-glass="global"].dark :is(#dashboard-nav,#dept-tabbar,.ms-app-shell,.ms-glass-target),
+html[data-ms-glass="global"].dark :is(div,section,article,aside,form,details,header,footer,nav).rounded-xl.bg-white,
+html[data-ms-glass="global"].dark :is(div,section,article,aside,form,details,header,footer,nav).rounded-2xl.bg-white,
+html[data-ms-glass="global"].dark :is(div,section,article,aside,form,details,header,footer,nav).dark\:bg-slate-900 {
+  background: var(--ms-glass-dark) !important;
+  border-color: var(--ms-glass-line-dark) !important;
+  box-shadow: var(--ms-glass-shadow-dark);
+}
+html[data-ms-glass="global"].dark :is(input,select,textarea) { background: rgba(7,20,38,.78) !important; color: #f8fafc; border-color: rgba(148,190,230,.3) !important; }
+
+/* Builder-specific inheritance: all existing hard-coded panel utilities become
+ * the same material, while accent buttons remain untouched. */
+.ws-studio-container {
+  --ws-bg: var(--ms-glass-canvas) !important;
+  --ws-panel: var(--ms-glass-dark) !important;
+  --ws-panel-sub: rgba(16, 36, 63, .72) !important;
+  --ws-panel-raised: rgba(31, 61, 96, .78) !important;
+  --ws-border: var(--ms-glass-line-dark) !important;
+  --ws-input-bg: rgba(7, 20, 38, .72) !important;
+  --ws-input-border: rgba(148, 190, 230, .3) !important;
+  background: var(--ms-glass-canvas) !important;
+  background-attachment: fixed;
+}
+.ws-studio-container[data-ws-theme="light"] {
+  --ws-panel: var(--ms-glass-light) !important;
+  --ws-panel-sub: rgba(255,255,255,.54) !important;
+  --ws-panel-raised: var(--ms-glass-light-strong) !important;
+  --ws-border: var(--ms-glass-line) !important;
+  --ws-input-bg: rgba(255,255,255,.72) !important;
+  --ws-input-border: rgba(100,116,139,.32) !important;
+}
+.ws-studio-container :is(.ws-builder-header,.ws-top-action-bar,#ws-left-dock-wrapper nav,#ws-left-drawer-content,#ws-right-dock-wrapper,#ws-inspector-panel,#ws-inspector-content,#ws-palette,#ws-layers-tree,.ws-builder-chrome) {
+  background: var(--ws-panel) !important;
+  border-color: var(--ws-border) !important;
+  box-shadow: var(--ms-glass-shadow-dark);
+  backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
+  -webkit-backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
+}
+.ws-studio-container[data-ws-theme="light"] :is(.ws-builder-header,.ws-top-action-bar,#ws-left-dock-wrapper nav,#ws-left-drawer-content,#ws-right-dock-wrapper,#ws-inspector-panel,#ws-inspector-content,#ws-palette,#ws-layers-tree,.ws-builder-chrome) { box-shadow: var(--ms-glass-shadow); }
+.ws-studio-container :is(.bg-white,.bg-slate-950,.bg-slate-900,.dark\:bg-slate-900) {
+  background: var(--ws-panel-raised) !important;
+  border-color: var(--ws-border) !important;
+}
+.ws-studio-container :is(input,select,textarea) {
+  background: var(--ws-input-bg) !important;
+  border-color: var(--ws-input-border) !important;
+  color: var(--ws-input-text, var(--ws-text)) !important;
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+}
+
+@supports not ((backdrop-filter: blur(1px))) {
+  .ms-glass-surface,.ms-glass-panel,
+  body.ms-glass-site :is(div,section,article,aside,form,details,header,footer,nav).bg-white,
+  body.ms-glass-site :is(div,section,article,aside,form,details,header,footer,nav).bg-slate-900,
+  html[data-ms-glass="global"] :is(div,section,article,aside,form,details,header,footer,nav).rounded-xl.bg-white,
+  .ws-studio-container :is(.ws-builder-header,.ws-top-action-bar,#ws-left-dock-wrapper nav,#ws-left-drawer-content,#ws-right-dock-wrapper,#ws-inspector-panel,#ws-inspector-content,#ws-palette,#ws-layers-tree) { background: rgba(255,255,255,.94) !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ms-glass-surface,.ms-glass-panel { transition: none !important; }
+}
+@media (forced-colors: active) {
+  .ms-glass-surface,.ms-glass-panel,.ws-studio-container :is(.ws-builder-header,.ws-top-action-bar,#ws-left-drawer-content,#ws-inspector-panel) { background: Canvas !important; border: 1px solid CanvasText !important; box-shadow: none !important; backdrop-filter: none !important; }
+}

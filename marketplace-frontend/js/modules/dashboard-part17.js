@@ -204,6 +204,12 @@ function siteSettingsFields(cfg) {
         <div>${lbl('Meta description (~155 chars)')}${ta('seo-desc', c.seo_description, 'Shop new and used vehicles at your dealership. Build & price, get financing, and value your trade — all online.', 2)}</div>
         <div>${lbl('Keywords (comma separated, optional)')}${inp('seo-keywords', c.seo_keywords, 'used cars near me, trucks for sale, car dealership', 'w-full')}</div>
         <div>${lbl('Social share image')}<div class="flex gap-1">${inp('seo-image', c.seo_image, 'Paste URL or upload (falls back to hero)', 'flex-1')}<input id="seo-image-file" type="file" accept="image/*" class="hidden" onchange="uploadSiteImage('seo-image', this.files[0])"><button type="button" onclick="document.getElementById('seo-image-file').click()" class="text-xs font-bold bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 rounded-lg">Upload</button></div></div>
+        <div class="pt-2 mt-2 border-t border-slate-200 dark:border-slate-800">
+          ${lbl('Discovery summary')}${ta('discovery-summary', c.discovery_summary, 'What this dealership is known for and who it helps — one clear sentence.', 2)}
+        </div>
+        <div>${lbl('Discovery synonyms / phrases')}${inp('discovery-terms', (c.discovery_terms || []).join(', '), 'used cars, pre-owned vehicles, auto financing, trade-in values', 'w-full')}<p class="text-[10px] text-slate-400 mt-1">Use natural phrases shoppers might say. These power Discovery matching and are not stuffed into visible copy.</p></div>
+        <div>${lbl('Discovery intents')}${inp('discovery-intents', (c.discovery_intents || []).join(', '), 'buy a vehicle, value my trade, get financing, book service', 'w-full')}</div>
+        <label class="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200"><input id="discovery-enabled" type="checkbox" ${c.discovery_enabled !== false ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">Include this site in Discovery</label>
       </div>
     </div>
     <div class="ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 h-full md:col-span-2 xl:col-span-2">
@@ -1525,6 +1531,10 @@ async function saveSite(btn) {
     address: val('site-address'), hours: val('site-hours'), primary_color: val('site-color'), hero_url: val('site-hero'),
     facebook_url: val('site-fb'), instagram_url: val('site-ig'),
     seo_title: val('seo-title'), seo_description: val('seo-desc'), seo_keywords: val('seo-keywords'), seo_image: val('seo-image'),
+    discovery_summary: val('discovery-summary'),
+    discovery_terms: val('discovery-terms').split(',').map(v => v.trim()).filter(Boolean),
+    discovery_intents: val('discovery-intents').split(',').map(v => v.trim()).filter(Boolean),
+    discovery_enabled: document.getElementById('discovery-enabled')?.checked !== false,
     inventory_source: __siteCfg.content?.inventory_source || 'auto',
     head_html: document.getElementById('site-head')?.value || '',
     sales_chat: document.getElementById('site-sales-chat')?.checked || false,

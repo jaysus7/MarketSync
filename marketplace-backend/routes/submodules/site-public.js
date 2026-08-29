@@ -46,6 +46,10 @@ const SITE_THEMES = ['classic', 'prestige', 'modern', 'bold', 'minimal']
 
 function siteContent(d) {
   const b = d.branding || {}
+  const discoveryTerms = (value) => (Array.isArray(value) ? value : String(value || '').split(','))
+    .map(v => String(v || '').trim().replace(/\s+/g, ' ').slice(0, 80))
+    .filter((v, i, a) => v.length >= 2 && a.findIndex(x => x.toLowerCase() === v.toLowerCase()) === i)
+    .slice(0, 40)
   return {
     name: d.name,
     slug: d.site_slug || null,
@@ -53,6 +57,13 @@ function siteContent(d) {
     city: d.city || null,
     province: d.province || null,
     logo_url: b.logo_url || null,
+    primary_color: b.primary_color || '#1e3a8a',
+    secondary_color: b.secondary_color || '#0f172a',
+    about: b.about || null,
+    seo_title: b.seo_title || null,
+    seo_description: b.seo_description || null,
+    seo_keywords: b.seo_keywords || null,
+    seo_image: b.seo_image || null,
     hero_banner_url: b.hero_banner_url || null,
     phone: b.phone || d.branding?.phone || null,
     email: b.email || d.branding?.email || null,
@@ -63,6 +74,8 @@ function siteContent(d) {
     widgets: cleanWidgets(b.site_widgets),
     menu_order: Array.isArray(b.site_menu_order) ? b.site_menu_order : [],
     sections: cleanSections(b.site_sections),
+    pages: Array.isArray(b.site_pages) ? b.site_pages : [],
+    builtins: b.site_builtins && typeof b.site_builtins === 'object' ? b.site_builtins : {},
     typography: TYPOGRAPHY.includes(b.typography) ? b.typography : 'modern',
     theme: SITE_THEMES.includes(b.site_theme) ? b.site_theme : 'classic',
     heading_font: b.heading_font || null,
@@ -74,6 +87,35 @@ function siteContent(d) {
     chat_kb: b.site_chat_kb || null,
     chat_instructions: b.site_chat_instructions || null,
     chat_disclaimer: b.site_chat_disclaimer || null,
+    discovery_summary: b.discovery_summary || null,
+    discovery_terms: discoveryTerms(b.discovery_terms),
+    discovery_intents: discoveryTerms(b.discovery_intents),
+    discovery_enabled: b.discovery_enabled !== false,
+  }
+}
+
+// Public semantic contract shared by SEO, the Discovery surface, and external
+// discovery agents. It deliberately contains only public dealership data and
+// uses the same live inventory payload as the rendered website.
+function discoveryDocument(response) {
+  const site = response.site || {}
+  const base = site.custom_domain ? `https://${site.custom_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')}` : null
+  const pages = Array.isArray(site.pages) ? site.pages.filter(p => p && p.nav !== false).map(p => ({
+    title: p.title, slug: p.slug, url: p.slug ? `${base || ''}/site.html?d=${encodeURIComponent(site.slug || '')}#/` + p.slug : null,
+    summary: p.seo_description || p.title, terms: [p.seo_keyword].filter(Boolean),
+  })) : []
+  const vehicles = (response.vehicles || []).map(v => ({
+    id: v.id, title: [v.year, v.make, v.model, v.trim].filter(Boolean).join(' '),
+    make: v.make, model: v.model, year: v.year, condition: v.condition,
+    price: v.price, mileage: v.mileage, url: `${base || ''}/site.html?d=${encodeURIComponent(site.slug || '')}#inventory/${encodeURIComponent(v.id)}`,
+  }))
+  return {
+    version: '1.0', type: 'dealership-discovery', generated_at: new Date().toISOString(),
+    canonical_site: base || (site.slug ? `/site.html?d=${encodeURIComponent(site.slug)}` : null),
+    dealership: { name: site.name, city: site.city, province: site.province, address: site.address, phone: site.phone, hours: site.hours },
+    summary: site.discovery_summary || site.about || site.tagline || null,
+    terms: site.discovery_terms || [], intents: site.discovery_intents || [],
+    pages, inventory: vehicles, counts: { inventory: vehicles.length, pages: pages.length },
   }
 }
 
@@ -193,6 +235,18 @@ export function registerSitePublicRoutes(app) {
     const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS).ilike('site_slug', slug).maybeSingle()
     if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
     res.json(await buildSiteResponse(d))
+  })
+
+  // Machine-readable Discovery surface. SEO and Discovery consume the same
+  // canonical payload instead of maintaining separate keyword/page inventories.
+  app.get('/site/:slug/discovery', rateLimit('pub-site-discovery', 120, 60000), async (req, res) => {
+    const slug = String(req.params.slug || '').toLowerCase().trim()
+    const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS).ilike('site_slug', slug).maybeSingle()
+    if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
+    const response = await buildSiteResponse(d)
+    if (response.site.discovery_enabled === false) return res.status(404).json({ error: 'Discovery is disabled for this site' })
+    res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600')
+    res.json(discoveryDocument(response))
   })
 
   app.get('/site-by-domain', rateLimit('pub-site-domain', 120, 60000), async (req, res) => {
