@@ -854,7 +854,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
   })
 
   // ── Dealer blog — authoring (owner / GM), RLS-scoped via req.supabase ────────
-  const BLOG_COLS = 'id, slug, title, excerpt, content_html, cover_image_url, author, tags, status, seo_title, seo_description, published_at, created_at, updated_at'
+  const BLOG_COLS = 'id, slug, title, excerpt, content_html, cover_image_url, author, category, tags, status, seo_title, seo_description, published_at, created_at, updated_at'
   async function uniqueBlogSlug(supa, dealershipId, base, ignoreId) {
     let slug = slugify(base) || 'post'; let n = 1
     while (true) {
@@ -887,6 +887,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       content_html: String(b.content_html || ''),
       cover_image_url: b.cover_image_url || null,
       author: String(b.author || '').trim() || null,
+      category: String(b.category || 'General').trim().slice(0, 80) || 'General',
       tags: Array.isArray(b.tags) ? b.tags.filter(Boolean).map(String) : [],
       status, seo_title: b.seo_title || null, seo_description: b.seo_description || null,
       published_at: status === 'published' ? new Date().toISOString() : null,
@@ -909,6 +910,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     if (b.content_html !== undefined) patch.content_html = String(b.content_html || '')
     if (b.cover_image_url !== undefined) patch.cover_image_url = b.cover_image_url || null
     if (b.author !== undefined) patch.author = String(b.author || '').trim() || null
+    if (b.category !== undefined) patch.category = String(b.category || 'General').trim().slice(0, 80) || 'General'
     if (b.tags !== undefined) patch.tags = Array.isArray(b.tags) ? b.tags.filter(Boolean).map(String) : []
     if (b.seo_title !== undefined) patch.seo_title = b.seo_title || null
     if (b.seo_description !== undefined) patch.seo_description = b.seo_description || null
@@ -942,7 +944,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     const d = await dealerBySlug(req.params.slug)
     if (!d) return res.status(404).json({ error: 'Site not found' })
     const { data } = await supabaseAdmin.from('dealer_blog_posts')
-      .select('slug, title, excerpt, cover_image_url, author, tags, published_at')
+      .select('slug, title, excerpt, cover_image_url, author, category, tags, published_at')
       .eq('dealership_id', d.id).eq('status', 'published').order('published_at', { ascending: false }).limit(100)
     res.json({ posts: data || [] })
   })
