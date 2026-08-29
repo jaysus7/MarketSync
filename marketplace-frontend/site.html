@@ -13,6 +13,8 @@
        of horizontal scroll). `clip` (not `hidden`) so the sticky header still works. */
     html,body{max-width:100%;overflow-x:clip}
     body{-webkit-font-smoothing:antialiased}
+    :where(a,button,input,select,textarea):focus-visible{outline:3px solid var(--brand,#1e3a8a);outline-offset:3px}
+    @media (prefers-reduced-motion: reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
     /* Let form fields shrink inside flex/grid rows instead of forcing the row wider
        than the viewport (was cropping whole sections on small phones). */
     input,select,textarea{min-width:0;max-width:100%}
