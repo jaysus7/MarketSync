@@ -58,4 +58,12 @@
     doc.pages.push({ id: id('page'), name: options.name || `Page ${index}`, width: options.width || doc.width, height: options.height || doc.height, background: { color: options.background || '#0F172A' }, objects: [] });
     return doc;
   };
+
+  window.msStudioCreateComponent = function (name = 'Component', children = []) {
+    return { id: id('component'), name, type: 'component', props: {}, children: clone(children), created_at: new Date().toISOString() };
+  };
+
+  window.msStudioCreateRepeater = function (name = 'Repeater', collection = 'inventory', template = {}) {
+    return { id: id('repeater'), name, type: 'repeater', collection, item_key: 'id', template: clone(template), items: [] };
+  };
 })();
