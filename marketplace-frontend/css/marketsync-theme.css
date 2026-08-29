@@ -1530,6 +1530,73 @@ body.website-builder-mode {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
 }
 
+/* Website Builder canvas quality fixes. Keep production sections full-bleed;
+   their inner max-width wrappers still protect readable line lengths. The
+   editor docks float above the canvas and must never make the site preview look
+   like a narrow card on a desktop display. */
+.website-builder-mode #ws-frame-wrapper {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.website-builder-mode #ws-preview-frame {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+}
+.website-builder-mode .ws-studio-container #ws-inspector-panel,
+.website-builder-mode .ws-studio-container #ws-left-drawer-content {
+  color: var(--ws-text) !important;
+  text-shadow: none !important;
+}
+.website-builder-mode .ws-studio-container #ws-inspector-panel .text-slate-900,
+.website-builder-mode .ws-studio-container #ws-inspector-panel .text-slate-800,
+.website-builder-mode .ws-studio-container #ws-left-drawer-content .text-slate-900,
+.website-builder-mode .ws-studio-container #ws-left-drawer-content .text-slate-800 {
+  color: var(--ws-text) !important;
+}
+.website-builder-mode .ws-studio-container #ws-inspector-panel .text-slate-500,
+.website-builder-mode .ws-studio-container #ws-inspector-panel .text-slate-400,
+.website-builder-mode .ws-studio-container #ws-left-drawer-content .text-slate-500,
+.website-builder-mode .ws-studio-container #ws-left-drawer-content .text-slate-400 {
+  color: var(--ws-text-muted) !important;
+}
+.website-builder-mode .ws-studio-container .liquid-glass-input,
+.website-builder-mode .ws-studio-container .liquid-glass-card,
+.website-builder-mode .ws-studio-container .liquid-glass-panel {
+  color: var(--ws-text) !important;
+}
+@media (max-width: 768px) {
+  .website-builder-mode .ws-top-action-bar {
+    align-items: stretch !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    min-height: 52px !important;
+  }
+  .website-builder-mode .ws-top-action-bar > * { flex-shrink: 0 !important; }
+  .website-builder-mode #ws-left-dock-wrapper,
+  .website-builder-mode #ws-right-dock-wrapper {
+    top: .5rem !important;
+    max-height: calc(100% - 1rem) !important;
+  }
+  .website-builder-mode #ws-left-drawer-content,
+  .website-builder-mode #ws-inspector-panel {
+    width: min(86vw, 330px) !important;
+    max-width: calc(100vw - 4rem) !important;
+  }
+  .website-builder-mode #ws-left-dock-wrapper { left: .5rem !important; }
+  .website-builder-mode #ws-right-dock-wrapper { right: .5rem !important; }
+  .website-builder-mode #ws-frame-wrapper {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 0 !important;
+  }
+}
+
 /* Shared Liquid Glass dashboard chrome and bold Apple-style workspace headers.
    Re-declared (identically) in the "Liquid Glass workspace layer" block below —
    that duplication predates this merge; harmless in CSS (last write wins, same

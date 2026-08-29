@@ -500,7 +500,10 @@
     function sectionTreeHtml(sec){
       const r=sec?.responsive||{}, d=r.desktop||{}, t=r.tablet||{}, m=r.mobile||{};
       const children=Array.isArray(sec?.children)?sec.children.map(sectionTreeHtml).join(''):'';
-      const width=d.content_width==='full'?'100%':(d.content_width==='wide'?'88%':'min(1200px, calc(100% - 3rem))');
+      // Sections are full-bleed by default. Their inner content controls provide
+      // the readable max-width, while the section background/hero can reach the
+      // edges of the live site and the Builder canvas.
+      const width=d.content_width==='contained'?'min(1200px, calc(100% - 3rem))':(d.content_width==='wide'?'88%':'100%');
       return `<div data-ms-responsive="1" style="--ms-content-width:${esc(width)};--ms-py-d:${Number(d.padding_y)||64}px;--ms-py-t:${Number(t.padding_y||d.padding_y)||64}px;--ms-py-m:${Number(m.padding_y||t.padding_y||d.padding_y)||64}px">${sectionHtml(sec)}${children}</div>`;
     }
     function renderSections(el, secs){
