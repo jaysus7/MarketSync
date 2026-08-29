@@ -114,18 +114,18 @@ const slugify = (s) => String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/
 const SITE_LOCKABLE_FIELDS = ['logo_url', 'primary_color', 'secondary_color', 'accent_color', 'heading_font', 'body_font', 'seo_title', 'seo_description', 'head_html']
 function canGovernWebsite(req) {
   const role = req.profile?.role || req.user?.user_metadata?.role
-  return ['OWNER', 'DEALER_ADMIN'].includes(role) || ['dealer_owner', 'dealer_admin', 'platform_owner', 'platform_admin'].includes(req.profile?.account_role || req.profile?.system_role)
+  return ['OWNER', 'DEALER_ADMIN', 'DEALER_GROUP'].includes(role) || ['dealer_owner', 'dealer_admin', 'dealer_group_owner', 'platform_owner', 'platform_admin'].includes(req.profile?.account_role || req.profile?.system_role)
 }
 function canGovernGroupWebsite(req) {
   const role = req.profile?.role || req.user?.user_metadata?.role
   return role === 'DEALER_GROUP' || ['dealer_group_owner', 'platform_owner', 'platform_admin'].includes(req.profile?.account_role || req.profile?.system_role)
 }
 async function groupWebsiteGovernance(groupId) {
-  if (!groupId) return { group_id: null, locked_fields: [], approval_required: false }
+  if (!groupId) return { group_id: null, locked_fields: [], locked_section_ids: [], approval_required: false }
   const { data, error } = await supabaseAdmin.from('dealer_groups').select('id, website_governance').eq('id', groupId).maybeSingle()
-  if (error || !data) return { group_id: groupId, locked_fields: [], approval_required: false }
+  if (error || !data) return { group_id: groupId, locked_fields: [], locked_section_ids: [], approval_required: false }
   const policy = data.website_governance && typeof data.website_governance === 'object' ? data.website_governance : {}
-  return { group_id: data.id, locked_fields: Array.isArray(policy.locked_fields) ? policy.locked_fields.filter(k => SITE_LOCKABLE_FIELDS.includes(k)) : [], approval_required: policy.approval_required === true }
+  return { group_id: data.id, locked_fields: Array.isArray(policy.locked_fields) ? policy.locked_fields.filter(k => SITE_LOCKABLE_FIELDS.includes(k)) : [], locked_section_ids: Array.isArray(policy.locked_section_ids) ? policy.locked_section_ids.map(String).slice(0, 100) : [], approval_required: policy.approval_required === true }
 }
 
 // Builder persistence is revision-first. The branding JSON remains the published
@@ -659,7 +659,8 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     if (error) return res.status(500).json({ error: error.message })
     const groupPolicy = await groupWebsiteGovernance(data?.group_id)
     const localLocks = Array.isArray(data?.branding?.site_locked_fields) ? data.branding.site_locked_fields.filter(k => SITE_LOCKABLE_FIELDS.includes(k)) : []
-    res.json({ locked_fields: [...new Set([...groupPolicy.locked_fields, ...localLocks])], local_locked_fields: localLocks, inherited_locked_fields: groupPolicy.locked_fields, approval_required: data?.branding?.site_approval_required === true || groupPolicy.approval_required, inherited_approval_required: groupPolicy.approval_required, group_id: groupPolicy.group_id, can_manage: canGovernWebsite(req), can_manage_group: canGovernGroupWebsite(req) })
+    const localSectionLocks = Array.isArray(data?.branding?.site_locked_section_ids) ? data.branding.site_locked_section_ids.map(String).slice(0, 100) : []
+    res.json({ locked_fields: [...new Set([...groupPolicy.locked_fields, ...localLocks])], local_locked_fields: localLocks, inherited_locked_fields: groupPolicy.locked_fields, locked_section_ids: [...new Set([...groupPolicy.locked_section_ids, ...localSectionLocks])], local_locked_section_ids: localSectionLocks, inherited_locked_section_ids: groupPolicy.locked_section_ids, approval_required: data?.branding?.site_approval_required === true || groupPolicy.approval_required, inherited_approval_required: groupPolicy.approval_required, group_id: groupPolicy.group_id, can_manage: canGovernWebsite(req), can_manage_group: canGovernGroupWebsite(req) })
   })
   app.patch('/dealership/site/governance', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
@@ -667,11 +668,12 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     const lockedFields = Array.isArray(req.body?.locked_fields) ? [...new Set(req.body.locked_fields.filter(k => SITE_LOCKABLE_FIELDS.includes(k)))] : []
     const { data: current, error: readError } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
     if (readError) return res.status(500).json({ error: readError.message })
-    const branding = { ...(current?.branding || {}), site_locked_fields: lockedFields, site_approval_required: req.body?.approval_required === true }
+    const sectionLocks = Array.isArray(req.body?.locked_section_ids) ? [...new Set(req.body.locked_section_ids.map(String).filter(Boolean).slice(0, 100))] : []
+    const branding = { ...(current?.branding || {}), site_locked_fields: lockedFields, site_locked_section_ids: sectionLocks, site_approval_required: req.body?.approval_required === true }
     const { error } = await supabaseAdmin.from('dealerships').update({ branding }).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
     audit(req, 'site.governance_updated', { after_state: { locked_fields: lockedFields } })
-    res.json({ ok: true, locked_fields: lockedFields, approval_required: branding.site_approval_required === true })
+    res.json({ ok: true, locked_fields: lockedFields, locked_section_ids: sectionLocks, approval_required: branding.site_approval_required === true })
   })
 
   app.get('/dealership/site/group-governance', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
@@ -688,7 +690,8 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     const { data: dealer, error: dealerError } = await supabaseAdmin.from('dealerships').select('group_id').eq('id', req.dealershipId).single()
     if (dealerError || !dealer?.group_id) return res.status(409).json({ error: 'This dealership is not attached to a dealer group.' })
     const lockedFields = Array.isArray(req.body?.locked_fields) ? [...new Set(req.body.locked_fields.filter(k => SITE_LOCKABLE_FIELDS.includes(k)))] : []
-    const policy = { locked_fields: lockedFields, approval_required: req.body?.approval_required === true }
+    const lockedSectionIds = Array.isArray(req.body?.locked_section_ids) ? [...new Set(req.body.locked_section_ids.map(String).filter(Boolean).slice(0, 100))] : []
+    const policy = { locked_fields: lockedFields, locked_section_ids: lockedSectionIds, approval_required: req.body?.approval_required === true }
     const { error } = await supabaseAdmin.from('dealer_groups').update({ website_governance: policy }).eq('id', dealer.group_id)
     if (error) return res.status(500).json({ error: error.message })
     audit(req, 'site.group_governance_updated', { after_state: { group_id: dealer.group_id, ...policy } })
@@ -711,7 +714,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
   app.get('/dealership/site/change-sets', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     try {
       const { data, error } = await supabaseAdmin.from('website_change_sets')
-        .select('id, site_id, name, description, version_tag, status, created_by, approved_by, published_at, created_at, updated_at')
+        .select('id, site_id, name, description, version_tag, status, created_by, approved_by, review_feedback, reviewed_by, reviewed_at, published_at, created_at, updated_at')
         .eq('site_id', req.dealershipId).order('created_at', { ascending: false }).limit(50)
       if (error) throw error
       res.json({ change_sets: data || [] })
@@ -757,11 +760,25 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       if (current.created_by && current.created_by === req.user?.id) return res.status(403).json({ error: 'A change set must be approved by a different reviewer than its requester.', code: 'WEBSITE_APPROVAL_SEPARATION_REQUIRED' })
       // Make approval a compare-and-set operation. If two administrators act
       // at once, only the first request can transition review → approved.
-      const { data: changeSet, error } = await supabaseAdmin.from('website_change_sets').update({ status: 'approved', approved_by: req.user?.id, updated_at: new Date().toISOString() }).eq('id', current.id).eq('site_id', req.dealershipId).eq('status', 'review').is('approved_by', null).select('id, site_id, name, description, version_tag, status, created_by, approved_by, created_at, updated_at').maybeSingle()
+      const { data: changeSet, error } = await supabaseAdmin.from('website_change_sets').update({ status: 'approved', approved_by: req.user?.id, reviewed_by: req.user?.id, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', current.id).eq('site_id', req.dealershipId).eq('status', 'review').is('approved_by', null).select('id, site_id, name, description, version_tag, status, created_by, approved_by, review_feedback, reviewed_by, reviewed_at, created_at, updated_at').maybeSingle()
       if (error) throw error
       if (!changeSet) return res.status(409).json({ error: 'This change set was already approved or changed by another reviewer.' })
       audit(req, 'site.change_set_approved', { after_state: { change_set_id: changeSet.id } })
       await createNotification({ dealershipId: req.dealershipId, type: 'website_approval', title: 'Website change set approved', body: `${changeSet.name} was approved and can be published.`, linkPage: 'website', targetUserId: current.created_by || null })
+      res.json({ change_set: changeSet })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.post('/dealership/site/change-sets/:id/reject', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.approve'), async (req, res) => {
+    if (!canGovernWebsite(req)) return res.status(403).json({ error: 'Only dealership owners or administrators can reject website changes.' })
+    const feedback = String(req.body?.feedback || '').trim().slice(0, 1000)
+    if (!feedback) return res.status(400).json({ error: 'Reviewer feedback is required when rejecting a change set.' })
+    try {
+      const { data: changeSet, error } = await supabaseAdmin.from('website_change_sets').update({ status: 'rejected', review_feedback: feedback, reviewed_by: req.user?.id, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', req.params.id).eq('site_id', req.dealershipId).eq('status', 'review').select('id, name, status, created_by, review_feedback, reviewed_by, reviewed_at, updated_at').maybeSingle()
+      if (error) throw error
+      if (!changeSet) return res.status(409).json({ error: 'This change set was already reviewed or changed by another user.' })
+      audit(req, 'site.change_set_rejected', { after_state: { change_set_id: changeSet.id, feedback } })
+      await createNotification({ dealershipId: req.dealershipId, type: 'website_approval', title: 'Website change set needs changes', body: `${changeSet.name}: ${feedback}`, linkPage: 'website', targetUserId: changeSet.created_by || null })
       res.json({ change_set: changeSet })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
@@ -829,9 +846,21 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     // settings request without builder_action to bypass an administrator lock.
     const groupPolicy = await groupWebsiteGovernance(currentSite?.group_id)
     const lockedFields = [...new Set([...(Array.isArray(currentSite?.branding?.site_locked_fields) ? currentSite.branding.site_locked_fields : []), ...groupPolicy.locked_fields])]
+    const lockedSectionIds = [...new Set([...(Array.isArray(currentSite?.branding?.site_locked_section_ids) ? currentSite.branding.site_locked_section_ids.map(String) : []), ...groupPolicy.locked_section_ids])]
     if (lockedFields.length && !canGovernWebsite(req)) {
       const attempted = lockedFields.filter(key => rawBody[key] !== undefined || (rawBody.content && rawBody.content[key] !== undefined))
       if (attempted.length) return res.status(403).json({ error: `Locked brand fields cannot be changed by this role: ${attempted.join(', ')}`, code: 'WEBSITE_BRAND_FIELD_LOCKED', fields: attempted })
+    }
+    if (!canGovernWebsite(req) && lockedSectionIds.length && (rawBody.sections !== undefined || rawBody.content?.sections !== undefined)) {
+      const currentSections = siteContent(currentSite || { name: 'Dealership', branding: {} }).sections || []
+      const nextSections = Array.isArray(rawBody.sections) ? rawBody.sections : rawBody.content.sections
+      const currentLocked = currentSections.filter(section => lockedSectionIds.includes(String(section?.id)))
+      const nextLocked = Array.isArray(nextSections) ? nextSections.filter(section => lockedSectionIds.includes(String(section?.id))) : []
+      const changed = currentLocked.some((section, index) => {
+        const nextIndex = nextLocked.findIndex(candidate => String(candidate?.id) === String(section?.id))
+        return nextIndex < 0 || nextIndex !== currentSections.indexOf(section) || JSON.stringify(nextLocked[nextIndex]) !== JSON.stringify(section)
+      })
+      if (changed || currentLocked.length !== nextLocked.length) return res.status(403).json({ error: 'A protected website section cannot be changed, moved, or removed by this role.', code: 'WEBSITE_SECTION_LOCKED', section_ids: lockedSectionIds })
     }
     if (builderAction === 'publish' && (currentSite?.branding?.site_approval_required === true || groupPolicy.approval_required)) {
       const baseRevisionId = rawBody.base_revision_id ? String(rawBody.base_revision_id).slice(0, 80) : ''
