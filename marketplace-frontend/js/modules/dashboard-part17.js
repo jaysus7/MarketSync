@@ -1872,6 +1872,7 @@ function renderWebsitePage() {
           ${url ? `<a href="${url}" target="_blank" class="text-xs font-black bg-[var(--ws-panel-raised)] text-[var(--ws-text-muted)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl transition">View Site ↗</a>` : ''}
           <button onclick="wsOpenRevisions()" class="text-xs font-black bg-[var(--ws-panel-raised)] hover:bg-[var(--ws-hover-bg)] text-[var(--ws-text)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl transition">History</button>
           <button onclick="saveWebsite(this,'draft')" class="text-xs font-black bg-[var(--ws-panel-raised)] hover:bg-[var(--ws-hover-bg)] text-[var(--ws-text)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl transition">Save Draft</button>
+          <button onclick="wsSubmitChangeSet(this)" class="text-xs font-black bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/35 px-3 py-1.5 rounded-xl transition" title="Send the current saved draft to an owner or administrator for review">Request Approval</button>
           <button onclick="saveWebsite(this,'publish')" class="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-xl transition shadow-md cursor-pointer">Publish</button>
         </div>
       </div>
@@ -3897,6 +3898,22 @@ window.openTemplatePicker = openTemplatePicker;
 window.applyCompleteTemplate = applyCompleteTemplate;
 window.applyTemplate = applyCompleteTemplate;
 
+async function wsSubmitChangeSet(btn) {
+  const revisionId = __siteCfg?.revision?.id;
+  if (!revisionId) { showToast('Save the draft before requesting approval', 'error'); return; }
+  const original = btn?.textContent || '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
+  try {
+    const result = await apiSendJson('/dealership/site/change-sets', 'POST', {
+      revision_id: revisionId,
+      name: `Website update · revision ${__siteCfg.revision.number || ''}`.replace(/\s+$/, ''),
+      description: 'Submitted from the Website Builder for owner or administrator review.',
+    });
+    showToast(`Approval requested${result?.change_set?.version_tag ? ` · ${result.change_set.version_tag}` : ''}`, 'success');
+  } catch (e) { showToast(e.message || 'Could not request approval', 'error'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = original; } }
+}
+window.wsSubmitChangeSet = wsSubmitChangeSet;
 function wsFontOpts(sel) { return `<option value="">— Use preset —</option>` + WS_FONTS.map(f => `<option value="${f}" ${sel === f ? 'selected' : ''}>${f}</option>`).join(''); }
 function wsFieldLocked(field) {
   return Array.isArray(__wsGovernance?.locked_fields) && __wsGovernance.locked_fields.includes(field);
