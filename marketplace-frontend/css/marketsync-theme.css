@@ -3206,6 +3206,27 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 }
 #ms-studio-master-modal [data-studio-region="footer"] button,
 #ms-studio-master-modal [data-studio-region="footer"] select { color: #334155 !important; }
+/* Studio drawer cards must remain readable in the light Canva-style workspace.
+ * The utility classes also carry dark-mode text utilities, which previously
+ * produced near-white cards with white labels and invisible SVG previews. */
+#ms-studio-master-modal #studio-tool-panel { color: #1e293b !important; }
+#ms-studio-master-modal #studio-tool-panel input,
+#ms-studio-master-modal #studio-tool-panel select,
+#ms-studio-master-modal #studio-tool-panel textarea { background: #fff !important; color: #0f172a !important; border-color: #cbd5e1 !important; }
+#ms-studio-master-modal #studio-tool-panel input::placeholder,
+#ms-studio-master-modal #studio-tool-panel textarea::placeholder { color: #64748b !important; }
+#ms-studio-master-modal #studio-tool-panel button[class*="bg-slate-100"],
+#ms-studio-master-modal #studio-tool-panel button[class*="bg-slate-50"] { background: #e8eef6 !important; color: #172033 !important; border-color: #cbd5e1 !important; }
+#ms-studio-master-modal #studio-tool-panel button[class*="bg-slate-800"] { background: #1e293b !important; color: #f8fafc !important; border-color: #475569 !important; }
+#ms-studio-master-modal #studio-tool-panel button[class*="bg-indigo-500/20"] { background: #e8efff !important; color: #1d4ed8 !important; }
+#ms-studio-master-modal #studio-tool-panel button[class*="bg-blue-600"],
+#ms-studio-master-modal #studio-tool-panel button[class*="bg-sky-600"],
+#ms-studio-master-modal #studio-tool-panel button[class*="bg-indigo-600"] { color: #fff !important; }
+#ms-studio-master-modal #studio-tool-panel button svg { color: currentColor !important; opacity: 1 !important; }
+#ms-studio-master-modal #studio-tool-panel .text-slate-900 { color: #172033 !important; }
+#ms-studio-master-modal #studio-tool-panel .text-slate-500,
+#ms-studio-master-modal #studio-tool-panel .text-slate-400 { color: #64748b !important; }
+#ms-studio-master-modal #studio-tool-panel .text-white { color: #fff !important; }
 #ms-studio-master-modal .studio-page-stack {
   position: absolute; left: 18px; top: 54px; bottom: 28px; width: 124px; z-index: 24;
   overflow-y: auto; padding: 4px; display: flex; flex-direction: column; gap: 12px;
