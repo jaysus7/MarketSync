@@ -1498,10 +1498,12 @@ function renderDeptTabbar(pageId) {
       ? marketingSuiteAreaForPage(cfg, pageId, activeTab) : null;
     if (!area || area.id === 'pulse' || area.items.length <= 1 || (pageId === 'website' && activeTab === 'builder')) return hide();
     const tabs = area.items.map(item => {
-      const on = item.page === pageId && (!item.tab || item.tab === activeTab);
+      const on = (item.page === pageId || (item.page === 'social-scheduler' && pageId === 'marketing-overview')) && (!item.tab || item.tab === activeTab);
       const call = item.studioLaunch
         ? 'ensureOpenMarketSyncStudio()'
-        : `deptGo('${esc(item.page)}'${item.tab ? `,'','${esc(item.tab)}'` : ''})`;
+        : item.page === 'social-scheduler'
+          ? "deptGo('marketing-overview','','scheduler')"
+          : `deptGo('${esc(item.page)}'${item.tab ? `,'','${esc(item.tab)}'` : ''})`;
       return `<button type="button" role="tab" aria-selected="${on}"${on ? ' aria-current="page"' : ''} onclick="${call}" class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${on ? 'text-indigo-700 dark:text-indigo-300 border-current' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}">${esc(item.label)}</button>`;
     }).join('');
     // Tabs only — suite title lives on the engine header (no triple title stack).
@@ -1532,12 +1534,14 @@ function renderDeptTabbar(pageId) {
       : pageId === 'social-scheduler' ? (window.__socialTab || window.__studioSchedulerTab || 'overview')
       : null;
     const tabs = restricted.map(item => {
-      const on = item.page === pageId && (!item.tab || item.tab === activeTab);
+      const on = (item.page === pageId || (item.page === 'social-scheduler' && pageId === 'marketing-overview')) && (!item.tab || item.tab === activeTab);
       const call = item.studioLaunch
         ? 'ensureOpenMarketSyncStudio()'
         : item.studioSchedulerLaunch
           ? 'window.openStudioSchedulerWithEntitlementCheck()'
-          : `deptGo('${esc(item.page)}'${item.invmode ? `,'${esc(item.invmode)}'` : `,''`}${item.tab ? `,'${esc(item.tab)}'` : ''})`;
+          : item.page === 'social-scheduler'
+            ? "deptGo('marketing-overview','','scheduler')"
+            : `deptGo('${esc(item.page)}'${item.invmode ? `,'${esc(item.invmode)}'` : `,''`}${item.tab ? `,'${esc(item.tab)}'` : ''})`;
       return `<button type="button" role="tab" aria-selected="${on}"${on ? ' aria-current="page"' : ''} onclick="${call}" class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${on ? 'text-indigo-700 dark:text-indigo-300 border-current' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}">${esc(item.label)}</button>`;
     }).join('');
     bar.innerHTML = `<div role="tablist" aria-label="Workspace navigation" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto">${tabs}</div>`;
