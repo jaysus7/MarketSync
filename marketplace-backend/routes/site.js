@@ -20,6 +20,7 @@ import { startOrContinueConversation, saveMessage } from './ai-engine.js'
 import { categorizeConversation, formatShownVehicles, summarizeConversation, verifyRecaptcha, RECAPTCHA_SITE_KEY } from './ai-runtime.js'
 import { sanitizeHtml, stripScriptsFromHead } from '../html-sanitizer.js'
 import { registerSitePublicRoutes } from './submodules/site-public.js'
+import { auditWebsiteDiscoverabilityContracts, websitePublishBlockingIssues } from '../services/websiteDiscoverabilityContracts.js'
 
 const slugOk = (s) => /^[a-z0-9]([a-z0-9-]{1,38})[a-z0-9]$/.test(s)   // 3–40, no leading/trailing dash
 // The host a dealer points their custom domain's CNAME at (the static-site domain,
@@ -929,10 +930,11 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     const rawBody = req.body || {}
     const b = { ...(rawBody.content && typeof rawBody.content === 'object' ? rawBody.content : {}), ...rawBody }
     const update = {}
-    const { data: currentSite } = await supabaseAdmin.from('dealerships').select('name, branding, group_id, site_slug, site_published, city, province, postal_code, website_url').eq('id', req.dealershipId).maybeSingle()
+    const { data: currentSite } = await supabaseAdmin.from('dealerships').select('name, branding, group_id, site_slug, site_published, city, province, postal_code, address, phone, website_url').eq('id', req.dealershipId).maybeSingle()
     const builderAction = ['draft', 'publish'].includes(rawBody.builder_action) ? rawBody.builder_action : null
     let revisionSaved = false
     let revisionInfo = null
+    let builderContractAudit = null
     let approvedChangeSet = null
     // Apply brand governance to every site write, including the legacy Settings
     // form. Previously only visual-builder writes were checked, which allowed a
@@ -987,6 +989,16 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       const content = { ...base, ...(rawBody.content && typeof rawBody.content === 'object' ? rawBody.content : {}) }
       for (const key of ['sections', 'pages', 'staff', 'builtins', 'menu_order', 'primary_color', 'secondary_color', 'accent_color', 'typography', 'heading_font', 'body_font', 'hero_photos', 'theme', 'seo_title', 'seo_description', 'seo_keywords', 'discovery_summary', 'discovery_terms', 'discovery_intents', 'discovery_enabled']) {
         if (rawBody[key] !== undefined) content[key] = rawBody[key]
+      }
+      builderContractAudit = auditWebsiteDiscoverabilityContracts(content, currentSite || {})
+      if (builderAction === 'publish') {
+        const blocking = websitePublishBlockingIssues(builderContractAudit)
+        if (blocking.length) return res.status(422).json({
+          error: 'Publish blocked until the page has a discoverable primary heading.',
+          code: 'WEBSITE_DISCOVERABILITY_CONTRACT_FAILED',
+          discoverability: builderContractAudit,
+          blocking_issues: blocking,
+        })
       }
       const saved = await saveDealerWebsiteRevision({ dealershipId: req.dealershipId, content, state: builderAction === 'publish' ? 'published' : 'draft', createdBy: req.user?.id, changeSummary: rawBody.change_summary || (builderAction === 'publish' ? 'Published website builder changes' : 'Saved website builder draft'), baseRevisionId: rawBody.base_revision_id || null })
       revisionSaved = !!saved
@@ -1102,7 +1114,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       if (approvedChangeSet?.id) await supabaseAdmin.from('website_change_sets').update({ status: 'published', published_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', approvedChangeSet.id).eq('site_id', req.dealershipId)
     }
     audit(req, 'site.configuration_updated', { after_state: { fields: Object.keys(update), site_published: update.site_published, site_slug: update.site_slug, custom_domain: update.custom_domain } })
-    res.json({ ok: true, site_slug: update.site_slug, site_published: update.site_published, custom_domain: update.custom_domain, domain_target: SITE_HOST, revision: revisionInfo, current_revision: revisionInfo })
+    res.json({ ok: true, site_slug: update.site_slug, site_published: update.site_published, custom_domain: update.custom_domain, domain_target: SITE_HOST, revision: revisionInfo, current_revision: revisionInfo, discoverability: builderContractAudit })
   })
 
   // ── ADMIN: check whether the dealer's custom domain now points at us ─────────
