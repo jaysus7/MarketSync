@@ -606,20 +606,11 @@ function openSetupModal(secId) {
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1">Category</label>
-            <input id="bp-category" value="${esc(p.category || '')}" placeholder="Service, Inventory, Community" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
-          </div>
-          <div>
-            <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1">Schedule publishing <span class="font-normal text-[11px] normal-case">(optional)</span></label>
-            <input id="bp-scheduled-at" type="datetime-local" value="${p.scheduled_at ? esc(new Date(p.scheduled_at).toISOString().slice(0, 16)) : ''}" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
-          </div>
-        </div>
         <div>
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Tagline / Slogan</label>
           <input type="text" id="m-site-tagline" value="${esc(c.tagline || 'Niagara’s Premier Truck Destination')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white" />
         </div>
+
         <div>
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Dealership Story / About</label>
           <textarea id="m-site-about" rows="3" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">${esc(c.about || '')}</textarea>
@@ -4535,7 +4526,7 @@ function renderDealerBlog() {
   const rows = (__dealerBlog || []).map(p => `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
       ${p.cover_image_url ? `<img src="${esc(p.cover_image_url)}" class="w-16 h-11 object-cover rounded-md flex-shrink-0">` : '<div class="w-16 h-11 rounded-md bg-slate-100 dark:bg-slate-800 flex-shrink-0"></div>'}
       <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">${esc(p.title)}</div>
-        <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">/${esc(p.slug)}${p.excerpt ? ' · ' + esc(p.excerpt) : ''}</div></div>
+        <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">/${esc(p.slug)}${p.category ? ' · ' + esc(p.category) : ''}${p.author ? ' · ' + esc(p.author) : ''}${p.excerpt ? ' · ' + esc(p.excerpt) : ''}</div></div>
       ${p.automation_id || p.source === 'automation' || p.generated_by ? '<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 flex-shrink-0">Automated</span>' : ''}
       <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${p.status === 'published' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : (p.status === 'scheduled' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800')} flex-shrink-0">${p.status === 'published' ? 'Published' : (p.status === 'scheduled' ? `Scheduled${p.scheduled_at ? ' · ' + esc(new Date(p.scheduled_at).toLocaleDateString()) : ''}` : 'Draft')}</span>
       <button onclick="dealerBlogEdit('${p.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold flex-shrink-0">Edit</button>
@@ -4595,6 +4586,30 @@ function dealerBlogModal(p) {
         <div>
           <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1">Article Excerpt <span class="text-slate-400 font-normal text-[11px]">— Summary for search engines &amp; cards</span></label>
           <textarea id="bp-excerpt" rows="2" placeholder="Brief summary of the article..." class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">${esc(p.excerpt || '')}</textarea>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1">Category</label>
+            <input id="bp-category" value="${esc(p.category || 'General')}" placeholder="Service, Inventory, Community" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1">Author</label>
+            <input id="bp-author" value="${esc(p.author || '')}" placeholder="Dealer team or author name" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1">Schedule publishing <span class="font-normal text-[11px] normal-case">(optional)</span></label>
+            <input id="bp-scheduled-at" type="datetime-local" value="${p.scheduled_at ? esc(new Date(p.scheduled_at).toISOString().slice(0, 16)) : ''}" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <details class="rounded-xl border border-slate-200 dark:border-slate-800 p-3">
+            <summary class="cursor-pointer text-xs font-black uppercase tracking-wider text-slate-500">Search appearance</summary>
+            <div class="space-y-2 mt-3">
+              <input id="bp-seo-title" value="${esc(p.seo_title || '')}" placeholder="SEO title (optional)" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+              <input id="bp-seo-description" value="${esc(p.seo_description || '')}" placeholder="Meta description (optional)" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+            </div>
+          </details>
         </div>
 
         <!-- Visual Article Builder -->
@@ -4782,7 +4797,10 @@ window.dealerBlogSave = async (id, status) => {
     title: document.getElementById('bp-title').value.trim(),
     slug: document.getElementById('bp-slug').value.trim(),
     excerpt: document.getElementById('bp-excerpt').value.trim(),
+    author: document.getElementById('bp-author')?.value.trim() || null,
     category: document.getElementById('bp-category')?.value.trim() || null,
+    seo_title: document.getElementById('bp-seo-title')?.value.trim() || null,
+    seo_description: document.getElementById('bp-seo-description')?.value.trim() || null,
     scheduled_at: document.getElementById('bp-scheduled-at')?.value ? new Date(document.getElementById('bp-scheduled-at').value).toISOString() : null,
     content_html: contentHtml,
     cover_image_url: document.getElementById('bp-cover').value || null,
