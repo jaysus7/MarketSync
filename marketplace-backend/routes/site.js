@@ -111,6 +111,11 @@ function publicRep(p) {
 }
 
 const slugify = (s) => String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
+const SITE_LOCKABLE_FIELDS = ['logo_url', 'primary_color', 'secondary_color', 'accent_color', 'heading_font', 'body_font', 'seo_title', 'seo_description', 'head_html']
+function canGovernWebsite(req) {
+  const role = req.profile?.role || req.user?.user_metadata?.role
+  return ['OWNER', 'DEALER_ADMIN'].includes(role) || ['dealer_owner', 'dealer_admin', 'platform_owner', 'platform_admin'].includes(req.profile?.account_role || req.profile?.system_role)
+}
 
 // Builder persistence is revision-first. The branding JSON remains the published
 // compatibility projection for the existing renderer, while draft edits live here
@@ -637,6 +642,25 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     })
   })
 
+  app.get('/dealership/site/governance', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data, error } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ locked_fields: Array.isArray(data?.branding?.site_locked_fields) ? data.branding.site_locked_fields.filter(k => SITE_LOCKABLE_FIELDS.includes(k)) : [], can_manage: canGovernWebsite(req) })
+  })
+  app.patch('/dealership/site/governance', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!canGovernWebsite(req)) return res.status(403).json({ error: 'Only dealership owners or administrators can manage locked brand fields.' })
+    const lockedFields = Array.isArray(req.body?.locked_fields) ? [...new Set(req.body.locked_fields.filter(k => SITE_LOCKABLE_FIELDS.includes(k)))] : []
+    const { data: current, error: readError } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
+    if (readError) return res.status(500).json({ error: readError.message })
+    const branding = { ...(current?.branding || {}), site_locked_fields: lockedFields }
+    const { error } = await supabaseAdmin.from('dealerships').update({ branding }).eq('id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'site.governance_updated', { after_state: { locked_fields: lockedFields } })
+    res.json({ ok: true, locked_fields: lockedFields })
+  })
+
   app.get('/dealership/site/revisions', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     try {
       const { data, error } = await supabaseAdmin.from('dealer_website_revisions').select('id, revision_number, state, change_summary, created_by, created_at, published_at').eq('dealership_id', req.dealershipId).order('revision_number', { ascending: false }).limit(80)
@@ -692,6 +716,11 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     let revisionSaved = false
     let revisionInfo = null
     if (builderAction) {
+      const lockedFields = Array.isArray(currentSite?.branding?.site_locked_fields) ? currentSite.branding.site_locked_fields : []
+      if (lockedFields.length && !canGovernWebsite(req)) {
+        const attempted = lockedFields.filter(key => rawBody[key] !== undefined || (rawBody.content && rawBody.content[key] !== undefined))
+        if (attempted.length) return res.status(403).json({ error: `Locked brand fields cannot be changed by this role: ${attempted.join(', ')}`, code: 'WEBSITE_BRAND_FIELD_LOCKED', fields: attempted })
+      }
       // Editors send the draft revision they loaded. Reject stale writes rather
       // than silently replacing another user's newer work. Legacy/settings
       // callers that do not send a cursor retain the existing behavior.
