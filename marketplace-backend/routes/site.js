@@ -670,6 +670,54 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
+  // ── Website change sets: dealer-scoped approval workflow ──────────────────
+  // Reuse the shared website_change_sets table used by HQ. Dealer IDs are
+  // already supported by its text site_id column, so approval history remains
+  // compatible with the existing deployment/control-plane model.
+  app.get('/dealership/site/change-sets', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    try {
+      const { data, error } = await supabaseAdmin.from('website_change_sets')
+        .select('id, site_id, name, description, version_tag, status, created_by, approved_by, published_at, created_at, updated_at')
+        .eq('site_id', req.dealershipId).order('created_at', { ascending: false }).limit(50)
+      if (error) throw error
+      res.json({ change_sets: data || [] })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.post('/dealership/site/change-sets', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    try {
+      const revisionId = String(req.body?.revision_id || '').trim()
+      if (!revisionId) return res.status(400).json({ error: 'A draft revision is required.' })
+      const { data: revision, error: revisionError } = await supabaseAdmin.from('dealer_website_revisions')
+        .select('id, revision_number, state, change_summary').eq('id', revisionId).eq('dealership_id', req.dealershipId).single()
+      if (revisionError || !revision) return res.status(404).json({ error: 'Draft revision not found.' })
+      if (revision.state !== 'draft') return res.status(409).json({ error: 'Only a draft revision can be submitted for approval.' })
+      const name = String(req.body?.name || `Website update · revision ${revision.revision_number}`).trim().slice(0, 120)
+      const description = String(req.body?.description || revision.change_summary || '').trim().slice(0, 1000) || null
+      const { data: changeSet, error } = await supabaseAdmin.from('website_change_sets').insert({
+        site_id: req.dealershipId, name: name || 'Website update', description,
+        version_tag: `dealer-${req.dealershipId}-r${revision.revision_number}`.slice(0, 120),
+        status: 'review', created_by: req.user?.id,
+      }).select('id, site_id, name, description, version_tag, status, created_by, created_at, updated_at').single()
+      if (error) throw error
+      audit(req, 'site.change_set_submitted', { after_state: { change_set_id: changeSet.id, revision_id: revision.id, revision_number: revision.revision_number } })
+      res.status(201).json({ change_set: changeSet, revision: { id: revision.id, number: revision.revision_number } })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.post('/dealership/site/change-sets/:id/approve', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    if (!canGovernWebsite(req)) return res.status(403).json({ error: 'Only dealership owners or administrators can approve website changes.' })
+    try {
+      const { data: current, error: readError } = await supabaseAdmin.from('website_change_sets').select('id, status, site_id').eq('id', req.params.id).eq('site_id', req.dealershipId).single()
+      if (readError || !current) return res.status(404).json({ error: 'Change set not found.' })
+      if (current.status !== 'review') return res.status(409).json({ error: `Only change sets in review can be approved (current status: ${current.status}).` })
+      const { data: changeSet, error } = await supabaseAdmin.from('website_change_sets').update({ status: 'approved', approved_by: req.user?.id, updated_at: new Date().toISOString() }).eq('id', current.id).select('id, site_id, name, description, version_tag, status, created_by, approved_by, created_at, updated_at').single()
+      if (error) throw error
+      audit(req, 'site.change_set_approved', { after_state: { change_set_id: changeSet.id } })
+      res.json({ change_set: changeSet })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
   app.post('/dealership/site/revisions/:id/restore', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     try {
       const { data: source, error } = await supabaseAdmin.from('dealer_website_revisions').select('content, revision_number').eq('id', req.params.id).eq('dealership_id', req.dealershipId).single()
