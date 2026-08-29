@@ -32,6 +32,8 @@ class StudioFabricAdapter {
     this.undoStack = [];
     this.redoStack = [];
     this.isRendering = false;
+    this.activeBreakpoint = 'desktop';
+    this.activePageId = null;
   }
 
   async init(scene, vehicle = null) {
@@ -112,8 +114,11 @@ class StudioFabricAdapter {
     this.fabricCanvas.clear();
     this.fabricCanvas.setBackgroundColor(scene.background?.color || '#0F172A', () => this.fabricCanvas.renderAll());
 
-    const elements = scene.elements || scene.layers || [];
-    for (const el of elements) {
+    const page = Array.isArray(scene.pages) ? (scene.pages.find(p => p.id === this.activePageId) || scene.pages[0]) : null;
+    if (page) this.activePageId = page.id;
+    const elements = page?.objects || scene.elements || scene.layers || [];
+    for (const rawEl of elements) {
+      const el = window.msStudioResolveObject ? window.msStudioResolveObject(rawEl, this.activeBreakpoint) : rawEl;
       if (el.type === 'text') {
         const textVal = window.msResolveTemplateVars ? window.msResolveTemplateVars(el.text, { vehicle: this.currentVehicle }) : (el.text || '');
         const txt = new fabric.Textbox(textVal, {
@@ -232,8 +237,23 @@ class StudioFabricAdapter {
       width: this.fabricCanvas.width,
       height: this.fabricCanvas.height,
       background: { color: this.fabricCanvas.backgroundColor || '#0F172A' },
-      elements
+      elements,
+      pages: this.currentScene.pages ? this.currentScene.pages.map(page => page.id === this.activePageId ? { ...page, objects: elements } : page) : undefined,
+      breakpoint: this.activeBreakpoint
     };
+  }
+
+  setBreakpoint(breakpoint = 'desktop') {
+    if (!['desktop', 'tablet', 'mobile'].includes(breakpoint)) return;
+    this.activeBreakpoint = breakpoint;
+    if (this.currentScene) this.renderScene(this.currentScene);
+    if (typeof this.options.onBreakpointChange === 'function') this.options.onBreakpointChange(breakpoint);
+  }
+
+  setPage(pageId) {
+    if (!this.currentScene?.pages?.some(page => page.id === pageId)) return;
+    this.activePageId = pageId;
+    this.renderScene(this.currentScene);
   }
 
   addText(text = 'New Text', options = {}) {

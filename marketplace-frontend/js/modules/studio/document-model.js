@@ -46,4 +46,16 @@
   window.msStudioSceneToDocument = function (scene, options = {}) {
     return window.msStudioNormalizeDocument(scene, options);
   };
+
+  window.msStudioResolveObject = function (object, breakpoint = 'desktop') {
+    const override = object?.responsive?.[breakpoint];
+    return override && typeof override === 'object' ? { ...clone(object), ...clone(override) } : clone(object);
+  };
+
+  window.msStudioAddPage = function (document, options = {}) {
+    const doc = window.msStudioNormalizeDocument(document);
+    const index = doc.pages.length + 1;
+    doc.pages.push({ id: id('page'), name: options.name || `Page ${index}`, width: options.width || doc.width, height: options.height || doc.height, background: { color: options.background || '#0F172A' }, objects: [] });
+    return doc;
+  };
 })();
