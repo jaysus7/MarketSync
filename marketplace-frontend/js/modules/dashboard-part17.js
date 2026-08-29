@@ -2650,11 +2650,11 @@ function renderWsLayersTreeHtml() {
     <div id="ws-layers-tree" class="p-4 bg-white dark:bg-slate-900">
       <div class="space-y-1 font-sans text-xs">
         <div class="text-[10px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-300 mb-2 flex items-center justify-between">
-          <span>Hierarchical Layers Tree</span>
-          <span class="text-slate-600 dark:text-slate-400 font-bold text-[9px]">(Drag Header To Move)</span>
+          <span>Layers</span>
+          <span class="text-slate-600 dark:text-slate-400 font-bold text-[9px]">Drag to reorder</span>
         </div>
         <div onclick="selectWsSection(-1)" style="${__wsSelectedSecIdx === -1 ? 'background-color:#4f46e5 !important;color:#ffffff !important;border-color:#4338ca !important;font-weight:800 !important;box-shadow:0 4px 6px -1px rgba(79,70,229,0.25);' : 'color:var(--ws-text,#0f172a) !important;font-weight:700 !important;'}" class="p-2.5 rounded-xl border ${__wsSelectedSecIdx === -1 ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400'} cursor-pointer flex items-center justify-between transition">
-          <span class="font-extrabold ${__wsSelectedSecIdx === -1 ? 'text-white' : 'text-slate-900 dark:text-slate-100'}">Header &amp; Navigation Bar</span>
+          <span class="font-extrabold ${__wsSelectedSecIdx === -1 ? 'text-white' : 'text-slate-900 dark:text-slate-100'}">Site Header</span>
           <span class="text-[10px] font-mono ${__wsSelectedSecIdx === -1 ? 'text-indigo-200' : 'text-slate-500'} font-bold">Global</span>
         </div>
         <div class="pl-2 space-y-1 border-l-2 border-slate-300 dark:border-slate-800 ml-2 my-1">
@@ -2677,7 +2677,7 @@ function renderWsLayersTreeHtml() {
           }).join('')}
         </div>
         <div onclick="selectWsSection(-2)" style="${__wsSelectedSecIdx === -2 ? 'background-color:#4f46e5 !important;color:#ffffff !important;border-color:#4338ca !important;font-weight:800 !important;box-shadow:0 4px 6px -1px rgba(79,70,229,0.25);' : 'color:var(--ws-text,#0f172a) !important;font-weight:700 !important;'}" class="p-2.5 rounded-xl border ${__wsSelectedSecIdx === -2 ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400'} cursor-pointer flex items-center justify-between transition">
-          <span class="font-extrabold ${__wsSelectedSecIdx === -2 ? 'text-white' : 'text-slate-900 dark:text-slate-100'}">Footer &amp; Copyright</span>
+          <span class="font-extrabold ${__wsSelectedSecIdx === -2 ? 'text-white' : 'text-slate-900 dark:text-slate-100'}">Site Footer</span>
           <span class="text-[10px] font-mono ${__wsSelectedSecIdx === -2 ? 'text-indigo-200' : 'text-slate-500'} font-bold">Global</span>
         </div>
       </div>
