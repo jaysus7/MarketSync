@@ -698,6 +698,34 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     res.json({ ok: true, group_id: dealer.group_id, ...policy })
   })
 
+  app.get('/groups/website/change-sets', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.approve'), async (req, res) => {
+    if (!canGovernGroupWebsite(req) || !req.profile?.group_id) return res.status(403).json({ error: 'Dealer-group approval authority required.' })
+    try {
+      const { data: rooftops, error: rooftopError } = await supabaseAdmin.from('dealerships').select('id, name').eq('group_id', req.profile.group_id)
+      if (rooftopError) throw rooftopError
+      const ids = (rooftops || []).map(row => row.id)
+      if (!ids.length) return res.json({ change_sets: [], rooftops: [] })
+      const { data, error } = await supabaseAdmin.from('website_change_sets').select('id, site_id, name, description, version_tag, status, created_by, approved_by, review_feedback, reviewed_by, reviewed_at, published_at, created_at, updated_at').in('site_id', ids).order('created_at', { ascending: false }).limit(200)
+      if (error) throw error
+      const names = new Map((rooftops || []).map(row => [String(row.id), row.name]))
+      res.json({ change_sets: (data || []).map(row => ({ ...row, dealership_name: names.get(String(row.site_id)) || null })), rooftops: rooftops || [] })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.get('/groups/website/audit-log', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.approve'), async (req, res) => {
+    if (!canGovernGroupWebsite(req) || !req.profile?.group_id) return res.status(403).json({ error: 'Dealer-group audit authority required.' })
+    try {
+      const { data: rooftops, error: rooftopError } = await supabaseAdmin.from('dealerships').select('id, name').eq('group_id', req.profile.group_id)
+      if (rooftopError) throw rooftopError
+      const ids = (rooftops || []).map(row => row.id)
+      if (!ids.length) return res.json({ events: [], rooftops: [] })
+      const { data, error } = await supabaseAdmin.from('audit_log').select('id, action, actor_id, actor_email, dealership_id, created_at, meta').in('dealership_id', ids).like('action', 'site.%').order('created_at', { ascending: false }).limit(250)
+      if (error) throw error
+      const names = new Map((rooftops || []).map(row => [String(row.id), row.name]))
+      res.json({ events: (data || []).map(row => ({ ...row, dealership_name: names.get(String(row.dealership_id)) || null })), rooftops: rooftops || [] })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
   app.get('/dealership/site/revisions', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     try {
       const { data, error } = await supabaseAdmin.from('dealer_website_revisions').select('id, revision_number, state, change_summary, created_by, created_at, published_at').eq('dealership_id', req.dealershipId).order('revision_number', { ascending: false }).limit(80)
