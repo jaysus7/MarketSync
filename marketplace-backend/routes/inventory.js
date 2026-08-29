@@ -351,6 +351,41 @@ export function registerRoutes(app) {
     res.json({ media: data })
   })
 
+  // Reusable Website Builder sections use the same structured document model
+  // as page sections; no arbitrary HTML is stored as a component.
+  app.get('/dealership/site-components', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data, error } = await supabaseAdmin.from('dealer_website_components').select('id, name, description, section, created_by, created_at, updated_at').eq('dealership_id', req.dealershipId).order('updated_at', { ascending: false }).limit(100)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ components: data || [] })
+  })
+  app.post('/dealership/site-components', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const name = String(req.body?.name || '').trim().slice(0, 100)
+    const section = req.body?.section && typeof req.body.section === 'object' ? req.body.section : null
+    if (!name || !section || Array.isArray(section)) return res.status(400).json({ error: 'A component name and structured section are required' })
+    const { data, error } = await supabaseAdmin.from('dealer_website_components').insert({ dealership_id: req.dealershipId, name, description: String(req.body?.description || '').trim().slice(0, 300), section, created_by: req.user?.id }).select('id, name, description, section, created_at, updated_at').single()
+    if (error) return res.status(error.code === '23505' ? 409 : 500).json({ error: error.code === '23505' ? 'A component with that name already exists.' : error.message })
+    res.status(201).json({ component: data })
+  })
+  app.patch('/dealership/site-components/:id', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const patch = { updated_at: new Date().toISOString() }
+    if (req.body?.name !== undefined) patch.name = String(req.body.name || '').trim().slice(0, 100)
+    if (req.body?.description !== undefined) patch.description = String(req.body.description || '').trim().slice(0, 300)
+    if (req.body?.section && typeof req.body.section === 'object' && !Array.isArray(req.body.section)) patch.section = req.body.section
+    const { data, error } = await supabaseAdmin.from('dealer_website_components').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select('id, name, description, section, created_at, updated_at').maybeSingle()
+    if (error) return res.status(error.code === '23505' ? 409 : 500).json({ error: error.code === '23505' ? 'A component with that name already exists.' : error.message })
+    if (!data) return res.status(404).json({ error: 'Component not found' })
+    res.json({ component: data })
+  })
+  app.delete('/dealership/site-components/:id', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { error } = await supabaseAdmin.from('dealer_website_components').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true })
+  })
+
   // GET /inventory/:id/carfax — resolve the Carfax report link for a vehicle by
   // scraping the badge off its source listing page (cached after first hit).
   app.get('/inventory/:id/carfax', requireAuth, requirePermission('inventory.view'), async (req, res) => {
