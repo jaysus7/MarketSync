@@ -1202,7 +1202,7 @@ function collectMenu() {
   const byId = Object.fromEntries((__sitePages || []).map(p => [p.id, p]));
   __sitePages = rows.filter(r => r.dataset.pid).map(r => {
     const id = r.dataset.pid, prev = byId[id] || {};
-    return { ...prev, id, title: r.querySelector('.pg-title')?.value || prev.title || '', nav: r.querySelector('.pg-nav')?.checked !== false, menu: (r.querySelector('.pg-menu')?.value || '').trim() || null, body_html: r.querySelector('.pg-body') ? (r.querySelector('.pg-body').value || '') : (prev.body_html || '') };
+    return { ...prev, id, title: r.querySelector('.pg-title')?.value || prev.title || '', nav: r.querySelector('.pg-nav')?.checked !== false, menu: (r.querySelector('.pg-menu')?.value || '').trim() || null, body_html: r.querySelector('.pg-body') ? (r.querySelector('.pg-body').value || '') : (prev.body_html || ''), seo_title: r.querySelector('.pg-seo-title')?.value ?? prev.seo_title ?? '', seo_description: r.querySelector('.pg-seo-desc')?.value ?? prev.seo_description ?? '' };
   });
 }
 // Back-compat shims for callers elsewhere.
@@ -1283,6 +1283,7 @@ function menuRow(it, i, n) {
       <button type="button" onclick="removeSitePageById('${p.id}')" class="text-rose-500 text-xs font-bold shrink-0"></button>
     </div>
     ${showBody ? `<textarea class="pg-body w-full text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1" rows="2" placeholder="${p.kind === 'model' ? 'Intro blurb — inventory lists automatically below it.' : 'Page content — plain text or basic HTML'}">${esc(p.body_html || '')}</textarea>` : ''}
+    <details class="pt-1"><summary class="cursor-pointer text-[11px] font-black uppercase tracking-wider text-slate-400">SEO &amp; Discovery</summary><div class="grid sm:grid-cols-2 gap-2 pt-2"><input class="pg-seo-title w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs" placeholder="SEO title (about 60 characters)" value="${esc(p.seo_title || '')}"><textarea class="pg-seo-desc w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs" rows="2" placeholder="Meta description (about 155 characters)">${esc(p.seo_description || '')}</textarea></div></details>
   </div>`;
 }
 function renderMenuList() {
@@ -1974,20 +1975,74 @@ window.addEventListener('beforeunload', e => {
   }
 });
 
+let __wsAuditIssues = [];
+function wsAuditPageName(target, home = false) {
+  if (home || target === 'home') return 'Home Page';
+  if (typeof target === 'number' && __sitePages?.[target]) return __sitePages[target].title || `Page ${target + 1}`;
+  return 'Current Page';
+}
 function wsRunAudit() {
-  const c = __siteCfg?.content || {}, sections = __siteSections || [];
-  const issues = [];
-  const title = String(c.seo_title || '').trim(), desc = String(c.seo_description || '').trim();
-  if (!title) issues.push('SEO title is missing'); else if (title.length > 60) issues.push('SEO title is over 60 characters');
-  if (!desc) issues.push('Meta description is missing'); else if (desc.length > 160) issues.push('Meta description is over 160 characters');
-  sections.forEach((s, i) => {
-    const v = s?.settings || {};
-    for (const key of ['image', 'image_url', 'background_image']) if (v[key] && !v[`${key}_alt`] && !v.alt) issues.push(`Section ${i + 1} image needs alt text`);
-    if (s?.type === 'html') issues.push(`Section ${i + 1} uses custom HTML — review before publishing`);
+  const c = __siteCfg?.content || {}, issues = [];
+  const checkMeta = (record, page, target, home = false) => {
+    const title = String(record?.seo_title || '').trim(), desc = String(record?.seo_description || '').trim();
+    if (!title) issues.push({ id: `title-${target}`, type: 'title', page, location: home ? 'Website Settings → SEO' : 'Pages → page SEO', field: 'SEO title', message: 'Search engines have no page title to use in results.', target, home });
+    else if (title.length > 60) issues.push({ id: `title-long-${target}`, type: 'title', page, location: home ? 'Website Settings → SEO' : 'Pages → page SEO', field: 'SEO title', message: `This title is ${title.length} characters; keep it at 60 or fewer.`, target, home });
+    if (!desc) issues.push({ id: `desc-${target}`, type: 'description', page, location: home ? 'Website Settings → SEO' : 'Pages → page SEO', field: 'Meta description', message: 'Search engines have no summary for this page.', target, home });
+    else if (desc.length > 160) issues.push({ id: `desc-long-${target}`, type: 'description', page, location: home ? 'Website Settings → SEO' : 'Pages → page SEO', field: 'Meta description', message: `This description is ${desc.length} characters; keep it at 160 or fewer.`, target, home });
+  };
+  checkMeta(c, 'Home Page', 'home', true);
+  (__sitePages || []).forEach((p, i) => checkMeta(p, wsAuditPageName(i), i));
+  const scan = (sections, target, page) => (sections || []).forEach((s, i) => {
+    const v = s?.settings || {}, label = SEC_META?.[s?.type]?.label || s?.type || 'Section';
+    for (const key of ['image', 'image_url', 'background_image']) if (v[key] && !v[`${key}_alt`] && !v.alt) issues.push({ id: `alt-${target}-${i}-${key}`, type: 'alt', page, location: `Builder → ${label}`, field: `${key.replace(/_/g, ' ')} alt text`, message: 'This image has no descriptive alternative text.', sectionIndex: i, sectionKey: key, target });
+    if (s?.type === 'html') issues.push({ id: `html-${target}-${i}`, type: 'html', page, location: `Builder → ${label}`, field: 'Custom HTML', message: 'Custom HTML should be reviewed before publishing.', sectionIndex: i, target });
   });
-  showToast(issues.length ? `${issues.length} publish issue${issues.length === 1 ? '' : 's'} found: ${issues[0]}` : 'No SEO or accessibility issues found', issues.length ? 'error' : 'success');
+  scan(__homeSections, 'home', 'Home Page');
+  (__sitePages || []).forEach((p, i) => scan(p.sections, i, wsAuditPageName(i)));
+  __wsAuditIssues = issues;
+  if (!issues.length) { showToast('No SEO or accessibility issues found', 'success'); return issues; }
+  wsShowAuditPanel();
   return issues;
 }
+function wsShowAuditPanel() {
+  document.getElementById('ws-audit-panel')?.remove();
+  const modal = document.createElement('div'); modal.id = 'ws-audit-panel'; modal.className = 'fixed inset-0 z-[1000] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4';
+  modal.innerHTML = `<div class="w-full max-w-3xl max-h-[88vh] overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 text-white shadow-2xl"><div class="p-5 border-b border-slate-800 flex items-start justify-between gap-4"><div><div class="text-[10px] uppercase tracking-[.16em] font-black text-amber-400">Website audit</div><h2 class="text-xl font-black mt-1">${__wsAuditIssues.length} publish issue${__wsAuditIssues.length === 1 ? '' : 's'} to resolve</h2><p class="text-xs text-slate-400 mt-1">Each finding includes the page, exact control, and an AI-assisted fix. Changes stay in your draft until you publish.</p></div><button onclick="document.getElementById('ws-audit-panel')?.remove()" class="text-slate-400 hover:text-white text-2xl">×</button></div><div class="p-4 space-y-2 overflow-y-auto max-h-[68vh]">${__wsAuditIssues.map(issue => `<div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><span class="text-sm font-black text-white">${esc(issue.field)}</span><span class="rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase px-2 py-0.5">${esc(issue.page)}</span></div><div class="text-xs text-indigo-300 font-semibold mt-2">${esc(issue.location)}</div><p class="text-xs text-slate-400 mt-1">${esc(issue.message)}</p></div><span class="shrink-0 text-[10px] uppercase font-black text-rose-300">${issue.type === 'html' ? 'Review' : 'Fixable'}</span></div><div class="flex flex-wrap gap-2 mt-3"><button onclick="wsFocusAuditIssue('${issue.id}')" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 text-xs font-bold">Show me</button>${issue.type !== 'html' ? `<button data-audit-fix="${issue.id}" onclick="wsAiFixAuditIssue('${issue.id}', this)" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black">Fix with AI</button>` : ''}</div></div>`).join('')}</div><div class="p-4 border-t border-slate-800 flex justify-end"><button onclick="document.getElementById('ws-audit-panel')?.remove()" class="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold text-slate-200">Close</button></div></div>`;
+  document.body.appendChild(modal);
+}
+async function wsAiFixAuditIssue(id, btn) {
+  const issue = __wsAuditIssues.find(x => x.id === id); if (!issue) return;
+  const old = btn.textContent; btn.disabled = true; btn.textContent = 'Fixing…';
+  try {
+    if (issue.type === 'title' || issue.type === 'description') {
+      const record = issue.home ? (__siteCfg.content = __siteCfg.content || {}) : __sitePages?.[issue.target];
+      const current = issue.type === 'title' ? record?.seo_title : record?.seo_description;
+      const response = await apiSendJson('/ai/site-copy', 'POST', { task: issue.type === 'title' ? 'title' : 'meta', kind: issue.type === 'title' ? 'title' : 'meta', hint: issue.page, keyword: sitePrimaryKeyword(), current: current || pageContentText(record || {}) });
+      record[issue.type === 'title' ? 'seo_title' : 'seo_description'] = response.text || current;
+    } else if (issue.type === 'alt') {
+      const sections = issue.target === 'home' ? __homeSections : __sitePages?.[issue.target]?.sections;
+      const section = sections?.[issue.sectionIndex]; if (!section) throw new Error('Section is no longer available');
+      section.settings = section.settings || {};
+      const response = await apiSendJson('/ai/site-copy', 'POST', { task: 'alt', kind: 'alt', hint: `${issue.page} ${issue.field}`, current: section.settings.headline || section.settings.title || 'dealership website image' });
+      section.settings[`${issue.sectionKey}_alt`] = response.text || `${issue.page} image`;
+    }
+    markWsUnsaved();
+    if (issue.type === 'title' || issue.type === 'description') renderWsBody();
+    wsRunAudit(); showToast('AI fix added to your draft — review before publishing', 'success');
+  } catch (e) { showToast(e.message || 'AI could not apply this fix', 'error'); }
+  finally { btn.disabled = false; btn.textContent = old; }
+}
+function wsFocusAuditIssue(id) {
+  const issue = __wsAuditIssues.find(x => x.id === id); if (!issue) return;
+  document.getElementById('ws-audit-panel')?.remove();
+  if (issue.type === 'title' || issue.type === 'description') {
+    if (!issue.home && typeof wsSetTarget === 'function') wsSetTarget(issue.target);
+    __wsTab = issue.home ? 'settings' : 'pages'; renderWsBody();
+    setTimeout(() => (issue.home ? document.getElementById(issue.type === 'title' ? 'seo-title' : 'seo-desc') : document.querySelector(`.menu-row[data-pid="${__sitePages?.[issue.target]?.id || ''}"] .${issue.type === 'title' ? 'pg-seo-title' : 'pg-seo-desc'}`))?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
+  } else if (issue.target === 'home') { wsSetTarget('home'); setTimeout(() => document.querySelector(`[data-ws-field="${issue.sectionKey}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60); }
+  else { wsSetTarget(issue.target); setTimeout(() => document.querySelector(`[data-ws-field="${issue.sectionKey}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60); }
+}
+Object.assign(window, { wsShowAuditPanel, wsAiFixAuditIssue, wsFocusAuditIssue });
 window.wsRunAudit = wsRunAudit;
 
 // The preview can finish loading before its postMessage-ready event reaches the
