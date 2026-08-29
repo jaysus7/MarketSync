@@ -2428,6 +2428,7 @@ let __wsSelectedSecIdx = 0;
 let __wsInspectorTab = 'content';
 let __wsActiveDeviceView = 'desktop'; // 'desktop' (100%), 'tablet' (768px), 'mobile' (375px)
 let __wsActiveLeftNav = 'layers'; // 'layers', 'blocks', 'pages', 'design', 'ai'
+let __wsComponents = [], __wsComponentsLoaded = false;
 let __wsLeftDockCollapsed = false;
 let __wsRightDockCollapsed = false;
 
@@ -2699,6 +2700,7 @@ function renderWsLayersTreeHtml() {
                 <div class="flex items-center gap-1 opacity-90 group-hover:opacity-100">
                   <button type="button" onclick="event.stopPropagation(); moveSection(${idx},-1)" ${idx === 0 ? 'disabled' : ''} class="p-1 ${isSel ? 'text-white' : 'text-slate-700 dark:text-slate-300'} hover:text-black dark:hover:text-white disabled:opacity-20 font-bold" title="Move Up">↑</button>
                   <button type="button" onclick="event.stopPropagation(); moveSection(${idx},1)" ${idx === __siteSections.length - 1 ? 'disabled' : ''} class="p-1 ${isSel ? 'text-white' : 'text-slate-700 dark:text-slate-300'} hover:text-black dark:hover:text-white disabled:opacity-20 font-bold" title="Move Down">↓</button>
+                  <button type="button" onclick="event.stopPropagation(); saveWsComponent(${idx})" class="p-1 ${isSel ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'} hover:text-indigo-800 font-bold" title="Save as reusable section">＋</button>
                   <button type="button" onclick="event.stopPropagation(); delSection(${idx})" class="p-1 text-rose-500 hover:text-rose-700 font-black" title="Delete">×</button>
                 </div>
               </div>
@@ -3053,6 +3055,46 @@ function repaintWsPalette() {
   const pal = document.getElementById('ws-palette');
   if (pal) pal.outerHTML = renderElementorPalette();
 }
+
+async function loadWsComponents() {
+  try {
+    const data = await apiGetJson('/dealership/site-components', { retries: 1 });
+    __wsComponents = Array.isArray(data?.components) ? data.components : [];
+    __wsComponentsLoaded = true;
+    repaintWsPalette();
+  } catch (e) { showToast(e.message || 'Could not load reusable components', 'error'); }
+}
+function addReusableComponent(id) {
+  const source = __wsComponents.find(c => c.id === id)?.section;
+  if (!source || typeof source !== 'object') return;
+  wsQueueHistory();
+  const copy = JSON.parse(JSON.stringify(source));
+  const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  const rekey = (node, parentId = null) => {
+    node.id = `s${suffix}${Math.random().toString(36).slice(2, 6)}`;
+    if (parentId) node.parent_id = parentId;
+    if (Array.isArray(node.children)) node.children.forEach(child => rekey(child, node.id));
+    return node;
+  };
+  rekey(copy);
+  if (__pendingInsertAt != null && __pendingInsertAt >= 0 && __pendingInsertAt <= __siteSections.length) { __siteSections.splice(__pendingInsertAt, 0, copy); __pendingInsertAt = null; }
+  else __siteSections.push(copy);
+  markWsUnsaved(); renderWsSections(); showToast('Reusable section added', 'success');
+}
+async function saveWsComponent(i) {
+  const section = __siteSections?.[i]; if (!section) return;
+  const name = prompt('Name this reusable section');
+  if (!name || !name.trim()) return;
+  try {
+    await apiSendJson('/dealership/site-components', 'POST', { name: name.trim(), description: SEC_META[section.type]?.label || section.type, section: JSON.parse(JSON.stringify(section)) });
+    __wsComponentsLoaded = false; showToast('Reusable section saved', 'success');
+    if (__wsActiveLeftNav === 'blocks') { const drawer = document.getElementById('ws-left-drawer-content'); if (drawer) drawer.innerHTML = renderWsLeftDrawerHtml(); }
+  } catch (e) { showToast(e.message || 'Could not save reusable section', 'error'); }
+}
+window.saveWsComponent = saveWsComponent;
+window.loadWsComponents = loadWsComponents;
+window.addReusableComponent = addReusableComponent;
+
 function setWsPaletteCat(cat) {
   __wsPaletteCat = cat;
   repaintWsPalette();
@@ -3099,6 +3141,10 @@ function renderElementorPalette() {
       <div class="flex items-center justify-between">
         <div class="text-xs font-black uppercase tracking-wider text-slate-400">MarketSync Block Library</div>
         <button onclick="aiBuildPageLayout()" class="text-[11px] font-extrabold text-violet-400 hover:text-violet-300 flex items-center gap-1">AI Build</button>
+      </div>
+      <div class="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-2.5">
+        <div class="flex items-center justify-between gap-2 mb-1.5"><span class="text-[11px] font-black uppercase tracking-wider text-indigo-300">Reusable sections</span><button type="button" onclick="loadWsComponents()" class="text-[10px] font-bold text-indigo-300 hover:text-white">${__wsComponentsLoaded ? 'Refresh' : 'Load'}</button></div>
+        ${__wsComponentsLoaded ? (__wsComponents.length ? `<div class="space-y-1.5">${__wsComponents.map(c => `<button type="button" onclick="addReusableComponent('${esc(c.id)}')" class="w-full text-left rounded-lg border border-indigo-500/30 bg-slate-900/70 px-2 py-1.5 hover:border-indigo-400"><div class="text-[11px] font-bold text-slate-100 truncate">${esc(c.name)}</div><div class="text-[10px] text-slate-400 truncate">${esc(c.description || SEC_META[c.section?.type]?.label || 'Saved section')}</div></button>`).join('')}</div>` : '<div class="text-[10px] text-slate-400 italic">No saved sections yet.</div>') : '<div class="text-[10px] text-slate-400">Load saved sections from your component library.</div>'}
       </div>
 
       <!-- Search Bar -->
