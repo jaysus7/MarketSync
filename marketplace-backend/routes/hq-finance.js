@@ -296,4 +296,221 @@ export function registerHqFinance(app) {
       res.status(500).json({ error: err.message })
     }
   })
+
+  // ── 8. Receipts OCR & Human Review ──
+  app.get('/hq/finance/receipts', requireHqAuth, async (req, res) => {
+    try {
+      const { status, limit = 50, offset = 0 } = req.query
+      let query = supabaseAdmin.from('hq_receipts').select('*').order('created_at', { ascending: false }).range(Number(offset), Number(offset) + Number(limit) - 1)
+      if (status) query = query.eq('status', status)
+      const { data, error } = await query
+      if (error) throw error
+      res.json(data || [])
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  app.post('/hq/finance/receipts/review', requireHqAuth, async (req, res) => {
+    try {
+      const {
+        receipt_id,
+        vendor_name,
+        vendor_id,
+        account_code,
+        description,
+        subtotal,
+        tax_total,
+        total,
+        currency,
+        payment_method,
+        expense_date,
+      } = req.body
+
+      const { ReceiptExtractionService } = await import('../services/receiptExtractionService.js')
+      const expense = await ReceiptExtractionService.reviewAndCreateExpense({
+        receiptId: receipt_id,
+        vendorName: vendor_name,
+        vendorId: vendor_id,
+        accountCode: account_code,
+        description,
+        subtotal,
+        taxTotal: tax_total,
+        total,
+        currency,
+        paymentMethod: payment_method,
+        expenseDate: expense_date,
+        reviewerId: req.user?.id,
+        reviewerName: req.profile?.full_name || 'HQ Operator',
+      })
+
+      res.status(201).json({ success: true, expense })
+    } catch (err) {
+      res.status(400).json({ error: err.message })
+    }
+  })
+
+  // ── 9. Recurring Expenses ──
+  app.get('/hq/finance/recurring-expenses', requireHqAuth, async (req, res) => {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('hq_recurring_expenses')
+        .select('*, hq_vendors(id, name)')
+        .order('next_due_date', { ascending: true })
+
+      if (error) throw error
+      res.json(data || [])
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  app.post('/hq/finance/recurring-expenses', requireHqAuth, async (req, res) => {
+    try {
+      const { vendor_id, account_code, description, amount, frequency, next_due_date } = req.body
+      if (!description || !amount || !next_due_date) {
+        return res.status(400).json({ error: 'description, amount, and next_due_date are required' })
+      }
+
+      const { data, error } = await supabaseAdmin.from('hq_recurring_expenses').insert({
+        vendor_id: vendor_id || null,
+        account_code: account_code || '6400',
+        description,
+        amount: Number(amount) || 0,
+        frequency: frequency || 'monthly',
+        next_due_date,
+        is_active: true,
+      }).select('*').single()
+
+      if (error) throw error
+      res.status(201).json(data)
+    } catch (err) {
+      res.status(400).json({ error: err.message })
+    }
+  })
+
+  // ── 10. Financial Forecast Scenarios (Base, Conservative, Growth) ──
+  app.get('/hq/finance/forecast', requireHqAuth, async (req, res) => {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('hq_financial_forecasts')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      res.json(data || [])
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  app.post('/hq/finance/forecast', requireHqAuth, async (req, res) => {
+    try {
+      const { scenario_name, forecast_start_date, forecast_end_date, assumptions, projected_mrr, projected_cash, projected_pnl } = req.body
+      if (!scenario_name || !forecast_start_date || !forecast_end_date) {
+        return res.status(400).json({ error: 'scenario_name, forecast_start_date, and forecast_end_date are required' })
+      }
+
+      const { data, error } = await supabaseAdmin.from('hq_financial_forecasts').insert({
+        scenario_name,
+        forecast_start_date,
+        forecast_end_date,
+        assumptions: assumptions || {},
+        projected_mrr: projected_mrr || [],
+        projected_cash: projected_cash || [],
+        projected_pnl: projected_pnl || [],
+        created_by: req.user?.id || null,
+      }).select('*').single()
+
+      if (error) throw error
+      res.status(201).json(data)
+    } catch (err) {
+      res.status(400).json({ error: err.message })
+    }
+  })
+
+  // ── 11. Staff Commission Plans & Calculation ──
+  app.get('/hq/finance/commission-plans', requireHqAuth, async (req, res) => {
+    try {
+      const { data, error } = await supabaseAdmin.from('hq_commission_plans').select('*').order('created_at', { ascending: false })
+      if (error) throw error
+      res.json(data || [])
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  app.post('/hq/finance/commission-plans', requireHqAuth, async (req, res) => {
+    try {
+      const { name, version = 1, effective_from, rules } = req.body
+      if (!name || !effective_from) return res.status(400).json({ error: 'name and effective_from are required' })
+
+      const { data, error } = await supabaseAdmin.from('hq_commission_plans').insert({
+        name,
+        version: Number(version) || 1,
+        effective_from,
+        rules: rules || [],
+        is_active: true,
+      }).select('*').single()
+
+      if (error) throw error
+      res.status(201).json(data)
+    } catch (err) {
+      res.status(400).json({ error: err.message })
+    }
+  })
+
+  app.get('/hq/finance/commissions', requireHqAuth, async (req, res) => {
+    try {
+      const { status, staff_id } = req.query
+      let query = supabaseAdmin.from('hq_staff_commissions').select('*, hq_opportunities(id, name), hq_companies(id, name)').order('accrued_date', { ascending: false })
+      if (status) query = query.eq('status', status)
+      if (staff_id) query = query.eq('staff_id', staff_id)
+      const { data, error } = await query
+      if (error) throw error
+      res.json(data || [])
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  app.post('/hq/finance/commissions/:id/approve', requireHqAuth, async (req, res) => {
+    try {
+      const { id } = req.params
+      const { approveStaffCommission } = await import('../services/hqCommissionService.js')
+      const comm = await approveStaffCommission({
+        commissionId: id,
+        actorId: req.user?.id,
+        actorName: req.profile?.full_name || 'HQ Operator',
+      })
+      res.json({ success: true, commission: comm })
+    } catch (err) {
+      res.status(400).json({ error: err.message })
+    }
+  })
+
+  app.post('/hq/finance/payouts', requireHqAuth, async (req, res) => {
+    try {
+      const { recipient_type, recipient_id, recipient_name, commission_ids, payout_method, payout_reference } = req.body
+      if (!recipient_id || !recipient_name || !commission_ids?.length) {
+        return res.status(400).json({ error: 'recipient_id, recipient_name, and commission_ids are required' })
+      }
+
+      const { processCommissionPayout } = await import('../services/hqCommissionService.js')
+      const result = await processCommissionPayout({
+        recipientType: recipient_type || 'staff',
+        recipientId: recipient_id,
+        recipientName: recipient_name,
+        commissionIds: commission_ids,
+        payoutMethod: payout_method || 'direct_deposit',
+        payoutReference: payout_reference,
+        actorId: req.user?.id,
+        actorName: req.profile?.full_name || 'HQ Operator',
+      })
+
+      res.status(201).json(result)
+    } catch (err) {
+      res.status(400).json({ error: err.message })
+    }
+  })
 }
