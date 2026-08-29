@@ -621,7 +621,7 @@ function renderStudioToolPanelContent(tool) {
       return renderLayer(object, String(index));
     }).join('');
     const structures = window.__studioAdapter?.currentScene?.components || [];
-    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Layers</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Select and reorder the current page. Groups and component children remain part of the document model.</p></div><div class="grid grid-cols-2 gap-2"><button type="button" onclick="addStudioStructure('component')" class="px-2 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-[10px] font-black text-white">+ Component</button><button type="button" onclick="addStudioStructure('repeater')" class="px-2 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-[10px] font-black text-white">+ Repeater</button></div><div class="space-y-1.5 max-h-[55vh] overflow-y-auto">${rows || '<p class="text-xs text-slate-500">No layers yet.</p>'}</div>${structures.length ? `<div class="pt-2 border-t border-slate-800"><div class="text-[10px] font-black uppercase text-sky-400 mb-1">Structured elements</div>${structures.map(item => `<div class="text-xs text-slate-300 py-1">${item.type === 'repeater' ? '↻' : '◇'} ${escS(item.name)}</div>`).join('')}</div>` : ''}</div>`;
+    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Layers</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Select and reorder the current page. Groups and component children remain part of the document model.</p></div><div class="grid grid-cols-2 gap-2"><button type="button" onclick="addStudioStructure('component')" class="px-2 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-[10px] font-black text-white">+ Component</button><button type="button" onclick="addStudioStructure('repeater')" class="px-2 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-[10px] font-black text-white">+ Repeater</button></div><div class="space-y-1.5 max-h-[55vh] overflow-y-auto">${rows || '<p class="text-xs text-slate-500">No layers yet.</p>'}</div>${structures.length ? `<div class="pt-2 border-t border-slate-800"><div class="text-[10px] font-black uppercase text-sky-400 mb-1">Structured elements</div>${structures.map((item, index) => `<button type="button" onclick="editStudioStructure(${index})" class="w-full flex items-center justify-between text-left text-xs text-slate-300 py-1 hover:text-white"><span>${item.type === 'repeater' ? '↻' : '◇'} ${escS(item.name)}</span><span class="text-[10px] text-sky-400">Edit</span></button>`).join('')}</div>` : ''}</div>`;
   }
   if (tool === 'templates') {
     return `
@@ -767,6 +767,24 @@ function addStudioStructure(type) {
   if (typeof showToast === 'function') showToast(`${type === 'repeater' ? 'Repeater' : 'Component'} added`, 'success');
 }
 window.addStudioStructure = addStudioStructure;
+
+function editStudioStructure(index) {
+  const item = window.__studioAdapter?.currentScene?.components?.[index]; if (!item || typeof crmOverlay !== 'function') return;
+  const fields = ['year', 'make', 'model', 'trim', 'price', 'mileage', 'stock_number', 'primary_photo_url'];
+  crmOverlay(`<form onsubmit="event.preventDefault(); saveStudioStructure(${index})" class="p-5 space-y-4 max-w-md"><div><h3 class="text-lg font-black text-white">${item.type === 'repeater' ? 'Repeater mapping' : 'Component settings'}</h3><p class="text-xs text-slate-400 mt-1">Configure the reusable definition used by this design.</p></div><label class="block text-xs font-bold text-slate-300">Name<input id="studio-structure-name" value="${escS(item.name || '')}" class="mt-1 w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white"></label>${item.type === 'repeater' ? `<label class="block text-xs font-bold text-slate-300">Collection<select id="studio-structure-collection" class="mt-1 w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white"><option value="inventory" ${item.collection === 'inventory' ? 'selected' : ''}>Inventory</option><option value="customers" ${item.collection === 'customers' ? 'selected' : ''}>Customers</option><option value="services" ${item.collection === 'services' ? 'selected' : ''}>Service offers</option></select></label><div><div class="text-xs font-bold text-slate-300 mb-2">Mapped fields</div><div class="grid grid-cols-2 gap-2">${fields.map(field => `<label class="flex items-center gap-2 text-xs text-slate-400"><input type="checkbox" value="${field}" ${item.template?.fields?.includes(field) ? 'checked' : ''}>${field}</label>`).join('')}</div></div>` : ''}<div class="flex justify-end gap-2"><button type="submit" class="px-4 py-2 rounded-xl bg-indigo-600 text-xs font-black text-white">Save mapping</button></div></form>`);
+}
+window.editStudioStructure = editStudioStructure;
+function saveStudioStructure(index) {
+  const item = window.__studioAdapter?.currentScene?.components?.[index]; if (!item) return;
+  item.name = document.getElementById('studio-structure-name')?.value || item.name;
+  if (item.type === 'repeater') {
+    item.collection = document.getElementById('studio-structure-collection')?.value || item.collection;
+    item.template = { ...(item.template || {}), fields: [...document.querySelectorAll('input[type="checkbox"]:checked')].map(input => input.value) };
+  }
+  window.__msStudioStore?.update(window.msStudioSceneToDocument(window.__studioAdapter.exportScene()));
+  if (typeof showToast === 'function') showToast('Structured element updated', 'success');
+}
+window.saveStudioStructure = saveStudioStructure;
 
 function renderStudioInspectorHtml(selected) {
   const object = Array.isArray(selected) ? selected[0] : selected;
