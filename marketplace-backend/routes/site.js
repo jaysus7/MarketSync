@@ -653,6 +653,20 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     let revisionSaved = false
     let revisionInfo = null
     if (builderAction) {
+      // Editors send the draft revision they loaded. Reject stale writes rather
+      // than silently replacing another user's newer work. Legacy/settings
+      // callers that do not send a cursor retain the existing behavior.
+      const baseRevisionId = rawBody.base_revision_id ? String(rawBody.base_revision_id).slice(0, 80) : null
+      if (baseRevisionId) {
+        const currentDraft = await latestDealerWebsiteRevision(req.dealershipId, 'draft')
+        if (currentDraft?.id && currentDraft.id !== baseRevisionId) {
+          return res.status(409).json({
+            error: 'This website draft changed in another session. Reload the latest draft before saving.',
+            code: 'WEBSITE_DRAFT_CONFLICT',
+            current_revision: { id: currentDraft.id, number: currentDraft.revision_number, created_at: currentDraft.created_at },
+          })
+        }
+      }
       const base = siteContent(currentSite || { name: 'Dealership', branding: {} })
       const content = { ...base, ...(rawBody.content && typeof rawBody.content === 'object' ? rawBody.content : {}) }
       for (const key of ['sections', 'pages', 'staff', 'builtins', 'menu_order', 'primary_color', 'secondary_color', 'accent_color', 'typography', 'heading_font', 'body_font', 'hero_photos', 'theme', 'seo_title', 'seo_description', 'seo_keywords', 'discovery_summary', 'discovery_terms', 'discovery_intents', 'discovery_enabled']) {
@@ -769,7 +783,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       })
     }
     audit(req, 'site.configuration_updated', { after_state: { fields: Object.keys(update), site_published: update.site_published, site_slug: update.site_slug, custom_domain: update.custom_domain } })
-    res.json({ ok: true, site_slug: update.site_slug, site_published: update.site_published, custom_domain: update.custom_domain, domain_target: SITE_HOST, revision: revisionInfo })
+    res.json({ ok: true, site_slug: update.site_slug, site_published: update.site_published, custom_domain: update.custom_domain, domain_target: SITE_HOST, revision: revisionInfo, current_revision: revisionInfo })
   })
 
   // ── ADMIN: check whether the dealer's custom domain now points at us ─────────

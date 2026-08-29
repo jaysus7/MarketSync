@@ -3989,6 +3989,7 @@ async function saveWebsite(btn, action = 'draft') {
     builtins: Object.keys(__siteBuiltins).length ? __siteBuiltins : defaultBuiltins(),
     menu_order: __menuOrder,
     builder_action: action,
+    base_revision_id: __siteCfg.revision?.id || null,
     change_summary: action === 'publish' ? 'Published website builder changes' : 'Saved website builder draft',
     site_published: action === 'publish',
     primary_color: c.primary_color, secondary_color: c.secondary_color, accent_color: c.accent_color, typography: c.typography,
@@ -3998,6 +3999,7 @@ async function saveWebsite(btn, action = 'draft') {
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
   try {
     const result = await apiSendJson('/dealership/site', 'PUT', body);
+    if (result?.revision) __siteCfg.revision = { ...result.revision };
     if (action === 'publish') {
       // A successful write is not enough to claim production is live. Read the
       // published control-plane record back and require the exact revision we
