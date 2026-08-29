@@ -70,6 +70,11 @@ const STUDIO_STICKERS = [
   '❌', '💯', '🏆', '👍', '❤️', '⚡', '🛠️', '🔑', '🎁', '📣', '🕒', '🛡️',
 ];
 
+const STUDIO_STICKER_LIBRARY = Array.from({ length: 120 }, (_, index) => {
+  const set = ['🚗','🚙','🚕','🚓','🚑','🚒','🚐','🛻','🚚','🚛','🚜','🏎️','🏁','🔧','🛠️','⚙️','🔩','🧰','⛽','🔋','🔌','🛞','⭐','🌟','✨','🔥','💥','💯','✅','❌','⚠️','💰','💵','💳','🏆','🥇','🎉','🎊','🎁','📣','📢','📞','📍','🗺️','📅','📝','💬','📸','🎥','▶️','⏱️','🚀','⚡','🌈','☀️','🌙','🌧️','❄️','🌲','⛰️','🌊','🛣️','🏙️','🏠','🏢','🅿️','🟢','🔵','🟣','🟠','🔴','⬛','⬜','🔶','🔷','🔺','🔻','❤️','💙','💚','💛','🖤','🤝','👍','👎','🙌','👏','😎','🤩','🙂','😮','🤔','🧑‍🔧','🧑‍💼','🐶','🐱','🌱','♻️','🔒','🛡️','📊','📈','🎯','🧠','🤖','💡','🔔','🎟️'];
+  return { id: `sticker-${index + 1}`, value: set[index % set.length], name: `Sticker ${index + 1}` };
+});
+
 // Curated Google Fonts for on-canvas text — loaded on demand (not on every page
 // load) the first time the Text tool is opened, via a single stylesheet request.
 const STUDIO_GOOGLE_FONTS = [
@@ -77,6 +82,13 @@ const STUDIO_GOOGLE_FONTS = [
   'Playfair Display', 'Anton', 'Archivo Black', 'Roboto Condensed',
   'DM Sans', 'Barlow Condensed', 'Teko', 'Righteous',
 ];
+
+const STUDIO_FONT_CATEGORIES = { all: 'All fonts', sans: 'Sans serif', display: 'Display', serif: 'Serif', mono: 'Monospace', script: 'Script / hand' };
+const STUDIO_FONT_CATEGORY_FOR = font => /serif|merriweather|garamond|crimson|lora|baskerville|spectral|prata|zilla|cormorant/i.test(font) ? 'serif' : /script|hand|lobster|satisfy|dancing|marker|ravi|turncoat/i.test(font) ? 'script' : /mono|inconsolata|plex mono/i.test(font) ? 'mono' : /anton|bebas|oswald|archivo black|black|orbitron|teko|righteous|russo|staatliches|unbounded|syne|fjalla/i.test(font) ? 'display' : 'sans';
+const STUDIO_FONT_CATALOG = Array.from(new Set([...STUDIO_GOOGLE_FONTS, 'Roboto','Open Sans','Lato','Nunito','Raleway','Merriweather','Source Sans 3','Source Serif 4','Work Sans','Rubik','Outfit','Space Grotesk','Plus Jakarta Sans','Sora','Urbanist','Figtree','Geologica','Albert Sans','Archivo','Barlow','Cabin','Catamaran','Chakra Petch','Chivo','Commissioner','Comfortaa','Cormorant Garamond','Crimson Text','Dancing Script','Dela Gothic One','EB Garamond','Exo 2','Fira Sans','Fjalla One','Fraunces','Gabarito','Heebo','Hind','IBM Plex Sans','IBM Plex Serif','Inconsolata','Josefin Sans','Kanit','Karla','Khand','Libre Baskerville','Libre Franklin','Lobster','Lora','Marcellus','Maven Pro','Michroma','Mitr','Mukta','Noto Sans','Noto Serif','Oleo Script','Onest','Orbitron','Patrick Hand','Permanent Marker','Philosopher','Play','Prata','Public Sans','Quicksand','Rajdhani','Red Hat Display','Rokkitt','Russo One','Saira','Satisfy','Sen','Signika','Skranji','Slabo 27px','Spectral','Staatliches','Syne','Titillium Web','Trispace','Ubuntu','Unbounded','Varela Round','Vollkorn','Walter Turncoat','Yanone Kaffeesatz','Zilla Slab']));
+const STUDIO_SHAPE_LIBRARY = Array.from({ length: 120 }, (_, index) => { const base = ['rect','badge','circle','ellipse','triangle','diamond','pentagon','hexagon','star','line','arrow','heart','speech'][index % 13]; return { id: `shape-${index + 1}`, base, name: `${base[0].toUpperCase()} ${index + 1}` }; });
+const STUDIO_ICON_LIBRARY = Array.from({ length: 120 }, (_, index) => { const names = ['car','truck','screwdriver-wrench','gear','wrench','calendar','camera','chart-line','chart-pie','check','circle-check','circle-info','clock','cloud','comment','credit-card','envelope','file','film','flag','folder','gift','globe','handshake','heart','house','image','key','laptop','leaf','lightbulb','link','location-dot','lock','magnifying-glass','map','message','mobile-screen','paper-plane','phone','play','plus','print','rocket','share-nodes','shield','shop','star','tags','thumbs-up','ticket','toolbox','trophy','user','users','video','wallet','wand-magic-sparkles','wifi','xmark']; return { id: `icon-${index + 1}`, name: names[index % names.length], label: `${names[index % names.length]} ${index + 1}` }; });
+const STUDIO_GIF_LIBRARY = [['Celebration','https://media.giphy.com/media/g9582DNuQppxC/giphy.gif'],['Applause','https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif'],['Rocket','https://media.giphy.com/media/26tOZ6e9jD8ZP7jK8/giphy.gif'],['Sparkles','https://media.giphy.com/media/26AHONQ79FdWZhAI0/giphy.gif']];
 
 function loadStudioGoogleFonts() {
   if (document.getElementById('studio-google-fonts-link')) return;
@@ -110,6 +122,20 @@ function studioAddSticker(emoji) {
   window.__studioAdapter.addText(emoji, { fontSize: 96, fontWeight: '400' });
 }
 window.studioAddSticker = studioAddSticker;
+
+function studioCatalogButtons(items, query, render) { const needle = String(query || '').toLowerCase(); return items.filter(item => !needle || `${item.name} ${item.label || ''} ${item.value || ''}`.toLowerCase().includes(needle)).map(render).join('') || '<div class="col-span-4 p-4 text-center text-xs text-slate-500">Nothing matches that search.</div>'; }
+function renderStudioShapeLibrary(query = '') { return studioCatalogButtons(STUDIO_SHAPE_LIBRARY, query, item => `<button type="button" onclick="studioAddShape('${item.base}')" title="${escS(item.name)}" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-500/20 border border-slate-300 dark:border-slate-700 text-center text-slate-900 dark:text-white"><span class="block text-xl">${STUDIO_SHAPE_PREVIEW[item.base] || '◆'}</span><span class="block text-[9px] font-bold truncate">${escS(item.name)}</span></button>`); }
+function filterStudioShapes() { const el = document.getElementById('studio-shape-library'); if (el) el.innerHTML = renderStudioShapeLibrary(document.getElementById('studio-shape-query')?.value); }
+function renderStudioStickerLibrary(query = '') { return studioCatalogButtons(STUDIO_STICKER_LIBRARY, query, item => `<button type="button" onclick="studioAddSticker('${item.value}')" title="${escS(item.name)}" class="aspect-square rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-500/20 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-2xl">${item.value}</button>`); }
+function filterStudioStickers() { const el = document.getElementById('studio-sticker-library'); if (el) el.innerHTML = renderStudioStickerLibrary(document.getElementById('studio-sticker-query')?.value); }
+function renderStudioFontLibrary(query = '', category = 'all') { const needle = String(query || '').toLowerCase(); return STUDIO_FONT_CATALOG.filter(font => (!needle || font.toLowerCase().includes(needle)) && (category === 'all' || STUDIO_FONT_CATEGORY_FOR(font) === category)).map(font => `<button type="button" data-font="${escS(font)}" onclick="studioPickFont('${font.replace(/'/g, "\\'")}')" style="font-family:'${escS(font)}', sans-serif" class="w-full text-left px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-500/20 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white">${escS(font)}</button>`).join('') || '<div class="p-4 text-center text-xs text-slate-500">No fonts match.</div>'; }
+function filterStudioFonts() { const el = document.getElementById('studio-font-picker'); if (el) el.innerHTML = renderStudioFontLibrary(document.getElementById('studio-font-query')?.value, document.getElementById('studio-font-category')?.value || 'all'); }
+function loadStudioIconFont() { if (document.getElementById('studio-fontawesome-link')) return; const link = document.createElement('link'); link.id = 'studio-fontawesome-link'; link.rel = 'stylesheet'; link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css'; document.head.appendChild(link); }
+function renderStudioIconLibrary(query = '') { return studioCatalogButtons(STUDIO_ICON_LIBRARY, query, item => `<button type="button" onclick="studioAddIcon('${item.id}')" title="${escS(item.label)}" class="aspect-square rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-500/20 border border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center gap-1"><i class="fa-solid fa-${item.name} text-xl"></i><span class="text-[8px] truncate w-full px-1">${escS(item.label)}</span></button>`); }
+function filterStudioIcons() { const el = document.getElementById('studio-icon-library'); if (el) el.innerHTML = renderStudioIconLibrary(document.getElementById('studio-icon-query')?.value); }
+function studioAddIcon(id) { const item = STUDIO_ICON_LIBRARY.find(icon => icon.id === id); if (!item || !window.__studioAdapter) return; loadStudioIconFont(); window.__studioAdapter.addText('\uf1d8', { fontSize: 110, fontWeight: '900', fontFamily: 'Font Awesome 6 Free', name: `Icon: ${item.name}` }); }
+function addStudioGifFromUrl(url) { const value = String(url || document.getElementById('studio-gif-url')?.value || '').trim(); if (!value) return; window.__studioAdapter?.addImage(value, 'Animated GIF').then(() => { const active = window.__studioAdapter.fabricCanvas?.getActiveObject(); if (active) active.msData = { ...(active.msData || {}), mediaType: 'gif' }; }); }
+window.filterStudioShapes = filterStudioShapes; window.filterStudioStickers = filterStudioStickers; window.filterStudioFonts = filterStudioFonts; window.filterStudioIcons = filterStudioIcons; window.studioAddIcon = studioAddIcon; window.addStudioGifFromUrl = addStudioGifFromUrl;
 
 function escS(str) {
   if (str == null) return '';
@@ -336,6 +362,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
         <button onclick="setStudioTool('shapes')" id="tool-btn-shapes" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/></svg>Shapes
         </button>
+        <button onclick="setStudioTool('icons')" id="tool-btn-icons" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-base mb-0.5">✦</span>Icons</button>
         <button onclick="setStudioTool('stickers')" id="tool-btn-stickers" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <span class="text-base mb-0.5">⭐</span>Stickers
         </button>
@@ -689,7 +716,8 @@ function renderStudioToolPanelContent(tool) {
     return `
       <div class="p-4 space-y-3">
         <h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Shapes &amp; Badges</h3>
-        <div class="grid grid-cols-3 gap-2">${[['rect','Rectangle'],['badge','Rounded'],['circle','Circle'],['ellipse','Ellipse'],['triangle','Triangle'],['diamond','Diamond'],['pentagon','Pentagon'],['hexagon','Hexagon'],['star','Star'],['line','Line'],['arrow','Arrow'],['heart','Heart'],['speech','Speech']].map(([id,label]) => `<button onclick="studioAddShape('${id}')" title="${label}" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-center flex flex-col items-center gap-1.5"><span class="text-slate-700 dark:text-slate-200">${STUDIO_SHAPE_PREVIEW[id]}</span><span class="text-[10px] font-bold">${label}</span></button>`).join('')}</div>
+        <input id="studio-shape-query" oninput="filterStudioShapes()" placeholder="Search 120 shapes..." class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs">
+        <div id="studio-shape-library" class="grid grid-cols-3 gap-2 max-h-[52vh] overflow-y-auto">${renderStudioShapeLibrary()}</div>
         <div class="border-t border-slate-200 dark:border-slate-800 pt-3"><h4 class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Draw</h4><div class="grid grid-cols-2 gap-2"><button onclick="studioDrawingMode('pen')" class="p-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">Pen</button><button onclick="studioDrawingMode('pencil')" class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-black">Pencil</button></div><button onclick="studioSelectMode()" class="mt-2 w-full p-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold">Select &amp; move objects</button></div>
       </div>
     `;
@@ -697,9 +725,13 @@ function renderStudioToolPanelContent(tool) {
     return `
       <div class="p-4 space-y-3">
         <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Stickers &amp; Clip Art</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Click to drop a sticker on the canvas — drag to resize once placed.</p></div>
-        <div class="grid grid-cols-4 gap-2">${STUDIO_STICKERS.map(s => `<button onclick="studioAddSticker('${s}')" title="Add sticker" class="aspect-square rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-2xl transition">${s}</button>`).join('')}</div>
+        <input id="studio-sticker-query" oninput="filterStudioStickers()" placeholder="Search 120 stickers..." class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs">
+        <div id="studio-sticker-library" class="grid grid-cols-4 gap-2 max-h-[42vh] overflow-y-auto">${renderStudioStickerLibrary()}</div>
+        <div class="border-t border-slate-200 dark:border-slate-800 pt-3"><h4 class="text-[11px] font-black uppercase tracking-wider text-sky-400">GIFs</h4><div class="grid grid-cols-2 gap-2 mt-2">${STUDIO_GIF_LIBRARY.map(([name,url]) => `<button type="button" onclick="addStudioGifFromUrl('${url}')" class="rounded-xl overflow-hidden border border-slate-300 dark:border-slate-700"><img src="${url}" alt="${name}" loading="lazy" class="w-full aspect-video object-cover"><span class="block p-1 text-[9px] font-bold truncate">${name}</span></button>`).join('')}</div><input id="studio-gif-url" placeholder="Paste any GIF URL" class="mt-2 w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs"><button onclick="addStudioGifFromUrl()" class="w-full mt-2 py-2 rounded-xl bg-blue-600 text-xs font-black">Add GIF</button></div>
       </div>
     `;
+  } else if (tool === 'icons') {
+    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider">Icons</h3><p class="text-[10px] text-slate-500 mt-1">Free Font Awesome icons. Click an icon to place it on the canvas.</p></div><input id="studio-icon-query" oninput="filterStudioIcons()" placeholder="Search 120 icons..." class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs"><div id="studio-icon-library" class="grid grid-cols-4 gap-2 max-h-[65vh] overflow-y-auto">${renderStudioIconLibrary()}</div></div>`;
   } else if (tool === 'text') {
     return `
       <div class="p-4 space-y-5">
@@ -715,7 +747,8 @@ function renderStudioToolPanelContent(tool) {
         <div class="space-y-2">
           <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Fonts</h4>
           <p class="text-[10px] text-slate-500 dark:text-slate-400 -mt-1">Pick a font — applies to selected text, or the next text you add.</p>
-          <div class="space-y-1.5" id="studio-font-picker">${STUDIO_GOOGLE_FONTS.map(f => `<button type="button" data-font="${escS(f)}" onclick="studioPickFont('${f.replace(/'/g, "\\'")}')" style="font-family:'${escS(f)}', sans-serif" class="w-full text-left px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white transition">${escS(f)}</button>`).join('')}</div>
+          <div class="flex gap-2"><input id="studio-font-query" oninput="filterStudioFonts()" placeholder="Search 100+ Google fonts..." class="min-w-0 flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs"><select id="studio-font-category" onchange="filterStudioFonts()" class="w-28 px-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs">${Object.entries(STUDIO_FONT_CATEGORIES).map(([value,label]) => `<option value="${value}">${label}</option>`).join('')}</select></div>
+          <div class="space-y-1.5 max-h-[48vh] overflow-y-auto" id="studio-font-picker">${renderStudioFontLibrary()}</div>
         </div>
       </div>
     `;
@@ -800,6 +833,7 @@ function renderStudioInspectorHtml(selected) {
         <div class="grid grid-cols-2 gap-2"><label class="text-[10px] font-bold text-slate-500">X<input type="number" value="${Math.round(object?.left || 0)}" onchange="studioSetObjectGeometry('left', this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label><label class="text-[10px] font-bold text-slate-500">Y<input type="number" value="${Math.round(object?.top || 0)}" onchange="studioSetObjectGeometry('top', this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label><label class="text-[10px] font-bold text-slate-500">Width<input type="number" value="${Math.round(object?.getScaledWidth?.() || object?.width || 0)}" onchange="studioSetObjectGeometry('width', this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label><label class="text-[10px] font-bold text-slate-500">Height<input type="number" value="${Math.round(object?.getScaledHeight?.() || object?.height || 0)}" onchange="studioSetObjectGeometry('height', this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label></div>
         <div><label class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Colour</label><input type="color" value="${color}" onchange="studioSetObjectStyle('color', this.value)" class="mt-1 w-full h-9 rounded-lg bg-transparent cursor-pointer"></div>
         <div><div class="flex justify-between"><label class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Transparency</label><span id="studio-opacity-value" class="text-[11px] text-sky-400">${100-opacity}%</span></div><input type="range" min="0" max="100" value="${opacity}" oninput="document.getElementById('studio-opacity-value').textContent=(100-Number(this.value))+'%'" onchange="studioSetObjectStyle('opacity', Number(this.value)/100)" class="w-full accent-blue-500"></div>
+        <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Animation<select onchange="studioSetAnimation(this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"><option value="none">None</option><option value="float">Float</option><option value="pulse">Pulse</option><option value="spin">Spin</option><option value="bounce">Bounce</option><option value="fade">Fade</option></select></label>
       </div>
       <button onclick="studioToggleNodes()" class="w-full py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black">Edit vector nodes</button>
       <div class="space-y-1">
@@ -1219,6 +1253,8 @@ function studioSetObjectStyle(property, value) {
     window.__studioAdapter.updateSelected(usesStroke ? { stroke: value } : { fill: value });
   } else window.__studioAdapter.updateSelected({ [property]: value });
 }
+function studioSetAnimation(value) { if (!window.__studioAdapter?.setSelectedAnimation(value) && typeof showToast === 'function') showToast('Select an object first', 'info'); }
+window.studioSetAnimation = studioSetAnimation;
 
 function studioToggleNodes() {
   const editing = window.__studioAdapter?.toggleNodeEditing();

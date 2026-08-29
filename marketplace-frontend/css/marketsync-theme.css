@@ -3016,8 +3016,6 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
   #ms-studio-master-modal #studio-inspector-panel { right: 0; transform: translateX(105%); }
   #ms-studio-master-modal #studio-tool-panel.ms-studio-mobile-open,
   #ms-studio-master-modal #studio-inspector-panel.ms-studio-mobile-open { transform: translateX(0); }
-  #ms-studio-master-modal #studio-tool-panel:not(.hidden),
-  #ms-studio-master-modal #studio-inspector-panel:not(.hidden) { transform: translateX(0); }
   #ms-studio-master-modal > footer { min-height: 72px; height: auto !important; padding: 8px 10px !important; flex-wrap: nowrap; overflow-x: auto; }
   #ms-studio-master-modal > footer .ml-auto { margin-left: 0 !important; }
   #ms-studio-master-modal .w-16 { display: none; }

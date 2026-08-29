@@ -34,6 +34,7 @@ class StudioFabricAdapter {
     this.isRendering = false;
     this.activeBreakpoint = 'desktop';
     this.activePageId = null;
+    this.animationFrame = null;
   }
 
   async init(scene, vehicle = null) {
@@ -55,6 +56,39 @@ class StudioFabricAdapter {
 
     this.bindEvents();
     await this.renderScene(this.currentScene);
+    this.startAnimationLoop();
+  }
+
+  startAnimationLoop() {
+    if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
+    const tick = (time) => {
+      const objects = this.fabricCanvas?.getObjects?.() || [];
+      objects.forEach(object => {
+        const animation = object.msData?.animation;
+        if (!animation || animation === 'none') return;
+        object.__animationBase ||= { left: object.left || 0, top: object.top || 0, angle: object.angle || 0, opacity: object.opacity ?? 1 };
+        const base = object.__animationBase;
+        const duration = Number(animation.duration || 1600);
+        const phase = (time % duration) / duration;
+        const wave = Math.sin(phase * Math.PI * 2);
+        if (animation.type === 'float') object.set({ top: base.top + wave * 12 });
+        else if (animation.type === 'pulse') object.set({ opacity: base.opacity * (0.78 + (wave + 1) * 0.11), scaleX: (object.scaleX || 1) * (1 + wave * 0.015), scaleY: (object.scaleY || 1) * (1 + wave * 0.015) });
+        else if (animation.type === 'spin') object.set({ angle: base.angle + phase * 360 });
+        else if (animation.type === 'bounce') object.set({ top: base.top - Math.max(0, wave) * 24 });
+        else if (animation.type === 'fade') object.set({ opacity: 0.45 + (wave + 1) * 0.25 });
+      });
+      this.fabricCanvas?.requestRenderAll();
+      this.animationFrame = requestAnimationFrame(tick);
+    };
+    this.animationFrame = requestAnimationFrame(tick);
+  }
+
+  setSelectedAnimation(type = 'none') {
+    const object = this.fabricCanvas?.getActiveObject();
+    if (!object) return false;
+    if (type === 'none') { delete object.msData.animation; delete object.__animationBase; }
+    else { object.msData = { ...(object.msData || {}), animation: { type, duration: 1600 } }; object.__animationBase = { left: object.left || 0, top: object.top || 0, angle: object.angle || 0, opacity: object.opacity ?? 1 }; }
+    this.saveHistory(); this.fabricCanvas.requestRenderAll(); return true;
   }
 
   bindEvents() {
