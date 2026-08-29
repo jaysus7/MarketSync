@@ -255,7 +255,7 @@ const UPGRADE_PLANS = {
     title: 'Inventory Intelligence by MarketSync',
     tagline: 'Know exactly where every unit sits vs the live market — and value every trade.',
     price: '$299',
-    cta: 'Start 30-Day Free Trial',
+    cta: 'Start 7-Day Free Trial',
     endpoint: 'subscribe-inv-intel',
     features: [
       '“% to market” on every used vehicle',
@@ -273,7 +273,7 @@ const UPGRADE_PLANS = {
     title: 'AI Boost',
     tagline: 'AI listing tools that write, check and polish every vehicle.',
     price: '$129',
-    cta: 'Start 30-Day Free Trial',
+    cta: 'Start 7-Day Free Trial',
     endpoint: 'subscribe-ai-boost',
     features: [
       'AI listing copy in your dealership’s tone',
@@ -330,7 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
 window.openUpgradeModal = openUpgradeModal;
 window.closeUpgradeModal = closeUpgradeModal;
 
-// Shared checkout starter (30-day trial, no card required) — used by the modal + hub.
+// Shared checkout starter (7-day independent-product trial, no card required) — used by the modal + hub.
 async function startAddonCheckout(endpoint, btn, ctaText) {
   if (btn) { btn.disabled = true; btn.textContent = 'Redirecting…'; }
   try {
@@ -339,12 +339,12 @@ async function startAddonCheckout(endpoint, btn, ctaText) {
     if (data.url) { window.location.href = data.url; return; }
     throw new Error(data.error || 'Failed to start checkout');
   } catch (e) {
-    if (btn) { btn.disabled = false; btn.textContent = ctaText || 'Start 30-day free trial'; }
+    if (btn) { btn.disabled = false; btn.textContent = ctaText || 'Start 7-day free trial'; }
     alert('Could not start checkout: ' + e.message);
   }
 }
 
-// Trial countdown badge on the  Upgrades icon (days left in the 30-day trial).
+// Trial countdown badge on the  Upgrades icon (days left in the active trial).
 function updateTrialBadge(daysLeft) {
   const b = document.getElementById('upg-days-badge');
   if (!b) return;
@@ -1092,7 +1092,7 @@ async function loadAIBoostSection() {
     // Facebook-only tier strips the dashboard to the Facebook hub + leaderboard.
     __fbOnly = !!cfg.fb_only;
     applyFbOnlyMode();
-    // Trial countdown badge on the  Upgrades icon during the 30-day full-access window.
+    // Trial countdown badge on the Upgrades icon during the active plan trial.
     updateTrialBadge(cfg.full_access ? (cfg.trial_days_left || 0) : 0);
     // Photo tools state (branded background + AI cutout provider) for the add-vehicle form.
     __photoBackgroundUrl = cfg.photo_background_url || null;

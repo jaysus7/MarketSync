@@ -1777,7 +1777,7 @@ ENGINES['saas-command'] = {
     automation(body) {
       body.innerHTML = engCard('Trial &amp; onboarding automation', `
         <ul class="text-[13px] text-slate-600 dark:text-slate-300 space-y-2">
-          <li class="flex items-start gap-2">${svgIcon('check', 'w-4 h-4 text-emerald-500 mt-0.5')}<span><b>30-day trial</b> — new accounts start trialing; the drip engine schedules the onboarding + expiry sequence automatically.</span></li>
+          <li class="flex items-start gap-2">${svgIcon('check', 'w-4 h-4 text-emerald-500 mt-0.5')}<span><b>Plan-aware trials</b> — independent products get 7 days, suites get 14 days, and Digital/DealerOS get 30 days; the drip engine schedules the onboarding + expiry sequence automatically.</span></li>
           <li class="flex items-start gap-2">${svgIcon('check', 'w-4 h-4 text-emerald-500 mt-0.5')}<span><b>Expiry reminders</b> run as the trial nears its end, and expired trials surface here as churn risk.</span></li>
           <li class="flex items-start gap-2">${svgIcon('bolt', 'w-4 h-4 text-slate-400 mt-0.5')}<span>Sequence timing is managed in the drip service; per-account overrides live in <button onclick="switchPage('owner-users')" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">All Accounts</button>.</span></li>
         </ul>`);

@@ -322,6 +322,22 @@ const MARKETSYNC_PRICING = {
   ]
 };
 
+// Public trial metadata mirrors marketplace-backend/plan-catalog.js. Product cards,
+// pricing pages, and registration should read this value instead of making a blanket
+// trial promise that is wrong for another category.
+for (const product of MARKETSYNC_PRICING.standalone) product.trialDays = 7;
+for (const suite of MARKETSYNC_PRICING.suites) {
+  suite.trialDays = suite.id === 'marketsync-digital' ? 30 : 14;
+}
+for (const plan of MARKETSYNC_PRICING.dealerOS) plan.trialDays = 30;
+
+MARKETSYNC_PRICING.trialPolicy = Object.freeze({
+  independent: 7,
+  suite: 14,
+  digital: 30,
+  dealerOS: 30
+});
+
 if (typeof window !== 'undefined') {
   window.MARKETSYNC_PRICING = MARKETSYNC_PRICING;
 }

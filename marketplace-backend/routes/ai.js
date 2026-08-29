@@ -169,7 +169,7 @@ export function registerAI(app) {
     }
     const isOwner = isPlatformOwner(req)
 
-    // 30-day full-access onboarding: everything is on until full_access_until. This
+    // plan-aware full-access onboarding: everything is on until full_access_until. This
     // is the self-healing expiry — the first config load after the window closes
     // drops each add-on to whatever was actually paid for. (A cron sweep is the
     // backstop for dealers who aren't logged in.)
@@ -202,11 +202,11 @@ export function registerAI(app) {
       vin_sticker_active: invIntel,      // VIN decoder is part of Inventory Intelligence
       ai_docs_active: aiBoost,           // generated/branded sticker & AI brochure
       ai_vision_active: aiBoost,         // AI Vision folded into AI Boost
-      full_access: fullAccess,           // in the 30-day everything-on window
+      full_access: fullAccess,           // in the active trial window
       full_access_until: data.full_access_until,
       trial_days_left: trialDaysLeft,
       // Facebook-only tier: strip the dashboard to the Facebook hub + leaderboard.
-      // Owners and dealers still inside the 30-day everything-on window see it all.
+      // Owners and dealers still inside the active trial window see it all.
       fb_only: !isOwner && !fullAccess && !!data.fb_only,
       // Photo tools: is a branded background set, and is the AI cutout provider keyed?
       photo_background_url: data.photo_background_url || null,

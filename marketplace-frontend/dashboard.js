@@ -1241,7 +1241,7 @@ async function openPlanUpgradeModal() {
 }
 window.openPlanUpgradeModal = openPlanUpgradeModal;
 
-// The trial-ended PAYWALL — a blocking popup (no dismiss) shown when the 30-day free
+// The trial-ended PAYWALL — a blocking popup (no dismiss) shown when the plan's free
 // trial has lapsed. Lists every package (Facebook-only, AI-only, Dealer OS tiers) so the
 // user picks what they want and pays. Rendered over the shell on a 402 from the API.
 let __paywallOpen = false;

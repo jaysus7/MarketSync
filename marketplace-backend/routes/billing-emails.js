@@ -127,15 +127,15 @@ export async function sendTrialStarted({ to, dealerName, addons }) {
 
   const html = shell(`
     ${hero(
-      `${addons.length > 1 ? 'Add-on Bundle' : 'Add-on'} Trial — 3 Days Free`,
+      `${addons.length > 1 ? 'Add-on Bundle' : 'Add-on'} Trial — 7 Days Free`,
       'Your trial is live. Here\'s exactly what to do first.',
-      `Everything is active on ${dealerName}. You have three days to put it through its paces before your card is charged. We'll remind you 24 hours before the trial ends.`
+      `Everything is active on ${dealerName}. You have seven days to put it through its paces. We'll remind you 24 hours before the trial ends.`
     )}
     ${addonSections.join('\n')}
     <tr><td style="padding:20px 28px 0"></td></tr>
     ${cta('Open Dashboard', 'https://marketsync.link/dashboard.html')}
     <tr><td style="padding:0 28px 20px;font-size:12px;color:#64748b">
-      Trial ends in <strong style="color:#0f172a">72 hours</strong>. No charge until then — cancel any time before and you won't be billed.
+      Trial ends in <strong style="color:#0f172a">7 days</strong>. No charge during the trial — cancel any time before it ends and you won't be billed.
     </td></tr>
   `, `Your MarketSync trial is live — here's what to run first.`)
 
@@ -197,7 +197,7 @@ export async function sendTrialExpired({ to, dealerName, addons }) {
   ).join('<br>')
 
   const html = shell(`
-    ${hero('Trial Ended', 'Access has been paused.', `Your 3-day trial ended and we didn't find a payment method on file. Your lot data, branding, and settings are all still here — reactivate in one click.`)}
+    ${hero('Trial Ended', 'Access has been paused.', `Your 7-day trial ended and we didn't find a payment method on file. Your lot data, branding, and settings are all still here — reactivate in one click.`)}
     ${infoBar('#fef3c7', '#d97706', '#92400e', 'What\'s paused', pausedItems)}
     ${cta('Reactivate Now', 'https://marketsync.link/dashboard.html', '#1a2e4a')}
     <tr><td style="padding:0 28px 20px;font-size:12px;color:#64748b">No pressure — your data is here whenever you're ready.</td></tr>

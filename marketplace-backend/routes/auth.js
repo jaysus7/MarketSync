@@ -8,7 +8,7 @@ import { audit, AuditAction } from '../audit.js'
 import { recordReferralSignup } from './affiliate.js'
 import { syncDealerRole } from '../authorization.js'
 import { ACCOUNT_TYPES, provisionPlan } from '../entitlements.js'
-import { getPlan, TRIAL_PERIOD_DAYS, trialEndsAtISO } from '../plan-catalog.js'
+import { getPlan, trialDaysForPlan, trialEndsAtISO } from '../plan-catalog.js'
 import { createMfaLoginChallenge, consumeMfaLoginChallenge, getMfaLoginChallenge } from '../mfa-login-challenges.js'
 import { ensureStaffMember } from './people-identity.js'
 import {
@@ -99,10 +99,11 @@ https://marketsync.link/`
 // Deliver the account-verification email ourselves via Resend. Supabase's
 // admin.createUser() sends nothing, and its built-in SMTP is rate-limited and
 // unreliable — so we mint the link with generateLink and email it on-brand here.
-async function sendVerificationEmail({ email, actionLink, name }) {
+async function sendVerificationEmail({ email, actionLink, name, trialDays }) {
   if (!resend || !actionLink) return false
   const esc = (s) => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
   const first = name ? esc(String(name).split(/\s+/)[0]) : 'there'
+  const trialLabel = Number.isFinite(Number(trialDays)) ? `${Number(trialDays)}-day free trial` : 'free trial'
   try {
     await resend.emails.send({
       from: EMAIL_FROM,
@@ -110,7 +111,7 @@ async function sendVerificationEmail({ email, actionLink, name }) {
       subject: 'Confirm your MarketSync account',
       html: `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;padding:8px 4px;color:#0f172a">
         <h2 style="font-size:20px;margin:0 0 12px">Welcome to MarketSync, ${first}!</h2>
-        <p style="color:#334155;line-height:1.6;margin:0 0 18px">Confirm your email to activate your account and start your 30-day free trial.</p>
+        <p style="color:#334155;line-height:1.6;margin:0 0 18px">Confirm your email to activate your account and start your ${trialLabel}.</p>
         <p style="margin:0 0 20px"><a href="${actionLink}" style="display:inline-block;background:#4f46e5;color:#fff;font-weight:700;padding:12px 24px;border-radius:10px;text-decoration:none">Verify my email →</a></p>
         <p style="color:#64748b;font-size:13px;line-height:1.5;margin:0">Or paste this link into your browser:<br><a href="${actionLink}" style="color:#4f46e5;word-break:break-all">${actionLink}</a></p>
       </div>`,
@@ -306,11 +307,12 @@ export function registerRoutes(app) {
       // via /auth/resend-verification. NOTE: this requires working email delivery in
       // production (Resend sending domain verified) — otherwise users cannot verify.
 
-      // Canonical free trial (TRIAL_PERIOD_DAYS) — NO credit card required at sign-up.
+      // Plan-aware free trial — NO credit card required at sign-up.
       // The account gets full access to the chosen plan for the trial window; when it
       // ends, the middleware billing gate returns 402 and the app shows the paywall
-      // popup to pick + pay. Every plan and every signup path uses this one definition.
-      const trialEndsAt = trialEndsAtISO()
+      // popup to pick + pay. Every signup path uses the catalog policy.
+      const trialDays = trialDaysForPlan(chosenPlan.id)
+      const trialEndsAt = trialEndsAtISO(chosenPlan.id)
 
       // Newsletter consent (CASL/GDPR/CAN-SPAM): only record if explicitly opted in.
       // Stamp the timestamp + IP so we have audit trail of when consent was given.
@@ -333,7 +335,7 @@ export function registerRoutes(app) {
             account_type: accountType,
             billing_status: 'TRIALING',
             trial_ends_at: trialEndsAt,
-            // Everything unlocked for the 30-day trial; drops to paid-only after.
+            // The selected plan is unlocked for its trial; paid-only access follows.
             full_access_until: trialEndsAt,
             ai_boost_active: true,
             inv_intel_active: true,
@@ -380,7 +382,7 @@ export function registerRoutes(app) {
             account_type: accountType,
             billing_status: null,
             is_personal: true,
-            // Same 30-day everything-unlocked onboarding.
+            // Same plan-aware onboarding window for personal workspaces.
             full_access_until: trialEndsAt,
             ai_boost_active: true,
             inv_intel_active: true,
@@ -423,7 +425,7 @@ export function registerRoutes(app) {
         if (employment.error) throw new Error(`Could not create the owner employment record: ${employment.error}`)
       }
 
-      // Grant the chosen plan as a 30-day FREE TRIAL — no card. This is part of the
+      // Grant the chosen plan for its catalog-defined FREE TRIAL — no card. This is part of the
       // registration success condition. If it fails, throw so the outer catch removes
       // the incomplete user/dealership instead of creating a login with no tier.
       await provisionPlan({ dealershipId: createdDealershipId, planId: chosenPlan.id, status: 'trialing', trialEndsAt })
@@ -433,17 +435,17 @@ export function registerRoutes(app) {
       if (affiliateCode) { try { await recordReferralSignup({ code: affiliateCode, dealershipId: createdDealershipId, email, name: dealershipName || fullName }) } catch {} }
 
       // Deliver the confirmation email now that the account is fully set up.
-      const emailed = await sendVerificationEmail({ email, actionLink: confirmActionLink, name: fullName })
+      const emailed = await sendVerificationEmail({ email, actionLink: confirmActionLink, name: fullName, trialDays })
       res.json({
         success: true,
         user_id: createdUserId,
         verification_required: true,
         email_sent: emailed,
-        // No checkout at sign-up — the 30-day trial is already active (no card). The
+        // No checkout at sign-up — the selected plan's trial is active (no card). The
         // client signs in and goes straight to the dashboard; payment happens later via
         // the paywall popup when the trial ends.
         requires_checkout: false,
-        trial_days: TRIAL_PERIOD_DAYS,
+        trial_days: trialDays,
         plan: chosenPlan?.id || null,
         message: emailed
           ? 'Account created. Check your email and click the verification link to activate your account.'

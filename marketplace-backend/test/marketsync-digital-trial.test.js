@@ -1,53 +1,128 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { TRIAL_PERIOD_DAYS, trialEndsAtISO, getPlan } from '../plan-catalog.js'
+import { TRIAL_DAYS, trialDaysForPlan, trialEndsAtISO, getPlan } from '../plan-catalog.js'
+import { scheduleTrialEmails } from '../drip.js'
 
-const read = p => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
+const readBackend = p => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
+const readFrontend = p => readFileSync(new URL(`../../marketplace-frontend/${p}`, import.meta.url), 'utf8')
+const DAY_MS = 24 * 60 * 60 * 1000
 
-test('the canonical trial is 30 days and computes a 30-day trial end', () => {
-  assert.equal(TRIAL_PERIOD_DAYS, 30, 'MarketSync Digital (and every plan) trials for 30 days')
-  const from = Date.UTC(2026, 0, 1)               // 2026-01-01T00:00:00Z
-  const ends = new Date(trialEndsAtISO(from))
-  const days = (ends.getTime() - from) / (24 * 60 * 60 * 1000)
-  assert.equal(days, 30, 'trialEndsAtISO yields exactly 30 days')
+test('trial policy is 7 days for independent products, 14 for suites, and 30 for Digital and DealerOS', () => {
+  assert.deepEqual(TRIAL_DAYS, { independent: 7, suite: 14, platform: 30 })
+
+  const independent = [
+    'fb_solo', 'fb_dealership', 'ai_standard', 'marketsync_video',
+    'marketsync_website', 'marketsync_social', 'marketsync_email',
+    'design-studio', 'social-scheduler', 'autoposter-salesperson',
+    'autoposter-dealer', 'video', 'campaigns-email-sms', 'dealer-website',
+    'marketsync-seo', 'ai-chatbot', 'identity-verify',
+  ]
+  const suites = ['sales-marketing-suite', 'service-marketing-suite', 'complete-marketing-suite']
+  const platforms = [
+    'marketsync-digital', 'os_starter', 'os_growth', 'os_pro',
+    'dealer-os-core', 'dealer-os-pro', 'dealer-os-complete',
+  ]
+
+  for (const id of independent) assert.equal(trialDaysForPlan(id), 7, `${id} must have a 7-day trial`)
+  for (const id of suites) assert.equal(trialDaysForPlan(id), 14, `${id} must have a 14-day trial`)
+  for (const id of platforms) assert.equal(trialDaysForPlan(id), 30, `${id} must have a 30-day trial`)
+
+  assert.equal(trialDaysForPlan('sales-suite'), 14, 'suite aliases follow their canonical plan')
+  assert.equal(trialDaysForPlan('digital'), 30, 'Digital alias follows its canonical plan')
 })
 
-test('a new MarketSync Digital signup resolves the plan and gets the 30-day trial config', () => {
-  // Registration grants the CHOSEN plan on a trial. MarketSync Digital must resolve so
-  // the signup can be provisioned, and its trial end is the canonical 30-day window.
-  const plan = getPlan('marketsync-digital')
-  assert.ok(plan, 'marketsync-digital must resolve for registration')
-  assert.equal(plan.id, 'marketsync-digital')
-  // The alias new signups may arrive with (?plan=digital) resolves to the same plan.
-  assert.equal(getPlan('digital')?.id, 'marketsync-digital')
-
-  const signupAt = Date.UTC(2026, 5, 15)
-  const trialEndsAt = trialEndsAtISO(signupAt)
-  const days = (new Date(trialEndsAt).getTime() - signupAt) / (24 * 60 * 60 * 1000)
-  assert.equal(days, TRIAL_PERIOD_DAYS)
-})
-
-test('every trial path uses the ONE canonical definition — no hardcoded divergent trial length', () => {
-  // Registration (auth.js) computes the trial end via the shared helper and reports the
-  // shared constant — not a private literal that could drift from other paths.
-  const auth = read('routes/auth.js')
-  assert.match(auth, /import \{[^}]*TRIAL_PERIOD_DAYS[^}]*trialEndsAtISO[^}]*\} from '\.\.\/plan-catalog\.js'/)
-  assert.match(auth, /const trialEndsAt = trialEndsAtISO\(\)/, 'registration uses the canonical helper')
-  assert.match(auth, /trial_days: TRIAL_PERIOD_DAYS/, 'registration reports the canonical constant')
-  assert.doesNotMatch(auth, /const TRIAL_DAYS = 30/, 'no private 30-day literal in registration')
-
-  // Billing checkout paths (add-on + package) use the canonical constant, not a literal.
-  const billing = read('routes/billing.js')
-  assert.match(billing, /TRIAL_PERIOD_DAYS/, 'billing imports/uses the canonical trial constant')
-  assert.doesNotMatch(billing, /trial_period_days: 30\b/, 'billing must not hardcode a 30-day literal')
-
-  // Drip cron derives the trial window from the same constant.
-  const drip = read('drip.js')
-  assert.match(drip, /import \{ TRIAL_PERIOD_DAYS \} from '\.\/plan-catalog\.js'/)
-
-  // No stale "39-day" trial statement remains anywhere in the resolved paths.
-  for (const f of ['routes/auth.js', 'routes/billing.js', 'drip.js', 'access-policy.js']) {
-    assert.doesNotMatch(read(f), /39[ -]day/, `${f} must not claim a 39-day trial`)
+test('trialEndsAtISO computes the selected plan trial exactly', () => {
+  const from = Date.UTC(2026, 0, 1)
+  for (const [plan, expectedDays] of [
+    ['design-studio', 7],
+    ['sales-marketing-suite', 14],
+    ['marketsync-digital', 30],
+    ['dealer-os-complete', 30],
+  ]) {
+    const ends = new Date(trialEndsAtISO(plan, from))
+    assert.equal((ends.getTime() - from) / DAY_MS, expectedDays, `${plan} trial end mismatch`)
   }
+})
+
+test('MarketSync Digital resolves and retains its 30-day trial', () => {
+  assert.equal(getPlan('marketsync-digital')?.id, 'marketsync-digital')
+  assert.equal(getPlan('digital')?.id, 'marketsync-digital')
+  assert.equal(trialDaysForPlan('marketsync-digital'), 30)
+})
+
+test('registration creates and reports the selected plan trial', () => {
+  const auth = readBackend('routes/auth.js')
+  assert.match(auth, /trialDaysForPlan\(chosenPlan\.id\)/)
+  assert.match(auth, /trialEndsAtISO\(chosenPlan\.id\)/)
+  assert.match(auth, /trial_days: trialDays/)
+  assert.doesNotMatch(auth, /TRIAL_PERIOD_DAYS/)
+})
+
+test('Stripe Checkout applies 7 days to independent add-ons and 30 days to DealerOS packages', () => {
+  const billing = readBackend('routes/billing.js')
+  assert.match(billing, /trial_period_days: TRIAL_DAYS\.independent/)
+  assert.match(billing, /trial_period_days: TRIAL_DAYS\.platform/)
+  assert.doesNotMatch(billing, /trial_period_days:\s*30\b/)
+})
+
+test('public pricing and registration expose the same category policy', () => {
+  const publicConfig = readFrontend('js/public-config.js')
+  assert.match(publicConfig, /MARKETSYNC_PRICING\.standalone\) product\.trialDays = 7/)
+  assert.match(publicConfig, /suite\.id === 'marketsync-digital' \? 30 : 14/)
+  assert.match(publicConfig, /MARKETSYNC_PRICING\.dealerOS\) plan\.trialDays = 30/)
+
+  const register = readFrontend('register.html')
+  assert.match(register, /function trialDaysForPlan\(planId\)/)
+  assert.match(register, /trialDaysForPlan\(selectedPlan\)/)
+  assert.doesNotMatch(register, /30-day trial · no card today/)
+})
+
+test('public product pages and in-app add-on CTAs state the correct trial lengths', () => {
+  for (const page of [
+    'ai-chatbot.html', 'facebook-autoposter.html', 'marketsync-seo.html',
+    'design-studio.html', 'video-studio.html', 'campaigns.html',
+    'inventory-intelligence.html',
+  ]) {
+    assert.match(readFrontend(page), /7-day|7 days/, `${page} must advertise the independent-product trial`)
+  }
+  assert.match(readFrontend('marketsync-digital.html'), /30-day trial/)
+  assert.match(readFrontend('dealer-os.html'), /30-day trial/)
+
+  const index = readFrontend('index.html')
+  assert.match(index, /7 days for products/)
+  assert.match(index, /14 for suites/)
+  assert.match(index, /30 for Digital/)
+
+  for (const source of [
+    'components/dashboard-pages.html', 'components/dashboard-settings.html',
+    'js/modules/dashboard-part20.js', 'js/modules/dashboard-part21.js',
+  ]) {
+    assert.doesNotMatch(readFrontend(source), /Start 30-Day Free Trial|Try Free for 30 Days/, `${source} has stale add-on trial copy`)
+  }
+})
+
+test('the onboarding drip does not claim one trial length for every plan', () => {
+  const drip = readBackend('drip.js')
+  assert.doesNotMatch(drip, /TRIAL_PERIOD_DAYS/)
+  assert.doesNotMatch(drip, /starting your 30-day trial/)
+  assert.match(drip, /created_at/)
+})
+
+test('the onboarding drip always schedules the expiry notice for the final trial day', () => {
+  const messages = [
+    { key: 'welcome', day: 0 },
+    { key: 'tip', day: 6 },
+    { key: 'power', day: 18 },
+    { key: 'trial-ending', day: 29 },
+  ]
+  assert.deepEqual(scheduleTrialEmails(messages, 7).map(x => [x.key, x.day]), [
+    ['welcome', 0], ['trial-ending', 6],
+  ])
+  assert.deepEqual(scheduleTrialEmails(messages, 14).map(x => [x.key, x.day]), [
+    ['welcome', 0], ['tip', 6], ['trial-ending', 13],
+  ])
+  assert.deepEqual(scheduleTrialEmails(messages, 30).map(x => [x.key, x.day]), [
+    ['welcome', 0], ['tip', 6], ['power', 18], ['trial-ending', 29],
+  ])
 })
