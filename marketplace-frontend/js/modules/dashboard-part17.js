@@ -3318,8 +3318,10 @@ function secDrop(e, i) {
   const from = __secDragIdx; __secDragIdx = null;
   document.querySelectorAll('#ws-sections .ws-sec').forEach(el => el.classList.remove('opacity-40', 'ring-2', 'ring-indigo-400'));
   if (from === null || from === i || from < 0 || from >= __siteSections.length) return;
+  wsQueueHistory();
   const [s] = __siteSections.splice(from, 1);
   __siteSections.splice(i, 0, s);
+  markWsUnsaved();
   renderWsSections();
 }
 window.secDragStart = secDragStart; window.secDragEnd = secDragEnd; window.secDragOver = secDragOver; window.secDragLeave = secDragLeave; window.secDrop = secDrop;
@@ -3415,6 +3417,7 @@ let __pendingInsertAt = null;   // live builder: insert the next-added section a
 // Photos" picker use, so a new site never starts with empty photo holes.
 const WS_DEFAULT_IMAGE_TYPES = { hero: 'image', text_image: 'image', ad_banner: 'image' };
 function addSection(type) {
+  wsQueueHistory();
   let settings = {};
   if (type === 'hero') {
     const c = __siteCfg?.content || {};
@@ -3456,12 +3459,13 @@ function addSection(type) {
   } else {
     __siteSections.push(sec);
   }
+  markWsUnsaved();
   renderWsSections();
 }
-function moveSection(i, dir) { const j = i + dir; if (j < 0 || j >= __siteSections.length) return; const [s] = __siteSections.splice(i, 1); __siteSections.splice(j, 0, s); renderWsSections(); }
-function dupSection(i) { __siteSections.splice(i + 1, 0, JSON.parse(JSON.stringify(__siteSections[i]))); renderWsSections(); }
-function addChildSection(i) { const parent = __siteSections?.[i]; if (!parent) return; parent.children = Array.isArray(parent.children) ? parent.children : []; parent.children.push(normalizeWsSection({ id: `child_${Date.now()}`, type: 'text_image', settings: { title: 'Nested component', body: 'Add supporting content here.' } }, parent.id)); renderWsSections(); }
-function delSection(i) { __siteSections.splice(i, 1); renderWsSections(); }
+function moveSection(i, dir) { const j = i + dir; if (j < 0 || j >= __siteSections.length) return; wsQueueHistory(); const [s] = __siteSections.splice(i, 1); __siteSections.splice(j, 0, s); markWsUnsaved(); renderWsSections(); }
+function dupSection(i) { const source = __siteSections?.[i]; if (!source) return; wsQueueHistory(); const copy = JSON.parse(JSON.stringify(source)); copy.id = `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`; __siteSections.splice(i + 1, 0, copy); markWsUnsaved(); renderWsSections(); }
+function addChildSection(i) { const parent = __siteSections?.[i]; if (!parent) return; wsQueueHistory(); parent.children = Array.isArray(parent.children) ? parent.children : []; parent.children.push(normalizeWsSection({ id: `child_${Date.now()}`, type: 'text_image', settings: { title: 'Nested component', body: 'Add supporting content here.' } }, parent.id)); markWsUnsaved(); renderWsSections(); }
+function delSection(i) { const section = __siteSections?.[i]; if (!section) return; if (!confirm(`Delete the ${SEC_META[section.type]?.label || section.type} section? This can be undone.`)) return; wsQueueHistory(); __siteSections.splice(i, 1); markWsUnsaved(); renderWsSections(); }
 const WS_PALETTES = [
   ['Chevy Blue', '#0b2a5b', '#0a1a33', '#d4af37'],
   ['GMC Red', '#c8102e', '#1a1a1a', '#9ea2a2'],
