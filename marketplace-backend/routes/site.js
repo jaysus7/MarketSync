@@ -709,6 +709,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
         throw itemError
       }
       audit(req, 'site.change_set_submitted', { after_state: { change_set_id: changeSet.id, revision_id: revision.id, revision_number: revision.revision_number } })
+      await createNotification({ dealershipId: req.dealershipId, type: 'website_approval', title: 'Website approval requested', body: `${changeSet.name} is waiting for owner or administrator review.`, linkPage: 'website' })
       res.status(201).json({ change_set: changeSet, revision: { id: revision.id, number: revision.revision_number } })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
@@ -716,15 +717,17 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
   app.post('/dealership/site/change-sets/:id/approve', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     if (!canGovernWebsite(req)) return res.status(403).json({ error: 'Only dealership owners or administrators can approve website changes.' })
     try {
-      const { data: current, error: readError } = await supabaseAdmin.from('website_change_sets').select('id, status, site_id').eq('id', req.params.id).eq('site_id', req.dealershipId).single()
+      const { data: current, error: readError } = await supabaseAdmin.from('website_change_sets').select('id, status, site_id, created_by').eq('id', req.params.id).eq('site_id', req.dealershipId).single()
       if (readError || !current) return res.status(404).json({ error: 'Change set not found.' })
       if (current.status !== 'review') return res.status(409).json({ error: `Only change sets in review can be approved (current status: ${current.status}).` })
+      if (current.created_by && current.created_by === req.user?.id) return res.status(403).json({ error: 'A change set must be approved by a different reviewer than its requester.', code: 'WEBSITE_APPROVAL_SEPARATION_REQUIRED' })
       // Make approval a compare-and-set operation. If two administrators act
       // at once, only the first request can transition review → approved.
       const { data: changeSet, error } = await supabaseAdmin.from('website_change_sets').update({ status: 'approved', approved_by: req.user?.id, updated_at: new Date().toISOString() }).eq('id', current.id).eq('site_id', req.dealershipId).eq('status', 'review').is('approved_by', null).select('id, site_id, name, description, version_tag, status, created_by, approved_by, created_at, updated_at').maybeSingle()
       if (error) throw error
       if (!changeSet) return res.status(409).json({ error: 'This change set was already approved or changed by another reviewer.' })
       audit(req, 'site.change_set_approved', { after_state: { change_set_id: changeSet.id } })
+      await createNotification({ dealershipId: req.dealershipId, type: 'website_approval', title: 'Website change set approved', body: `${changeSet.name} was approved and can be published.`, linkPage: 'website', targetUserId: current.created_by || null })
       res.json({ change_set: changeSet })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
@@ -762,11 +765,12 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       if (!restored) return res.status(500).json({ error: 'Could not create rollback revision' })
       await promoteDealerWebsiteContent(req.dealershipId, source.content)
       const now = new Date().toISOString()
-      const { data: rollbackDeployment } = await supabaseAdmin.from('website_deployments').insert({
+      const { data: rollbackDeployment, error: rollbackDeploymentError } = await supabaseAdmin.from('website_deployments').insert({
         site_id: req.dealershipId, trigger_type: 'rollback', status: 'verified',
         published_summary: { revision_id: restored.id, revision_number: restored.revision_number, rollback_source_revision_id: revisionId, change_summary: `Rolled back to revision ${source.revision_number}` },
         deployed_at: now, verified_at: now, verified_status: 'Database-backed public site state confirmed', created_by: req.user?.id,
       }).select('id, status, trigger_type, published_summary, deployed_at, verified_at, verified_status').single()
+      if (rollbackDeploymentError || !rollbackDeployment) throw rollbackDeploymentError || new Error('Rollback deployment record was not created')
       audit(req, 'site.rollback', { after_state: { source_revision_id: revisionId, published_revision_id: restored.id } })
       res.status(201).json({ ok: true, revision: { id: restored.id, number: restored.revision_number, state: restored.state }, deployment: rollbackDeployment || null })
     } catch (e) { res.status(500).json({ error: e.message }) }
@@ -926,7 +930,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       // this deployment is synchronous. Keep an auditable deployment record in
       // the shared deployment table used by HQ rather than inventing a second
       // history system for dealer sites.
-      await supabaseAdmin.from('website_deployments').insert({
+      const { error: deploymentError } = await supabaseAdmin.from('website_deployments').insert({
         site_id: req.dealershipId,
         change_set_id: approvedChangeSet?.id || null,
         trigger_type: 'publish',
@@ -937,6 +941,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
         verified_status: 'Database-backed public site state confirmed',
         created_by: req.user?.id,
       })
+      if (deploymentError) return res.status(500).json({ error: `Website published, but deployment verification could not be recorded: ${deploymentError.message}`, code: 'WEBSITE_DEPLOYMENT_RECORD_FAILED', revision: revisionInfo })
       if (approvedChangeSet?.id) await supabaseAdmin.from('website_change_sets').update({ status: 'published', published_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', approvedChangeSet.id).eq('site_id', req.dealershipId)
     }
     audit(req, 'site.configuration_updated', { after_state: { fields: Object.keys(update), site_published: update.site_published, site_slug: update.site_slug, custom_domain: update.custom_domain } })
