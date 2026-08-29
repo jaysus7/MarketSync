@@ -526,22 +526,25 @@ class StudioFabricAdapter {
   }
 
   addImage(url, name = 'Image') {
-    if (!this.fabricCanvas) return;
+    if (!this.fabricCanvas || !url) return Promise.resolve(null);
     const fabric = window.fabric;
     const center = this.fabricCanvas.getCenter();
-    fabric.Image.fromURL(url, (img) => {
-      if (!img) return;
-      img.set({
-        left: center.left - 200,
-        top: center.top - 150
-      });
-      if (img.width > 400) img.scaleToWidth(400);
-      img.msData = { type: 'image', src: url, name };
-      this.fabricCanvas.add(img);
-      this.fabricCanvas.setActiveObject(img);
-      this.fabricCanvas.renderAll();
-      this.saveHistory();
-    }, { crossOrigin: 'anonymous' });
+    return new Promise((resolve) => {
+      fabric.Image.fromURL(url, (img) => {
+        if (!img) { resolve(null); return; }
+        img.set({
+          left: center.left - 200,
+          top: center.top - 150
+        });
+        if (img.width > 400) img.scaleToWidth(400);
+        img.msData = { type: 'image', src: url, name };
+        this.fabricCanvas.add(img);
+        this.fabricCanvas.setActiveObject(img);
+        this.fabricCanvas.renderAll();
+        this.saveHistory();
+        resolve(img);
+      }, { crossOrigin: 'anonymous' });
+    });
   }
 
   async addVideo(url, name = 'Video', options = {}) {
