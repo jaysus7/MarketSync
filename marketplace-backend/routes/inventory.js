@@ -42,6 +42,23 @@ export async function toWebp(buffer, { max = 1920, quality = 82 } = {}) {
     .webp({ quality }).toBuffer()
 }
 
+// Build a small, predictable set of responsive renditions for Website Builder
+// media. The original/canonical WebP remains the fallback; variants are
+// metadata only until a renderer opts into them via srcset/picture.
+async function responsiveImageVariants(buffer) {
+  const widths = [480, 768, 1200, 1600]
+  const variants = {}
+  for (const width of widths) {
+    const image = sharp(buffer).rotate().resize({ width, withoutEnlargement: true })
+    const [webp, avif] = await Promise.all([
+      image.clone().webp({ quality: 82 }).toBuffer(),
+      image.clone().avif({ quality: 72, effort: 4 }).toBuffer(),
+    ])
+    variants[width] = { webp, avif }
+  }
+  return variants
+}
+
 // AI background swap: cut the vehicle out and drop it on the dealer's branded
 // background in one call (remove.bg). Returns a composited buffer, or null if the
 // feature isn't configured / the call fails (caller then keeps the original).
@@ -302,6 +319,22 @@ export function registerRoutes(app) {
     const { error: upErr } = await supabaseAdmin.storage.from('vehicle-photos').upload(path, webp, { contentType: 'image/webp', upsert: false })
     if (upErr) return res.status(500).json({ error: upErr.message })
     const { data: { publicUrl } } = supabaseAdmin.storage.from('vehicle-photos').getPublicUrl(path)
+    const variantUrls = {}
+    try {
+      const variants = await responsiveImageVariants(req.file.buffer)
+      const stem = path.slice(0, -'.webp'.length)
+      for (const [width, formats] of Object.entries(variants)) {
+        variantUrls[width] = {}
+        for (const [format, bytes] of Object.entries(formats)) {
+          const variantPath = `${stem}-${width}.${format}`
+          const { error } = await supabaseAdmin.storage.from('vehicle-photos').upload(variantPath, bytes, { contentType: `image/${format}`, upsert: false })
+          if (error) throw error
+          variantUrls[width][format] = supabaseAdmin.storage.from('vehicle-photos').getPublicUrl(variantPath).data.publicUrl
+        }
+      }
+    } catch (e) {
+      console.warn('[site-image] responsive variants unavailable:', e.message)
+    }
     // Keep an indexed library record alongside the storage object so the builder
     // can reuse uploaded media without asking dealers to paste URLs around.
     const metadata = await sharp(webp).metadata().catch(() => ({}))
@@ -316,9 +349,10 @@ export function registerRoutes(app) {
       file_size_bytes: webp.length,
       width: metadata.width || null,
       height: metadata.height || null,
+      optimized_variants: variantUrls,
       created_by: req.user?.id || null,
     }).catch(() => {})
-    res.json({ ok: true, url: publicUrl, folder })
+    res.json({ ok: true, url: publicUrl, folder, optimized_variants: variantUrls })
   })
 
   // Private dealership-scoped media index used by the Website Builder library.
