@@ -7,6 +7,7 @@ import { buildCanonicalFactObject, normalizeBenchmarkEvidence, calculateGeoMetri
 import { disconnectedSearchProvider, verifySearchProperty, normalizeSearchConsoleResponse, detectSearchOpportunities, detectCannibalization, detectContentGaps, detectInventoryDemandGaps, clusterSearchQuery, mapVdpSearchPerformance, searchScore, createSearchImpactRecord } from '../services/searchIntelligenceService.js'
 import { queueIndexNowSubmission, recordIndexNowResult } from '../services/indexNowService.js'
 import { buildCanonicalLocalEntity, disconnectedGbpProvider, normalizeGbpEvidence, compareGbpToCanonical, normalizeLocalRankEvidence, generateLocalQueries, localScore } from '../services/localDiscoverabilityService.js'
+import { normalizeSxoEvent, classifySource, stitchFirstPartySession, attributionForEvents, funnelFromEvents, conversionRate, roiSummary, sxoQuality, prioritizeSxoRecommendation } from '../services/sxoAttributionService.js'
 import {
   generateRecommendationsFromAudit,
   canAutoApplyRecommendation,
@@ -98,6 +99,31 @@ export default function registerDiscoverabilityRoutes(app) {
       recommendations: audit?.recommendations || [],
       history: audit?.history || {}
     })
+  })
+
+  app.get('/discoverability/sxo/overview', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    const since = req.query.since || new Date(Date.now() - 30 * 86400000).toISOString()
+    try {
+      const { data, error } = await supabaseAdmin.from('events').select('*').eq('dealership_id', req.dealershipId).gte('created_at', since).order('created_at', { ascending: true }).limit(20000)
+      if (error) throw error
+      const events = (data || []).flatMap(row => { try { return [normalizeSxoEvent(row)] } catch { return [] } })
+      const funnel = funnelFromEvents(events)
+      const roi = roiSummary({ events })
+      const measuredChecks = [{ status: events.length ? 'pass' : 'unknown' }, { status: 'unknown' }, { status: 'unknown' }]
+      res.json({ success: true, period: { since, until: new Date().toISOString() }, funnel, roi, quality: sxoQuality(measuredChecks), attribution: { firstTouch: attributionForEvents(events, 'first_touch'), lastTouch: attributionForEvents(events, 'last_touch'), assisted: attributionForEvents(events, 'assisted') }, sourceBreakdown: Object.fromEntries([...new Set(events.map(classifySource))].map(source => [source, events.filter(event => classifySource(event) === source).length])) })
+    } catch (error) { res.status(503).json({ error: 'SXO evidence is unavailable', detail: error.message }) }
+  })
+
+  app.get('/discoverability/sxo/events', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    try { const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 2000); const { data, error } = await supabaseAdmin.from('events').select('*').eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).range(0, limit - 1); if (error) throw error; res.json({ success: true, events: (data || []).flatMap(row => { try { return [normalizeSxoEvent(row)] } catch { return [] } }) }) } catch (error) { res.status(503).json({ error: 'SXO event evidence is unavailable', detail: error.message }) }
+  })
+
+  app.post('/discoverability/sxo/stitch', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    if (!req.body?.anonymousSessionId || !req.body?.contactId) return res.status(400).json({ error: 'anonymousSessionId and contactId are required' })
+    try { const { data } = await supabaseAdmin.from('events').select('*').eq('dealership_id', req.dealershipId).eq('payload->>anonymousSessionId', req.body.anonymousSessionId).limit(500); const events = (data || []).flatMap(row => { try { return [normalizeSxoEvent(row)] } catch { return [] } }); const result = stitchFirstPartySession(events, { sessionId: req.body.anonymousSessionId, contactId: req.body.contactId, dealershipId: req.dealershipId }); if (result.linked.length) await supabaseAdmin.from('discoverability_attribution_links').insert({ dealership_id: req.dealershipId, anonymous_session_id: req.body.anonymousSessionId, contact_id: req.body.contactId, confidence: result.confidence, source: result.source }); res.json({ success: true, ...result }) } catch (error) { res.status(503).json({ error: 'Identity stitching is unavailable', detail: error.message }) }
   })
 
   // ── 2. AEO (Answer Engine Optimization) ────────────────────────────────────
