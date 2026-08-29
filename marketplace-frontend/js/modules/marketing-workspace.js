@@ -111,14 +111,6 @@ function buildMarketingSuiteConfig(key) {
     suiteItem('studio', 'Design Studio', 'camera', { studioLaunch: true }),
     suiteItem('social-scheduler', 'Social Studio & Scheduler', 'calendar'),
     suiteItem('video-studio', 'Video', 'video'),
-    // Website is a complete product area, not only an SEO destination. Keep
-    // setup and content management beside Discovery so dealers can reach the
-    // existing website setup and blog editor from the shared suite navigation.
-    suiteItem('website', 'Website Setup', 'wrench', { tab: 'setup' }),
-    suiteItem('website', 'Website Builder', 'globe', { tab: 'builder' }),
-    suiteItem('blog', 'Blog Post Tips', 'document'),
-    suiteItem('discoverability', 'Discovery', 'sparkles'),
-    suiteItem('website-settings', 'Website Settings', 'shield'),
     suiteItem('academy', 'Academy', 'sparkles'),
   );
 
@@ -237,28 +229,46 @@ function filterSuiteNavForRole(cfg) {
 function getMarketingSuiteConfig(suiteKey) {
   const key = suiteKey || getActiveMarketingSuite() || 'complete';
   const base = MARKETING_SUITE_CONFIG[key] || MARKETING_SUITE_CONFIG.complete;
+  const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+  let configured = base;
+  // Website is sold independently for non-Digital suites. Surface the complete
+  // Website area only when the account owns that product, so Setup and Blog are
+  // reachable without weakening the existing server-side product gate.
+  if (key !== 'digital' && !base.areas.some(area => area.id === 'website')) {
+    const ownsWebsite = access.isPlatformStaff || (Array.isArray(access.products) && access.products.includes('marketsync_website'));
+    if (ownsWebsite) {
+      const websiteItems = [
+        suiteItem('website', 'Website Setup', 'wrench', { tab: 'setup' }),
+        suiteItem('website', 'Website Builder', 'globe', { tab: 'builder' }),
+        suiteItem('blog', 'Blog Post Tips', 'document'),
+        suiteItem('discoverability', 'Discovery', 'sparkles'),
+        suiteItem('website-settings', 'Website Settings', 'shield'),
+      ];
+      const navItems = [...(base.navItems || base.areas[0]?.items || []), ...websiteItems];
+      configured = { ...base, navItems, areas: [{ id: 'suite', label: base.badge, icon: 'megaphone', items: navItems }], sections: [{ title: (base.badge || '').toUpperCase(), items: navItems }] };
+    }
+  }
   // MarketSync SEO is independently purchasable on top of Sales/Service/Complete
   // Marketing Suite (see plan-catalog.js) even though it isn't bundled in — these
   // suites carry no website concept at all, so when it's owned it gets its own area,
   // never combined with anything else. Checked live (this accessor is called fresh on
   // every nav render), unlike MARKETING_SUITE_CONFIG which is built once at load,
   // before window.__access exists. 'digital' already has its own SEO area baked in.
-  if (key !== 'digital' && !base.areas.some(area => area.id === 'seo') && !(base.navItems || []).some(i => i.page === 'seo')) {
-    const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
+  if (key !== 'digital' && !configured.areas.some(area => area.id === 'seo') && !(configured.navItems || []).some(i => i.page === 'seo')) {
     const ownsSeo = access.isPlatformStaff || (Array.isArray(access.products) && access.products.includes('marketsync_seo'));
     if (ownsSeo) {
       // Inject SEO as a feature item (Digital-style) before Academy when present.
       const seoItems = [
         suiteItem('seo', 'MarketSync SEO', 'chart', { tab: 'settings' }),
       ];
-      const navItems = [...(base.navItems || base.areas[0]?.items || [])];
+      const navItems = [...(configured.navItems || configured.areas[0]?.items || [])];
       const academyIdx = navItems.findIndex(i => i.page === 'academy');
       navItems.splice(academyIdx === -1 ? navItems.length : academyIdx, 0, ...seoItems);
-      const areas = [{ id: 'suite', label: base.badge, icon: 'megaphone', items: navItems }];
-      return { ...base, areas, navItems, sections: [{ title: (base.badge || '').toUpperCase(), items: navItems }] };
+      const areas = [{ id: 'suite', label: configured.badge, icon: 'megaphone', items: navItems }];
+      configured = { ...configured, areas, navItems, sections: [{ title: (configured.badge || '').toUpperCase(), items: navItems }] };
     }
   }
-  return filterSuiteNavForRole(base);
+  return filterSuiteNavForRole(configured);
 }
 
 if (typeof window !== 'undefined') {
