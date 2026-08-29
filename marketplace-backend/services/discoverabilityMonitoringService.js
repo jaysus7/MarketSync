@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../shared.js'
 import { runAutomatedSeoAudit } from './seoMonitoringService.js'
 import { generateRecommendationsFromAudit } from './recommendationEngine.js'
 import { auditWebsiteDiscoverabilityContracts } from './websiteDiscoverabilityContracts.js'
+import { crawlSite } from './discoverabilityCrawlerService.js'
 
 export function scoreEvidenceChecks(checks = []) {
   const applicable = checks.filter(check => check.applicable !== false)
@@ -53,6 +54,9 @@ export async function runComprehensiveDiscoverabilityAudit(dealershipId, options
   const builderContent = { ...(dealer.branding || {}) }
   if (Array.isArray(pages) && pages.length) builderContent.pages = pages
   const websiteBuilderAudit = auditWebsiteDiscoverabilityContracts(builderContent, dealer)
+  const liveCrawl = options.liveCrawl && dealer.website_url
+    ? await crawlSite(dealer.website_url, { ...(options.crawlOptions || {}), persist: options.persistCrawl !== false }).catch(error => ({ status: 'failed', error: error.message, pages: [], findings: [] }))
+    : null
 
   // ── PILLAR 1: SEO HEALTH (0-100) ──────────────────────────────────────────
   const seoMetrics = {
@@ -118,6 +122,19 @@ export async function runComprehensiveDiscoverabilityAudit(dealershipId, options
     ...item,
     category: 'Website Builder contract',
     affectedUrl: item.affectedUrl || '/',
+  })))
+  if (liveCrawl?.findings?.length) validationIssues.push(...liveCrawl.findings.map((item, index) => ({
+    id: `crawl-${item.type}-${index}`,
+    severity: item.severity === 'high' ? 'High' : item.severity === 'medium' ? 'Medium' : 'Low',
+    category: 'Live Public Website Crawl',
+    title: item.type,
+    description: `Observed on the public response at ${item.sourceUrl || 'the crawled site'}.`,
+    evidence: item.evidence,
+    source: 'crawler',
+    measured_at: item.evidence?.measuredAt || timestamp,
+    affectedUrl: item.sourceUrl,
+    autoFixable: false,
+    status: 'pending'
   })))
   
   // Rule 1: Check NAP
@@ -203,7 +220,19 @@ export async function runComprehensiveDiscoverabilityAudit(dealershipId, options
       sxo: sxoData,
       aso: asoData,
       validation: validationData,
-      websiteBuilder: websiteBuilderAudit
+      websiteBuilder: websiteBuilderAudit,
+      livePublicWebsite: liveCrawl ? {
+        status: liveCrawl.status || 'completed',
+        baseUrl: liveCrawl.baseUrl || dealer.website_url,
+        pageCount: liveCrawl.pages?.length || 0,
+        findingCount: liveCrawl.findings?.length || 0,
+        robots: liveCrawl.robotsPolicies || null,
+        sitemaps: liveCrawl.sitemaps || [],
+        evidence: liveCrawl.pages?.map(page => ({
+          sourceType: 'crawler', sourceUrl: page.finalUrl || page.requestedUrl, measuredAt: page.fetchedAt,
+          statusCode: page.statusCode, responseTimeMs: page.responseTimeMs, bodyHash: page.bodyHash, verified: page.statusCode != null
+        })) || []
+      } : { status: 'not_measured', pageCount: 0, findingCount: 0, evidence: [] }
     },
     recommendations,
     history: {

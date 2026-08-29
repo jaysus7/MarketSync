@@ -849,8 +849,8 @@ export async function applyAllSafeRecommendations(dealershipId, recommendationsL
 // ── WEEKLY REPORT GENERATOR ─────────────────────────────────────────────────
 export function generateWeeklyDiscoverabilityReport({
   dealership,
-  scoreBefore = 81,
-  scoreAfter = 87,
+  scoreBefore = null,
+  scoreAfter = null,
   recommendations = [],
   appliedCount = 0,
   awaitingApprovalCount = 0,
@@ -868,9 +868,9 @@ export function generateWeeklyDiscoverabilityReport({
     score_summary: {
       score_before: scoreBefore,
       score_after: scoreAfter,
-      delta: `+${scoreAfter - scoreBefore}`,
-      organic_visibility_growth: '+8.4%',
-      ai_citation_visibility_growth: '+12.6%'
+      delta: typeof scoreBefore === 'number' && typeof scoreAfter === 'number' ? `${scoreAfter - scoreBefore >= 0 ? '+' : ''}${scoreAfter - scoreBefore}` : null,
+      organic_visibility_growth: null,
+      ai_citation_visibility_growth: null
     },
     weekly_breakdown: {
       total_issues_found: recommendations.length,

@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { getCurrentAccessContext, hasProductAccess, hasFeature } from '../access.js'
 import { runComprehensiveDiscoverabilityAudit } from '../services/discoverabilityMonitoringService.js'
+import { crawlSite, crawlUrl, assertSafeUrl } from '../services/discoverabilityCrawlerService.js'
 import {
   generateRecommendationsFromAudit,
   canAutoApplyRecommendation,
@@ -30,6 +31,7 @@ import {
 
 // Global in-memory cache of recommendations per dealership
 const DEALERSHIP_RECOMMENDATIONS_STORE = new Map()
+const DEALERSHIP_CRAWL_STORE = new Map()
 
 // Default Automation Settings
 const DEFAULT_AUTOMATION_SETTINGS = {
@@ -477,6 +479,52 @@ export default function registerDiscoverabilityRoutes(app) {
     })
   })
 
+  // ── 18. Live Public Website Crawl & Evidence ───────────────────────────────
+  // This service intentionally accepts any public dealership URL. It does not
+  // assume MarketSync owns the site; Website Builder state is an optional
+  // comparison layer, never a substitute for the public response.
+  app.post('/discoverability/crawl', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    const { data: dealer } = await supabaseAdmin.from('dealerships').select('website_url').eq('id', req.dealershipId).maybeSingle()
+    const target = req.body?.url || dealer?.website_url
+    if (!target) return res.status(400).json({ error: 'A public website URL is required' })
+    let safeUrl
+    try { safeUrl = await assertSafeUrl(target) } catch (error) { return res.status(400).json({ error: error.message }) }
+    const options = { maxPages: Math.min(Math.max(Number(req.body?.maxPages) || 50, 1), 250), maxDepth: Math.min(Math.max(Number(req.body?.maxDepth) || 3, 0), 8), timeoutMs: Math.min(Math.max(Number(req.body?.timeoutMs) || 10000, 1000), 30000), sameHostOnly: req.body?.sameHostOnly !== false, respectRobots: req.body?.respectRobots !== false }
+    const job = { id: `crawl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, dealershipId: req.dealershipId, baseUrl: safeUrl.href, status: 'running', startedAt: new Date().toISOString() }
+    DEALERSHIP_CRAWL_STORE.set(req.dealershipId, job)
+    crawlSite(safeUrl.href, options).then(result => DEALERSHIP_CRAWL_STORE.set(req.dealershipId, { ...job, ...result, status: 'completed' })).catch(error => DEALERSHIP_CRAWL_STORE.set(req.dealershipId, { ...job, status: 'failed', error: error.message, completedAt: new Date().toISOString() }))
+    res.status(202).json({ success: true, crawl: job })
+  })
+
+  app.get('/discoverability/crawl/latest', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    const crawl = DEALERSHIP_CRAWL_STORE.get(req.dealershipId)
+    if (!crawl) return res.status(404).json({ error: 'No crawl has been started' })
+    res.json({ success: true, crawl })
+  })
+
+  app.get('/discoverability/crawl/:runId/pages', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    const crawl = DEALERSHIP_CRAWL_STORE.get(req.dealershipId)
+    if (!crawl || (crawl.id !== req.params.runId && crawl.persistenceId !== req.params.runId)) return res.status(404).json({ error: 'Crawl not found' })
+    res.json({ success: true, pages: crawl.pages || [] })
+  })
+
+  app.get('/discoverability/crawl/:runId/findings', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    const crawl = DEALERSHIP_CRAWL_STORE.get(req.dealershipId)
+    if (!crawl || (crawl.id !== req.params.runId && crawl.persistenceId !== req.params.runId)) return res.status(404).json({ error: 'Crawl not found' })
+    res.json({ success: true, findings: crawl.findings || [] })
+  })
+
+  app.post('/discoverability/crawl/recrawl', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    const target = req.body?.url
+    if (!target) return res.status(400).json({ error: 'url is required' })
+    try { await assertSafeUrl(target); const page = await crawlUrl(target, { timeoutMs: 10000, retryCount: 1 }); res.json({ success: true, page }) } catch (error) { res.status(400).json({ error: error.message }) }
+  })
+
   // ── 18. Dealership Automation Settings (GET & PUT) ─────────────────────────
   app.get('/discoverability/settings', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
     if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
@@ -545,8 +593,8 @@ export default function registerDiscoverabilityRoutes(app) {
     const list = DEALERSHIP_RECOMMENDATIONS_STORE.get(req.dealershipId) || []
     const report = generateWeeklyDiscoverabilityReport({
       dealership: dealer,
-      scoreBefore: 81,
-      scoreAfter: 87,
+      scoreBefore: null,
+      scoreAfter: null,
       recommendations: list,
       appliedCount: list.filter(r => r.status === 'validated').length,
       awaitingApprovalCount: list.filter(r => r.execution_class === 'approval_required' && r.status === 'open').length,
