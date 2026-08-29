@@ -186,6 +186,12 @@
       graph.push({'@type':currentPage?'WebPage':'CollectionPage','@id':viewUrl+'#page','url':viewUrl,'name':currentPage?.title||document.title,'description':currentPage?.seo_description||undefined,'isPartOf':{'@id':siteUrl+'#website'},'about':{'@id':siteUrl+'#dealer'},'keywords':terms.length?terms.join(', '):undefined});
       const crumbs=[{'@type':'ListItem','position':1,'name':s.name||'Home','item':siteUrl}];
       if(currentPage) crumbs.push({'@type':'ListItem','position':2,'name':currentPage.title||'Page','item':viewUrl});
+      const selectedVehicleId=vehicleIdFromHash(location.hash), selectedVehicle=(DATA.vehicles||[]).find(v=>String(v.id)===String(selectedVehicleId));
+      if(selectedVehicle){
+        const vehicleName=[selectedVehicle.year,selectedVehicle.make,selectedVehicle.model,selectedVehicle.trim].filter(Boolean).join(' ');
+        crumbs.push({'@type':'ListItem','position':2,'name':vehicleName||'Vehicle details','item':viewUrl});
+        graph.push({'@type':'Vehicle','@id':viewUrl+'#vehicle','url':viewUrl,'name':vehicleName||'Vehicle details','vehicleMake':selectedVehicle.make||undefined,'model':selectedVehicle.model||undefined,'vehicleModelDate':selectedVehicle.year?String(selectedVehicle.year):undefined,'mileageFromOdometer':selectedVehicle.mileage?{'@type':'QuantitativeValue','value':selectedVehicle.mileage,'unitCode':'KMT'}:undefined,'image':selectedVehicle.image_urls||undefined,'offers':selectedVehicle.price?{'@type':'Offer','price':selectedVehicle.price,'priceCurrency':'CAD','availability':'https://schema.org/InStock'}:undefined});
+      }
       if(crumbs.length>1) graph.push({'@type':'BreadcrumbList','@id':viewUrl+'#breadcrumbs','itemListElement':crumbs});
       if(VIEW==='inventory'||VIEW==='home'){
         const items=(DATA.vehicles||[]).slice(0,100).map((v,i)=>({'@type':'ListItem','position':i+1,'url':siteUrl+'#inventory/'+encodeURIComponent(v.id),'item':{'@type':'Vehicle','name':[v.year,v.make,v.model,v.trim].filter(Boolean).join(' '),'vehicleMake':v.make||undefined,'model':v.model||undefined,'vehicleModelDate':v.year?String(v.year):undefined,'offers':v.price?{'@type':'Offer','price':v.price,'priceCurrency':'CAD','availability':'https://schema.org/InStock'}:undefined,'image':v.image_urls||undefined}}));
@@ -221,6 +227,13 @@
     function applyViewSeo(){
       const s=DATA.site, name=s.name||'Our dealership', loc=s.city?` in ${s.city}`:'';
       let title, desc, image=s.seo_image||s.hero_url||s.logo_url||'';
+      const selectedVehicleId=vehicleIdFromHash(location.hash), selectedVehicle=(DATA.vehicles||[]).find(v=>String(v.id)===String(selectedVehicleId));
+      if(VIEW==='inventory' && selectedVehicle){
+        const vehicleName=[selectedVehicle.year,selectedVehicle.make,selectedVehicle.model,selectedVehicle.trim].filter(Boolean).join(' ');
+        title=`${vehicleName || 'Vehicle Details'} | ${name}`;
+        desc=`${vehicleName || 'Vehicle details'}${selectedVehicle.mileage ? ` with ${Number(selectedVehicle.mileage).toLocaleString()} km` : ''}${selectedVehicle.price ? `, priced at ${money(selectedVehicle.price)}` : ''} at ${name}${loc}.`;
+        image=selectedVehicle.image_urls?.[0]||image;
+      }
       if(VIEW.startsWith('page:')){
         const p=findSitePage(VIEW.slice(5));
         if(p){ title=p.seo_title||`${p.title} | ${name}`; desc=p.seo_description||pageDerivedDesc(p,name,loc); image=p.seo_image||image; }
