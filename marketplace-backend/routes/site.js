@@ -715,12 +715,15 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     const builderAction = ['draft', 'publish'].includes(rawBody.builder_action) ? rawBody.builder_action : null
     let revisionSaved = false
     let revisionInfo = null
+    // Apply brand governance to every site write, including the legacy Settings
+    // form. Previously only visual-builder writes were checked, which allowed a
+    // settings request without builder_action to bypass an administrator lock.
+    const lockedFields = Array.isArray(currentSite?.branding?.site_locked_fields) ? currentSite.branding.site_locked_fields : []
+    if (lockedFields.length && !canGovernWebsite(req)) {
+      const attempted = lockedFields.filter(key => rawBody[key] !== undefined || (rawBody.content && rawBody.content[key] !== undefined))
+      if (attempted.length) return res.status(403).json({ error: `Locked brand fields cannot be changed by this role: ${attempted.join(', ')}`, code: 'WEBSITE_BRAND_FIELD_LOCKED', fields: attempted })
+    }
     if (builderAction) {
-      const lockedFields = Array.isArray(currentSite?.branding?.site_locked_fields) ? currentSite.branding.site_locked_fields : []
-      if (lockedFields.length && !canGovernWebsite(req)) {
-        const attempted = lockedFields.filter(key => rawBody[key] !== undefined || (rawBody.content && rawBody.content[key] !== undefined))
-        if (attempted.length) return res.status(403).json({ error: `Locked brand fields cannot be changed by this role: ${attempted.join(', ')}`, code: 'WEBSITE_BRAND_FIELD_LOCKED', fields: attempted })
-      }
       // Editors send the draft revision they loaded. Reject stale writes rather
       // than silently replacing another user's newer work. Legacy/settings
       // callers that do not send a cursor retain the existing behavior.
