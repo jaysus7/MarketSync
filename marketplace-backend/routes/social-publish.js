@@ -25,12 +25,15 @@
  *      the two pages the dealership meant to reach and never did.
  */
 import { supabaseAdmin } from '../shared.js'
+import crypto from 'node:crypto'
+import sharp from 'sharp'
 import { rateLimit } from '../security.js'
 import { requireAuth } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { canActOnAccount } from './social.js'
 import { requestHasCronSecret } from '../cron-auth.js'
+import { decryptJson } from '../crypto-pii.js'
 import { publishToProvider, PROVIDER_NOT_CONFIGURED } from '../providers/social-providers.js'
 
 // After this many tries a retryable failure stops being retried and starts being a message.
@@ -113,6 +116,52 @@ async function writeTargetOutcome(target, patch) {
   return !error
 }
 
+function rawMediaUrl(entry) {
+  return typeof entry === 'string' ? entry : String(entry?.url || entry?.public_url || entry?.src || '')
+}
+
+function isInstagramReadyMedia(url) {
+  try { return /\.(jpe?g|mp4|mov)$/i.test(new URL(url).pathname) } catch { return false }
+}
+
+/**
+ * Studio images are intentionally stored as WebP for the website. Instagram requires JPEG,
+ * so make a deterministic public JPEG derivative in the same tenant-scoped storage bucket.
+ * Only our own public Supabase bucket is eligible; arbitrary URLs are never fetched here.
+ */
+async function prepareInstagramMedia(media, dealershipId) {
+  const rows = Array.isArray(media) ? media : []
+  const supabaseHost = (() => { try { return new URL(process.env.SUPABASE_URL || '').host } catch { return '' } })()
+  const marker = '/storage/v1/object/public/vehicle-photos/'
+  const prepared = []
+  for (const entry of rows) {
+    const url = rawMediaUrl(entry)
+    if (isInstagramReadyMedia(url)) { prepared.push(url); continue }
+    let parsed
+    try { parsed = new URL(url) } catch { prepared.push(url); continue }
+    const markerAt = parsed.pathname.indexOf(marker)
+    if (!supabaseHost || parsed.host !== supabaseHost || markerAt < 0) { prepared.push(url); continue }
+    const sourcePath = decodeURIComponent(parsed.pathname.slice(markerAt + marker.length))
+    const { data: source, error: downloadError } = await supabaseAdmin.storage.from('vehicle-photos').download(sourcePath)
+    if (downloadError || !source) throw new Error(`Could not prepare the Instagram image: ${downloadError?.message || 'asset missing'}`)
+    const buffer = Buffer.from(await source.arrayBuffer())
+    if (buffer.length > 25 * 1024 * 1024) throw new Error('Instagram source images must be 25 MB or smaller.')
+    const jpeg = await sharp(buffer).rotate().flatten({ background: '#ffffff' }).jpeg({ quality: 90, mozjpeg: true }).toBuffer()
+    const digest = crypto.createHash('sha256').update(url).digest('hex').slice(0, 32)
+    const outputPath = `social-publish/${dealershipId}/${digest}.jpg`
+    const { error: uploadError } = await supabaseAdmin.storage.from('vehicle-photos').upload(outputPath, jpeg, {
+      contentType: 'image/jpeg',
+      cacheControl: '31536000',
+      upsert: true,
+    })
+    if (uploadError) throw new Error(`Could not store the Instagram JPEG: ${uploadError.message}`)
+    const { data: publicData } = supabaseAdmin.storage.from('vehicle-photos').getPublicUrl(outputPath)
+    if (!publicData?.publicUrl) throw new Error('Could not create a public Instagram media URL.')
+    prepared.push(publicData.publicUrl)
+  }
+  return prepared
+}
+
 /**
  * Re-derive and persist a post's status from its targets. Called after every attempt, so the
  * post and its targets can never disagree about what happened.
@@ -134,7 +183,7 @@ export async function refreshPostStatus(postId) {
  */
 export async function publishClaimedTarget(target) {
   const { data: account } = await supabaseAdmin.from('social_accounts')
-    .select('id, dealership_id, provider, display_name, status, capabilities')
+    .select('id, dealership_id, provider, external_account_id, display_name, status, capabilities, credentials_enc, token_expires_at')
     .eq('id', target.social_account_id).maybeSingle()
 
   let result
@@ -150,11 +199,20 @@ export async function publishClaimedTarget(target) {
         .eq('id', post.inventory_id).eq('dealership_id', target.dealership_id).maybeSingle()
       vehicleAvailable = vehiclePromotionAllowed(vehicle)
     }
+    const credentials = decryptJson(account.credentials_enc)
+    const providerMedia = account.provider === 'instagram'
+      ? await prepareInstagramMedia(Array.isArray(post?.media) ? post.media : [], target.dealership_id)
+      : (Array.isArray(post?.media) ? post.media : [])
+    const { credentials_enc, ...safeAccount } = account
     result = vehicleAvailable ? await publishToProvider({
-      account,
+      account: { ...safeAccount, credentials },
       body: target.body_override || post?.body || '',
-      media: Array.isArray(post?.media) ? post.media : [],
+      media: providerMedia,
     }) : { ok: false, retryable: false, code: 'vehicle_unavailable', error: 'The linked vehicle is no longer available. Nothing was published.' }
+    const accountPatch = result.ok
+      ? { last_verified_at: new Date().toISOString(), last_error: null, updated_at: new Date().toISOString() }
+      : { last_error: String(result.error || 'Publishing failed').slice(0, 300), updated_at: new Date().toISOString(), ...(result.account_status ? { status: result.account_status } : {}) }
+    await supabaseAdmin.from('social_accounts').update(accountPatch).eq('id', account.id).eq('dealership_id', target.dealership_id)
   }
 
   const patch = applyTargetOutcome(target, result)
@@ -194,6 +252,30 @@ export async function runDuePublishes({ limit = 25, leaseSeconds = 300 } = {}) {
     unconfigured: outcomes.filter(o => o.code === PROVIDER_NOT_CONFIGURED).length,
     outcomes,
   }
+}
+
+let socialPublishTimer = null
+let socialPublishRunning = false
+
+/** Run the durable queue from the web service when explicitly enabled in Render. */
+export function startSocialPublishWorker({ intervalMs = 60000 } = {}) {
+  if (process.env.RUN_SOCIAL_PUBLISH_WORKER !== 'true' || socialPublishTimer) return false
+  const tick = async () => {
+    if (socialPublishRunning) return
+    socialPublishRunning = true
+    try {
+      const result = await runDuePublishes({ limit: 25 })
+      if (result.claimed) console.log('[social-publish] queue pass', result)
+    } catch (error) {
+      console.error('[social-publish] queue pass failed:', error.message)
+    } finally {
+      socialPublishRunning = false
+    }
+  }
+  socialPublishTimer = setInterval(tick, Math.max(15000, Number(intervalMs) || 60000))
+  socialPublishTimer.unref?.()
+  setTimeout(tick, 10000).unref?.()
+  return true
 }
 
 export function registerSocialPublish(app) {

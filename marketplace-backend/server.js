@@ -62,7 +62,8 @@ import { registerAccountingEngine } from './routes/accounting-engine.js'
 import { registerAccountingArAp } from './routes/accounting-ar-ap.js'
 import { registerCampaigns } from './routes/campaigns.js'
 import { registerSocial } from './routes/social.js'
-import { registerSocialPublish } from './routes/social-publish.js'
+import { registerSocialPublish, startSocialPublishWorker } from './routes/social-publish.js'
+import { registerProductionSocialProviders } from './providers/production-social-providers.js'
 import { registerMarketingStudio } from './routes/marketing-studio.js'
 import { registerConsent } from './routes/consent.js'
 import { registerConversations } from './routes/conversations.js'
@@ -99,6 +100,8 @@ import { registerHqPulse } from './routes/hq-pulse.js'
 
 const app = express()
 const PORT = process.env.PORT || 10000
+const productionSocialProviders = registerProductionSocialProviders()
+if (productionSocialProviders.length) console.log('[social] publishing adapters:', productionSocialProviders.join(', '))
 
 app.set('trust proxy', 1)
 app.use(securityHeaders)
@@ -268,6 +271,7 @@ if (process.env.VALIDATE_STARTUP === 'true') {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Secure Marketplace engine live on port ${PORT}`)
+  startSocialPublishWorker()
   if (process.env.SKIP_DEMO_REFRESH !== 'true') {
     refreshDedicatedDemoAccounts()
       .then(results => {

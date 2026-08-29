@@ -66,7 +66,7 @@ test('Security Hardening Pass — Social OAuth Provider Capability Derivation', 
   const fbCaps = deriveProviderCapabilities('facebook')
   assert.equal(fbCaps.publish, true)
   assert.equal(fbCaps.schedule, true)
-  assert.equal(fbCaps.video, true)
+  assert.equal(fbCaps.video, false, 'do not advertise Facebook video until its upload adapter exists')
   assert.equal(fbCaps.pages, true)
 
   // Instagram
@@ -78,7 +78,7 @@ test('Security Hardening Pass — Social OAuth Provider Capability Derivation', 
 
   // TikTok
   const ttCaps = deriveProviderCapabilities('tiktok')
-  assert.equal(ttCaps.publish, true)
+  assert.equal(ttCaps.publish, false, 'do not advertise TikTok publishing until its audited Direct Post adapter exists')
   assert.equal(ttCaps.schedule, false, 'TikTok does not support direct scheduling')
 
   // Custom capability override (only valid booleans)

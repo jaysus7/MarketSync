@@ -15,16 +15,24 @@ export const PROVIDER_NO_CREDENTIALS = 'PROVIDER_NO_CREDENTIALS'
 export const PROVIDER_NO_EVIDENCE = 'PROVIDER_NO_EVIDENCE'
 export const PROVIDER_THREW = 'PROVIDER_THREW'
 
+// Keep provider API versions in one place. Meta versions are intentionally configurable so
+// a supported version can be rolled forward in Render without hunting through OAuth and
+// publishing code. v23.0 supports the Facebook Login based Instagram flow used here.
+export const META_GRAPH_VERSION = process.env.META_GRAPH_VERSION || 'v23.0'
+export const LINKEDIN_API_VERSION = process.env.LINKEDIN_API_VERSION || '202604'
+
 // The networks the product talks about.
 export const KNOWN_PROVIDERS = ['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'youtube']
 
 export const SOCIAL_CAPABILITIES = {
-  facebook: { can_publish_text: true, can_publish_image: true, can_publish_video: true, can_read_comments: true, can_read_insights: true },
-  instagram: { can_publish_text: false, can_publish_image: true, can_publish_video: true, can_read_comments: true, can_read_insights: true },
-  tiktok: { can_publish_text: false, can_publish_image: false, can_publish_video: true, can_read_comments: false, can_read_insights: false },
-  youtube: { can_publish_text: false, can_publish_image: false, can_publish_video: true, can_read_comments: true, can_read_insights: true },
-  linkedin: { can_publish_text: true, can_publish_image: true, can_publish_video: true, can_read_comments: false, can_read_insights: false },
-  x: { can_publish_text: true, can_publish_image: true, can_publish_video: true, can_read_comments: false, can_read_insights: false },
+  // Capabilities describe what MarketSync currently implements, not everything each vendor
+  // sells. This keeps the composer from offering a button that will fail at publish time.
+  facebook: { can_publish_text: true, can_publish_image: true, can_publish_video: false, can_read_comments: false, can_read_insights: false },
+  instagram: { can_publish_text: false, can_publish_image: true, can_publish_video: true, can_read_comments: false, can_read_insights: false },
+  tiktok: { can_publish_text: false, can_publish_image: false, can_publish_video: false, can_read_comments: false, can_read_insights: false },
+  youtube: { can_publish_text: false, can_publish_image: false, can_publish_video: false, can_read_comments: false, can_read_insights: false },
+  linkedin: { can_publish_text: true, can_publish_image: false, can_publish_video: false, can_read_comments: false, can_read_insights: false },
+  x: { can_publish_text: true, can_publish_image: false, can_publish_video: false, can_read_comments: false, can_read_insights: false },
 }
 
 export function providerCapabilities(provider, evidence = {}) {
@@ -32,7 +40,7 @@ export function providerCapabilities(provider, evidence = {}) {
   const out = {}
   for (const [key, value] of Object.entries(base)) out[key] = value === true && evidence[key] !== false
   out.publish = out.can_publish_text || out.can_publish_image || out.can_publish_video
-  out.schedule = String(provider || '').toLowerCase() !== 'tiktok'
+  out.schedule = out.publish && String(provider || '').toLowerCase() !== 'tiktok'
   return out
 }
 
@@ -100,6 +108,14 @@ export function socialOAuthRedirectUri(provider) {
   return `${BACKEND_URL}/social/callback/${provider}`
 }
 
+function xPkceVerifier(state) {
+  return crypto.createHmac('sha256', STATE_SECRET).update(`x-pkce:${String(state || '')}`).digest('base64url')
+}
+
+export function xPkceChallenge(state) {
+  return crypto.createHash('sha256').update(xPkceVerifier(state)).digest('base64url')
+}
+
 /**
  * Signed OAuth state tying callback to user and dealership.
  */
@@ -146,7 +162,7 @@ export function socialOAuthAuthorizeUrl(provider, state) {
       response_type: 'code',
       scope: 'pages_show_list,pages_read_engagement,pages_manage_posts,public_profile',
     })
-    return `https://www.facebook.com/v21.0/dialog/oauth?${q}`
+    return `https://www.facebook.com/${META_GRAPH_VERSION}/dialog/oauth?${q}`
   }
   if (p === 'instagram') {
     const q = new URLSearchParams({
@@ -154,9 +170,9 @@ export function socialOAuthAuthorizeUrl(provider, state) {
       redirect_uri,
       state,
       response_type: 'code',
-      scope: 'instagram_basic,instagram_content_publish,pages_show_list',
+      scope: 'instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement',
     })
-    return `https://www.facebook.com/v21.0/dialog/oauth?${q}`
+    return `https://www.facebook.com/${META_GRAPH_VERSION}/dialog/oauth?${q}`
   }
   if (p === 'linkedin') {
     const q = new URLSearchParams({
@@ -197,8 +213,8 @@ export function socialOAuthAuthorizeUrl(provider, state) {
       state,
       response_type: 'code',
       scope: 'tweet.read tweet.write users.read offline.access',
-      code_challenge: 'challenge',
-      code_challenge_method: 'plain',
+      code_challenge: xPkceChallenge(state),
+      code_challenge_method: 'S256',
     })
     return `https://twitter.com/i/oauth2/authorize?${q}`
   }
@@ -208,14 +224,14 @@ export function socialOAuthAuthorizeUrl(provider, state) {
 /**
  * Exchange authorization code for access tokens.
  */
-export async function socialOAuthExchangeCode(provider, code) {
+export async function socialOAuthExchangeCode(provider, code, { state } = {}) {
   const p = String(provider || '').toLowerCase()
   const cfg = socialOAuthConfig(p)
   if (!cfg.configured) throw new Error(`Provider ${provider} is not configured on this server.`)
   const redirect_uri = socialOAuthRedirectUri(p)
 
   if (p === 'facebook' || p === 'instagram') {
-    const tokenUrl = `https://graph.facebook.com/v21.0/oauth/access_token?${new URLSearchParams({
+    const tokenUrl = `https://graph.facebook.com/${META_GRAPH_VERSION}/oauth/access_token?${new URLSearchParams({
       client_id: cfg.id,
       client_secret: cfg.secret,
       redirect_uri,
@@ -224,10 +240,25 @@ export async function socialOAuthExchangeCode(provider, code) {
     const r = await fetch(tokenUrl)
     const data = await r.json()
     if (!r.ok || data.error) throw new Error(data.error?.message || 'Failed to exchange OAuth code with Meta')
+    // The code exchange can return a short-lived user token. Exchange it immediately for a
+    // long-lived token; Page tokens discovered from it inherit the durable authorization.
+    const longUrl = `https://graph.facebook.com/${META_GRAPH_VERSION}/oauth/access_token?${new URLSearchParams({
+      grant_type: 'fb_exchange_token',
+      client_id: cfg.id,
+      client_secret: cfg.secret,
+      fb_exchange_token: data.access_token,
+    })}`
+    const longRes = await fetch(longUrl)
+    const long = await longRes.json().catch(() => ({}))
+    const selected = longRes.ok && long.access_token ? long : data
+    const expiresIn = Number(selected.expires_in || data.expires_in || 5184000)
     return {
-      access_token: data.access_token,
-      token_type: data.token_type || 'bearer',
-      expires_in: data.expires_in || 5184000,
+      access_token: selected.access_token,
+      refresh_token: selected.access_token,
+      token_type: selected.token_type || data.token_type || 'bearer',
+      expires_in: expiresIn,
+      expires_at: Date.now() + Math.max(60, expiresIn - 60) * 1000,
+      token_source: selected === long ? 'meta_long_lived' : 'meta_code_exchange',
     }
   }
 
@@ -295,6 +326,33 @@ export async function socialOAuthExchangeCode(provider, code) {
     }
   }
 
+
+  if (p === 'x' || p === 'twitter') {
+    if (!state) throw new Error('The X authorization state is missing; start the connection again.')
+    const basic = Buffer.from(`${cfg.id}:${cfg.secret}`).toString('base64')
+    const r = await fetch('https://api.x.com/2/oauth2/token', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${basic}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri,
+        code_verifier: xPkceVerifier(state),
+      }),
+    })
+    const data = await r.json().catch(() => ({}))
+    if (!r.ok || data.error) throw new Error(data.error_description || data.detail || data.error || 'Failed to exchange X OAuth code')
+    return {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      token_type: data.token_type || 'bearer',
+      expires_in: Number(data.expires_in || 7200),
+    }
+  }
+
   throw new Error(`OAuth code exchange not implemented for ${provider}`)
 }
 
@@ -308,23 +366,44 @@ export async function socialOAuthRefreshToken(provider, refreshToken) {
     url = 'https://open.tiktokapis.com/v2/oauth/token/'
     body = { client_key: cfg.id, client_secret: cfg.secret, grant_type: 'refresh_token', refresh_token: refreshToken }
   } else if (p === 'facebook' || p === 'instagram') {
-    url = `https://graph.facebook.com/v21.0/oauth/access_token?${new URLSearchParams({ grant_type: 'fb_exchange_token', client_id: cfg.id, client_secret: cfg.secret, fb_exchange_token: refreshToken })}`
+    url = `https://graph.facebook.com/${META_GRAPH_VERSION}/oauth/access_token?${new URLSearchParams({ grant_type: 'fb_exchange_token', client_id: cfg.id, client_secret: cfg.secret, fb_exchange_token: refreshToken })}`
     body = null
   } else if (p === 'linkedin') {
     url = 'https://www.linkedin.com/oauth/v2/accessToken'
+  } else if (p === 'x' || p === 'twitter') {
+    url = 'https://api.x.com/2/oauth2/token'
+    body = { grant_type: 'refresh_token', refresh_token: refreshToken, client_id: cfg.id }
   }
-  const r = await fetch(url, { method: body ? 'POST' : 'GET', headers: body ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}, body: body ? new URLSearchParams(body) : undefined })
+  const headers = body ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}
+  if ((p === 'x' || p === 'twitter') && cfg.secret) headers.Authorization = `Basic ${Buffer.from(`${cfg.id}:${cfg.secret}`).toString('base64')}`
+  const r = await fetch(url, { method: body ? 'POST' : 'GET', headers, body: body ? new URLSearchParams(body) : undefined })
   const data = await r.json().catch(() => ({}))
   if (!r.ok || data.error) throw new Error(data.error_description || data.error?.message || data.message || 'Token refresh failed.')
   const d = data.data || data
   return { ...d, access_token: d.access_token, refresh_token: d.refresh_token || refreshToken, expires_in: Number(d.expires_in || 3600) }
 }
 
+/** Refresh credentials for one already-selected account, including re-deriving Meta Page tokens. */
+export async function socialOAuthRenewAccountCredentials(provider, externalAccountId, credentials) {
+  const p = String(provider || '').toLowerCase()
+  if (!credentials) throw new Error('The encrypted authorization is unavailable; reconnect this account.')
+  if (p === 'facebook' || p === 'instagram') {
+    const userToken = credentials.refresh_token || credentials.user_access_token || credentials.access_token
+    const refreshed = await socialOAuthRefreshToken(p, userToken)
+    const candidates = await socialOAuthDiscoverAccounts(p, refreshed)
+    const selected = candidates.find(row => String(row.external_account_id) === String(externalAccountId))
+    if (!selected?._credentials?.access_token) throw new Error('That Meta Page or Instagram account is no longer available. Reconnect it.')
+    return selected._credentials
+  }
+  const next = await socialOAuthRefreshToken(p, credentials.refresh_token)
+  return { ...credentials, ...next }
+}
+
 export async function socialOAuthRevokeToken(provider, accessToken) {
   const p = String(provider || '').toLowerCase()
   if (!accessToken) return { ok: true, supported: false }
   let r
-  if (p === 'facebook' || p === 'instagram') r = await fetch(`https://graph.facebook.com/v21.0/me/permissions?access_token=${encodeURIComponent(accessToken)}`, { method: 'DELETE' })
+  if (p === 'facebook' || p === 'instagram') r = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/me/permissions?access_token=${encodeURIComponent(accessToken)}`, { method: 'DELETE' })
   else if (p === 'youtube') r = await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(accessToken)}`, { method: 'POST' })
   else if (p === 'tiktok') r = await fetch('https://open.tiktokapis.com/v2/oauth/revoke/', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_key: socialOAuthConfig(p).id, token: accessToken }) })
   else return { ok: true, supported: false }
@@ -340,7 +419,7 @@ export async function socialOAuthFetchProfile(provider, tokens) {
 
   if (p === 'facebook') {
     try {
-      const r = await fetch(`https://graph.facebook.com/v21.0/me/accounts?access_token=${encodeURIComponent(tokens.access_token)}`)
+      const r = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/me/accounts?access_token=${encodeURIComponent(tokens.access_token)}`)
       const data = await r.json()
       if (data?.data && Array.isArray(data.data) && data.data.length > 0) {
         const page = data.data[0]
@@ -354,7 +433,7 @@ export async function socialOAuthFetchProfile(provider, tokens) {
       }
     } catch {}
     // Fallback to user profile
-    const userRes = await fetch(`https://graph.facebook.com/v21.0/me?fields=id,name&access_token=${encodeURIComponent(tokens.access_token)}`)
+    const userRes = await fetch(`https://graph.facebook.com/${META_GRAPH_VERSION}/me?fields=id,name&access_token=${encodeURIComponent(tokens.access_token)}`)
     const user = await userRes.json()
     if (user?.id) {
       return {
@@ -369,14 +448,11 @@ export async function socialOAuthFetchProfile(provider, tokens) {
   }
 
   if (p === 'instagram') {
-    const r = await fetch(`https://graph.facebook.com/v21.0/me/accounts?fields=instagram_business_account{id,username,name}&access_token=${encodeURIComponent(tokens.access_token)}`)
-    const data = await r.json()
-    const ig = data?.data?.[0]?.instagram_business_account
-    if (ig?.id) {
+    const rows = await socialOAuthDiscoverAccounts('instagram', tokens)
+    const ig = rows[0]
+    if (ig?.external_account_id) {
       return {
-        external_account_id: ig.id,
-        display_name: ig.name || ig.username || 'Instagram Business',
-        handle: ig.username ? `@${ig.username}` : null,
+        ...ig,
         capabilities: providerCapabilities('instagram'),
         token_expires_at: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000).toISOString() : null,
       }
@@ -438,6 +514,26 @@ export async function socialOAuthFetchProfile(provider, tokens) {
     throw new Error('Could not fetch TikTok user info.')
   }
 
+
+  if (p === 'x' || p === 'twitter') {
+    const r = await fetch('https://api.x.com/2/users/me?user.fields=name,username,profile_image_url', {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    })
+    const data = await r.json().catch(() => ({}))
+    const user = data?.data
+    if (user?.id) {
+      return {
+        external_account_id: user.id,
+        display_name: user.name || user.username || 'X User',
+        handle: user.username ? `@${user.username}` : null,
+        avatar_url: user.profile_image_url || null,
+        capabilities: providerCapabilities('x'),
+        token_expires_at: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000).toISOString() : null,
+      }
+    }
+    throw new Error(data?.detail || 'Could not fetch X profile.')
+  }
+
   throw new Error(`Profile fetch not implemented for ${provider}`)
 }
 
@@ -445,16 +541,29 @@ export async function socialOAuthFetchProfile(provider, tokens) {
 // Page/channel/profile the provider authorized and let the dealer choose one.
 export async function socialOAuthDiscoverAccounts(provider, tokens) {
   const p = String(provider || '').toLowerCase()
-  if (p === 'facebook') {
-    const r = await fetch(`https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username,name}&access_token=${encodeURIComponent(tokens.access_token)}`)
-    const data = await r.json().catch(() => ({}))
-    if (!r.ok || data.error) throw new Error(data.error?.message || 'Could not discover Meta Pages.')
-    return (data.data || []).flatMap(page => {
-      const pageToken = { ...tokens, access_token: page.access_token || tokens.access_token, refresh_token: page.access_token || tokens.refresh_token }
-      const rows = [{ external_account_id: page.id, display_name: page.name || 'Facebook Page', handle: null, account_kind: 'page', capabilities: providerCapabilities('facebook'), _credentials: pageToken }]
+  if (p === 'facebook' || p === 'instagram') {
+    let next = `https://graph.facebook.com/${META_GRAPH_VERSION}/me/accounts?fields=id,name,access_token,instagram_business_account{id,username,name}&limit=100&access_token=${encodeURIComponent(tokens.access_token)}`
+    const pages = []
+    for (let pageNumber = 0; next && pageNumber < 10; pageNumber += 1) {
+      const r = await fetch(next)
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok || data.error) throw new Error(data.error?.message || 'Could not discover Meta Pages.')
+      pages.push(...(data.data || []))
+      next = data.paging?.next || null
+    }
+    return pages.flatMap(page => {
+      const pageToken = {
+        ...tokens,
+        access_token: page.access_token || tokens.access_token,
+        refresh_token: tokens.refresh_token || tokens.access_token,
+        user_access_token: tokens.access_token,
+        page_id: page.id,
+      }
+      if (p === 'facebook') {
+        return [{ external_account_id: page.id, display_name: page.name || 'Facebook Page', handle: null, account_kind: 'page', capabilities: providerCapabilities('facebook'), _credentials: pageToken }]
+      }
       const ig = page.instagram_business_account
-      if (ig?.id) rows.push({ external_account_id: ig.id, display_name: ig.name || ig.username || 'Instagram Professional Account', handle: ig.username ? `@${ig.username}` : null, account_kind: 'instagram', capabilities: providerCapabilities('instagram'), _credentials: pageToken })
-      return rows
+      return ig?.id ? [{ external_account_id: ig.id, display_name: ig.name || ig.username || 'Instagram Professional Account', handle: ig.username ? `@${ig.username}` : null, account_kind: 'instagram', capabilities: providerCapabilities('instagram'), _credentials: pageToken }] : []
     })
   }
   const profile = await socialOAuthFetchProfile(p, tokens)
@@ -494,6 +603,8 @@ export async function publishToProvider({ account, body, media = [] }) {
   } catch (e) {
     return {
       ok: false, code: PROVIDER_THREW, retryable: e?.retryable !== false,
+      provider_code: e?.providerCode || null,
+      account_status: e?.accountStatus || null,
       error: `${provider} refused the post: ${e?.message || 'unknown error'}`,
     }
   }
