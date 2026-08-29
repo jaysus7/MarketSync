@@ -409,14 +409,24 @@ export function registerSitePublicRoutes(app) {
     // The room URL is the ONLY thing keeping a stranger out of a customer's appointment.
     const rand = randomToken(12)
     const meetUrl = `https://meet.jit.si/${(d.name || 'dealer').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'dealer'}-${rand}`
+    const campaignId = await resolveCampaignForVisit(d.id, b.campaign_id || b.c)
+    const sourceKey = inferSourceKey(b.utm_source || b.referrer_source || 'Website') || 'website'
 
     try {
       const { data: lead } = await supabaseAdmin.from('leads').insert({
         dealership_id: d.id, name: name || null, email: email || null, phone: phone || null,
         comments: `${kind} booked for ${whenLabel}${vehicleLabel ? ' — ' + vehicleLabel : ''}${notes ? ' · ' + notes : ''}`, source: 'Website', inventory_id,
+        campaign_id: campaignId, source_key: sourceKey,
       }).select('id').single()
       const contactId = await findOrCreateContact({ dealershipId: d.id, name, email, phone, source: 'Website' })
       if (contactId && lead?.id) await supabaseAdmin.from('leads').update({ contact_id: contactId }).eq('id', lead.id)
+      if (contactId) {
+        const attribution = {}
+        if (campaignId) attribution.campaign_id = campaignId
+        if (sourceKey) attribution.source_key = sourceKey
+        if (Object.keys(attribution).length) await supabaseAdmin.from('contacts').update(attribution)
+          .eq('id', contactId).eq('dealership_id', d.id).is('campaign_id', null)
+      }
       const routed = await routeAndNotifyLead(d.id, { contactId, vehicleId: inventory_id || null, name, source: 'Website' })
       const repId = routed?.assignee || null
       await supabaseAdmin.from('contacts').update({ status: 'appointment', updated_at: new Date().toISOString() }).eq('id', contactId)
