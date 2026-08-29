@@ -368,7 +368,7 @@ export function registerSitePublicRoutes(app) {
           } catch (err) { console.warn('[site] chat transcript save failed:', err.message) }
         }
 
-        if (formType === 'reserve') {
+        if (String(b.form_type || '').toLowerCase() === 'reserve') {
           await createNotification({
             dealershipId: d.id, type: 'new_lead',
             title: `Reserve request${name ? ': ' + name : ''}`,
