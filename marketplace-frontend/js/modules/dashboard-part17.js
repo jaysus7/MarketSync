@@ -995,6 +995,7 @@ function renderWsPhotoPickerModal() {
       </div>
 
       <div class="p-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 bg-slate-50 dark:bg-slate-950">
+        ${tabBtn('media', 'My Media')}
         ${tabBtn('pexels', 'Pexels Search')}
         ${tabBtn('inventory', 'Inventory Photos')}
         ${tabBtn('upload', 'Upload File')}
@@ -1005,12 +1006,13 @@ function renderWsPhotoPickerModal() {
       </div>
 
       <div class="p-2.5 border-t border-slate-200 dark:border-slate-800 text-center text-[10px] text-slate-400">
-        ${__wsPhotoActiveTab === 'pexels' ? 'High-quality royalty-free photography provided by Pexels' : (__wsPhotoActiveTab === 'inventory' ? 'Live lot vehicle photos from your inventory' : 'Supported formats: JPG, PNG, WEBP')}
+        ${__wsPhotoActiveTab === 'media' ? 'Your uploaded website media library' : (__wsPhotoActiveTab === 'pexels' ? 'High-quality royalty-free photography provided by Pexels' : (__wsPhotoActiveTab === 'inventory' ? 'Live lot vehicle photos from your inventory' : 'Supported formats: JPG, PNG, WEBP'))}
       </div>
     </div>`;
 
   if (__wsPhotoActiveTab === 'pexels') searchWsPhotoLibrary('car dealership');
   else if (__wsPhotoActiveTab === 'inventory') loadWsInventoryPhotos();
+  else if (__wsPhotoActiveTab === 'media') loadWsMediaLibrary();
 }
 
 function setWsPhotoTab(t) {
@@ -1041,6 +1043,9 @@ function renderWsPhotoTabBody() {
         </div>
       </div>
     `;
+  }
+  if (__wsPhotoActiveTab === 'media') {
+    return `<div class="space-y-3"><div class="flex items-center justify-between"><div class="text-xs text-slate-500 dark:text-slate-400">Uploaded images are reusable across every page.</div><button type="button" onclick="setWsPhotoTab('upload')" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-black">Upload new</button></div><div id="ws-media-grid" class="grid grid-cols-3 gap-2"><div class="col-span-3 py-10 text-center text-xs text-slate-400">Loading your media…</div></div></div>`;
   }
   // Pexels
   return `
@@ -1106,6 +1111,22 @@ async function loadWsInventoryPhotos() {
     box.innerHTML = '<div class="col-span-3 py-10 text-center text-xs text-rose-500">Could not load inventory photos.</div>';
   }
 }
+
+async function loadWsMediaLibrary() {
+  const box = document.getElementById('ws-media-grid');
+  if (!box) return;
+  try {
+    const data = await apiGetJson('/dealership/site-media', { retries: 1 });
+    const media = data?.media || [];
+    box.innerHTML = media.length ? media.map(m => `<div class="group relative aspect-video rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 hover:border-indigo-500 transition"><button type="button" onclick="pickWsPhoto('${esc(m.public_url)}')" class="w-full h-full"><img src="${esc(m.public_url)}" loading="lazy" class="w-full h-full object-cover"></button><div class="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/80 to-transparent text-[10px] text-white font-bold truncate">${esc(m.filename || 'Website image')}</div><button type="button" onclick="deleteWsMedia('${m.id}')" class="absolute top-1 right-1 hidden group-hover:block rounded-md bg-black/70 px-1.5 py-1 text-[10px] text-white">Delete</button></div>`).join('') : '<div class="col-span-3 py-10 text-center text-xs text-slate-400 italic">No uploaded website media yet.</div>';
+  } catch { box.innerHTML = '<div class="col-span-3 py-10 text-center text-xs text-rose-500">Could not load your media library.</div>'; }
+}
+async function deleteWsMedia(id) {
+  if (!confirm('Delete this uploaded image from the media library?')) return;
+  try { await apiSendJson(`/dealership/site-media/${encodeURIComponent(id)}`, 'DELETE', {}); loadWsMediaLibrary(); showToast('Media deleted', 'success'); } catch (e) { showToast(e.message || 'Could not delete media', 'error'); }
+}
+window.loadWsMediaLibrary = loadWsMediaLibrary;
+window.deleteWsMedia = deleteWsMedia;
 
 window.openWsPhotoPicker = openWsPhotoPicker;
 
@@ -1595,14 +1616,24 @@ const SEC_META = {
 };
 const SEC_ORDER = ['hero','feature_cards','two_col','cards','featured_inventory','text_image','body_style','payment_calc','ad_banner','inventory_grid','trade_cta','finance_cta','service_cta','staff','reviews','faq','blog','gallery','map','contact','cta_banner','html'];
 
+// Versioned builder document shape. Older flat sections are upgraded in memory;
+// the next draft/publish writes the richer document back to the revision store.
+function normalizeWsSection(section, parentId = null) {
+  const s = section && typeof section === 'object' ? section : {};
+  const id = s.id || `sec_${Math.random().toString(36).slice(2, 10)}`;
+  const responsive = s.responsive && typeof s.responsive === 'object' ? s.responsive : {};
+  return { ...s, id, parent_id: s.parent_id || parentId, settings: { ...(s.settings || {}) }, repeaters: { ...(s.repeaters || {}) }, responsive: { desktop: { ...(responsive.desktop || {}) }, tablet: { ...(responsive.tablet || {}) }, mobile: { ...(responsive.mobile || {}) } }, children: Array.isArray(s.children) ? s.children.map(child => normalizeWsSection(child, id)) : [] };
+}
+function normalizeWsSections(sections) { return (Array.isArray(sections) ? sections : []).map(s => normalizeWsSection(s)); }
+
 async function loadWebsitePage() {
   applyBuilderTheme();
   const root = document.getElementById('website-root');
   if (!root) return;
   root.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div>';
   try { __siteCfg = await apiGetJson('/dealership/site'); } catch (e) { root.innerHTML = `<div class="py-16 text-center text-sm text-slate-500">Couldn't load: ${esc(e.message)}</div>`; return; }
-  __homeSections = Array.isArray(__siteCfg.content?.sections) ? __siteCfg.content.sections.slice() : [];
-  __sitePages = Array.isArray(__siteCfg.content?.pages) ? __siteCfg.content.pages.map(p => ({ id: p.id || ('pg' + Math.random().toString(36).slice(2, 9)), ...p, sections: Array.isArray(p.sections) ? p.sections : [] })) : [];
+  __homeSections = normalizeWsSections(__siteCfg.content?.sections);
+  __sitePages = Array.isArray(__siteCfg.content?.pages) ? __siteCfg.content.pages.map(p => ({ id: p.id || ('pg' + Math.random().toString(36).slice(2, 9)), ...p, sections: normalizeWsSections(p.sections) })) : [];
   __menuOrder = Array.isArray(__siteCfg.content?.menu_order) ? __siteCfg.content.menu_order.slice() : [];
   __siteStaff = Array.isArray(__siteCfg.content?.staff) ? __siteCfg.content.staff.slice() : [];
   __siteBuiltins = normBuiltins(__siteCfg.content?.builtins);
@@ -1824,8 +1855,9 @@ function renderWebsitePage() {
         <!-- TOP RIGHT ACTION CONTROLS -->
         <div class="flex items-center gap-2">
           ${url ? `<a href="${url}" target="_blank" class="text-xs font-black bg-[var(--ws-panel-raised)] text-[var(--ws-text-muted)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl transition">View Site ↗</a>` : ''}
-          <label class="flex items-center gap-1.5 text-xs font-bold text-[var(--ws-text-muted)] cursor-pointer bg-[var(--ws-panel-raised)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl"><input id="ws-pub" type="checkbox" ${__siteCfg.site_published ? 'checked' : ''} class="accent-indigo-600 w-3.5 h-3.5 rounded">Published</label>
-          <button onclick="saveWebsite(this)" class="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-xl transition shadow-md cursor-pointer">Save Changes</button>
+          <button onclick="wsOpenRevisions()" class="text-xs font-black bg-[var(--ws-panel-raised)] hover:bg-[var(--ws-hover-bg)] text-[var(--ws-text)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl transition">History</button>
+          <button onclick="saveWebsite(this,'draft')" class="text-xs font-black bg-[var(--ws-panel-raised)] hover:bg-[var(--ws-hover-bg)] text-[var(--ws-text)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl transition">Save Draft</button>
+          <button onclick="saveWebsite(this,'publish')" class="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-xl transition shadow-md cursor-pointer">Publish</button>
         </div>
       </div>
 
@@ -2208,7 +2240,7 @@ function wsDesign() {
 }
 window.wsDesign = wsDesign;
 
-async function saveWebsite(btn) {
+async function saveWebsite(btn, action = 'draft') {
   if (!__siteCfg) return;
   wsFlushTarget();
   const c = __siteCfg.content || {};
@@ -2876,6 +2908,16 @@ function renderWsRightInspectorContent() {
   } else if (__wsInspectorTab === 'layout') {
     return `
       <div class="space-y-4 text-xs">
+        <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3 space-y-2">
+          <div class="flex items-center justify-between"><span class="font-black">Responsive layout</span><span class="text-[10px] uppercase tracking-wider text-indigo-400">${__wsActiveDeviceView}</span></div>
+          <div class="grid grid-cols-3 gap-1.5">
+            ${['desktop','tablet','mobile'].map(d => `<button type="button" onclick="setWsDeviceView('${d}')" class="px-2 py-1.5 rounded-lg text-[10px] font-black ${__wsActiveDeviceView === d ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-950 text-slate-500'}">${d}</button>`).join('')}
+          </div>
+          <label class="block text-[11px] font-bold">Content width (${__wsActiveDeviceView})</label>
+          <select onchange="setSecResponsive(${i},'content_width',this.value)" class="w-full liquid-glass-input px-3 py-2 text-xs text-slate-950 dark:text-white"><option value="full" ${getSecResponsive(i,'content_width') === 'full' ? 'selected' : ''}>Full width</option><option value="wide" ${getSecResponsive(i,'content_width') === 'wide' ? 'selected' : ''}>Wide</option><option value="contained" ${(!getSecResponsive(i,'content_width') || getSecResponsive(i,'content_width') === 'contained') ? 'selected' : ''}>Contained</option></select>
+          <label class="block text-[11px] font-bold">Vertical padding (${__wsActiveDeviceView})</label>
+          <input type="range" min="0" max="180" step="4" value="${getSecResponsive(i,'padding_y') || 64}" oninput="setSecResponsive(${i},'padding_y',+this.value); this.nextElementSibling.textContent=this.value+'px'" class="w-full accent-indigo-600"><span class="text-[10px] text-slate-400">${getSecResponsive(i,'padding_y') || 64}px</span>
+        </div>
         <div class="space-y-1.5">
           <label class="block font-bold text-slate-900 dark:text-slate-100 text-xs mb-1">Section Height</label>
           <select onchange="setSec(${i},'height',this.value)" class="w-full liquid-glass-input px-3 py-2 text-xs text-slate-950 dark:text-white font-semibold">
@@ -3200,6 +3242,7 @@ function renderWsSections() {
         <button onclick="moveSection(${i},-1)" ${i === 0 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-30 px-1" title="Move up"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
         <button onclick="moveSection(${i},1)" ${i === __siteSections.length - 1 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-30 px-1" title="Move down"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button>
         <button onclick="dupSection(${i})" class="text-slate-400 hover:text-slate-700 px-1" title="Duplicate"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+        <button onclick="addChildSection(${i})" class="text-slate-400 hover:text-indigo-500 px-1 text-xs font-black" title="Add nested component">＋</button>
         <button onclick="delSection(${i})" class="text-rose-500 hover:text-rose-600 px-1" title="Delete"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="p-3 grid sm:grid-cols-2 gap-2">${(SEC_META[sec.type]?.fields || []).map(f => wsField(i, sec, f)).join('')}</div>
@@ -3287,6 +3330,8 @@ function wsField(i, sec, [key, label, type]) {
   // element on the canvas — keep it on the wrapper so the label highlights too.
   return `<div class="${wide}" data-ws-field="${key}">${lbl}${input}</div>`;
 }
+function getSecResponsive(i, key) { const s = __siteSections?.[i]; return s?.responsive?.[__wsActiveDeviceView]?.[key] ?? s?.responsive?.desktop?.[key] ?? ''; }
+function setSecResponsive(i, key, val) { const s = __siteSections?.[i]; if (!s) return; s.responsive = s.responsive || { desktop: {}, tablet: {}, mobile: {} }; s.responsive[__wsActiveDeviceView] = s.responsive[__wsActiveDeviceView] || {}; s.responsive[__wsActiveDeviceView][key] = val; refreshWebsitePreview(); refreshWsRightInspector(); }
 function setSec(i, key, val) { if (__siteSections[i]) { __siteSections[i].settings = __siteSections[i].settings || {}; __siteSections[i].settings[key] = val; refreshWebsitePreview(); } }
 function setSecFaq(i, key, text) { const items = text.split('\n').map(l => { const [q, ...a] = l.split('::'); return { q: (q || '').trim(), a: a.join('::').trim() }; }).filter(x => x.q); setSec(i, key, items); }
 function setSecReviews(i, key, text) { const items = text.split('\n').map(l => { const p = l.split('::'); const author = (p[0] || '').trim(); const rating = Math.max(1, Math.min(5, parseInt(p[1]) || 5)); const body = p.slice(2).join('::').trim(); return { author, rating, text: body }; }).filter(x => x.author || x.text); setSec(i, key, items); }
@@ -3356,6 +3401,7 @@ function addSection(type) {
 }
 function moveSection(i, dir) { const j = i + dir; if (j < 0 || j >= __siteSections.length) return; const [s] = __siteSections.splice(i, 1); __siteSections.splice(j, 0, s); renderWsSections(); }
 function dupSection(i) { __siteSections.splice(i + 1, 0, JSON.parse(JSON.stringify(__siteSections[i]))); renderWsSections(); }
+function addChildSection(i) { const parent = __siteSections?.[i]; if (!parent) return; parent.children = Array.isArray(parent.children) ? parent.children : []; parent.children.push(normalizeWsSection({ id: `child_${Date.now()}`, type: 'text_image', settings: { title: 'Nested component', body: 'Add supporting content here.' } }, parent.id)); renderWsSections(); }
 function delSection(i) { __siteSections.splice(i, 1); renderWsSections(); }
 const WS_PALETTES = [
   ['Chevy Blue', '#0b2a5b', '#0a1a33', '#d4af37'],
@@ -3849,20 +3895,38 @@ async function saveWebsite(btn) {
   collectMenu(); collectSiteStaff();      // no-op unless that tab is currently rendered
   wsFlushTarget();                        // push the active buffer onto home / its page
   const body = {
+    content: { ...c, sections: __homeSections, pages: __sitePages.filter(p => (p.title || '').trim()), staff: __siteStaff.filter(m => (m.name || '').trim()), builtins: Object.keys(__siteBuiltins).length ? __siteBuiltins : defaultBuiltins(), menu_order: __menuOrder },
     sections: __homeSections,
     pages: __sitePages.filter(p => (p.title || '').trim()),
     staff: __siteStaff.filter(m => (m.name || '').trim()),
     builtins: Object.keys(__siteBuiltins).length ? __siteBuiltins : defaultBuiltins(),
     menu_order: __menuOrder,
-    site_published: document.getElementById('ws-pub')?.checked || false,
+    builder_action: action,
+    change_summary: action === 'publish' ? 'Published website builder changes' : 'Saved website builder draft',
+    site_published: action === 'publish',
     primary_color: c.primary_color, secondary_color: c.secondary_color, accent_color: c.accent_color, typography: c.typography,
     heading_font: c.heading_font || '', body_font: c.body_font || '', hero_photos: !!c.hero_photos,
     theme: c.theme || 'classic',
   };
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
-  try { await apiSendJson('/dealership/site', 'PUT', body); try { localStorage.removeItem(`ms_ws_recovery:${__siteCfg.site_slug}`); } catch {} markWsSaved(); showToast('Website saved', 'success'); btn.disabled = false; btn.textContent = orig; }
+  try { const result = await apiSendJson('/dealership/site', 'PUT', body); try { localStorage.removeItem(`ms_ws_recovery:${__siteCfg.site_slug}`); } catch {} if (action === 'publish') __siteCfg.site_published = true; markWsSaved(); showToast(action === 'publish' ? 'Website published' : `Draft saved${result?.revision?.number ? ` · revision ${result.revision.number}` : ''}`, 'success'); btn.disabled = false; btn.textContent = orig; }
   catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message, 'error'); }
 }
+async function wsOpenRevisions() {
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4';
+  modal.innerHTML = `<div class="ws-revision-modal w-full max-w-xl max-h-[80vh] overflow-hidden rounded-2xl border border-[var(--ws-border)] bg-[var(--ws-panel)] text-[var(--ws-text)] shadow-2xl"><div class="flex items-center justify-between px-5 py-4 border-b border-[var(--ws-border)]"><div><h3 class="font-black">Version history</h3><p class="text-xs text-[var(--ws-text-muted)] mt-0.5">Restore a previous draft without changing production.</p></div><button type="button" class="text-2xl leading-none text-[var(--ws-text-muted)]" data-close>&times;</button></div><div class="p-5 text-sm text-[var(--ws-text-muted)]">Loading revisions…</div></div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('[data-close]').onclick = () => modal.remove();
+  try {
+    const data = await apiGetJson('/dealership/site/revisions', { retries: 1 });
+    const rows = data?.revisions || [];
+    const body = modal.querySelector('.p-5');
+    body.innerHTML = rows.length ? rows.map(r => `<div class="flex items-center justify-between gap-3 py-3 border-b border-[var(--ws-border)] last:border-0"><div><div class="font-bold">Revision ${r.revision_number} <span class="text-[10px] uppercase tracking-wider opacity-70">${r.state}</span></div><div class="text-xs text-[var(--ws-text-muted)]">${esc(r.change_summary || 'Website update')} · ${new Date(r.created_at).toLocaleString()}</div></div>${r.state === 'published' ? '<span class="text-[10px] font-black uppercase text-emerald-400">Production</span>' : `<button type="button" data-restore="${r.id}" class="px-3 py-1.5 rounded-lg border border-[var(--ws-border)] text-xs font-black hover:bg-[var(--ws-hover-bg)]">Restore draft</button>`}</div>`).join('') : '<div class="py-8 text-center">No saved revisions yet.</div>';
+    body.querySelectorAll('[data-restore]').forEach(btn => btn.onclick = async () => { btn.disabled = true; btn.textContent = 'Restoring…'; try { await apiSendJson(`/dealership/site/revisions/${btn.dataset.restore}/restore`, 'POST', {}); modal.remove(); await loadWebsitePage(); showToast('Revision restored as a draft', 'success'); } catch (e) { btn.disabled = false; btn.textContent = 'Restore draft'; showToast(e.message, 'error'); } });
+  } catch (e) { modal.querySelector('.p-5').innerHTML = `<div class="py-8 text-center text-rose-400">Could not load version history.</div>`; }
+}
+window.wsOpenRevisions = wsOpenRevisions;
 //  AI-per-section: Boost / Fresh / Short / Long / SEO on any copy field, plus a
 // SEO title-with-hook option on titles and link-insertion on description copy.
 const AI_RICH_KINDS = ['about', 'body', 'text', 'description', 'paragraph', 'intro'];

@@ -31,6 +31,11 @@
     .prose h3{font-size:1.2rem;font-weight:700;margin:.9em 0 .3em;color:#0f172a}
     .prose p{margin:0 0 1em} .prose ul{list-style:disc;padding-left:1.4em;margin:0 0 1em} .prose li{margin:.25em 0}
     .prose a{color:var(--brand);text-decoration:underline}
+    [data-ms-responsive]{width:100%}
+    [data-ms-responsive] > section{max-width:var(--ms-content-width,100%);margin-left:auto;margin-right:auto}
+    @media (min-width:769px){[data-ms-responsive] > section{padding-top:var(--ms-py-d,0px)!important;padding-bottom:var(--ms-py-d,0px)!important}}
+    @media (min-width:481px) and (max-width:768px){[data-ms-responsive] > section{padding-top:var(--ms-py-t,0px)!important;padding-bottom:var(--ms-py-t,0px)!important}}
+    @media (max-width:480px){[data-ms-responsive] > section{padding-top:var(--ms-py-m,0px)!important;padding-bottom:var(--ms-py-m,0px)!important}}
   </style>
 </head>
 <body class="bg-slate-50 text-slate-900 ms-glass-site">
@@ -492,8 +497,14 @@
     }
 
     // ── Section-based page builder (public render) ─────────────────────────────
+    function sectionTreeHtml(sec){
+      const r=sec?.responsive||{}, d=r.desktop||{}, t=r.tablet||{}, m=r.mobile||{};
+      const children=Array.isArray(sec?.children)?sec.children.map(sectionTreeHtml).join(''):'';
+      const width=d.content_width==='full'?'100%':(d.content_width==='wide'?'88%':'min(1200px, calc(100% - 3rem))');
+      return `<div data-ms-responsive="1" style="--ms-content-width:${esc(width)};--ms-py-d:${Number(d.padding_y)||64}px;--ms-py-t:${Number(t.padding_y||d.padding_y)||64}px;--ms-py-m:${Number(m.padding_y||t.padding_y||d.padding_y)||64}px">${sectionHtml(sec)}${children}</div>`;
+    }
     function renderSections(el, secs){
-      el.innerHTML = secs.map(sectionHtml).join('');
+      el.innerHTML = secs.map(sectionTreeHtml).join('');
       if(typeof PREVIEW!=='undefined'&&PREVIEW) requestAnimationFrame(markPreviewSections);
     }
     function ctaTarget(t,link){ if(t==='link'&&link) return `onclick="window.open('${esc(link)}','_blank')"`; const v={trade:'trade',finance:'finance',contact:'inquiry',inquiry:'inquiry',inventory:'inventory',build:'build',team:'team'}[t]||'inquiry'; return `onclick="go('${v}')"`; }

@@ -112,6 +112,30 @@ function publicRep(p) {
 
 const slugify = (s) => String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
 
+// Builder persistence is revision-first. The branding JSON remains the published
+// compatibility projection for the existing renderer, while draft edits live here
+// and cannot leak onto the public site until explicitly published.
+async function latestDealerWebsiteRevision(dealershipId, state) {
+  try {
+    const { data, error } = await supabaseAdmin.from('dealer_website_revisions')
+      .select('*').eq('dealership_id', dealershipId).eq('state', state)
+      .order('revision_number', { ascending: false }).limit(1).maybeSingle()
+    if (error) return null
+    return data || null
+  } catch { return null }
+}
+async function saveDealerWebsiteRevision({ dealershipId, content, state = 'draft', createdBy = null, changeSummary = 'Website builder update', baseRevisionId = null }) {
+  try {
+    const { data: latest } = await supabaseAdmin.from('dealer_website_revisions').select('revision_number')
+      .eq('dealership_id', dealershipId).order('revision_number', { ascending: false }).limit(1).maybeSingle()
+    const revisionNumber = Number(latest?.revision_number || 0) + 1
+    if (state === 'published') await supabaseAdmin.from('dealer_website_revisions').update({ state: 'archived' }).eq('dealership_id', dealershipId).eq('state', 'published')
+    const { data, error } = await supabaseAdmin.from('dealer_website_revisions').insert({ dealership_id: dealershipId, revision_number: revisionNumber, state, content, base_revision_id: baseRevisionId, change_summary: changeSummary, created_by: createdBy, published_at: state === 'published' ? new Date().toISOString() : null }).select('*').single()
+    if (error) return null
+    return data
+  } catch { return null }
+}
+
 // Derive a unique site_slug from the dealership name (de-duplicated with a numeric
 // suffix). Safe to call for a still-unpublished site: every public-facing route also
 // requires site_published, so an auto-assigned slug on its own exposes nothing.
@@ -579,6 +603,8 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     // assign one automatically here — draft/unpublished, so nothing becomes publicly
     // reachable until the dealer explicitly publishes.
     if (!d.site_slug) d.site_slug = await autoAssignSlug(req.dealershipId, d.name)
+    const draftRevision = await latestDealerWebsiteRevision(req.dealershipId, 'draft')
+    const publishedRevision = await latestDealerWebsiteRevision(req.dealershipId, 'published')
     res.json({
       site_slug: d.site_slug || null,
       site_published: !!d.site_published,
@@ -586,8 +612,30 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       custom_domain_verified: !!d.custom_domain_verified,
       domain_target: SITE_HOST,   // where the dealer points their CNAME
       can_manage: true,
-      content: siteContent(d),
+      // Draft is the editor source; public rendering continues to use the
+      // dealership branding projection until a publish action promotes it.
+      content: draftRevision?.content || siteContent(d),
+      revision: draftRevision ? { id: draftRevision.id, number: draftRevision.revision_number, state: draftRevision.state, created_at: draftRevision.created_at } : null,
+      published_revision: publishedRevision ? { id: publishedRevision.id, number: publishedRevision.revision_number, published_at: publishedRevision.published_at } : null,
     })
+  })
+
+  app.get('/dealership/site/revisions', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    try {
+      const { data, error } = await supabaseAdmin.from('dealer_website_revisions').select('id, revision_number, state, change_summary, created_by, created_at, published_at').eq('dealership_id', req.dealershipId).order('revision_number', { ascending: false }).limit(80)
+      if (error) throw error
+      res.json({ revisions: data || [] })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.post('/dealership/site/revisions/:id/restore', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    try {
+      const { data: source, error } = await supabaseAdmin.from('dealer_website_revisions').select('content, revision_number').eq('id', req.params.id).eq('dealership_id', req.dealershipId).single()
+      if (error || !source) return res.status(404).json({ error: 'Revision not found' })
+      const restored = await saveDealerWebsiteRevision({ dealershipId: req.dealershipId, content: source.content, state: 'draft', createdBy: req.user?.id, baseRevisionId: req.params.id, changeSummary: `Restored revision ${source.revision_number}` })
+      if (!restored) return res.status(500).json({ error: 'Could not restore revision' })
+      res.status(201).json({ revision: { id: restored.id, number: restored.revision_number, state: restored.state } })
+    } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
   // ── ADMIN: update slug / publish / site content ────────────────────────────
@@ -599,6 +647,20 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     const rawBody = req.body || {}
     const b = { ...(rawBody.content && typeof rawBody.content === 'object' ? rawBody.content : {}), ...rawBody }
     const update = {}
+    const { data: currentSite } = await supabaseAdmin.from('dealerships').select('name, branding, site_slug, site_published, city, province, postal_code, website_url').eq('id', req.dealershipId).maybeSingle()
+    const builderAction = ['draft', 'publish'].includes(rawBody.builder_action) ? rawBody.builder_action : null
+    let revisionSaved = false
+    let revisionInfo = null
+    if (builderAction) {
+      const base = siteContent(currentSite || { name: 'Dealership', branding: {} })
+      const content = { ...base, ...(rawBody.content && typeof rawBody.content === 'object' ? rawBody.content : {}) }
+      for (const key of ['sections', 'pages', 'staff', 'builtins', 'menu_order', 'primary_color', 'secondary_color', 'accent_color', 'typography', 'heading_font', 'body_font', 'hero_photos', 'theme', 'seo_title', 'seo_description', 'seo_keywords', 'discovery_summary', 'discovery_terms', 'discovery_intents', 'discovery_enabled']) {
+        if (rawBody[key] !== undefined) content[key] = rawBody[key]
+      }
+      const saved = await saveDealerWebsiteRevision({ dealershipId: req.dealershipId, content, state: builderAction === 'publish' ? 'published' : 'draft', createdBy: req.user?.id, changeSummary: rawBody.change_summary || (builderAction === 'publish' ? 'Published website builder changes' : 'Saved website builder draft'), baseRevisionId: rawBody.base_revision_id || null })
+      revisionSaved = !!saved
+      revisionInfo = saved ? { id: saved.id, number: saved.revision_number, state: saved.state } : null
+    }
 
     if (b.site_slug !== undefined) {
       const slug = String(b.site_slug || '').toLowerCase().trim()
@@ -610,7 +672,9 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
         update.site_slug = slug
       } else update.site_slug = null
     }
-    if (b.site_published !== undefined) update.site_published = !!b.site_published
+    // A draft is editor state only. Never unpublish the live site just because
+    // the builder sent its current draft toggle as false.
+    if (b.site_published !== undefined && !(builderAction === 'draft' && revisionSaved)) update.site_published = !!b.site_published
 
     // Auto-assign a web address the first time a site is published (e.g. right after a
     // template is applied) so it goes live immediately without the dealer hand-picking a
@@ -656,7 +720,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
 
     // Merge site content into the shared branding jsonb (don't wipe sticker fields).
     const contentKeys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color', 'accent_color', 'facebook_url', 'instagram_url', 'typography', 'heading_font', 'body_font', 'hero_photos', 'seo_title', 'seo_description', 'seo_keywords', 'seo_image', 'discovery_summary', 'discovery_terms', 'discovery_intents', 'discovery_enabled']
-    const touchesContent = contentKeys.some(k => b[k] !== undefined) || b.inventory_source !== undefined || b.theme !== undefined || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined || b.builtins !== undefined || b.menu_order !== undefined || b.sales_chat !== undefined || b.chat_name !== undefined || b.chat_kb !== undefined || b.chat_instructions !== undefined || b.chat_disclaimer !== undefined
+    const touchesContent = (!revisionSaved || builderAction === 'publish') && (contentKeys.some(k => b[k] !== undefined) || b.inventory_source !== undefined || b.theme !== undefined || b.head_html !== undefined || b.widgets !== undefined || b.pages !== undefined || b.sections !== undefined || b.staff !== undefined || b.build_makes !== undefined || b.builtins !== undefined || b.menu_order !== undefined || b.sales_chat !== undefined || b.chat_name !== undefined || b.chat_kb !== undefined || b.chat_instructions !== undefined || b.chat_disclaimer !== undefined)
     if (touchesContent) {
       const { data: cur } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
       const branding = { ...(cur?.branding || {}) }
@@ -684,11 +748,11 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       update.branding = branding
     }
 
-    if (!Object.keys(update).length) return res.json({ ok: true })
+    if (!Object.keys(update).length) return res.json({ ok: true, revision: revisionInfo })
     const { error } = await supabaseAdmin.from('dealerships').update(update).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
     audit(req, 'site.configuration_updated', { after_state: { fields: Object.keys(update), site_published: update.site_published, site_slug: update.site_slug, custom_domain: update.custom_domain } })
-    res.json({ ok: true, site_slug: update.site_slug, site_published: update.site_published, custom_domain: update.custom_domain, domain_target: SITE_HOST })
+    res.json({ ok: true, site_slug: update.site_slug, site_published: update.site_published, custom_domain: update.custom_domain, domain_target: SITE_HOST, revision: revisionInfo })
   })
 
   // ── ADMIN: check whether the dealer's custom domain now points at us ─────────

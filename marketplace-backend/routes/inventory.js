@@ -302,7 +302,44 @@ export function registerRoutes(app) {
     const { error: upErr } = await supabaseAdmin.storage.from('vehicle-photos').upload(path, webp, { contentType: 'image/webp', upsert: false })
     if (upErr) return res.status(500).json({ error: upErr.message })
     const { data: { publicUrl } } = supabaseAdmin.storage.from('vehicle-photos').getPublicUrl(path)
+    // Keep an indexed library record alongside the storage object so the builder
+    // can reuse uploaded media without asking dealers to paste URLs around.
+    const metadata = await sharp(webp).metadata().catch(() => ({}))
+    await supabaseAdmin.from('dealer_website_media').insert({
+      dealership_id: req.dealershipId,
+      filename: req.file.originalname || `site-image-${Date.now()}.webp`,
+      storage_path: path,
+      public_url: publicUrl,
+      mime_type: 'image/webp',
+      file_size_bytes: webp.length,
+      width: metadata.width || null,
+      height: metadata.height || null,
+      created_by: req.user?.id || null,
+    }).catch(() => {})
     res.json({ ok: true, url: publicUrl })
+  })
+
+  // Private dealership-scoped media index used by the Website Builder library.
+  // The underlying bucket object remains governed by Supabase storage policies;
+  // these endpoints never expose another dealership's rows.
+  app.get('/dealership/site-media', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data, error } = await supabaseAdmin.from('dealer_website_media').select('*')
+      .eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(200)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ media: data || [] })
+  })
+  app.delete('/dealership/site-media/:id', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: media, error: readError } = await supabaseAdmin.from('dealer_website_media').select('id, storage_path')
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (readError) return res.status(500).json({ error: readError.message })
+    if (!media) return res.status(404).json({ error: 'Media not found' })
+    const { error: storageError } = await supabaseAdmin.storage.from('vehicle-photos').remove([media.storage_path])
+    if (storageError) return res.status(500).json({ error: storageError.message })
+    const { error } = await supabaseAdmin.from('dealer_website_media').delete().eq('id', media.id).eq('dealership_id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true })
   })
 
   // GET /inventory/:id/carfax — resolve the Carfax report link for a vehicle by
