@@ -3364,6 +3364,10 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 #ms-studio-master-modal .studio-shape-art svg { width: 40px; height: 40px; display: block; }
 #ms-studio-master-modal .studio-shape-card:hover .studio-shape-art { color: #1d4ed8; transform: scale(1.08); }
 #ms-studio-master-modal .studio-shape-card:focus-visible { outline: 3px solid rgba(37,99,235,.35); outline-offset: 2px; }
+#ms-studio-master-modal .studio-icon-card { min-width: 0; }
+#ms-studio-master-modal .studio-icon-art { width: 44px; height: 44px; display: block; }
+#ms-studio-master-modal .studio-icon-card:hover .studio-icon-art { transform: scale(1.08); }
+#ms-studio-master-modal .studio-icon-card:focus-visible { outline: 3px solid rgba(37,99,235,.35); outline-offset: 2px; }
 #ms-studio-master-modal .studio-template-preview { position: relative; width: 100%; overflow: hidden; background-position: center; }
 #ms-studio-master-modal .studio-template-preview img { display: block; max-width: none; }
 #ms-studio-master-modal .studio-template-preview > div { pointer-events: none; }
