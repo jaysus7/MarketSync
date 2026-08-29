@@ -611,10 +611,14 @@ function renderStudioToolPanelContent(tool) {
   }
   if (tool === 'layers') {
     const objects = window.__studioAdapter?.fabricCanvas?.getObjects?.() || [];
+    const renderLayer = (object, path, depth = 0) => {
+      const label = object.msData?.name || object.text || `${object.type || 'Object'}`;
+      const children = object.type === 'group' ? object.getObjects().map((child, index) => renderLayer(child, `${path}.${index}`, depth + 1)).join('') : '';
+      return `<button type="button" onclick="selectStudioLayerPath('${path}')" class="w-full flex items-center gap-2 px-2 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600/30 border border-slate-300 dark:border-slate-700 text-left text-xs font-bold text-slate-900 dark:text-white" style="padding-left:${8 + depth * 14}px"><span class="text-[10px] text-sky-400">${object.type === 'group' ? '◇' : object.type === 'textbox' ? 'T' : object.type === 'image' ? '▧' : '○'}</span><span class="truncate">${escS(label)}</span></button>${children}`;
+    };
     const rows = objects.slice().reverse().map((object, reversedIndex) => {
       const index = objects.length - reversedIndex - 1;
-      const label = object.msData?.name || object.text || `${object.type || 'Object'} ${index + 1}`;
-      return `<button type="button" onclick="selectStudioLayer(${index})" class="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600/30 border border-slate-300 dark:border-slate-700 text-left text-xs font-bold text-slate-900 dark:text-white"><span class="text-[10px] text-sky-400">${object.type === 'textbox' ? 'T' : object.type === 'image' ? '▧' : '◇'}</span><span class="truncate">${escS(label)}</span></button>`;
+      return renderLayer(object, String(index));
     }).join('');
     const structures = window.__studioAdapter?.currentScene?.components || [];
     return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Layers</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Select and reorder the current page. Groups and component children remain part of the document model.</p></div><div class="grid grid-cols-2 gap-2"><button type="button" onclick="addStudioStructure('component')" class="px-2 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-[10px] font-black text-white">+ Component</button><button type="button" onclick="addStudioStructure('repeater')" class="px-2 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-[10px] font-black text-white">+ Repeater</button></div><div class="space-y-1.5 max-h-[55vh] overflow-y-auto">${rows || '<p class="text-xs text-slate-500">No layers yet.</p>'}</div>${structures.length ? `<div class="pt-2 border-t border-slate-800"><div class="text-[10px] font-black uppercase text-sky-400 mb-1">Structured elements</div>${structures.map(item => `<div class="text-xs text-slate-300 py-1">${item.type === 'repeater' ? '↻' : '◇'} ${escS(item.name)}</div>`).join('')}</div>` : ''}</div>`;
@@ -738,6 +742,14 @@ function selectStudioLayer(index) {
   window.__studioAdapter?.onSelectionChange([object]);
 }
 window.selectStudioLayer = selectStudioLayer;
+function selectStudioLayerPath(path) {
+  const canvas = window.__studioAdapter?.fabricCanvas; if (!canvas) return;
+  const parts = String(path).split('.').map(Number); let object = canvas.getObjects()[parts.shift()];
+  for (const part of parts) object = object?.type === 'group' ? object.getObjects()[part] : null;
+  if (!object) return;
+  canvas.discardActiveObject(); canvas.setActiveObject(object); canvas.requestRenderAll(); window.__studioAdapter?.onSelectionChange([object]);
+}
+window.selectStudioLayerPath = selectStudioLayerPath;
 
 function addStudioStructure(type) {
   const adapter = window.__studioAdapter;
@@ -764,6 +776,7 @@ function renderStudioInspectorHtml(selected) {
     <h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-3">Property Inspector</h3>
     <div class="space-y-3">
       <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3">
+        <label class="text-[10px] font-bold text-slate-500">Layer name<input value="${escS(object?.msData?.name || '')}" placeholder="Untitled layer" onchange="renameStudioLayer(this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label>
         <div class="grid grid-cols-2 gap-2"><label class="text-[10px] font-bold text-slate-500">X<input type="number" value="${Math.round(object?.left || 0)}" onchange="studioSetObjectGeometry('left', this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label><label class="text-[10px] font-bold text-slate-500">Y<input type="number" value="${Math.round(object?.top || 0)}" onchange="studioSetObjectGeometry('top', this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label><label class="text-[10px] font-bold text-slate-500">Width<input type="number" value="${Math.round(object?.getScaledWidth?.() || object?.width || 0)}" onchange="studioSetObjectGeometry('width', this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label><label class="text-[10px] font-bold text-slate-500">Height<input type="number" value="${Math.round(object?.getScaledHeight?.() || object?.height || 0)}" onchange="studioSetObjectGeometry('height', this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label></div>
         <div><label class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Colour</label><input type="color" value="${color}" onchange="studioSetObjectStyle('color', this.value)" class="mt-1 w-full h-9 rounded-lg bg-transparent cursor-pointer"></div>
         <div><div class="flex justify-between"><label class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Transparency</label><span id="studio-opacity-value" class="text-[11px] text-sky-400">${100-opacity}%</span></div><input type="range" min="0" max="100" value="${opacity}" oninput="document.getElementById('studio-opacity-value').textContent=(100-Number(this.value))+'%'" onchange="studioSetObjectStyle('opacity', Number(this.value)/100)" class="w-full accent-blue-500"></div>
@@ -925,6 +938,12 @@ function studioSetObjectGeometry(property, value) {
   object.setCoords(); window.__studioAdapter?.fabricCanvas?.requestRenderAll(); window.__studioAdapter?.saveHistory();
 }
 window.studioSetObjectGeometry = studioSetObjectGeometry;
+function renameStudioLayer(name) {
+  const object = window.__studioAdapter?.fabricCanvas?.getActiveObject(); if (!object) return;
+  object.msData = { ...(object.msData || {}), name: String(name || 'Untitled layer').slice(0, 120) };
+  window.__studioAdapter.saveHistory(); window.__studioAdapter.onSelectionChange([object]);
+}
+window.renameStudioLayer = renameStudioLayer;
 
 function setStudioPage(pageId) { window.__studioAdapter?.setPage(pageId); }
 window.setStudioPage = setStudioPage;
