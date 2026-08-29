@@ -605,6 +605,17 @@ function openSetupModal(secId) {
             <input type="text" id="m-site-legal" value="${esc(c.legal_name || '')}" placeholder="Premier Automotive Group Inc." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white" />
           </div>
         </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1">Category</label>
+            <input id="bp-category" value="${esc(p.category || '')}" placeholder="Service, Inventory, Community" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1">Schedule publishing <span class="font-normal text-[11px] normal-case">(optional)</span></label>
+            <input id="bp-scheduled-at" type="datetime-local" value="${p.scheduled_at ? esc(new Date(p.scheduled_at).toISOString().slice(0, 16)) : ''}" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
         <div>
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Tagline / Slogan</label>
           <input type="text" id="m-site-tagline" value="${esc(c.tagline || 'Niagara’s Premier Truck Destination')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white" />
@@ -4469,7 +4480,7 @@ function renderDealerBlog() {
       <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">${esc(p.title)}</div>
         <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">/${esc(p.slug)}${p.excerpt ? ' · ' + esc(p.excerpt) : ''}</div></div>
       ${p.automation_id || p.source === 'automation' || p.generated_by ? '<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 flex-shrink-0">Automated</span>' : ''}
-      <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${p.status === 'published' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'} flex-shrink-0">${p.status === 'published' ? 'Published' : 'Draft'}</span>
+      <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${p.status === 'published' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : (p.status === 'scheduled' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800')} flex-shrink-0">${p.status === 'published' ? 'Published' : (p.status === 'scheduled' ? `Scheduled${p.scheduled_at ? ' · ' + esc(new Date(p.scheduled_at).toLocaleDateString()) : ''}` : 'Draft')}</span>
       <button onclick="dealerBlogEdit('${p.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold flex-shrink-0">Edit</button>
       <button onclick="dealerBlogDelete('${p.id}')" class="text-[12px] font-bold text-rose-500 flex-shrink-0">Delete</button>
     </div>`).join('');
@@ -4578,6 +4589,7 @@ function dealerBlogModal(p) {
         <div class="flex items-center gap-2">
           <button data-close class="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition">Cancel</button>
           <button onclick="dealerBlogSave('${p.id || ''}','draft')" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-black hover:bg-slate-200 dark:hover:bg-slate-700 transition">Save Draft</button>
+          <button onclick="dealerBlogSave('${p.id || ''}','scheduled')" class="px-4 py-2 rounded-xl bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-xs font-black hover:bg-violet-200 dark:hover:bg-violet-900/60 transition">Schedule</button>
           <button onclick="dealerBlogSave('${p.id || ''}','published')" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition shadow-md">${p.status === 'published' ? 'Update &amp; Publish' : 'Publish Article'}</button>
         </div>
       </div>
@@ -4713,6 +4725,8 @@ window.dealerBlogSave = async (id, status) => {
     title: document.getElementById('bp-title').value.trim(),
     slug: document.getElementById('bp-slug').value.trim(),
     excerpt: document.getElementById('bp-excerpt').value.trim(),
+    category: document.getElementById('bp-category')?.value.trim() || null,
+    scheduled_at: document.getElementById('bp-scheduled-at')?.value ? new Date(document.getElementById('bp-scheduled-at').value).toISOString() : null,
     content_html: contentHtml,
     cover_image_url: document.getElementById('bp-cover').value || null,
     tags: document.getElementById('bp-tags').value.split(',').map(s => s.trim()).filter(Boolean),
@@ -4724,7 +4738,7 @@ window.dealerBlogSave = async (id, status) => {
     else await apiSendJson('/dealership/blog', 'POST', payload);
     document.getElementById('blog-modal')?.remove();
     await loadDealerBlog();
-    showToast(status === 'published' ? 'Post published' : 'Draft saved', 'success');
+    showToast(status === 'published' ? 'Post published' : (status === 'scheduled' ? 'Post scheduled' : 'Draft saved'), 'success');
   } catch (e) { showToast(e.message || 'Could not save', 'error'); }
 };
 window.dealerBlogDelete = async (id) => {
