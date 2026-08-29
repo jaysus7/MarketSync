@@ -1285,7 +1285,7 @@ function renderSocialAccountsView(container) {
         <p class="text-xs text-slate-500">Connect and manage dealership Facebook Pages, Instagram Business, LinkedIn, TikTok, and X profiles.</p>
       </div>
 
-      <div id="studio-social-list" class="space-y-3">
+      <div id="studio-social-list-page" class="space-y-3">
         <div class="text-xs text-slate-400 italic py-4">Loading accounts…</div>
       </div>
     </div>
@@ -1545,7 +1545,10 @@ async function studioSchedulerUploadMedia(input) {
 window.studioSchedulerUploadMedia = studioSchedulerUploadMedia;
 
 async function studioSocialConnectionsRender() {
-  const list = document.getElementById('studio-social-list');
+  // Design Studio has a legacy hidden connection card with its own list. The
+  // Scheduler renders a second, visible list; prefer it so duplicate markup
+  // can never leave the visible page stuck on “Loading accounts…”.
+  const list = document.getElementById('studio-social-list-page') || document.getElementById('studio-social-list');
   if (!list) return;
   const renderAccounts = (accounts) => {
     const platformKeys = ['facebook', 'instagram', 'linkedin', 'tiktok', 'youtube'];
