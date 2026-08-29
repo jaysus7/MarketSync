@@ -147,7 +147,30 @@ X_CLIENT_SECRET
 Implemented publishing: text posts using OAuth 2.0 Authorization Code with state-bound S256
 PKCE. Media upload remains disabled and is never presented as a successful publish.
 
-## 7. Final production verification
+## 7. Pinterest
+
+Render variables:
+
+```text
+PINTEREST_APP_ID
+PINTEREST_APP_SECRET
+```
+
+1. Use a company-owned Pinterest Business account and open Pinterest Developers > My apps.
+2. Create the MarketSync app and request Pinterest API access. Production customer accounts
+   require an approved access tier; a Sandbox or Trial token is only for controlled testing.
+3. Add `${API_URL}/social/callback/pinterest` as an exact redirect URI.
+4. Request `boards:read`, `boards:write`, `pins:read`, `pins:write`, and
+   `user_accounts:read`.
+5. Copy the App ID and App Secret into Render and redeploy.
+6. In MarketSync, connect Pinterest and choose the specific board that should receive Pins.
+   Connect additional boards separately when the dealership publishes to more than one.
+
+Implemented publishing: one public HTTPS image per Pin, with the MarketSync caption mapped to
+the Pin title/description. Scheduled posts use MarketSync's durable queue. Pinterest video and
+multi-image formats remain disabled and are reported honestly instead of claiming success.
+
+## 8. Final production verification
 
 For each provider:
 

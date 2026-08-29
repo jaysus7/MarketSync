@@ -22,13 +22,14 @@ export const META_GRAPH_VERSION = process.env.META_GRAPH_VERSION || 'v23.0'
 export const LINKEDIN_API_VERSION = process.env.LINKEDIN_API_VERSION || '202604'
 
 // The networks the product talks about.
-export const KNOWN_PROVIDERS = ['facebook', 'instagram', 'tiktok', 'linkedin', 'x', 'youtube']
+export const KNOWN_PROVIDERS = ['facebook', 'instagram', 'pinterest', 'tiktok', 'linkedin', 'x', 'youtube']
 
 export const SOCIAL_CAPABILITIES = {
   // Capabilities describe what MarketSync currently implements, not everything each vendor
   // sells. This keeps the composer from offering a button that will fail at publish time.
   facebook: { can_publish_text: true, can_publish_image: true, can_publish_video: false, can_read_comments: false, can_read_insights: false },
   instagram: { can_publish_text: false, can_publish_image: true, can_publish_video: true, can_read_comments: false, can_read_insights: false },
+  pinterest: { can_publish_text: false, can_publish_image: true, can_publish_video: false, can_read_comments: false, can_read_insights: false },
   tiktok: { can_publish_text: false, can_publish_image: false, can_publish_video: false, can_read_comments: false, can_read_insights: false },
   youtube: { can_publish_text: false, can_publish_image: false, can_publish_video: false, can_read_comments: false, can_read_insights: false },
   linkedin: { can_publish_text: true, can_publish_image: false, can_publish_video: false, can_read_comments: false, can_read_insights: false },
@@ -80,6 +81,11 @@ export function socialOAuthConfig(provider) {
   if (p === 'linkedin') {
     const id = process.env.LINKEDIN_CLIENT_ID || ''
     const secret = process.env.LINKEDIN_CLIENT_SECRET || ''
+    return { id, secret, configured: !!(id && secret) }
+  }
+  if (p === 'pinterest') {
+    const id = process.env.PINTEREST_APP_ID || process.env.PINTEREST_CLIENT_ID || ''
+    const secret = process.env.PINTEREST_APP_SECRET || process.env.PINTEREST_CLIENT_SECRET || ''
     return { id, secret, configured: !!(id && secret) }
   }
   if (p === 'youtube') {
@@ -184,6 +190,16 @@ export function socialOAuthAuthorizeUrl(provider, state) {
     })
     return `https://www.linkedin.com/oauth/v2/authorization?${q}`
   }
+  if (p === 'pinterest') {
+    const q = new URLSearchParams({
+      client_id: cfg.id,
+      redirect_uri,
+      state,
+      response_type: 'code',
+      scope: 'boards:read,boards:write,pins:read,pins:write,user_accounts:read',
+    })
+    return `https://www.pinterest.com/oauth/?${q}`
+  }
   if (p === 'youtube') {
     const q = new URLSearchParams({
       client_id: cfg.id,
@@ -283,6 +299,33 @@ export async function socialOAuthExchangeCode(provider, code, { state } = {}) {
     }
   }
 
+  if (p === 'pinterest') {
+    const basic = Buffer.from(`${cfg.id}:${cfg.secret}`).toString('base64')
+    const r = await fetch('https://api.pinterest.com/v5/oauth/token', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${basic}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri,
+        continuous_refresh: 'true',
+      }),
+    })
+    const data = await r.json().catch(() => ({}))
+    if (!r.ok || data.error) throw new Error(data.message || data.error_description || data.error || 'Failed to exchange Pinterest OAuth code')
+    return {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      token_type: data.token_type || 'bearer',
+      expires_in: Number(data.expires_in || 2592000),
+      refresh_token_expires_in: Number(data.refresh_token_expires_in || 0) || null,
+      scope: data.scope || null,
+    }
+  }
+
   if (p === 'youtube') {
     const r = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -370,12 +413,15 @@ export async function socialOAuthRefreshToken(provider, refreshToken) {
     body = null
   } else if (p === 'linkedin') {
     url = 'https://www.linkedin.com/oauth/v2/accessToken'
+  } else if (p === 'pinterest') {
+    url = 'https://api.pinterest.com/v5/oauth/token'
+    body = { grant_type: 'refresh_token', refresh_token: refreshToken }
   } else if (p === 'x' || p === 'twitter') {
     url = 'https://api.x.com/2/oauth2/token'
     body = { grant_type: 'refresh_token', refresh_token: refreshToken, client_id: cfg.id }
   }
   const headers = body ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}
-  if ((p === 'x' || p === 'twitter') && cfg.secret) headers.Authorization = `Basic ${Buffer.from(`${cfg.id}:${cfg.secret}`).toString('base64')}`
+  if ((p === 'x' || p === 'twitter' || p === 'pinterest') && cfg.secret) headers.Authorization = `Basic ${Buffer.from(`${cfg.id}:${cfg.secret}`).toString('base64')}`
   const r = await fetch(url, { method: body ? 'POST' : 'GET', headers, body: body ? new URLSearchParams(body) : undefined })
   const data = await r.json().catch(() => ({}))
   if (!r.ok || data.error) throw new Error(data.error_description || data.error?.message || data.message || 'Token refresh failed.')
@@ -477,6 +523,22 @@ export async function socialOAuthFetchProfile(provider, tokens) {
     throw new Error('Could not fetch LinkedIn profile.')
   }
 
+  if (p === 'pinterest') {
+    const r = await fetch('https://api.pinterest.com/v5/user_account', {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    })
+    const user = await r.json().catch(() => ({}))
+    if (!r.ok || user?.code || !user?.username) throw new Error(user?.message || 'Could not fetch Pinterest profile.')
+    return {
+      external_account_id: user.username,
+      display_name: user.business_name || user.username || 'Pinterest Account',
+      handle: user.username ? `@${user.username}` : null,
+      avatar_url: user.profile_image || null,
+      capabilities: providerCapabilities('pinterest'),
+      token_expires_at: tokens.expires_in ? new Date(Date.now() + Number(tokens.expires_in) * 1000).toISOString() : null,
+    }
+  }
+
   if (p === 'youtube') {
     const r = await fetch('https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true', {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
@@ -565,6 +627,36 @@ export async function socialOAuthDiscoverAccounts(provider, tokens) {
       const ig = page.instagram_business_account
       return ig?.id ? [{ external_account_id: ig.id, display_name: ig.name || ig.username || 'Instagram Professional Account', handle: ig.username ? `@${ig.username}` : null, account_kind: 'instagram', capabilities: providerCapabilities('instagram'), _credentials: pageToken }] : []
     })
+  }
+  if (p === 'pinterest') {
+    const profile = await socialOAuthFetchProfile('pinterest', tokens)
+    let next = 'https://api.pinterest.com/v5/boards?page_size=250'
+    const boards = []
+    for (let pageNumber = 0; next && pageNumber < 10; pageNumber += 1) {
+      const r = await fetch(next, { headers: { Authorization: `Bearer ${tokens.access_token}` } })
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok || data?.code) throw new Error(data?.message || 'Could not discover Pinterest boards.')
+      boards.push(...(data.items || []))
+      next = data.bookmark
+        ? `https://api.pinterest.com/v5/boards?page_size=250&bookmark=${encodeURIComponent(data.bookmark)}`
+        : null
+    }
+    if (!boards.length) throw new Error('No Pinterest boards are available. Create a board in Pinterest, then reconnect it.')
+    return boards.filter(board => board?.id).map(board => ({
+      external_account_id: String(board.id),
+      display_name: board.name || 'Pinterest Board',
+      handle: profile.handle,
+      avatar_url: board.media?.image_cover_url || profile.avatar_url || null,
+      account_kind: 'board',
+      capabilities: providerCapabilities('pinterest'),
+      token_expires_at: profile.token_expires_at,
+      _credentials: {
+        ...tokens,
+        pinterest_username: String(profile.handle || '').replace(/^@/, ''),
+        pinterest_board_id: String(board.id),
+        pinterest_board_name: board.name || null,
+      },
+    }))
   }
   const profile = await socialOAuthFetchProfile(p, tokens)
   return [{ ...profile, account_kind: p, _credentials: tokens }]

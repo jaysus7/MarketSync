@@ -2267,7 +2267,7 @@ function switchPage(pageId) {
       .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-store.js?v=20260829_v1'))
       .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-autosave.js?v=20260829_v1'))
       .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260818_fontfamily_v1'))
-      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260826_digital_pages_v3'))
+      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260829_pinterest_v1'))
       .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-shell.js?v=20260826_studio_tp_v1'))
       .then(() => { if (typeof openMarketSyncStudio === 'function') openMarketSyncStudio(); });
   }
@@ -2275,7 +2275,7 @@ function switchPage(pageId) {
     const bootSched = () => { if (typeof loadSocialSchedulerPage === 'function') loadSocialSchedulerPage(); };
     if (typeof loadSocialSchedulerPage === 'function') bootSched();
     else if (window.msLoadScript) {
-      Promise.resolve(window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260826_sched_load_v1'))
+      Promise.resolve(window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260829_pinterest_v1'))
         .then(bootSched).catch(bootSched);
     }
   }
@@ -2535,7 +2535,7 @@ window.ensureOpenMarketSyncStudio = function ensureOpenMarketSyncStudio(designId
           'js/design-studio/state/document-schema.js', 'js/design-studio/state/history-store.js', 'js/design-studio/state/studio-store.js', 'js/design-studio/editor/canvas-engine.js', 'js/design-studio/editor/selection-engine.js', 'js/design-studio/editor/transform-engine.js', 'js/design-studio/editor/snapping-engine.js', 'js/design-studio/editor/keyboard-engine.js', 'js/design-studio/panels/layers-panel.js', 'js/design-studio/panels/properties-panel.js', 'js/design-studio/panels/assets-panel.js', 'js/design-studio/panels/templates-panel.js', 'js/design-studio/panels/brand-panel.js', 'js/design-studio/panels/pages-panel.js', 'js/design-studio/panels/history-panel.js', 'js/design-studio/services/autosave-service.js', 'js/design-studio/services/version-service.js', 'js/design-studio/services/media-service.js', 'js/design-studio/services/export-service.js', 'js/design-studio/services/publishing-service.js', 'js/design-studio/services/ai-service.js', 'js/design-studio/studio-shell.js'
         ].map(path => window.msLoadScript(`${path}?v=20260829_arch`))))
         .then(() => window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260818_fontfamily_v1'))
-        .then(() => window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260826_digital_pages_v3'))
+        .then(() => window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260829_pinterest_v1'))
         .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260826_studio_tp_v1'))
     : Promise.resolve();
   return Promise.resolve(load).then(() => {

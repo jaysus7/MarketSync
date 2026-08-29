@@ -89,6 +89,10 @@ services:
         sync: false
       - key: X_CLIENT_SECRET
         sync: false
+      - key: PINTEREST_APP_ID
+        sync: false
+      - key: PINTEREST_APP_SECRET
+        sync: false
       # Email + data providers
       - key: RESEND_API_KEY
         sync: false

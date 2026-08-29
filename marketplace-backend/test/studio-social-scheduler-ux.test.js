@@ -20,13 +20,15 @@ test('studioSchedulerCompose closes Design Studio and routes to the standalone S
   assert.match(dashboardHtml, /data-page-content="social-scheduler"/)
 })
 
-test('Social Account Settings uses separate platform cards for Facebook, Instagram, LinkedIn, TikTok, YouTube', () => {
+test('Social Account Settings uses separate platform cards for every supported network, including Pinterest', () => {
   assert.match(studioSchedulerJs, /const STUDIO_SOCIAL_PLATFORMS/)
   assert.match(studioSchedulerJs, /facebook:/)
   assert.match(studioSchedulerJs, /instagram:/)
+  assert.match(studioSchedulerJs, /pinterest:/)
   assert.match(studioSchedulerJs, /linkedin:/)
   assert.match(studioSchedulerJs, /tiktok:/)
   assert.match(studioSchedulerJs, /youtube:/)
+  assert.match(studioSchedulerJs, /x:/)
   // No platform select dropdown used for multi-provider pick
   assert.doesNotMatch(studioSchedulerJs, /<select id="ssc-provider"/)
 })

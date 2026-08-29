@@ -1154,7 +1154,7 @@ ENGINES['marketing-overview'] = {
       body.innerHTML = `<div id="mkt-scheduler-mount" class="text-sm text-slate-500">Opening scheduler…</div>`;
       const render = () => { if (typeof loadSocialSchedulerPage === 'function') loadSocialSchedulerPage(); };
       if (typeof loadSocialSchedulerPage === 'function') render();
-      else if (window.msLoadScript) window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260826_sched_load_v1').then(render).catch(render);
+      else if (window.msLoadScript) window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260829_pinterest_v1').then(render).catch(render);
       else render();
     },
 
@@ -1774,6 +1774,7 @@ window.loadMarketingWorkspace = loadMarketingWorkspace;
 window.__msSocialChannelStates = window.__msSocialChannelStates || {
   facebook: { key: 'facebook', name: 'Facebook Page', sub: 'Meta Business Suite', iconBg: 'bg-blue-600', iconTxt: 'f', connected: true, handle: 'demo.dealership.page' },
   instagram: { key: 'instagram', name: 'Instagram Business', sub: 'Feed & Reels API', iconBg: 'bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600', iconTxt: 'IG', connected: true, handle: '@demodealership' },
+  pinterest: { key: 'pinterest', name: 'Pinterest Board', sub: 'Organic Pins API', iconBg: 'bg-red-600', iconTxt: 'P', connected: false, handle: '' },
   linkedin: { key: 'linkedin', name: 'LinkedIn Company', sub: 'Organization Page', iconBg: 'bg-sky-700', iconTxt: 'in', connected: false, handle: '' },
   google: { key: 'google', name: 'Google Business', sub: 'Maps & Local Updates', iconBg: 'bg-emerald-600', iconTxt: 'G', connected: true, handle: 'Academy Demo Dealership' },
   tiktok: { key: 'tiktok', name: 'TikTok Business', sub: 'Video Content API', iconBg: 'bg-slate-950', iconTxt: 'TT', connected: false, handle: '' },

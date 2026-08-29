@@ -199,6 +199,44 @@ export function createFacebookAdapter() {
   }
 }
 
+export function createPinterestAdapter() {
+  return {
+    async publish({ account, body, media }) {
+      const token = requireCredentials(account)
+      const items = (Array.isArray(media) ? media : []).filter(mediaUrl)
+      if (!items.length) throw new ProviderRequestError('Pinterest requires one image.', { retryable: false })
+      if (items.length > 1) throw new ProviderRequestError('Pinterest multi-image Pins are not enabled yet. Choose one image.', { retryable: false })
+
+      const image = publicHttpsUrl(items[0]).href
+      if (mediaKind(items[0]) === 'video') {
+        throw new ProviderRequestError('Pinterest video publishing is not enabled yet. Choose an image.', { retryable: false })
+      }
+      const description = String(body || '').trim().slice(0, 800)
+      const title = (description.split(/\r?\n/).find(Boolean) || 'MarketSync').slice(0, 100)
+      const { data } = await requestJson('https://api.pinterest.com/v5/pins', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          board_id: String(account.external_account_id),
+          title,
+          description,
+          alt_text: title,
+          media_source: {
+            source_type: 'image_url',
+            url: image,
+            is_standard: true,
+          },
+        }),
+      }, 'Pinterest refused the Pin.')
+      if (!data?.id) throw new ProviderRequestError('Pinterest returned no published Pin id.', { retryable: true })
+      return { external_post_id: data.id, url: `https://www.pinterest.com/pin/${data.id}/` }
+    },
+  }
+}
+
 export function createLinkedInAdapter() {
   return {
     async publish({ account, body, media }) {
@@ -250,6 +288,7 @@ export function registerProductionSocialProviders() {
   const providers = [
     ['facebook', createFacebookAdapter],
     ['instagram', createInstagramAdapter],
+    ['pinterest', createPinterestAdapter],
     ['linkedin', createLinkedInAdapter],
     ['x', createXAdapter],
   ]

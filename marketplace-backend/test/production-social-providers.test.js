@@ -10,9 +10,16 @@ import {
   createFacebookAdapter,
   createInstagramAdapter,
   createLinkedInAdapter,
+  createPinterestAdapter,
   createXAdapter,
 } from '../providers/production-social-providers.js'
-import { socialOAuthAuthorizeUrl, xPkceChallenge } from '../providers/social-providers.js'
+import {
+  socialOAuthAuthorizeUrl,
+  socialOAuthDiscoverAccounts,
+  socialOAuthExchangeCode,
+  socialOAuthRefreshToken,
+  xPkceChallenge,
+} from '../providers/social-providers.js'
 
 const ACCOUNT = {
   provider: 'instagram',
@@ -75,6 +82,35 @@ test('Facebook text publishing returns the provider post id', async () => {
   } finally { global.fetch = original }
 })
 
+test('Pinterest publishes an image Pin to the selected board', async () => {
+  const original = global.fetch
+  global.fetch = async (url, init) => {
+    assert.equal(String(url), 'https://api.pinterest.com/v5/pins')
+    assert.equal(init.headers.Authorization, 'Bearer encrypted-token-was-decrypted-server-side')
+    const payload = JSON.parse(init.body)
+    assert.equal(payload.board_id, 'board-123')
+    assert.equal(payload.title, 'Fresh arrival')
+    assert.equal(payload.description, 'Fresh arrival\n2026 MarketSync test vehicle')
+    assert.deepEqual(payload.media_source, {
+      source_type: 'image_url',
+      url: 'https://cdn.example.com/vehicle.jpg',
+      is_standard: true,
+    })
+    return json({ id: 'pin-987' }, 201)
+  }
+  try {
+    const result = await createPinterestAdapter().publish({
+      account: { ...ACCOUNT, provider: 'pinterest', external_account_id: 'board-123' },
+      body: 'Fresh arrival\n2026 MarketSync test vehicle',
+      media: ['https://cdn.example.com/vehicle.jpg'],
+    })
+    assert.deepEqual(result, {
+      external_post_id: 'pin-987',
+      url: 'https://www.pinterest.com/pin/pin-987/',
+    })
+  } finally { global.fetch = original }
+})
+
 test('LinkedIn and X refuse unimplemented media instead of pretending it published', async () => {
   await assert.rejects(createLinkedInAdapter().publish({ account: { ...ACCOUNT, provider: 'linkedin' }, body: 'hello', media: ['https://cdn.example.com/a.jpg'] }), /not enabled yet/)
   await assert.rejects(createXAdapter().publish({ account: { ...ACCOUNT, provider: 'x' }, body: 'hello', media: ['https://cdn.example.com/a.jpg'] }), /not enabled yet/)
@@ -95,6 +131,73 @@ test('Instagram OAuth requests publishing and Page-read permissions', () => {
     if (previousId === undefined) delete process.env.META_APP_ID; else process.env.META_APP_ID = previousId
     if (previousSecret === undefined) delete process.env.META_APP_SECRET; else process.env.META_APP_SECRET = previousSecret
   }
+})
+
+test('Pinterest OAuth requests board and Pin permissions with continuous refresh', async () => {
+  const previousId = process.env.PINTEREST_APP_ID
+  const previousSecret = process.env.PINTEREST_APP_SECRET
+  const original = global.fetch
+  process.env.PINTEREST_APP_ID = 'pinterest-app-id'
+  process.env.PINTEREST_APP_SECRET = 'pinterest-app-secret'
+  try {
+    const url = new URL(socialOAuthAuthorizeUrl('pinterest', 'signed-state'))
+    assert.equal(url.origin + url.pathname, 'https://www.pinterest.com/oauth/')
+    const scopes = new Set(String(url.searchParams.get('scope')).split(','))
+    for (const permission of ['boards:read', 'boards:write', 'pins:read', 'pins:write', 'user_accounts:read']) {
+      assert.ok(scopes.has(permission), `missing ${permission}`)
+    }
+
+    global.fetch = async (requestUrl, init) => {
+      assert.equal(String(requestUrl), 'https://api.pinterest.com/v5/oauth/token')
+      assert.equal(init.headers.Authorization, `Basic ${Buffer.from('pinterest-app-id:pinterest-app-secret').toString('base64')}`)
+      assert.equal(init.body.get('continuous_refresh'), 'true')
+      return json({ access_token: 'pina-token', refresh_token: 'pinr-token', expires_in: 2592000 })
+    }
+    const tokens = await socialOAuthExchangeCode('pinterest', 'oauth-code')
+    assert.equal(tokens.access_token, 'pina-token')
+    assert.equal(tokens.refresh_token, 'pinr-token')
+
+    global.fetch = async (requestUrl, init) => {
+      assert.equal(String(requestUrl), 'https://api.pinterest.com/v5/oauth/token')
+      assert.equal(init.body.get('grant_type'), 'refresh_token')
+      assert.equal(init.body.get('refresh_token'), 'pinr-token')
+      return json({ access_token: 'pina-refreshed', refresh_token: 'pinr-refreshed', expires_in: 2592000 })
+    }
+    const refreshed = await socialOAuthRefreshToken('pinterest', 'pinr-token')
+    assert.equal(refreshed.access_token, 'pina-refreshed')
+    assert.equal(refreshed.refresh_token, 'pinr-refreshed')
+  } finally {
+    global.fetch = original
+    if (previousId === undefined) delete process.env.PINTEREST_APP_ID; else process.env.PINTEREST_APP_ID = previousId
+    if (previousSecret === undefined) delete process.env.PINTEREST_APP_SECRET; else process.env.PINTEREST_APP_SECRET = previousSecret
+  }
+})
+
+test('Pinterest discovery returns each authorized board as a selectable account', async () => {
+  const original = global.fetch
+  const calls = []
+  global.fetch = async (url) => {
+    calls.push(String(url))
+    if (String(url).endsWith('/user_account')) {
+      return json({ username: 'marketsyncdealer', business_name: 'MarketSync Dealer', profile_image: 'https://cdn.example.com/avatar.jpg' })
+    }
+    if (String(url).includes('/boards?')) {
+      return json({ items: [
+        { id: 'board-1', name: 'New Inventory', media: { image_cover_url: 'https://cdn.example.com/cover.jpg' } },
+        { id: 'board-2', name: 'Service Tips' },
+      ], bookmark: null })
+    }
+    return json({ message: 'unexpected request' }, 400)
+  }
+  try {
+    const choices = await socialOAuthDiscoverAccounts('pinterest', { access_token: 'pina-token', refresh_token: 'pinr-token', expires_in: 2592000 })
+    assert.deepEqual(choices.map(choice => [choice.external_account_id, choice.display_name, choice.handle, choice.account_kind]), [
+      ['board-1', 'New Inventory', '@marketsyncdealer', 'board'],
+      ['board-2', 'Service Tips', '@marketsyncdealer', 'board'],
+    ])
+    assert.equal(choices[0]._credentials.pinterest_board_id, 'board-1')
+    assert.ok(calls.some(url => url.includes('/boards?page_size=250')))
+  } finally { global.fetch = original }
 })
 test('X OAuth uses a state-bound S256 PKCE challenge', () => {
   const previousId = process.env.X_CLIENT_ID
