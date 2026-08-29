@@ -136,6 +136,23 @@ async function saveDealerWebsiteRevision({ dealershipId, content, state = 'draft
   } catch { return null }
 }
 
+async function promoteDealerWebsiteContent(dealershipId, content) {
+  const { data: current, error: readError } = await supabaseAdmin.from('dealerships').select('branding').eq('id', dealershipId).single()
+  if (readError) throw readError
+  const branding = { ...(current?.branding || {}) }
+  const source = content && typeof content === 'object' ? content : {}
+  const keys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color', 'accent_color', 'facebook_url', 'instagram_url', 'typography', 'heading_font', 'body_font', 'hero_photos', 'seo_title', 'seo_description', 'seo_keywords', 'seo_image', 'discovery_summary', 'discovery_terms', 'discovery_intents', 'discovery_enabled']
+  for (const key of keys) if (source[key] !== undefined) branding[key] = source[key]
+  if (source.pages !== undefined) branding.site_pages = cleanPages(source.pages)
+  if (source.staff !== undefined) branding.site_team = cleanStaff(source.staff)
+  if (source.builtins !== undefined) branding.site_builtins = cleanBuiltins(source.builtins)
+  if (source.menu_order !== undefined) branding.site_menu_order = cleanMenuOrder(source.menu_order)
+  if (source.sections !== undefined) branding.site_sections = cleanSections(source.sections)
+  if (source.theme !== undefined) branding.site_theme = SITE_THEMES.includes(source.theme) ? source.theme : 'classic'
+  const { error } = await supabaseAdmin.from('dealerships').update({ branding, site_published: true }).eq('id', dealershipId)
+  if (error) throw error
+}
+
 // Derive a unique site_slug from the dealership name (de-duplicated with a numeric
 // suffix). Safe to call for a still-unpublished site: every public-facing route also
 // requires site_published, so an auto-assigned slug on its own exposes nothing.
@@ -636,6 +653,28 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       const restored = await saveDealerWebsiteRevision({ dealershipId: req.dealershipId, content: source.content, state: 'draft', createdBy: req.user?.id, baseRevisionId: req.params.id, changeSummary: `Restored revision ${source.revision_number}` })
       if (!restored) return res.status(500).json({ error: 'Could not restore revision' })
       res.status(201).json({ revision: { id: restored.id, number: restored.revision_number, state: restored.state } })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.post('/dealership/site/deployments/:id/rollback', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    try {
+      const { data: deployment, error: deploymentError } = await supabaseAdmin.from('website_deployments').select('id, site_id, published_summary').eq('id', req.params.id).eq('site_id', req.dealershipId).single()
+      if (deploymentError || !deployment) return res.status(404).json({ error: 'Deployment not found' })
+      const revisionId = deployment.published_summary?.revision_id
+      if (!revisionId) return res.status(400).json({ error: 'This deployment has no restorable revision' })
+      const { data: source, error: sourceError } = await supabaseAdmin.from('dealer_website_revisions').select('content, revision_number, state').eq('id', revisionId).eq('dealership_id', req.dealershipId).single()
+      if (sourceError || !source) return res.status(404).json({ error: 'Published revision not found' })
+      const restored = await saveDealerWebsiteRevision({ dealershipId: req.dealershipId, content: source.content, state: 'published', createdBy: req.user?.id, baseRevisionId: revisionId, changeSummary: `Rolled back to revision ${source.revision_number}` })
+      if (!restored) return res.status(500).json({ error: 'Could not create rollback revision' })
+      await promoteDealerWebsiteContent(req.dealershipId, source.content)
+      const now = new Date().toISOString()
+      const { data: rollbackDeployment } = await supabaseAdmin.from('website_deployments').insert({
+        site_id: req.dealershipId, trigger_type: 'rollback', status: 'verified',
+        published_summary: { revision_id: restored.id, revision_number: restored.revision_number, rollback_source_revision_id: revisionId, change_summary: `Rolled back to revision ${source.revision_number}` },
+        deployed_at: now, verified_at: now, verified_status: 'Database-backed public site state confirmed', created_by: req.user?.id,
+      }).select('id, status, trigger_type, published_summary, deployed_at, verified_at, verified_status').single()
+      audit(req, 'site.rollback', { after_state: { source_revision_id: revisionId, published_revision_id: restored.id } })
+      res.status(201).json({ ok: true, revision: { id: restored.id, number: restored.revision_number, state: restored.state }, deployment: rollbackDeployment || null })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
