@@ -1640,16 +1640,19 @@ const SAAS_DEPARTMENTS = {
     { page: 'saas-onboarding', label: 'Onboarding' },
     { page: 'saas-followups', label: 'Customer Health' },
   ] },
-  people:         { label: 'Users',          icon: 'users',    accent: 'market', always: true, pages: [
-    { page: 'owner-users', label: 'Accounts & access' },
-    { page: 'saas-all-users', label: 'All Users' },
-    { page: 'saas-roles', label: 'HQ Roles' },
-    { page: 'saas-employees', label: 'HQ Staff' },
+  website:        { label: 'Website',        icon: 'globe',    accent: 'market', always: true, pages: [
+    { page: 'saas-website', label: 'Overview' },
   ] },
   money:          { label: 'Revenue',        icon: 'currency', accent: 'market', always: true, pages: [
     { page: 'saas-billing', label: 'Billing' },
     { page: 'saas-accounting', label: 'Company money' },
     { page: 'saas-products', label: 'Product Catalog' },
+  ] },
+  people:         { label: 'Users',          icon: 'users',    accent: 'market', always: true, pages: [
+    { page: 'owner-users', label: 'Accounts & access' },
+    { page: 'saas-all-users', label: 'All Users' },
+    { page: 'saas-roles', label: 'HQ Roles' },
+    { page: 'saas-employees', label: 'HQ Staff' },
   ] },
   platform:       { label: 'Platform',       icon: 'bolt',     accent: 'market', always: true, pages: [
     { page: 'saas-agents', label: 'AI Agent Hub' },
