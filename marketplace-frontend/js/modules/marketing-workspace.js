@@ -43,7 +43,10 @@ function buildMarketingSuiteConfig(key) {
       suiteItem('studio', 'Design Studio', 'camera', { studioLaunch: true }),
       suiteItem('social-scheduler', 'Social Studio & Scheduler', 'calendar'),
       suiteItem('video-studio', 'Video', 'video'),
-      suiteItem('automation-builder', 'Email, SMS & Campaigns', 'chat', { tab: 'overview' }),
+      suiteItem('automation-builder', 'Automations', 'bolt', { tab: 'overview' }),
+      suiteItem('marketing-overview', 'Campaigns', 'megaphone', { tab: 'campaigns' }),
+      suiteItem('marketing-overview', 'Templates', 'document', { tab: 'templates' }),
+      suiteItem('marketing-overview', 'Audiences', 'users', { tab: 'audiences' }),
     ];
     const areas = [
       { id: 'pulse', label: 'MarketSync Digital', icon: 'chart', items: [navItems[0]] },
@@ -64,7 +67,7 @@ function buildMarketingSuiteConfig(key) {
       { id: 'design', label: 'Design Studio', icon: 'camera', items: [navItems[5]] },
       { id: 'social', label: 'Social Studio & Scheduler', icon: 'calendar', items: [navItems[6]] },
       { id: 'video', label: 'Video', icon: 'video', items: [navItems[7]] },
-      { id: 'campaigns', label: 'Email, SMS & Campaigns', icon: 'chat', items: [navItems[8]] },
+      { id: 'campaigns', label: 'Campaigns', icon: 'megaphone', items: navItems.slice(8, 12) },
     ];
     return {
       id: key,
@@ -84,8 +87,8 @@ function buildMarketingSuiteConfig(key) {
   // Match MarketSync Digital's feature-style nav: one flat list of product destinations
   // under the suite badge (not nested Marketing/Content groups). Suite-specific hubs
   // (Sales Marketing / Service Marketing) stay as the only package-unique items.
-  // Campaigns / Automations / Email & SMS / Campaign Library collapse into the same
-  // Email, SMS & Campaigns destination Digital uses (tabs live inside that page).
+  // Campaigns, Templates, and Audiences are separate workflows. Email Builder is
+  // content-only and is entered from Templates or as a sub-workflow of Campaigns.
   const navItems = [
     suiteItem('marketing-overview', 'Pulse', 'chart', { tab: 'overview' }),
   ];
@@ -99,7 +102,10 @@ function buildMarketingSuiteConfig(key) {
   }
   navItems.push(
     suiteItem('inventory', 'Facebook Auto Poster', 'megaphone', { invmode: 'facebook' }),
-    suiteItem('automation-builder', 'Email, SMS & Campaigns', 'chat', { tab: 'overview' }),
+    suiteItem('automation-builder', 'Automations', 'bolt', { tab: 'overview' }),
+    suiteItem('marketing-overview', 'Campaigns', 'megaphone', { tab: 'campaigns' }),
+    suiteItem('marketing-overview', 'Templates', 'document', { tab: 'templates' }),
+    suiteItem('marketing-overview', 'Audiences', 'users', { tab: 'audiences' }),
     suiteItem('studio', 'Design Studio', 'camera', { studioLaunch: true }),
     suiteItem('social-scheduler', 'Social Studio & Scheduler', 'calendar'),
     suiteItem('video-studio', 'Video', 'video'),
@@ -834,7 +840,7 @@ function mktModePulse(body, d, mode, cfg, dayCaveat = '') {
       pulseCard({ title: 'Build', tier: 'standard',
         inner: `<div class="flex flex-wrap gap-2 mt-1">
           <button type="button" onclick="openVisualWorkflowBuilder()" class="px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black">Build Automation</button>
-          <button type="button" onclick="openEmailSmsBuilder({mode:'email'})" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">New Campaign</button>
+          <button type="button" onclick="openCampaignBuilder()" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">New Campaign</button>
         </div>` }),
     ])}`;
 }
@@ -982,7 +988,7 @@ ENGINES['marketing-overview'] = {
   reports: [
     { label: 'Marketing ROI', icon: 'chart', onclick: "openDeptReport('marketing')" },
   ],
-  tabLabels: { overview: 'Pulse', sales_overview: 'Sales Marketing', service_overview: 'Service Marketing', automations: 'Automations', campaigns: 'Campaigns', audiences: 'Audiences', performance: 'Performance', studio: 'Design Studio', scheduler: 'Scheduler', 'video-studio': 'Video Studio', chatbot: 'AI ChatBot', website: 'Website' },
+  tabLabels: { overview: 'Pulse', sales_overview: 'Sales Marketing', service_overview: 'Service Marketing', automations: 'Automations', campaigns: 'Campaigns', templates: 'Templates', audiences: 'Audiences', performance: 'Performance', studio: 'Design Studio', scheduler: 'Scheduler', 'video-studio': 'Video Studio', chatbot: 'AI ChatBot', website: 'Website' },
   get tabOrder() {
     const access = (typeof window !== "undefined" && window.__access) ? window.__access : {};
     const feats = access.features || [];
@@ -991,8 +997,9 @@ ENGINES['marketing-overview'] = {
     const has = (...ids) => all || access.isPlatformStaff || ids.some(id => feats.includes(id));
     const base = ['overview'];
     if (has('email.automations', 'os.automations')) base.push('automations');
-    // Email templates have one canonical home inside Email Campaigns.
-    base.push('campaigns', 'audiences');
+    // Campaign orchestration, reusable content, and canonical CRM audiences each
+    // have their own destination. The visual Email Builder is launched from Templates.
+    base.push('campaigns', 'templates', 'audiences');
     // The MarketSync Digital surfaces — shown when the plan grants each product. In
     // DealerOS Complete (full Digital bundle) all four appear; a Core/Pro operational
     // plan without Digital shows none of them.
@@ -1007,8 +1014,8 @@ ENGINES['marketing-overview'] = {
   quickActions: [
     { label: 'Facebook Auto Poster', icon: 'megaphone', onclick: "deptGo('inventory','facebook')" },
     { label: 'New Automation Workflow', icon: 'bolt', onclick: "openAutoCreateModal()" },
-    { label: 'New Campaign', icon: 'megaphone', onclick: "openEmailSmsBuilder()" },
-    { label: 'Create Email Campaign', icon: 'document', onclick: "autoTab('campaigns')" },
+    { label: 'New Campaign', icon: 'megaphone', onclick: "openCampaignBuilder()" },
+    { label: 'Create Email', icon: 'document', onclick: "openEmailSmsBuilder({ mode: 'email', isNewTemplate: true })" },
     { label: 'Audiences & Segments', icon: 'users', onclick: "autoTab('audiences')" },
     { label: 'Deliverability & Health', icon: 'sparkles', onclick: "engineTab('marketing-overview','overview'); setTimeout(()=>document.getElementById('mkt-performance-mount')?.scrollIntoView({behavior:'smooth'}), 80)" },
     { label: 'Design Studio', icon: 'camera', onclick: "engineTab('marketing-overview','studio')" },
@@ -1118,6 +1125,14 @@ ENGINES['marketing-overview'] = {
       const mount = document.getElementById('mkt-campaigns-mount');
       if (mount && typeof renderAutoCampaignsTab === 'function') {
         renderAutoCampaignsTab(mount);
+      }
+    },
+
+    templates(body) {
+      body.innerHTML = `<div id="mkt-templates-mount"></div>`;
+      const mount = document.getElementById('mkt-templates-mount');
+      if (mount && typeof renderAutoTemplatesTab === 'function') {
+        renderAutoTemplatesTab(mount);
       }
     },
 
