@@ -61,13 +61,10 @@ export async function runAutomatedSeoAudit(dealershipId) {
       estimated_impact: 'high',
       recommended_action: 'Generate and publish standard dealership llms.txt.',
       auto_fixable: true,
-      status: 'fixed',
+      status: 'unknown',
     })
-    autoFixesApplied.push({
-      action: 'Generated llms.txt',
-      type: 'Automatic',
-      details: `Generated llms.txt for ${dealer.name} featuring ${dealer.city || 'local'} inventory and service hours.`
-    })
+    // Configuration alone does not prove that the public manifest exists. Keep
+    // this as an observed unknown until a crawler fetches /llms.txt.
   }
 
   // Check 2: Missing Meta Titles / Descriptions on Pages
@@ -83,13 +80,9 @@ export async function runAutomatedSeoAudit(dealershipId) {
         estimated_impact: 'medium',
         recommended_action: `Generate optimized SEO title & description for ${dealer.name} ${page.title || ''}.`,
         auto_fixable: isAutoFixable,
-        status: 'fixed',
+        status: 'pending',
       })
-      autoFixesApplied.push({
-        action: `Auto-filled SEO metadata for /${page.slug}`,
-        type: 'Automatic',
-        details: `Generated default meta title and description for ${page.title || 'Page'}.`
-      })
+      // Do not claim the metadata was applied or validated from a database read.
     }
   }
 
@@ -108,20 +101,10 @@ export async function runAutomatedSeoAudit(dealershipId) {
     })
   }
 
-  // Check 4: Inventory Page Canonical & Schema Audit
-  issues.push({
-    id: `issue-inv-seo`,
-    category: 'AUTO_FIX',
-    title: 'Inventory Page Canonical & Schema Audit',
-    what_happened: 'Active inventory pages require structured Vehicle/Product schema & canonical headers.',
-    why_it_matters: 'Valid Vehicle schema enables rich snippets (price, availability, image) in Google Search.',
-    estimated_impact: 'high',
-    recommended_action: 'Ensure all active vehicle VDPs emit schema.org/Vehicle data.',
-    auto_fixable: true,
-    status: 'fixed',
-  })
+  // Public canonical/schema/indexation checks remain unknown until an actual
+  // published URL is fetched and parsed. Database fields are not page evidence.
 
-  // 3. Log Auto-Fix History
+  // 3. Log only real mutations. This audit performs none when evidence is missing.
   for (const fix of autoFixesApplied) {
     try {
       await supabaseAdmin.from('seo_history').insert({
@@ -134,12 +117,15 @@ export async function runAutomatedSeoAudit(dealershipId) {
     } catch (e) {}
   }
 
-  // 4. Calculate SEO Health Score
-  const healthScore = Math.max(70, 100 - (issues.filter(i => i.status === 'pending').length * 6))
+  // 4. No synthetic health score: this service has not performed a public crawl
+  // or received Search Console measurements.
+  const healthScore = null
 
   // 5. Ingest updated findings into pgvector (Hybrid AI Intelligence)
   await syncSeoIntelligenceForDealership(dealershipId, {
     healthScore,
+    status: 'not_measured',
+    evidenceCoverage: 0,
     issues,
     autoFixesApplied,
     dealer,

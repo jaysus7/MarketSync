@@ -83,7 +83,10 @@ export default function registerDiscoverabilityRoutes(app) {
     res.json({
       entitled: true,
       timestamp: audit?.timestamp || new Date().toISOString(),
-      compositeScore: audit?.compositeScore ?? 86,
+      compositeScore: audit?.compositeScore ?? null,
+      qualityScore: audit?.qualityScore ?? null,
+      evidenceCoverage: audit?.evidenceCoverage ?? 0,
+      verified100: audit?.verified100 === true,
       standardsVersion: 'MarketSync Discoverability Standards — 2026',
       pillars: audit?.pillars || {},
       recommendations: audit?.recommendations || [],
@@ -114,6 +117,8 @@ export default function registerDiscoverabilityRoutes(app) {
   })
 
   // ── 4. Synthetic AI Model Benchmark Runner ──────────────────────────────────
+  // This endpoint is a lab harness only. Its output must never be presented as
+  // organic AI visibility or merged into the dealership website score.
   app.post('/discoverability/geo/benchmark', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
     if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
 
@@ -136,11 +141,13 @@ export default function registerDiscoverabilityRoutes(app) {
       model: eng.includes('Gemini') ? 'Gemini 1.5 Pro' : eng.includes('GPT') ? 'GPT-4o' : eng.includes('Claude') ? 'Claude 3.5 Sonnet' : 'Search AI',
       timestamp: new Date().toISOString(),
       locale,
-      mentioned: true,
-      cited: true,
+      evidenceType: 'synthetic_test',
+      mentioned: null,
+      cited: null,
       sourceUrl: dealer?.website_url || 'https://marketsync.link',
-      competitorMentions: ['Regional Motors'],
-      accuracy: '100% Accurate (Verified)'
+      competitorMentions: [],
+      accuracy: null,
+      status: 'not_measured'
     }))
 
     res.json({
@@ -462,11 +469,11 @@ export default function registerDiscoverabilityRoutes(app) {
       success: true,
       synced_at: timestamp,
       sources: [
-        { source: 'Google Search Console', status: 'Synced', records: 1420 },
-        { source: 'Chrome Web Store Publisher API', status: 'Synced', impressions: 1420, installs: 116 },
-        { source: 'Google Business Profile', status: 'Synced', map_pack_rank: 2 }
+        { source: 'Google Search Console', status: 'not_connected', records: null, evidenceType: 'search_console' },
+        { source: 'Chrome Web Store Publisher API', status: 'not_connected', impressions: null, installs: null, evidenceType: 'live_search' },
+        { source: 'Google Business Profile', status: 'not_connected', map_pack_rank: null, evidenceType: 'live_search' }
       ],
-      message: 'External discoverability data sources refreshed.'
+      message: 'External discoverability sources checked; unavailable providers remain unmeasured.'
     })
   })
 
