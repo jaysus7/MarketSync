@@ -607,7 +607,7 @@ function renderStudioTemplateCards(filter = 'all') {
 
 function renderStudioToolPanelContent(tool) {
   if (tool === 'media') {
-    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Media library</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Reusable dealership images and videos. Select an asset to place it on the artboard.</p></div><input id="studio-media-query" oninput="filterStudioMediaLibrary(this.value)" placeholder="Search your media…" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white"><div id="studio-media-library" class="grid grid-cols-2 gap-2"><div class="col-span-2 p-5 text-center text-xs text-slate-500">Loading media…</div></div></div>`;
+    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Media library</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Reusable dealership images and videos. Select an asset to place it on the artboard.</p></div><label class="block px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-center text-xs font-black text-white cursor-pointer">+ Upload image<input type="file" accept="image/*" class="hidden" onchange="uploadStudioImage(this)"></label><input id="studio-media-query" oninput="filterStudioMediaLibrary(this.value)" placeholder="Search your media…" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white"><div id="studio-media-library" class="grid grid-cols-2 gap-2"><div class="col-span-2 p-5 text-center text-xs text-slate-500">Loading media…</div></div></div>`;
   }
   if (tool === 'layers') {
     const objects = window.__studioAdapter?.fabricCanvas?.getObjects?.() || [];
@@ -935,11 +935,21 @@ function filterStudioMediaLibrary(query = '') {
   const assets = __studioMediaAssets.filter(asset => `${asset.title || ''} ${asset.alt_text || ''}`.toLowerCase().includes(q));
   target.innerHTML = assets.length ? assets.map(asset => {
     const src = asset.public_url || asset.url; const isVideo = asset.kind === 'video';
-    return `<button type="button" onclick="addLibrary${isVideo ? 'Video' : 'Image'}ToCanvas('${escS(src)}','${escS(asset.title || 'Media asset')}')" class="relative overflow-hidden rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-left hover:border-indigo-500"><${isVideo ? 'video' : 'img'} src="${escS(src)}" ${isVideo ? 'muted preload="metadata"' : `alt="${escS(asset.alt_text || asset.title || '')}"`} class="w-full aspect-square object-cover"></${isVideo ? 'video' : 'img'}><span class="block px-2 py-1 text-[9px] truncate text-slate-700 dark:text-slate-200">${escS(asset.title || 'Untitled')}</span></button>`;
+    return `<div class="overflow-hidden rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800"><button type="button" onclick="addLibrary${isVideo ? 'Video' : 'Image'}ToCanvas('${escS(src)}','${escS(asset.title || 'Media asset')}')" class="relative block w-full text-left hover:border-indigo-500"><${isVideo ? 'video' : 'img'} src="${escS(src)}" ${isVideo ? 'muted preload="metadata"' : `alt="${escS(asset.alt_text || asset.title || '')}"`} class="w-full aspect-square object-cover"></${isVideo ? 'video' : 'img'}><span class="block px-2 py-1 text-[9px] truncate text-slate-700 dark:text-slate-200">${escS(asset.title || 'Untitled')}</span></button><button type="button" onclick="archiveStudioMedia('${escS(asset.id)}')" class="w-full px-2 py-1 text-[9px] font-bold text-slate-500 hover:text-rose-400">Archive</button></div>`;
   }).join('') : '<div class="col-span-2 p-4 text-center text-xs text-slate-500">No matching media.</div>';
 }
 window.loadStudioMediaLibrary = loadStudioMediaLibrary;
 window.filterStudioMediaLibrary = filterStudioMediaLibrary;
+async function uploadStudioImage(input) {
+  const file = input.files?.[0]; if (!file) return;
+  try { const form = new FormData(); form.append('file', file); form.append('title', file.name); const response = await fetch(`${API}/marketing/assets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }); const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Upload failed'); await loadStudioMediaLibrary(); if (typeof showToast === 'function') showToast('Image added to Media library', 'success'); } catch (error) { if (typeof showToast === 'function') showToast(error.message, 'error'); }
+}
+window.uploadStudioImage = uploadStudioImage;
+async function archiveStudioMedia(assetId) {
+  if (!assetId || !confirm('Archive this media asset?')) return;
+  try { const response = await fetch(`${API}/marketing/assets/${encodeURIComponent(assetId)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }); const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Archive failed'); await loadStudioMediaLibrary(); if (typeof showToast === 'function') showToast('Media archived', 'success'); } catch (error) { if (typeof showToast === 'function') showToast(error.message, 'error'); }
+}
+window.archiveStudioMedia = archiveStudioMedia;
 
 function studioSetObjectGeometry(property, value) {
   const object = window.__studioAdapter?.fabricCanvas?.getActiveObject(); const number = Number(value);
