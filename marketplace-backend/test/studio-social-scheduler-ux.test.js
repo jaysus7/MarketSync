@@ -38,7 +38,7 @@ test('Connected platforms display Connected status and Disconnect actions', () =
 
 test('Scheduler accounts view does not collide with the legacy hidden Studio account list', () => {
   assert.match(studioSchedulerJs, /id="studio-social-list-page"/)
-  assert.match(studioSchedulerJs, /getElementById\('studio-social-list-page'\) \|\| getElementById\('studio-social-list'\)/)
+  assert.match(studioSchedulerJs, /document\.getElementById\('studio-social-list-page'\) \|\| document\.getElementById\('studio-social-list'\)/)
 })
 
 test('Disconnected platforms in Design Studio composer show + Connect action', () => {
