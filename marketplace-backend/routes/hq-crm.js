@@ -286,6 +286,138 @@ export function registerHqCrm(app) {
     }
   })
 
+  app.post('/hq/crm/opportunities/:id/convert', requireHqAuth, async (req, res) => {
+    try {
+      const { id } = req.params
+      const { data: opp, error: oppErr } = await supabaseAdmin.from('hq_opportunities').select('*').eq('id', id).single()
+      if (oppErr || !opp) return res.status(404).json({ error: 'Opportunity not found' })
+
+      // Update opp stage to 'won'
+      const { data: updatedOpp } = await supabaseAdmin.from('hq_opportunities').update({
+        stage: 'won',
+        closed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq('id', id).select('*').single()
+
+      // Upgrade company status to 'customer'
+      await supabaseAdmin.from('hq_companies').update({
+        status: 'customer',
+        tier: opp.plan || 'standard',
+        updated_at: new Date().toISOString(),
+      }).eq('id', opp.company_id)
+
+      // Post activity timeline event
+      await supabaseAdmin.from('hq_customer_activity').insert({
+        company_id: opp.company_id,
+        contact_id: opp.contact_id,
+        event_type: 'opportunity_won',
+        title: `Opportunity Won: ${opp.product}`,
+        description: `Customer converted on ${opp.product} (${opp.plan || 'Standard'}) — MRR $${opp.mrr_value || 0}`,
+        metadata: { opportunity_id: id, mrr_value: opp.mrr_value },
+      })
+
+      await logHqAudit({
+        entityType: 'hq_opportunity',
+        entityId: id,
+        action: 'opportunity_won_converted',
+        beforeState: { stage: opp.stage },
+        afterState: { stage: 'won', company_status: 'customer' },
+        actorId: req.user?.id,
+        actorName: req.profile?.full_name || 'HQ Operator',
+      })
+
+      res.json({ success: true, opportunity: updatedOpp })
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  // ── Trials Management ──
+  app.get('/hq/crm/trials', requireHqAuth, async (req, res) => {
+    try {
+      const { status, company_id } = req.query
+      let query = supabaseAdmin
+        .from('hq_trials')
+        .select('*, hq_companies(id, name, domain), hq_contacts(id, first_name, last_name, email)')
+        .order('ends_at', { ascending: true })
+
+      if (status) query = query.eq('status', status)
+      if (company_id) query = query.eq('company_id', company_id)
+
+      const { data, error } = await query
+      if (error) throw error
+      res.json(data || [])
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  app.post('/hq/crm/trials', requireHqAuth, async (req, res) => {
+    try {
+      const { company_id, contact_id, product, plan, days = 14 } = req.body
+      if (!company_id || !product) return res.status(400).json({ error: 'company_id and product are required' })
+
+      const startedAt = new Date()
+      const endsAt = new Date(Date.now() + (Number(days) || 14) * 24 * 60 * 60 * 1000)
+
+      const { data, error } = await supabaseAdmin.from('hq_trials').insert({
+        company_id,
+        contact_id: contact_id || null,
+        product,
+        plan: plan || 'standard',
+        started_at: startedAt.toISOString(),
+        ends_at: endsAt.toISOString(),
+        status: 'active',
+      }).select('*').single()
+
+      if (error) throw error
+
+      await supabaseAdmin.from('hq_companies').update({ status: 'trial' }).eq('id', company_id)
+
+      res.status(201).json(data)
+    } catch (err) {
+      res.status(400).json({ error: err.message })
+    }
+  })
+
+  app.patch('/hq/crm/trials/:id/extend', requireHqAuth, async (req, res) => {
+    try {
+      const { id } = req.params
+      const { additional_days = 7, reason } = req.body
+
+      const { data: trial, error: trialErr } = await supabaseAdmin.from('hq_trials').select('*').eq('id', id).single()
+      if (trialErr || !trial) return res.status(404).json({ error: 'Trial not found' })
+
+      const currentEnd = new Date(trial.ends_at)
+      const newEnd = new Date(currentEnd.getTime() + (Number(additional_days) || 7) * 24 * 60 * 60 * 1000)
+
+      const { data: updated, error } = await supabaseAdmin.from('hq_trials').update({
+        ends_at: newEnd.toISOString(),
+        extended_days: (trial.extended_days || 0) + Number(additional_days),
+        extended_reason: reason || trial.extended_reason,
+        status: 'extended',
+        updated_at: new Date().toISOString(),
+      }).eq('id', id).select('*').single()
+
+      if (error) throw error
+
+      await logHqAudit({
+        entityType: 'hq_trial',
+        entityId: id,
+        action: 'trial_extended',
+        beforeState: { ends_at: trial.ends_at },
+        afterState: { ends_at: newEnd.toISOString(), extended_days: updated.extended_days },
+        actorId: req.user?.id,
+        actorName: req.profile?.full_name || 'HQ Operator',
+        reason: reason || `Extended trial by ${additional_days} days`,
+      })
+
+      res.json(updated)
+    } catch (err) {
+      res.status(400).json({ error: err.message })
+    }
+  })
+
   // ── 7. Customer 360 Full Profile ──
   app.get('/hq/crm/customer-360/:id', requireHqAuth, async (req, res) => {
     try {

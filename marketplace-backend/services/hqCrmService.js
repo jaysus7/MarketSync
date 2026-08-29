@@ -87,7 +87,7 @@ export async function ingestLead({
   // 1. Resolve or Match Company
   let companyId = null
   if (corporateDomain || effectiveCompanyName) {
-    let companyQuery = supabaseAdmin.from('hq_companies').select('id, name, domain, status')
+    let companyQuery = supabaseAdmin.from('hq_companies').select('id, name, domain, status, metadata')
     if (corporateDomain) {
       companyQuery = companyQuery.eq('domain', corporateDomain)
     } else {
@@ -96,7 +96,12 @@ export async function ingestLead({
     const { data: existingCompany } = await companyQuery.maybeSingle()
 
     if (existingCompany?.id) {
-      companyId = existingCompany.id
+      // Follow merge alias if company was previously merged into another
+      if (existingCompany.metadata?.merged_into) {
+        companyId = existingCompany.metadata.merged_into
+      } else {
+        companyId = existingCompany.id
+      }
     } else if (effectiveCompanyName) {
       const { data: newCompany, error: compErr } = await supabaseAdmin.from('hq_companies').insert({
         name: effectiveCompanyName,
