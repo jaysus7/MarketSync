@@ -109,7 +109,7 @@
     }
     // Small "+ tax & licensing" note shown under every advertised price.
     const priceNote=(v,cls)=>v&&v.price?`<div class="${cls||'text-[10px] text-slate-400 mt-0.5'}">+ ${taxLabel()} &amp; licensing</div>`:'';
-    let DATA=null, FILTERED=[], FILTERS={q:'',condition:'',body:'',sort:'newest'}, VIEW='home';
+    let DATA=null, FILTERED=[], FILTERS={q:'',condition:'',body:'',sort:'newest'}, VIEW='home', BLOG_CACHE=null;
 
     async function boot(){
       try{
@@ -239,7 +239,7 @@
         if(p){ title=p.seo_title||`${p.title} | ${name}`; desc=p.seo_description||pageDerivedDesc(p,name,loc); image=p.seo_image||image; }
       }
       if(!title){
-        const D={ inventory:['Inventory',`Browse new & used vehicles${loc}`], build:['Build & Price','Build and price your next vehicle'], trade:['Value Your Trade','Get a real trade-in value in minutes'], finance:['Financing','Get pre-approved fast — no impact to your credit score'], team:['Our Team','Meet our sales, finance and service team'], inquiry:['Contact','Hours, directions and a quick way to reach us'] }[VIEW];
+        const D={ inventory:['Inventory',`Browse new & used vehicles${loc}`], build:['Build & Price','Build and price your next vehicle'], trade:['Value Your Trade','Get a real trade-in value in minutes'], finance:['Financing','Get pre-approved fast — no impact to your credit score'], team:['Our Team','Meet our sales, finance and service team'], blog:['Blog',`Dealer tips and automotive updates from ${name}`], inquiry:['Contact','Hours, directions and a quick way to reach us'] }[VIEW];
         if(VIEW==='home'||!D){ title=s.seo_title||`${name}${s.city?' | '+s.city:''}`; desc=s.seo_description||s.about||`Browse inventory, build your vehicle, and get financing at ${name}.`; }
         else { title=`${D[0]} | ${name}`; desc=`${D[1]} at ${name}${loc}.`; }
       }
@@ -388,6 +388,7 @@
       }
       if(biOn('trade')) entries.push({token:'b:trade',label:biLabel('trade','Value Trade'),onclick:"go('trade')",menu:biMenu('trade')});
       if(biOn('finance')) entries.push({token:'b:finance',label:biLabel('finance','Financing'),onclick:"go('finance')",menu:biMenu('finance')});
+      if(biOn('blog')) entries.push({token:'b:blog',label:biLabel('blog','Blog'),onclick:"go('blog')",menu:biMenu('blog')});
       if(hasTeam&&biOn('team')) entries.push({token:'b:team',label:biLabel('team','Team'),onclick:"go('team')",menu:biMenu('team')});
       if(biOn('contact')) entries.push({token:'b:contact',label:biLabel('contact','Contact'),onclick:"go('inquiry')",menu:biMenu('contact')});
       // Apply the dealer's explicit menu order (unlisted items keep their natural order, after listed ones).
@@ -489,18 +490,20 @@
     // AI-inserted internal links (href="#finance", "#/page-slug") just work.
     function viewToHash(v){ if(!v||v==='home') return '#home'; if(v.startsWith('page:')) return '#/'+v.slice(5); if(v==='inquiry') return '#contact'; return '#'+v; }
     function vehicleIdFromHash(h){ const raw=String(h||'').replace(/^#/,''); if(!raw.toLowerCase().startsWith('inventory/')) return ''; try{return decodeURIComponent(raw.slice('inventory/'.length));}catch{return raw.slice('inventory/'.length);} }
-    function hashToView(h){ h=(h||'').replace(/^#/,''); if(!h||h==='home') return 'home'; if(h[0]==='/') return 'page:'+h.slice(1); if(h==='contact') return 'inquiry'; if(h.startsWith('inventory/')) return 'inventory'; if(['inventory','build','trade','finance','team'].includes(h)) return h; return 'home'; }
+    function hashToView(h){ h=(h||'').replace(/^#/,''); if(!h||h==='home') return 'home'; if(h[0]==='/') return 'page:'+h.slice(1); if(h==='contact') return 'inquiry'; if(h.startsWith('inventory/')) return 'inventory'; if(h.startsWith('blog/')) return h==='blog/'?'blog':('blogpost:'+h.slice(5)); if(['inventory','build','trade','finance','team','blog'].includes(h)) return h; return 'home'; }
     window.addEventListener('hashchange',()=>{ const v=hashToView(location.hash); VIEW=v; window.scrollTo(0,0); renderView(); applyViewSeo(); requestAnimationFrame(ensureImagePerformanceAndA11y); const vehicleId=vehicleIdFromHash(location.hash); if(vehicleId) setTimeout(()=>openVehicle(vehicleId),0); });
     // Is a built-in page switched on? (default on when unset)
     function builtinOn(k){ const bi=(DATA.site&&DATA.site.builtins)||{}; return !bi[k]||bi[k].enabled!==false; }
     // Map a view to the builtin key that gates it (null = always available).
-    const VIEW_BUILTIN={inventory:'inventory',build:'build',trade:'trade',finance:'finance',inquiry:'contact',team:'team'};
+    const VIEW_BUILTIN={inventory:'inventory',build:'build',trade:'trade',finance:'finance',inquiry:'contact',team:'team',blog:'blog'};
     function renderView(){
       const el=document.getElementById('view'); if(!el) return;
       const gate=VIEW_BUILTIN[VIEW]; if(gate&&!builtinOn(gate)){ VIEW='home'; return void renderHome(el); }
       if(VIEW==='inventory') renderInventory(el);
       else if(VIEW==='build') renderBuild(el);
       else if(VIEW==='team') el.innerHTML=viewTeam();
+      else if(VIEW==='blog') renderPublicBlog(el);
+      else if(VIEW.startsWith('blogpost:')) renderPublicBlogPost(el,VIEW.slice(9));
       else if(VIEW==='trade') el.innerHTML=viewTrade();
       else if(VIEW==='finance') el.innerHTML=viewFinance();
       else if(VIEW==='inquiry') el.innerHTML=viewInquiry();
@@ -509,6 +512,19 @@
       // Prepend dealer-defined intro sections (hero/SEO) above a built-in view's functional content.
       const bkey=VIEW_BUILTIN[VIEW]; const bsecs=bkey&&((DATA.site.builtins||{})[bkey]||{}).sections;
       if(bsecs&&bsecs.length) el.insertAdjacentHTML('afterbegin', bsecs.map(sectionHtml).join(''));
+    }
+
+    async function publicBlogRequest(postSlug=''){
+      const path=postSlug?`/site/${encodeURIComponent(SLUG)}/blog/${encodeURIComponent(postSlug)}`:`/site/${encodeURIComponent(SLUG)}/blog`;
+      const r=await fetch(`${API}${path}`); const data=await r.json(); if(!r.ok) throw new Error(data.error||'Blog is unavailable.'); return data;
+    }
+    function renderPublicBlog(el){
+      el.innerHTML='<section class="max-w-6xl mx-auto px-4 py-14"><div class="text-sm text-slate-400">Loading articles…</div></section>';
+      publicBlogRequest().then(data=>{ const posts=data.posts||[]; el.innerHTML=`<section class="max-w-6xl mx-auto px-4 py-12"><div class="max-w-2xl mb-8"><div class="text-xs uppercase tracking-wider font-black brand-text">From our team</div><h1 class="text-4xl font-black mt-2">Dealer tips &amp; updates</h1><p class="text-slate-500 mt-2">Helpful buying, ownership, service, and dealership news from ${esc(DATA.site.name||'our team')}.</p></div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">${posts.length?posts.map(p=>`<article class="bg-white rounded-2xl overflow-hidden cshadow flex flex-col">${p.cover_image_url?`<img src="${esc(p.cover_image_url)}" alt="${esc(p.title||'Blog article')}" loading="lazy" class="w-full h-48 object-cover">`:''}<div class="p-5 flex-1 flex flex-col"><div class="text-[10px] uppercase tracking-wider font-black brand-text">${esc(p.category||'Dealer news')}</div><h2 class="text-xl font-black mt-1">${esc(p.title)}</h2><p class="text-sm text-slate-500 mt-2 flex-1">${esc(p.excerpt||'Read the latest dealership news and helpful automotive advice.')}</p><div class="text-xs text-slate-400 mt-4">${esc(p.author||DATA.site.name||'Dealer team')} · ${p.published_at?new Date(p.published_at).toLocaleDateString():''}</div><a href="#blog/${encodeURIComponent(p.slug)}" class="mt-4 inline-flex self-start brand-bg text-white font-bold px-4 py-2 rounded-lg text-sm">Read article</a></div></article>`).join(''):'<div class="col-span-full text-slate-400">No published articles yet.</div>'}</div></section>`; applyViewSeo(); requestAnimationFrame(ensureImagePerformanceAndA11y); }).catch(e=>{ el.innerHTML=`<section class="max-w-3xl mx-auto px-4 py-16 text-center"><div class="text-lg font-bold text-slate-700">${esc(e.message)}</div><div class="text-sm text-slate-400 mt-2">Please check back soon.</div></section>`; });
+    }
+    function renderPublicBlogPost(el,slug){
+      el.innerHTML='<section class="max-w-3xl mx-auto px-4 py-14"><div class="text-sm text-slate-400">Loading article…</div></section>';
+      publicBlogRequest(slug).then(data=>{ const p=data.post; document.title=p.seo_title||`${p.title} | ${DATA.site.name||'Dealer'}`; if(p.seo_description) setMeta(document.title,p.seo_description,p.cover_image_url||DATA.site.hero_url||''); el.innerHTML=`<article class="max-w-3xl mx-auto px-4 py-12"><a href="#blog" class="text-sm font-bold brand-text">← All articles</a><div class="text-xs uppercase tracking-wider font-black brand-text mt-8">${esc(p.category||'Dealer news')}</div><h1 class="text-4xl font-black mt-2">${esc(p.title)}</h1><div class="text-sm text-slate-400 mt-3">${esc(p.author||DATA.site.name||'Dealer team')} · ${p.published_at?new Date(p.published_at).toLocaleDateString():''}</div>${p.cover_image_url?`<img src="${esc(p.cover_image_url)}" alt="${esc(p.title||'Blog article')}" loading="eager" class="w-full max-h-[440px] object-cover rounded-2xl mt-8">`:''}<div class="prose max-w-none mt-8 text-slate-700">${richText(p.content_html||'')}</div></article>`; requestAnimationFrame(ensureImagePerformanceAndA11y); }).catch(e=>{ el.innerHTML=`<section class="max-w-3xl mx-auto px-4 py-16 text-center"><div class="text-lg font-bold text-slate-700">${esc(e.message)}</div><a href="#blog" class="brand-text font-bold text-sm mt-3 inline-block">Back to Blog</a></section>`; });
     }
 
     // ── HOME ───────────────────────────────────────────────────────────────────
