@@ -2601,6 +2601,7 @@ function setWsDeviceView(view) {
   __wsActiveDeviceView = view;
   const frameWrap = document.getElementById('ws-frame-wrapper');
   if (frameWrap) {
+    frameWrap.dataset.wsDevice = view;
     if (view === 'mobile') {
       frameWrap.className = 'w-[375px] h-[82vh] mx-auto rounded-3xl border-4 border-slate-700 bg-white shadow-2xl transition-all duration-300 overflow-hidden relative z-0';
     } else if (view === 'tablet') {
@@ -3244,7 +3245,7 @@ function renderLiveBuilder(body) {
       <div class="relative flex-1 w-full h-full bg-[var(--ws-bg)] overflow-hidden">
         <!-- Center Full-Screen Live Web Canvas -->
         <main class="w-full h-full flex items-center justify-center p-0 overflow-hidden relative z-0">
-          <div id="ws-frame-wrapper" class="${__wsActiveDeviceView === 'mobile' ? 'w-[375px] h-[92%]' : (__wsActiveDeviceView === 'tablet' ? 'w-[768px] h-[92%]' : 'w-full h-full')} ${__wsActiveDeviceView === 'desktop' ? 'border-0' : 'rounded-3xl border-4 border-slate-500 dark:border-slate-700 shadow-2xl'} bg-white transition-all duration-300 overflow-hidden relative z-0">
+          <div id="ws-frame-wrapper" data-ws-device="${__wsActiveDeviceView}" class="${__wsActiveDeviceView === 'mobile' ? 'w-[375px] h-[92%]' : (__wsActiveDeviceView === 'tablet' ? 'w-[768px] h-[92%]' : 'w-full h-full')} ${__wsActiveDeviceView === 'desktop' ? 'border-0' : 'rounded-3xl border-4 border-slate-500 dark:border-slate-700 shadow-2xl'} bg-white transition-all duration-300 overflow-hidden relative z-0">
             <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1&builder_v=20260825_builder_click_edit_v1" onload="window.livePreviewLoaded && window.livePreviewLoaded()" class="w-full h-full border-0 pointer-events-auto" title="Live Website Canvas"></iframe>
           </div>
         </main>
@@ -4467,13 +4468,19 @@ function renderDealerBlog() {
       ${p.cover_image_url ? `<img src="${esc(p.cover_image_url)}" class="w-16 h-11 object-cover rounded-md flex-shrink-0">` : '<div class="w-16 h-11 rounded-md bg-slate-100 dark:bg-slate-800 flex-shrink-0"></div>'}
       <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">${esc(p.title)}</div>
         <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">/${esc(p.slug)}${p.excerpt ? ' · ' + esc(p.excerpt) : ''}</div></div>
+      ${p.automation_id || p.source === 'automation' || p.generated_by ? '<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 flex-shrink-0">Automated</span>' : ''}
       <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${p.status === 'published' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'} flex-shrink-0">${p.status === 'published' ? 'Published' : 'Draft'}</span>
       <button onclick="dealerBlogEdit('${p.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold flex-shrink-0">Edit</button>
       <button onclick="dealerBlogDelete('${p.id}')" class="text-[12px] font-bold text-rose-500 flex-shrink-0">Delete</button>
     </div>`).join('');
-  root.innerHTML = `<div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
-      <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-2xl">Posts show on your public site at <b>/blog</b> — each gets its own page, and you can drop a “Latest posts” section on any page. Great for SEO and specials.</p>
-      <button onclick="dealerBlogEdit(null)" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold flex-shrink-0">＋ New post</button></div>
+  root.innerHTML = `<div class="ms-blog-workspace space-y-4">
+    <div class="flex items-start justify-between gap-4 flex-wrap rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-5 shadow-sm">
+      <div><div class="text-[11px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Content Studio</div>
+        <h2 class="text-xl font-black text-slate-900 dark:text-white mt-1">Automated Blog Posts &amp; Tips</h2>
+        <p class="text-[13px] text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">Review, edit, and publish automated dealership articles, or write a new post. Posts appear at <b>/blog</b> and can power a Latest Articles section on your website.</p></div>
+      <div class="flex gap-2 flex-wrap"><button onclick="dealerBlogEdit(null)" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold">＋ Write a blog post</button><button onclick="if(typeof wsTab==='function')wsTab('builder')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold">Open Website Builder</button></div>
+    </div>
+    <div class="flex items-center justify-between gap-3 flex-wrap"><p class="text-xs font-bold text-slate-500 dark:text-slate-400">${(__dealerBlog || []).length} post${(__dealerBlog || []).length === 1 ? '' : 's'} · Select Edit to revise automated content before publishing.</p></div>
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-8 text-center">No posts yet — write your first to start ranking.</div>'}</div>`;
 }
 function dealerBlogModal(p) {

@@ -1808,7 +1808,16 @@ function renderMarketingSuiteNav(suiteKey, host, navRoot) {
   // AI, Design Studio, Social Scheduler, Automations and campaigns.
   if (Array.isArray(cfg.navItems)) {
     const dealer = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'DEALER_GROUP'].includes(String(profileContext?.role || ''));
-    html += cfg.navItems.filter(item => !item.dealerOnly || dealer).map(item => {
+    // Keep the stable top-level entitlement registry intact, but expose the
+    // website area's actual destinations in the visible Digital shell. The
+    // old renderer showed only Dealer Website (or, on some routes, Discovery),
+    // hiding Setup, Builder, Blog, and Website Settings.
+    const visibleItems = [...cfg.navItems];
+    const websiteArea = cfg.areas?.find(area => area.id === 'website');
+    if (websiteArea) websiteArea.items.forEach(item => {
+      if (!visibleItems.some(existing => existing.page === item.page && existing.tab === item.tab)) visibleItems.push(item);
+    });
+    html += visibleItems.filter(item => !item.dealerOnly || dealer).map(item => {
       const call = item.studioLaunch
         ? 'ensureOpenMarketSyncStudio()'
         : `deptGo('${esc(item.page)}'${item.invmode ? `,'${esc(item.invmode)}'` : `,''`}${item.tab ? `,'${esc(item.tab)}'` : ''})`;
