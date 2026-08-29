@@ -2016,6 +2016,31 @@ function wsAuditPageName(target, home = false) {
 }
 function wsRunAudit() {
   const c = __siteCfg?.content || {}, issues = [];
+  const builtInTargets = new Set(['home', 'inventory', 'vehicle', 'service', 'finance', 'trade', 'about', 'contact', 'blog', 'parts', 'privacy', 'terms', 'inquiry']);
+  (__sitePages || []).forEach((p, i) => {
+    const slug = String(p?.slug || slugifyTitle(p?.title || '')).replace(/^\//, '').trim();
+    if (slug) builtInTargets.add(slug);
+  });
+  const hexColor = value => {
+    const raw = String(value || '').trim().replace(/^#/, '');
+    if (/^[0-9a-f]{3}$/i.test(raw)) return raw.split('').map(x => x + x).join('').match(/../g).map(x => parseInt(x, 16));
+    if (/^[0-9a-f]{6}$/i.test(raw)) return raw.match(/../g).map(x => parseInt(x, 16));
+    return null;
+  };
+  const luminance = value => {
+    const rgb = hexColor(value); if (!rgb) return null;
+    return rgb.reduce((sum, channel, i) => {
+      const n = channel / 255; const linear = n <= 0.03928 ? n / 12.92 : Math.pow((n + 0.055) / 1.055, 2.4);
+      return sum + linear * [0.2126, 0.7152, 0.0722][i];
+    }, 0);
+  };
+  const asLink = value => String(value || '').trim();
+  const checkLink = (value, page, location, target, sectionIndex) => {
+    const link = asLink(value); if (!link || /^(https?:|mailto:|tel:|#|javascript:)/i.test(link) || link.includes('{{')) return;
+    const path = link.split(/[?#]/)[0].replace(/^\//, '').replace(/\/$/, '').toLowerCase();
+    if (!path || path === 'index.html' || builtInTargets.has(path)) return;
+    issues.push({ id: `link-${target}-${sectionIndex}-${path.replace(/[^a-z0-9]+/g, '-')}`, type: 'link', page, location, field: 'Internal link', message: `This link points to “/${path}”, which does not match a published page or supported website route.`, sectionIndex, target });
+  };
   const checkMeta = (record, page, target, home = false) => {
     const title = String(record?.seo_title || '').trim(), desc = String(record?.seo_description || '').trim();
     if (!title) issues.push({ id: `title-${target}`, type: 'title', page, location: home ? 'Website Settings → SEO' : 'Pages → page SEO', field: 'SEO title', message: 'Search engines have no page title to use in results.', target, home });
@@ -2025,10 +2050,19 @@ function wsRunAudit() {
   };
   checkMeta(c, 'Home Page', 'home', true);
   (__sitePages || []).forEach((p, i) => checkMeta(p, wsAuditPageName(i), i));
-  const scan = (sections, target, page) => (sections || []).forEach((s, i) => {
-    const v = s?.settings || {}, label = SEC_META?.[s?.type]?.label || s?.type || 'Section';
-    for (const key of ['image', 'image_url', 'background_image']) if (v[key] && !v[`${key}_alt`] && !v.alt) issues.push({ id: `alt-${target}-${i}-${key}`, type: 'alt', page, location: `Builder → ${label}`, field: `${key.replace(/_/g, ' ')} alt text`, message: 'This image has no descriptive alternative text.', sectionIndex: i, sectionKey: key, target });
-    if (s?.type === 'html') issues.push({ id: `html-${target}-${i}`, type: 'html', page, location: `Builder → ${label}`, field: 'Custom HTML', message: 'Custom HTML should be reviewed before publishing.', sectionIndex: i, target });
+  const scan = (sections, target, page, parent = '') => (sections || []).forEach((s, i) => {
+    const v = s?.settings || {}, styles = s?.styles || {}, label = SEC_META?.[s?.type]?.label || s?.type || 'Section', location = `Builder → ${label}`;
+    const sectionIndex = parent ? `${parent}.${i}` : i;
+    for (const key of ['image', 'image_url', 'background_image']) {
+      if (v[key] && !v[`${key}_alt`] && !v.alt) issues.push({ id: `alt-${target}-${sectionIndex}-${key}`, type: 'alt', page, location, field: `${key.replace(/_/g, ' ')} alt text`, message: 'This image has no descriptive alternative text.', sectionIndex: i, sectionKey: key, target });
+      if (v[key] && /https?:\/\//i.test(String(v[key])) && !/[?&](w|width|resize|format)=/i.test(String(v[key])) && !/\.(svg|gif)(\?|$)/i.test(String(v[key]))) issues.push({ id: `image-${target}-${sectionIndex}-${key}`, type: 'performance', page, location, field: 'Image optimization', message: 'This remote image has no responsive size or format hint; it may serve a larger file than needed.', sectionIndex: i, sectionKey: key, target });
+    }
+    for (const key of ['href', 'link', 'button_link', 'primary_button_link', 'secondary_button_link', 'custom_link', 'url']) checkLink(v[key], page, location, target, i);
+    const bg = styles.background_color || v.background_color, fg = styles.text_color || v.text_color || styles.color || v.color;
+    const bgLum = luminance(bg), fgLum = luminance(fg);
+    if (bgLum !== null && fgLum !== null && (Math.max(bgLum, fgLum) + 0.05) / (Math.min(bgLum, fgLum) + 0.05) < 4.5) issues.push({ id: `contrast-${target}-${sectionIndex}`, type: 'contrast', page, location, field: 'Text contrast', message: 'The configured text and background colors may fail WCAG AA contrast for normal text. Review the section colors.', sectionIndex: i, target });
+    if (s?.type === 'html') issues.push({ id: `html-${target}-${sectionIndex}`, type: 'html', page, location, field: 'Custom HTML', message: 'Custom HTML should be reviewed before publishing.', sectionIndex: i, target });
+    scan(s?.children || s?.content?.children, target, page, String(sectionIndex));
   });
   scan(__homeSections, 'home', 'Home Page');
   (__sitePages || []).forEach((p, i) => scan(p.sections, i, wsAuditPageName(i)));
@@ -2040,7 +2074,10 @@ function wsRunAudit() {
 function wsShowAuditPanel() {
   document.getElementById('ws-audit-panel')?.remove();
   const modal = document.createElement('div'); modal.id = 'ws-audit-panel'; modal.className = 'fixed inset-0 z-[1000] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4';
-  modal.innerHTML = `<div class="w-full max-w-3xl max-h-[88vh] overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 text-white shadow-2xl"><div class="p-5 border-b border-slate-800 flex items-start justify-between gap-4"><div><div class="text-[10px] uppercase tracking-[.16em] font-black text-amber-400">Website audit</div><h2 class="text-xl font-black mt-1">${__wsAuditIssues.length} publish issue${__wsAuditIssues.length === 1 ? '' : 's'} to resolve</h2><p class="text-xs text-slate-400 mt-1">Each finding includes the page, exact control, and an AI-assisted fix. Changes stay in your draft until you publish.</p></div><button onclick="document.getElementById('ws-audit-panel')?.remove()" class="text-slate-400 hover:text-white text-2xl">×</button></div><div class="p-4 space-y-2 overflow-y-auto max-h-[68vh]">${__wsAuditIssues.map(issue => `<div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><span class="text-sm font-black text-white">${esc(issue.field)}</span><span class="rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase px-2 py-0.5">${esc(issue.page)}</span></div><div class="text-xs text-indigo-300 font-semibold mt-2">${esc(issue.location)}</div><p class="text-xs text-slate-400 mt-1">${esc(issue.message)}</p></div><span class="shrink-0 text-[10px] uppercase font-black text-rose-300">${issue.type === 'html' ? 'Review' : 'Fixable'}</span></div><div class="flex flex-wrap gap-2 mt-3"><button onclick="wsFocusAuditIssue('${issue.id}')" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 text-xs font-bold">Show me</button>${issue.type !== 'html' ? `<button data-audit-fix="${issue.id}" onclick="wsAiFixAuditIssue('${issue.id}', this)" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black">Fix with AI</button>` : ''}</div></div>`).join('')}</div><div class="p-4 border-t border-slate-800 flex justify-end"><button onclick="document.getElementById('ws-audit-panel')?.remove()" class="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold text-slate-200">Close</button></div></div>`;
+  const counts = __wsAuditIssues.reduce((out, issue) => { out[issue.type] = (out[issue.type] || 0) + 1; return out; }, {});
+  const summary = Object.entries(counts).map(([type, count]) => `${count} ${type === 'alt' ? 'accessibility' : type}`).join(' · ');
+  const aiFixable = new Set(['title', 'description', 'alt']);
+  modal.innerHTML = `<div class="w-full max-w-3xl max-h-[88vh] overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 text-white shadow-2xl"><div class="p-5 border-b border-slate-800 flex items-start justify-between gap-4"><div><div class="text-[10px] uppercase tracking-[.16em] font-black text-amber-400">Website audit</div><h2 class="text-xl font-black mt-1">${__wsAuditIssues.length} finding${__wsAuditIssues.length === 1 ? '' : 's'} to review</h2><p class="text-xs text-slate-400 mt-1">${esc(summary)}. Changes stay in your draft until you publish.</p></div><button onclick="document.getElementById('ws-audit-panel')?.remove()" class="text-slate-400 hover:text-white text-2xl">×</button></div><div class="p-4 space-y-2 overflow-y-auto max-h-[68vh]">${__wsAuditIssues.map(issue => `<div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><span class="text-sm font-black text-white">${esc(issue.field)}</span><span class="rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase px-2 py-0.5">${esc(issue.page)}</span></div><div class="text-xs text-indigo-300 font-semibold mt-2">${esc(issue.location)}</div><p class="text-xs text-slate-400 mt-1">${esc(issue.message)}</p></div><span class="shrink-0 text-[10px] uppercase font-black text-rose-300">${aiFixable.has(issue.type) ? 'Fixable' : 'Review'}</span></div><div class="flex flex-wrap gap-2 mt-3"><button onclick="wsFocusAuditIssue('${issue.id}')" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 text-xs font-bold">Show me</button>${aiFixable.has(issue.type) ? `<button data-audit-fix="${issue.id}" onclick="wsAiFixAuditIssue('${issue.id}', this)" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black">Fix with AI</button>` : ''}</div></div>`).join('')}</div><div class="p-4 border-t border-slate-800 flex justify-end"><button onclick="document.getElementById('ws-audit-panel')?.remove()" class="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold text-slate-200">Close</button></div></div>`;
   document.body.appendChild(modal);
 }
 async function wsAiFixAuditIssue(id, btn) {
