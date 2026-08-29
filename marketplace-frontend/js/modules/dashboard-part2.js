@@ -2248,6 +2248,9 @@ function switchPage(pageId) {
   if (pageId === 'email-marketing' || pageId === 'email-campaigns') loadDealerEmail();
   if (pageId === 'studio' || pageId === 'design-studio') {
     Promise.resolve(window.msLoadScript ? window.msLoadScript('js/modules/studio/scene-model.js?v=20260814_v12') : null)
+      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/document-model.js?v=20260829_v1'))
+      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-store.js?v=20260829_v1'))
+      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-autosave.js?v=20260829_v1'))
       .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260818_fontfamily_v1'))
       .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260826_digital_pages_v3'))
       .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-shell.js?v=20260826_studio_tp_v1'))
