@@ -1573,7 +1573,13 @@ function navPagesForProductKey(key) {
     return one('seo', 'MarketSync SEO', 'chart', { tab: 'overview' });
   }
   if (/website|dealer_website/.test(only)) {
-    return one('website', 'Dealer Website', 'globe', { tab: 'setup' });
+    return [
+      { page: 'website', label: 'Setup', icon: 'wrench', tab: 'setup' },
+      { page: 'website', label: 'Builder', icon: 'globe', tab: 'builder' },
+      { page: 'blog', label: 'Blog Post Tips', icon: 'document' },
+      { page: 'discoverability', label: 'Discovery', icon: 'sparkles' },
+      { page: 'website-settings', label: 'Website Settings', icon: 'shield' },
+    ];
   }
   return null;
 }

@@ -53,6 +53,8 @@ function buildMarketingSuiteConfig(key) {
       { id: 'website', label: 'Website', icon: 'globe', items: [
         suiteItem('website', 'Setup', 'wrench', { tab: 'setup' }),
         suiteItem('website', 'Builder', 'globe', { tab: 'builder' }),
+        suiteItem('blog', 'Blog Post Tips', 'document'),
+        suiteItem('discoverability', 'Discovery', 'sparkles'),
         suiteItem('website-settings', 'Website Settings', 'shield'),
       ] },
       { id: 'seo', label: 'MarketSync SEO', icon: 'chart', items: [
