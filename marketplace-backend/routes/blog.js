@@ -295,7 +295,7 @@ export function registerRoutes(app) {
     ${relatedHtml}
     <div class="cta">
       <h3>Run your whole dealership from one platform</h3>
-      <p>Website, CRM, inventory intelligence, appraisals and vehicle marketing in one system. Free 30-day trial.</p>
+      <p>Website, CRM, inventory intelligence, appraisals and vehicle marketing in one system. Free trial length depends on the selected plan.</p>
       <a href="https://marketsync.link/register.html">Start free trial</a>
     </div>
   </main>

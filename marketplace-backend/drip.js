@@ -4,7 +4,7 @@
 //
 // How it's driven: a daily cron (see /cron/drip in server.js) calls
 // runDripCampaign(). For each trialing, email-verified user we work out which day
-// of their trial they're on (derived from trial_ends_at, which is signup + 30 days)
+// of their trial they're on (derived from the account creation date and trial end)
 // and send the next unsent email in the sequence — at most one per user per run,
 // in order. Sends are recorded in the `drip_sends` table, so the cron is
 // idempotent: a double-fire or a re-run never sends the same email twice.
@@ -18,10 +18,7 @@
 // profiles.drip_unsubscribed_at — CAN-SPAM / CASL friendly.
 
 import { createHash } from 'crypto'
-import { TRIAL_PERIOD_DAYS } from './plan-catalog.js'
-
 const DAY_MS = 24 * 60 * 60 * 1000
-const TRIAL_DAYS = TRIAL_PERIOD_DAYS   // canonical trial length (plan-catalog.js)
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Unsubscribe tokens
@@ -63,7 +60,7 @@ function dripContent(frontendUrl, extensionUrl) {
       subject: 'Welcome to MarketSync — let\'s sync your inventory',
       heading: 'Welcome to MarketSync 👋',
       body: [
-        'Thanks for starting your 30-day trial! MarketSync runs your whole store from one place — your website, sales CRM, inventory intelligence and pricing, trade appraisals, equity mining, reports, and vehicle marketing. Enter a car once and everything else follows.',
+        'Thanks for starting your free trial! MarketSync runs your whole store from one place — your website, sales CRM, inventory intelligence and pricing, trade appraisals, equity mining, reports, and vehicle marketing. Enter a car once and everything else follows.',
         'First step: connect your inventory so we can pull in your vehicles. It takes about two minutes — add your inventory feed URL (or website) from your dashboard and we\'ll do the rest.'
       ],
       cta: { text: 'Sync your inventory', url: dash }
@@ -136,6 +133,17 @@ function dripContent(frontendUrl, extensionUrl) {
       cta: { text: 'Choose your plan', url: `${frontendUrl}/dashboard.html` }
     }
   ]
+}
+
+// Fit the onboarding sequence to the actual plan window. Shorter trials keep the
+// highest-value early messages and always reserve the final day for the expiry nudge.
+export function scheduleTrialEmails(emails, trialDays) {
+  const endingDay = Math.max(0, Number(trialDays || 1) - 1)
+  const ending = emails.find(email => email.key === 'trial-ending')
+  const onboarding = emails.filter(email => email.key !== 'trial-ending' && email.day < endingDay)
+  return ending
+    ? [...onboarding, { ...ending, day: endingDay }].sort((a, b) => a.day - b.day)
+    : onboarding.sort((a, b) => a.day - b.day)
 }
 
 // Branded HTML shell — matches the password-reset email styling in server.js.
@@ -244,7 +252,7 @@ export async function runDripCampaign({
   // middleware and fall back to the dealership.
   const { data: profiles, error: profErr } = await supabaseAdmin
     .from('profiles')
-    .select('id, full_name, billing_status, trial_ends_at, drip_unsubscribed_at, dealerships(billing_status, trial_ends_at)')
+    .select('id, full_name, billing_status, trial_ends_at, created_at, drip_unsubscribed_at, dealerships(billing_status, trial_ends_at, created_at)')
     .is('drip_unsubscribed_at', null)
 
   if (profErr) {
@@ -265,9 +273,14 @@ export async function runDripCampaign({
     summary.processed += 1
 
     const trialEndsAt = new Date(trialEndsRaw).getTime()
-    const signupTime = trialEndsAt - TRIAL_DAYS * DAY_MS
+    const createdAtRaw = p.created_at || p.dealerships?.created_at
+    // Account creation is the stable start of onboarding even when HQ extends a trial.
+    // Fall back to seven days before the end for legacy rows missing created_at.
+    const signupTime = createdAtRaw ? new Date(createdAtRaw).getTime() : trialEndsAt - 7 * DAY_MS
     const currentDay = Math.floor((now - signupTime) / DAY_MS)
     if (currentDay < 0) continue
+    const effectiveTrialDays = Math.max(1, Math.round((trialEndsAt - signupTime) / DAY_MS))
+    const scheduledEmails = scheduleTrialEmails(EMAILS, effectiveTrialDays)
 
     // Which days has this user already received?
     const { data: sentRows } = await supabaseAdmin
@@ -278,7 +291,7 @@ export async function runDripCampaign({
 
     // Next unsent email that's due (smallest day <= currentDay). At most one per
     // run, so users progress through the sequence in order even after a missed day.
-    const next = EMAILS
+    const next = scheduledEmails
       .filter(e => e.day <= currentDay && !sentDays.has(e.day))
       .sort((a, b) => a.day - b.day)[0]
     if (!next) continue

@@ -15,12 +15,12 @@
   <link rel="icon" type="image/png" href="/assets/brand/favicon.png">
   <link rel="apple-touch-icon" href="/assets/brand/favicon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MarketSync Pricing &amp; Plans — Free 30-Day Trial</title>
-  <meta name="description" content="Choose your MarketSync plan: MarketSync Digital for your full digital presence, or DealerOS (Core, Pro, Complete) to run your whole store. Every account starts with a free 30-day trial, no credit card required.">
+  <title>MarketSync Pricing &amp; Plans — Free Trials</title>
+  <meta name="description" content="Choose your MarketSync plan. Independent products include 7 days, suites include 14 days, and MarketSync Digital and DealerOS include 30 days free.">
   <link rel="canonical" href="https://marketsync.link/upgrade.html">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="MarketSync Pricing &amp; Plans — Free 30-Day Trial">
-  <meta property="og:description" content="MarketSync Digital from $1,199 CAD/mo, or DealerOS from $1,499 CAD/mo (Core) to $3,999 CAD/mo (Complete). Every account starts with a free 30-day trial — no credit card required.">
+  <meta property="og:title" content="MarketSync Pricing &amp; Plans — Free Trials">
+  <meta property="og:description" content="Independent products include 7 days, suites include 14 days, and MarketSync Digital and DealerOS include 30 days free.">
   <meta property="og:url" content="https://marketsync.link/upgrade.html">
   <meta property="og:image" content="https://marketsync.link/og-image.png">
   <meta property="og:site_name" content="MarketSync">
@@ -134,7 +134,7 @@
     const errBox = () => document.getElementById('error-box');
     function showErr(msg) { const e = errBox(); e.textContent = msg; e.classList.remove('hidden'); }
 
-    function card({ key, label, price, tagline, features, popular, accent }) {
+    function card({ key, label, price, tagline, features, popular, accent, trialDays }) {
       const border = popular ? 'border-indigo-600' : 'border-slate-200 dark:border-slate-800';
       const btnCls = accent === 'emerald'
         ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
@@ -149,7 +149,7 @@
         <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300 mb-8 flex-1">
           ${features.map(f => `<li class="flex items-start gap-2"><span class="text-emerald-600 dark:text-emerald-400">✓</span> ${f}</li>`).join('')}
         </ul>
-        <button data-plan="${key}" class="w-full ${btnCls} font-bold py-3 rounded transition">Start 30-day free trial</button>
+        <button data-plan="${key}" class="w-full ${btnCls} font-bold py-3 rounded transition">Start ${trialDays}-day free trial</button>
       </div>`;
     }
 
@@ -167,9 +167,9 @@
       const pkgCards = order.filter(k => byKey[k] || PKG_META[k]).map(k => {
         const p = byKey[k] || {}; const meta = PKG_META[k] || { features: [], tagline: '' };
         const amt = p.amount != null ? p.amount : ({ starter: 999, growth: 1499, pro: 1999 })[k];
-        return card({ key: k, label: (p.label || k), price: `${p.symbol || symbol}${amt}`, tagline: meta.tagline, features: meta.features, popular: !!meta.popular });
+        return card({ key: k, label: (p.label || k), price: `${p.symbol || symbol}${amt}`, tagline: meta.tagline, features: meta.features, popular: !!meta.popular, trialDays: 30 });
       });
-      const chatCard = card({ key: CHATBOT.key, label: CHATBOT.label, price: `${symbol}${CHATBOT.amount}`, tagline: CHATBOT.tagline, features: CHATBOT.features, accent: 'emerald' });
+      const chatCard = card({ key: CHATBOT.key, label: CHATBOT.label, price: `${symbol}${CHATBOT.amount}`, tagline: CHATBOT.tagline, features: CHATBOT.features, accent: 'emerald', trialDays: 7 });
       grid.innerHTML = pkgCards.join('') + chatCard;
       grid.querySelectorAll('button[data-plan]').forEach(b => b.addEventListener('click', () => startCheckout(b.dataset.plan, b)));
     }

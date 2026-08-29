@@ -89,15 +89,15 @@ async function startAIBoostCheckout(btn, resetLabel) {
 
 function setupAIBoostListeners() {
   document.getElementById('ai-boost-upgrade-btn')?.addEventListener('click', (e) => {
-    startAIBoostCheckout(e.currentTarget, 'Start 30-Day Free Trial — $129/month after');
+    startAIBoostCheckout(e.currentTarget, 'Start 7-Day Free Trial — $129/month after');
   });
 
   document.getElementById('ai-boost-upsell-btn')?.addEventListener('click', (e) => {
-    startAIBoostCheckout(e.currentTarget, 'Try Free for 30 Days');
+    startAIBoostCheckout(e.currentTarget, 'Try Free for 7 Days');
   });
 
   document.getElementById('ai-boost-page-upgrade-btn')?.addEventListener('click', (e) => {
-    startAIBoostCheckout(e.currentTarget, 'Try Free for 30 Days');
+    startAIBoostCheckout(e.currentTarget, 'Try Free for 7 Days');
   });
   document.getElementById('ai-boost-manage-btn')?.addEventListener('click', launchStripeLifecycle);
 
@@ -913,7 +913,7 @@ async function startInvIntelCheckout() {
   } catch (e) {
     alert(e.message);
     btn.disabled = false;
-    btn.textContent = 'Start 30-Day Free Trial';
+    btn.textContent = 'Start 7-Day Free Trial';
   }
 }
 

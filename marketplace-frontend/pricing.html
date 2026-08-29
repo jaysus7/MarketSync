@@ -270,7 +270,7 @@
   <section class="pricing-hero ms-reveal">
     <div class="pricing-badge">Simple &amp; Transparent CAD Pricing</div>
     <h1 class="pricing-title">One connected operating system for your dealership.</h1>
-    <p class="pricing-sub">Choose the outcome you need today. Start with marketing, build your complete digital presence, or run the dealership on DealerOS.</p>
+    <p class="pricing-sub">Choose the outcome you need today. Independent products include 7 days free, suites include 14 days, and MarketSync Digital and DealerOS include 30 days. No credit card required.</p>
   </section>
 
   <div id="platforms" class="section-label ms-reveal">
@@ -451,6 +451,18 @@
         var unit = el.querySelector('.card-unit');           // preserve the "/ month CAD" styling
         el.textContent = (p.priceFormatted || ('$' + p.price)) + ' ';
         if (unit) el.appendChild(unit);
+      });
+      document.querySelectorAll('.price-card').forEach(function (card) {
+        var priceEl = card.querySelector('[data-price-id]');
+        var link = card.querySelector('a[href*="plan="]');
+        var planId = priceEl && priceEl.getAttribute('data-price-id');
+        if (!planId && link) planId = new URL(link.href, location.href).searchParams.get('plan');
+        var plan = byId[planId];
+        if (!plan || !plan.trialDays || card.querySelector('.trial-note')) return;
+        var note = document.createElement('div');
+        note.className = 'trial-note card-desc';
+        note.textContent = plan.trialDays + '-day free trial · No card required';
+        if (link) card.insertBefore(note, link); else card.appendChild(note);
       });
     });
   </script>

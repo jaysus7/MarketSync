@@ -1,162 +1,164 @@
 # MarketSync — Product Knowledge Base
-Source: marketsync.link marketing site. Generated 2026-07-29.
+Source: marketsync.link marketing site. Generated 2026-08-29.
 Use ONLY this document to answer questions about MarketSync.
 
 
 
-## Overview & pricing — MarketSync — The All-in-One Dealership Platform
+## Overview & pricing — MarketSync — Grow, Operate and Understand Your Dealership
 (index.html)
-30-day free trial · No credit card required
-The all-in-one platform for car dealerships
-Run Your Entire Dealership
-From One Platform
-Website, sales CRM, inventory intelligence, vehicle marketing and trade appraisals — in one system that actually talks to itself. Enter a vehicle once and MarketSync builds the listing, prices it to market, posts it to Facebook Marketplace, and routes every lead to the right rep.
-Start 30-Day Free Trial
-See the platform
-No credit card needed · Cancel anytime · Replaces your website, CRM & inventory tools
+Grow · Operate · Understand
+The operating system
+for automotive retail.
+A modern dealership platform that connects customer growth, dealership operations and operational intelligence. MarketSync Digital grows demand, DealerOS runs the store, and Intelligence by MarketSync turns your data into action — on one connected customer and vehicle record.
+Start with MarketSync Digital
+Book a DealerOS demo
+7 days for products · 14 for suites · 30 for Digital & DealerOS · No credit card required
 marketsync.link/dashboard
-LIVE
-Available
-Posted
-Sold
-Clicks
-Leaderboard
-Silver
-Sarah
-Mike
-Jay
-Recent listings
-2024 Ford F-150 XLT
-POSTED
-2023 Honda Civic Sport
-POSTED
-2026 GMC Hummer EV
-POSTED
-2022 Ram 1500 Limited
-POSTED
-Listings posted · daily
-Watch the 60-second demo
-The MarketSync loop
-From the lot to the road — and back again
-Every stage of a car's life at your store runs on one database. Touch the car once at the start; MarketSync carries it — and the customer — all the way through, then hands you the next deal.
-01 · ACQUIRE
-A car comes in
-Appraise the trade against the live market and decode the VIN for specs, options and open recalls.
-Trade appraisal →
-02 · RECON & CLEANUP
-Get it retail-ready
-Track recon and detailing so the unit is front-line ready before it ever gets merchandised.
-See the workflow →
-03 · PRICE
-Price it to the market
-Live price-to-market, turn rate and health scores tell you exactly where to list it.
-Inventory intelligence →
-04 · MERCHANDISE
-It lands on your website
-A self-building VIN page goes live on your own MarketSync website — AI copy, photos and price.
-Website builder →
-05 · MARKET
-It posts to Facebook
-One click posts the same car to Facebook Marketplace with AI-written copy — every channel at once.
-Marketplace poster →
-06 · CAPTURE
-Leads route themselves
-Every lead from every channel lands in one CRM and auto-assigns to the right rep instantly.
-CRM & lead delivery →
-07 · SELL
-You desk the deal
-Structure retail, rebates, trade, taxes and payments, then print a clean estimate.
-Deal desk →
-08 · F&I
-F&I closes it
-Add F&I products and print a 6-page bill of sale — cash, credit-app and financed paths built in.
-Bill of sale →
-09 · RETAIN & MINE
-They come back
-Automated follow-ups stay warm and equity mining flags the moment they can trade up — restarting the loop.
-Equity mining →
-See the full workflow
-Nine stages, one platform — walk the whole loop from a car entering the lot to the next deal it starts.
-One platform instead of five bills
-Most dealers stitch together a website vendor, a CRM, an inventory tool, a marketing tool and an appraisal tool — none of which talk to each other. MarketSync is all of it, in one login, sharing one database.
-Your website, your CRM and your inventory tool being separate is why nothing lines up. A lead comes in on your site but your CRM never hears about it. You reprice a car in vAuto but your website shows the old number. You appraise a trade but it lives in a different system than the deal.
-MarketSync is one system. A vehicle you enter shows up on your website, gets marketed, gets priced to the live market, and every lead it generates lands in the same CRM your reps already work — automatically, because it's all one database.
-Think of it as the operating system for your store — the layer everything else plugs into.
-Who it's for: independent lots and franchise stores that are tired of paying five vendors to not integrate. Already have a dealer website? MarketSync can read your existing inventory feed with no backend integration while you migrate.
-The platform
-Five products. One login. One database.
-Each one replaces a tool you already pay for — together they do what no single vendor can.
+Gross MTD $284,910
+Units sold 63
+Leads today 41
+One platform, three jobs
+Grow demand. Operate the store. Understand and act.
+Buy the pillar you need today and connect the rest when you're ready — they share one customer and vehicle record.
+Grow
+MarketSync Digital
+Your connected digital department — website, SEO, AI customer agent, social, Facebook, video and campaigns that all share your inventory and customer data.
+Attract and capture more customers
+One connected marketing stack, not silos
+Start with MarketSync Digital
+Operate
+DealerOS
+The connected operating system for the whole store — CRM, inventory, sales, desking, F&I, service, parts and accounting on one continuous record.
+Run every department in one place
+Core, Pro and Complete tiers
+Book a DealerOS demo
+Understand + Act
+Intelligence by MarketSync
+Your dealership's operating intelligence — ask what's happening, understand why, get a recommended action and execute it after your approval.
+Find it, explain it, recommend, execute
+Built into DealerOS Complete
+Explore Intelligence
+DealerOS Complete = MarketSync Digital + DealerOS operations + Intelligence by MarketSync.
+Compare plans & pricing
+Sound familiar?
+Six logins. Five bills.
+Nothing talks to each other.
+Most dealers stitch together a pricing tool, a CRM, a DMS, a website vendor and a posting app — then re-key the same car into all of them. It's slow, it's expensive, and deals fall through the cracks.
+You enter every car 5 times
+The same VIN goes into your DMS, your pricing tool, your website, your CRM and your posting app. Hours a week, gone.
+Leads slip through
+A lead lands in one system, the salesperson lives in another, and follow-up never happens. Speed-to-lead dies.
+Nobody sees the whole picture
+Sales, service, F&I and accounting each run their own tool. The GM can't see the real number until month-end.
+MarketSync is the fix. One system. One database. Every department.
+Fix it — start free
+Replaces your stack
+Cancel the subscriptions
+you're juggling today.
+vAuto
+DealerSocket / VinSolutions
+PBS
+DeskIt
+eDealer
+Shiftly
+your service & parts tool
+One platform does inventory intelligence, CRM, desking & F&I, a dealer website, service & parts, accounting, commissions and Facebook posting — for a fraction of what you pay for all of them combined.
+Products, Suites & Operating System
+Pick what you need.
+Add the rest when you're ready.
+Layer 3 · Operating System
+DealerOS — The complete dealership operating system.
+Everything to run the store, in one login and one database. Enter a vehicle once and it flows to your website, your CRM, your desk and your books.
+Sales CRM, lead routing & automated follow-ups
+Inventory + Inventory Intelligence (price-to-market)
+Deal desk & F&I, e-signatures, bill of sale
+Service & parts, repair orders, technician time clock
+Accounting engine, commissions & payroll export
+Dealer website builder + executive ROI dashboard
+Explore DealerOS ($1,499+) See all tiers
+DealerOS
+1 login
+1 database
+Every department
+AI Customer Agent
+An AI salesperson on your website, 24/7.
+A customer-facing AI that answers questions, shows the right vehicles, and books the appointment — then hands a warm lead to your team, day or night.
+Sells the appointment and captures every lead
+Shows live vehicle cards from your real inventory
+A rep can take over the conversation any time
+Explore AI Customer Agent Try it free
+AI Customer Agent
+24/7 never sleeps
+From $599 per month
+Design Studio
+Dealership creative workspace, AI generation & social scheduler.
+Create branded graphics, social assets, vehicle overlays, and marketing banners in seconds with dealership templates and AI asset suggestions — then schedule and publish them across every channel, all in one flat-priced product.
+Branded creative templates for Facebook, Instagram & Web
+Store typography, OEM logo & brand asset vault
+AI-generated images, layouts & copy included
+Multi-platform social scheduler & publishing calendar built in
+Explore Design Studio Try it free
+Design Studio
+$19.99 per month
+Creative + AI + scheduler
+Facebook AutoPoster
+Post your whole lot to Facebook Marketplace in one click.
+Turn your inventory into Marketplace listings without the copy-paste grind — with a built-in sales leaderboard that gets your team competing to post and sell.
+One-click posting straight from your inventory
+Solo for a single seller ($19/mo), or Dealer ($79/mo) with a full sales team
+Sales leaderboard, points & tiers to drive volume
+Explore AutoPoster Try it free
+Facebook AutoPoster
+1-click to Marketplace
+From $19 per month
+Video Suite
+Vehicle walkarounds & video customer messaging.
+Record branded vehicle walkthroughs with lower-third overlays and send trackable video landing links directly to CRM leads via email and SMS.
+Guided vehicle walkaround recording assistant
+Automated AI captions & lower-third pricing overlays
+Trackable video email & SMS delivery links with view notifications
+Explore Video Suite Try it free
+Video Suite
+$99 per month
+1080p video studio
+Campaigns — Email + SMS
+Targeted email & SMS messaging campaigns.
+Reach equity position leads, unsold prospects, and service customers automatically with smart dealership audience segmentation.
+Automated email campaign builder & responsive templates
+98% open-rate SMS broadcast & 2-way text follow-ups
+Equity mining & service visit audience filters
+Explore Campaigns Try it free
+Campaigns
+$199 per month + usage
+Email + SMS automation
 Dealer Website
-Drag-and-drop website builder, live inventory + VIN pages, lead forms, an AI sales chat, SEO and a custom domain with Cloudflare security.
-Replaces Dealer.com, Dealer Inspire, EDealer
-Sales CRM
-Automatic lead routing, follow-up automation, email & SMS, tasks, trade leads, equity mining, and insights on every rep and source.
-Replaces VinSolutions, Elead, DealerSocket
-Inventory Intelligence
-Live price-to-market, turn rate, health scores, competitor and price monitoring, hot/cold demand, and repricing recommendations.
-Replaces vAuto, LotLinx, AutoAlert
-Vehicle Marketing
-AI descriptions, one-click Facebook Marketplace posting, window stickers & brochures (incl. factory OEM), VIN decoding and Carfax.
-Replaces the tools you stitch together by hand
-Appraisals
-Trade appraisals off live market comps, disclosure & customer-summary PDFs, trade values, and one-click push to your website once you take possession.
-Replaces vAuto Provision
-And they share everything
-Because it's one database, the five products aren't five apps — they're one workflow. That's the part no incumbent can match.
-See the workflow →
-Vehicle Marketing · Facebook Marketplace
-One-click posting to Facebook Marketplace
-Part of the Vehicle Marketing module: a small free Chrome helper fills the year, make, model, price, photos and description for you — so a car you already entered goes live on Marketplace in seconds.
-It fills in every box
-Year, make, model, price, mileage, color, description, all the photos. You do not touch the keyboard.
-Mark a vehicle as posted
-After you post a car, click the green check. MarketSync remembers and removes it from your "to-do" list so you never post the same car twice.
-Tell us when a car sold
-If you sold the car, click I Sold It . You score 500 points. If Facebook itself shows the car is sold, MarketSync sees it on its own. No paperwork.
-Safe and private
-It only wakes up on Facebook Marketplace. It never reads your messages, your posts, or your friends list.
-|S
-MarketSync
-CONNECTED
-Today's queue · 24 vehicles
-2024 Ford F-150 XLT
-$47,995 · 12,400 km
-FILL FORM
-2023 Honda Civic Sport
-$29,500 · 18,900 km
-I SOLD IT
-2022 Toyota RAV4
-Sold · +500 pts
-Example view of the extension popup.
-The Dashboard
-Your Sales Floor, In …
+High-performance dealership website platf …
 
 
 ## The MarketSync workflow (lot-to-road loop) — The MarketSync Workflow — One Car, From Lot-In to Lot-Out
 (workflow.html)
-30-day free trial · No credit card required
 The full workflow
 One car. One loop. One platform.
-From the second a car hits your lot to the day it's delivered — and the day that customer comes back for the next one. Every stage below runs on the same database, so nothing is re-typed and nothing falls through the cracks.
-Start your 30-day free trial
+From marketing and the first lead to the deal, F&I, delivery, service and the next purchase — the customer and vehicle records stay connected instead of being recreated in separate tools. MarketSync Digital grows demand, DealerOS runs every stage, and Intelligence by MarketSync watches the whole loop.
+Start your free trial
 See the 11 stages ↓
 …and the loop starts again with their next car.
 Every delivered customer flows into equity mining and automated follow-ups — so your best source of the next sale is the last one.
-Add-ons that supercharge the loop
-The core platform runs the whole workflow. Turn these on when you want more firepower.
-AI Boost
-Writes descriptions, sales pitches, SEO, meta and listing copy across every field. Boost / short / long / fresh / SEO — in your store's voice.
-Learn more →
-Inventory Intelligence
-Live price-to-market, health scores, turn rate and aging — plus the VIN decoder and factory window stickers.
-Learn more →
-VIN Decoder & Stickers
-Full VIN decode with recalls, plus authentic factory (OEM) window stickers and brochures on demand.
+Three pillars, one connected record
+The same customer and vehicle record flows through every stage above — never recreated in a separate tool. Each MarketSync pillar owns part of the loop.
+MarketSync Digital — Grow
+Marketing, website, SEO, social, video and the AI Customer Agent bring shoppers in and hand every lead straight to the CRM (stages Market → Capture).
+Explore Digital →
+DealerOS — Operate
+CRM, inventory, desking, F&I, service, parts and accounting run every stage from acquire to delivery on one shared record.
+Explore DealerOS →
+Intelligence by MarketSync — Understand + Act
+Watches pricing, aging and equity across the loop — finds it, explains why, recommends the next action and executes it after your approval.
 Learn more →
 Running multiple rooftops? See MarketSync for Dealer Groups
 Run the whole loop on one platform.
 Replace your website vendor, CRM, inventory tool, marketing tool and appraisal book with one login — and one database.
-Start free — 30 days
+Start your free trial
 Ask MarketSync
 What is MarketSync?
 How much does it cost?
@@ -167,54 +169,65 @@ Send to MarketSync
 AI assistant · answers from marketsync.link
 
 
-## Feature index — MarketSync Features — The Complete Dealer Toolkit
+## Feature index — MarketSync Features — Digital, DealerOS & Intelligence
 (features.html)
-30-day free trial · No credit card required
-The Complete Toolkit
+Grow · Operate · Understand
 Everything MarketSync does
 Pick any feature for the full breakdown — what it does, how it works, and answers to the common questions.
-Core
-Included with every plan
-Facebook Auto-Poster
+MarketSync Digital
+Grow — your connected digital department
+Dealer Website
+Fast dealership site with live VIN pages.
+MarketSync SEO
+Automated audits, auto-fix, local schema & attribution.
+AI Customer Agent
+24/7 inventory-aware customer chat & lead capture.
+Design Studio
+Branded creative, social assets & AI generation.
+Social Studio & Scheduler
+Plan and publish across every social channel.
+Facebook Marketplace
 Fill every Marketplace listing in one click.
-Inventory Sync
-Keep inventory current automatically — no CSVs.
-Sales Pipeline
-Posted → Appointment → Sold, with reminders.
-Sales Leaderboard
-Rank the team by postings and sales.
-Dealer Groups
-Multi-store roles and flexible billing.
-CRM Lead Delivery
-ADF/XML leads straight into your CRM.
-Posting Safety
-Guardrails that keep your account safe.
-Inventory Intelligence
-Analytics tier · $299/mo
-Inventory Intelligence
+Video
+Walkarounds, customer videos & social clips.
+Email, SMS & Campaigns
+Targeted campaigns, audiences & automations.
+AI Listing Copy & Analytics
+AI descriptions plus campaign & attribution reporting.
+DealerOS
+Operate — one connected operating system
+CRM & Customer Record
+One shared customer record across every department.
+Inventory
+Live inventory, sync and merchandising.
+Sales, Desking & Appraisals
+Pipeline, desking and trade appraisal in one flow.
+F&I & Deal Desk
+Structure the deal and print the paperwork.
+Inventory Analytics
 Health, turn rate, hot & cold, aging.
+Market Pricing
+Live US & Canada pricing per vehicle.
 VIN Decoder & Stickers
 Decode VINs, print stickers & brochures.
-AI Boost
-Every AI feature · $129/mo
-AI Listing Copy
-AI-written descriptions in your tone.
-Market Price Reports
-Live US & Canada pricing per vehicle.
-AI Vision
-Score every listing's photos 0–100.
-Sell, desk & retain
-The rest of the loop
-Dealer Website
-Drag-and-drop site with live VIN pages.
-Deal Desk & Bill of Sale
-Desk the deal, print the bill of sale.
-Trade Appraisal
-Value trades against the live market.
-Follow-Up Automation
-Email, SMS & rep tasks on autopilot.
-Equity Mining
-Find who's ready to trade up, automatically.
+Service, Retention & Equity
+Equity mining and retention on the shared record.
+Staff, Management & Groups
+Roles, multi-store management and automation by tier.
+Intelligence by MarketSync
+Understand + Act — your operating intelligence
+Find it
+Ask what's happening across the dealership.
+Explain it
+Understand why, with the data behind it.
+Recommend an action
+Get a clear, prioritized next step.
+Execute after approval
+Take the action once you approve it.
+DealerOS Complete
+Run everything, connected
+DealerOS Complete connects the entire environment
+The full MarketSync Digital bundle, all DealerOS operating departments and Intelligence by MarketSync on one connected customer and vehicle record.
 See the full workflow
 See how MarketSync compares
 Ask MarketSync
@@ -227,98 +240,124 @@ Send to MarketSync
 AI assistant · answers from marketsync.link
 
 
-## How MarketSync compares — MarketSync vs Other Facebook Marketplace Posting Tools | Comparison
+## How MarketSync compares — Compare MarketSync Plans — Digital, Core, Pro & Complete
 (compare.html)
-30-day free trial · No credit card required
-Comparison
-MarketSync vs your whole stack
-Most dealers pay four or five vendors — a website provider, a CRM, an inventory/pricing tool, an appraisal tool, and a posting tool — none of which talk to each other. MarketSync is all of it in one login, one database: website builder, sales CRM, inventory intelligence, appraisals, equity mining, reports, and one-click Facebook Marketplace posting. The table below shows it against posting-only tools and against doing it all by hand.
-Capability
-MarketSync
-Other posting tools
-Manual posting
-One-click Facebook Marketplace posting
-Side-panel posting workflow
-Automatic inventory sync from your dealer site
-Posting-safety guardrails (daily cap, spacing)
-Photo overlays (phone / logo)
-Sales pipeline with appointment reminders
-Sales leaderboard & team insights
-AI-written listing descriptions
-Live US & Canada market price reports
-Inventory intelligence & health scores
-VIN decode + factory window stickers
-Branded stickers & AI dealer brochures
-AI photo quality scoring
-Dealer-group management & roles
-CRM ADF/XML lead delivery
-Trade-in appraisal with branded disclosure PDFs
-Ask MarketSync AI assistant (live inventory & market Q&A)
-Branded Carfax report on every car
-AI price prediction & live market snapshot
-Turn Rate aging & days-on-lot scoring
-Multilingual dashboard & any-language AI listings
-The rest of the platform — where posting tools stop
-Drag-and-drop dealer website builder + custom domain
-Per-page SEO titles & meta written by AI
-AI sales concierge chat on your website
-Deal desk — estimate & bill of sale, stored per deal
-Equity mining & lease pull-ahead radar
-Executive ROI dashboard, per-rep & profit reports
-Google reviews on your website
-"Other posting tools" reflects the typical Facebook-posting-only category as of 2026. Competitors' features change — verify current capabilities on each provider's site.
-MarketSync vs Shiftly Auto
-A detailed, sourced head-to-head with a focused Facebook posting tool.
-Frequently asked questions
-What makes MarketSync different from other posting tools?
-Most posting tools stop at filling out the Facebook Marketplace form. MarketSync does that too, then adds automatic inventory sync, a sales pipeline with appointments, a sales leaderboard, AI listing copy, live market price reports, Inventory Intelligence with Turn Rate aging scores, trade-in appraisals with branded disclosure PDFs, the Ask MarketSync AI assistant for live inventory and market questions, a branded Carfax report on every car, AI price prediction and market snapshots, VIN decoding with window stickers and brochures, multilingual dashboard and any-language AI listings, AI photo scoring, dealer-group management, and CRM lead delivery.
-Is MarketSync a Facebook API integration?
-No. Facebook Marketplace has no public API for posting vehicle listings, so MarketSync — like other posting tools — works through the real Marketplace page in your own browser via a Chrome extension. You always click Post yourself.
-How much does MarketSync cost?
-The core platform covers Facebook posting, inventory sync, pipeline, leaderboard, dealer groups and CRM lead delivery. Two optional add-ons extend it: Inventory Intelligence at $299/month (analytics plus the VIN decoder and factory window stickers) and AI Boost at $129/month (all AI features, including AI Vision and branded brochures).
-See the whole platform for yourself
-Try MarketSync free for 30 days. No credit card required.
-Start free trial
-Ask MarketSync
-What is MarketSync?
-How much does it cost?
-Book a demo
-Great — leave your details and the team will reach out.
-I'd like to book a demo
-Send to MarketSync
-AI assistant · answers from marketsync.link
+Compare plans
+Which MarketSync
+is right for you?
+Start with MarketSync Digital to grow, run the store on DealerOS , or get everything with DealerOS Complete . Here's exactly what each one includes.
+Grow
+MarketSync Digital
+$1,199 / mo CAD
+Start free
+Operate
+DealerOS Core
+$1,499 / mo CAD
+Book demo
+Most popular
+DealerOS Pro
+$2,499 / mo CAD
+Book demo
+Everything
+DealerOS Complete
+$3,999 / mo CAD
+Book demo
+Overview
+Best for
+Marketing & growth
+Running the store
+Store + Fixed Ops
+The whole dealership
+Free 30-day trial
+MarketSync Digital — Grow
+Dealer Website
+MarketSync SEO
+AI Customer Agent
+Design Studio
+Social Studio & Scheduler
+Facebook Marketplace
+Video
+Email, SMS & Campaigns
+DealerOS — Operate
+CRM & customer record
+Inventory
+Desking & appraisals
+Sales workflows & reporting
+Service
+Parts
+F&I
+Accounting
+Automations
+Integrations & API
+Multi-store & group rollups
+Intelligence — Understand + Act
+Intelligence by MarketSync
+MarketSync Identity Verify
+Get started
+Start MarketSync Digital
+Book Core demo
+Book Pro demo
+Book Complete demo
+DealerOS Complete includes the entire MarketSync Digital bundle. DealerOS Core and Pro are operational only — they do not include MarketSync Digital. See full pricing →
+Vs. the category
+A different architecture from single-purpose tools.
+Most dealership tools do one job. MarketSync's difference is that customer growth, dealership operations and operational intelligence share one connected customer and vehicle record. We describe the MarketSync approach and who each is best suited for — not unverifiable competitor pricing or feature claims.
+Operating systems & DMS
+Compared with Tekion, CDK, Reynolds & Reynolds, PBS, Dealertrack, DealerCenter, Frazer. DealerOS runs the store on one shared record and connects to marketing and intelligence.
+Digital & website
+Compared with Dealer.com, DealerOn, Dealer Inspire. MarketSync Digital is a connected digital department, not a separate website vendor silo.
+AI & engagement
+Compared with Impel, Podium, Fullpath, DriveCentric. Two products: the AI Customer Agent (external) and Intelligence by MarketSync (internal), both on your live data.
+Inventory & pricing
+Compared with vAuto and inventory specialists. Price-to-market and aging live inside DealerOS and follow the car into desking and reporting.
+Still deciding?
+Start with MarketSync Digital today, or book a DealerOS demo to see the connected model end to end.
+Start with MarketSync Digital
+Book a DealerOS demo
 
 
-## FAQ — MarketSync FAQ — Facebook Marketplace for Car Dealers
+## FAQ — Frequently Asked Questions
 (faq.html)
-How does MarketSync actually post to Facebook Marketplace?
-Facebook doesn't allow third-party sites to post listings via API. Our Chrome extension opens FB Marketplace's standard "Create Listing" page and fills in the year, make, model, color, price, mileage, photos, and description for you. You review and click Publish like normal — it's just way faster than typing it all manually.
-Will Facebook ban my account for using this?
-MarketSync doesn't bypass any of Facebook's controls — it fills in the same form a human would, and you still click Publish yourself. We deliberately built it that way to stay within reasonable use. Common-sense limits still apply: don't post the same vehicle hundreds of times, and don't post non-existent inventory.
-What inventory feeds do you support?
-Today we auto-resolve LeadBox-style feeds (any dealership site at /new-inventory/ , /used-inventory/ , etc.) into a working JSON URL. If your dealer site uses a different platform, paste the direct JSON inventory feed URL and we'll handle it. Talk to support if you're not sure where to find yours.
-How does the 30-day free trial work?
-You get 30 days of full access on either plan — no credit card required at signup. When the trial ends, the dashboard will prompt you to add a payment method to keep using MarketSync. If you don't, your account simply pauses until you decide to continue.
-Do my sales reps need to pay separately?
-No. On the Dealer Plan, every sales rep on your team is included in your subscription — invite as many as you need from the Sales Team page. Solo reps not affiliated with a dealer have their own Individual Sales Rep plan.
-What insights does the dealer admin see?
-Total inventory synced, listings posted (overall + per-rep), sold conversion rate, active days, daily posting rate, leaderboard ranking everyone in the dealership, and a drill-down view per rep. Plus full team management from one panel.
-What happens to my dealership data?
-Inventory data is pulled from your own public dealer feed and stored only so we can show it to your team in the extension. We don't sell, share, or use your data for advertising. See our Privacy Policy for the full breakdown.
-Can I see a demo before I sign up?
-Absolutely. Book a demo and we'll walk you through it live with your actual inventory.
-What if Facebook changes their UI?
-We maintain the extension actively — when FB shifts their layout, we ship an update. Active subscribers automatically get the new version through Chrome's auto-update.
-What is the sales leaderboard and how do points work?
-Every rep earns points for posting and selling vehicles, with bonus points when a deal closes through a MarketSync-posted Facebook listing. Points move reps up tiers — Bronze, Silver, Gold, Platinum, Diamond, Legend — visible to the whole dealership on a live leaderboard. It's the part most listing tools don't have, and it's built specifically to keep a sales floor motivated.
-How is MarketSync different from a basic Facebook lister?
-Basic listing tools fill in the Facebook form and stop. MarketSync also tracks sold vehicles per rep, awards points, runs the leaderboard, and gives the dealer admin a real-time view of who's posting and selling. You get inventory automation and a sales management layer in the same subscription.
-What is AI Boost?
-AI Boost is a $129/month add-on for Dealer Plan subscribers. It adds a one-click AI writing button to every vehicle in your inventory catalog — click it and the AI generates a complete, polished Facebook Marketplace listing in the tone you choose (professional, friendly, or aggressive). It also checks for missing photos, missing price, or mileage before you post, and flags vehicles that are priced more than 15% above or below your own comparable inventory. You activate it from Profile & Settings and can cancel it independently at any time.
-Who sees the AI Boost upgrade button in the dashboard?
-Only the dealer admin sees it — the upgrade prompt appears at the top of the Insights page and in Profile & Settings. Sales reps see the AI Enrichment button on inventory cards once the admin has activated it, but the billing and configuration is managed by the admin only.
-Does MarketSync work on mobile?
-The dashboard, leaderboard, and stats pages are fully responsive and work great from a phone or tablet browser. Posting to Facebook Marketplace itself happens through the Chrome extension, which requires desktop Chrome — that's a Facebook limitation, not a MarketSync one, since Facebook's own listing form behaves differently on mobile.
+FAQ
+Questions, answered.
+Everything about what MarketSync is, what it replaces, and how it works.
+About MarketSync
+What is MarketSync?
+MarketSync is a modern dealership platform that connects customer growth ( MarketSync Digital ), dealership operations ( DealerOS ) and operational intelligence ( Intelligence by MarketSync ) — on one connected customer and vehicle record.
+Is MarketSync a DMS?
+DealerOS is a full dealership operating system — CRM, inventory, sales, desking, F&I, service, parts and accounting on one shared record. We describe it as a connected operating system rather than just another DMS.
+What does MarketSync replace?
+The disconnected stack most dealers juggle — pricing tools, CRMs, DMS/desking, website vendors and posting tools — consolidated into one platform and one database.
+Products & plans
+What is MarketSync Digital?
+Your connected digital department — website, SEO, AI Customer Agent, Design Studio, social, Facebook Marketplace, video and email/SMS campaigns, all sharing your data. $1,199 CAD/month.
+What is DealerOS?
+The operating system for the whole store, in three tiers — Core, Pro and Complete — running CRM, inventory, sales, desking, F&I, service, parts and accounting on one record.
+What's the difference between Core, Pro and Complete?
+Core ($1,499 CAD) is the operational platform. Pro ($2,499 CAD) adds Service, Parts and F&I. Complete ($3,999 CAD) adds the entire MarketSync Digital bundle, accounting, automations, integrations and Intelligence by MarketSync.
+Does DealerOS Pro include MarketSync Digital?
+No. Core and Pro are operational only. MarketSync Digital is included with DealerOS Complete , or can be bought on its own.
+Can I buy products separately?
+Yes. Standalone products and MarketSync Digital can be purchased on their own, and you can add DealerOS later — same login and data.
+Can I start with MarketSync Digital and move to DealerOS Complete later?
+Yes. Start with MarketSync Digital, then upgrade to DealerOS Complete (which includes the full Digital bundle) without changing logins or re-entering data.
+Intelligence & AI
+What is Intelligence by MarketSync?
+Your dealership's operating intelligence: ask what's happening, understand why, get a recommended action, and execute it after your approval. Included with DealerOS Complete.
+What's the difference between Intelligence and the AI Customer Agent?
+The AI Customer Agent is external/customer-facing (customer chat, inventory questions, lead capture). Intelligence by MarketSync is internal/management-facing (understands your data, explains, and executes approved actions).
+Getting started
+Is there a free trial? Do I need a credit card?
+Yes. Independent products include a 7-day trial , suites include a 14-day trial , and MarketSync Digital and DealerOS include a 30-day trial . No credit card is required to begin.
+How does onboarding and data migration work?
+Most dealerships are live in a day — you are consolidating into one system rather than migrating five separate tools.
+Is my data secure?
+Yes — role-based permissions, multi-factor authentication, row-level security on every record, and an immutable audit trail.
+How does billing work — CAD or USD?
+Public pricing is shown in CAD. Where a USD price is configured for a plan it is billed in USD, otherwise in CAD.
+Is MarketSync available in Canada and the United States?
+Yes — MarketSync serves dealerships in Canada and the United States. Public pricing is shown in Canadian dollars.
+Start your free trial See pricing
 Ask MarketSync
 What is MarketSync?
 How much does it cost?
@@ -331,7 +370,6 @@ AI assistant · answers from marketsync.link
 
 ## Product: Dealer Website Builder — Car Dealer Website Builder — Live Inventory & VIN Pages
 (dealer-website.html)
-30-day free trial · No credit card required
 Market · Website
 A dealer website you actually control .
 undefined
@@ -368,7 +406,7 @@ Are the lead forms connected to the CRM?
 Yes. Every form on the site drops the lead straight into your MarketSync CRM and auto-assigns it to a rep.
 Own your storefront.
 Stop renting your website from a vendor. Build it, brand it, and keep it in sync with your lot — all on one platform.
-Start free — 30 days
+Start free — 7 days
 Part of the MarketSync workflow · See how it all connects →
 Ask MarketSync
 What is MarketSync?
@@ -382,7 +420,6 @@ AI assistant · answers from marketsync.link
 
 ## Product: Deal Desk & Bill of Sale — Car Deal Desk & Bill of Sale Software for Dealers
 (deal-desk.html)
-30-day free trial · No credit card required
 Sell · F&I
 Desk the deal. Print the bill of sale .
 undefined
@@ -419,7 +456,7 @@ Does it update my inventory?
 Yes — marking a deal pending/sold flips the linked vehicle to pending/sold automatically, and closes the Facebook listing when sold.
 Close cleaner deals, faster.
 Desk, F&I and paperwork in one place — attached to the customer and the car, with nothing re-typed.
-Start free — 30 days
+Start your free trial
 Part of the MarketSync workflow · See how it all connects →
 Ask MarketSync
 What is MarketSync?
@@ -433,7 +470,6 @@ AI assistant · answers from marketsync.link
 
 ## Product: Trade Appraisal — Car Trade-In Appraisal Software with Live Market Values
 (trade-appraisal.html)
-30-day free trial · No credit card required
 Acquire
 Appraise the trade against the live market .
 undefined
@@ -467,10 +503,10 @@ Live comparable listings via MarketCheck, mileage-adjusted, with a CarAPI fallba
 Does the customer see my cost?
 No. Internal cash/trade ranges stay with the rep; the customer only sees the clean summary you choose to print.
 What does it cost?
-Trade appraisal is part of the Inventory Intelligence add-on ($299/mo), which also includes the VIN decoder and factory window stickers.
+Trade appraisal is part of Intelligence by MarketSync, included with DealerOS, which also includes the VIN decoder and factory window stickers.
 Stop guessing on trades.
 Give every rep a market-accurate number — and turn winning the trade into the start of your next sale.
-Start free — 30 days
+Start your free trial
 Part of the MarketSync workflow · See how it all connects →
 Ask MarketSync
 What is MarketSync?
@@ -484,7 +520,6 @@ AI assistant · answers from marketsync.link
 
 ## Product: Follow-up Automation — Dealership Follow-Up Automation — Email, SMS & Rep Tasks
 (automation-followups.html)
-30-day free trial · No credit card required
 Retain
 Follow-ups that fire themselves .
 undefined
@@ -496,7 +531,7 @@ Set it once, it runs forever
 Pick your cadences
 Turn on prebuilt sequences for leads, delivery, reviews, referrals and holidays — or build your own with the drag-and-drop builder.
 Let AI write it in your voice
-AI Boost writes and rewrites each message — shorter, longer, fresher — in your store’s tone, with merge fields for name, vehicle and rep.
+Intelligence by MarketSync writes and rewrites each message — shorter, longer, fresher — in your store’s tone, with merge fields for name, vehicle and rep.
 It sends & tasks the rep
 Email and SMS go out on schedule; rep tasks drop into the CRM so a human touch never gets missed.
 The whole journey, on autopilot
@@ -514,14 +549,14 @@ Birthdays & service
 Birthday, service-reminder and equity touches keep customers coming back.
 Common questions
 Do I have to write the emails?
-No — start from the prebuilt template packs and turn them on. AI Boost can rewrite anything in your store’s voice.
+No — start from the prebuilt template packs and turn them on. Intelligence by MarketSync can rewrite anything in your store’s voice.
 Will it text customers who opted out?
 Never. Every automated email and SMS checks consent, DNC and quiet hours before sending.
 Can I build my own sequences?
 Yes. The drag-and-drop builder lets you create custom cadences with your own triggers, delays and channels.
 Never let a lead go cold.
 Automated follow-ups keep every customer warm — so your last sale becomes your next one.
-Start free — 30 days
+Start your free trial
 Part of the MarketSync workflow · See how it all connects →
 Ask MarketSync
 What is MarketSync?
@@ -535,7 +570,6 @@ AI assistant · answers from marketsync.link
 
 ## Product: Equity Mining — Automotive Equity Mining — Pull-Ahead & Trade-Up Radar
 (equity-mining.html)
-30-day free trial · No credit card required
 Retain · Equity
 Mine your sold customers for the next deal .
 undefined
@@ -572,7 +606,7 @@ Is it a separate tool?
 No — equity mining is part of the same platform, fed automatically by the deals and customers you already work.
 Your next sale is already in your CRM.
 Equity mining finds the customers ready to trade up — and hands your team the numbers to close them.
-Start free — 30 days
+Start your free trial
 Part of the MarketSync workflow · See how it all connects →
 Ask MarketSync
 What is MarketSync?
@@ -586,14 +620,13 @@ AI assistant · answers from marketsync.link
 
 ## Product: Inventory Intelligence — Car Dealership Inventory Intelligence & Analytics
 (inventory-intelligence.html)
-30-day free trial · No credit card required
-Inventory Intelligence — $299/mo
+Included with DealerOS
 A read on your whole lot at a glance
 Inventory Intelligence scores every unit for health, highlights hot and cold models, and tracks turn rate and months-of-supply — with a weekly digest of what needs attention.
 Start free trial
 See how we compare
 What is Inventory Intelligence?
-Inventory Intelligence is the analytics tier for your lot. It scores every unit 0–100 for health across photos, price, mileage, days on lot and description, highlights hot models that are selling fast and cold ones that are sitting, and calculates turn rate and months-of-supply by make and model. A weekly Monday-morning digest surfaces aging units and slow movers. It also includes the VIN decoder and factory window stickers. Add AI Boost and Inventory Intelligence gains an AI-written, plain-English narrative of what&#x27;s working and what to act on.
+Inventory Intelligence is the analytics tier for your lot. It scores every unit 0–100 for health across photos, price, mileage, days on lot and description, highlights hot models that are selling fast and cold ones that are sitting, and calculates turn rate and months-of-supply by make and model. A weekly Monday-morning digest surfaces aging units and slow movers. It also includes the VIN decoder and factory window stickers. Add Intelligence by MarketSync and Inventory Intelligence gains an AI-written, plain-English narrative of what&#x27;s working and what to act on.
 How it works
 Score every unit
 Each vehicle gets a 0–100 health score across photos, price, mileage and age.
@@ -612,13 +645,13 @@ Includes the VIN decoder
 VIN decode and factory window stickers are part of this tier.
 Frequently asked questions
 What does Inventory Intelligence cost?
-$299/month. It includes the analytics suite plus the VIN decoder and factory window stickers.
+Included with DealerOS. It includes the analytics suite plus the VIN decoder and factory window stickers.
 Is the AI lot narrative included?
-The numbers and analytics are included at this tier. The AI-written lot narrative requires AI Boost in addition.
+The numbers and analytics are included with DealerOS. The AI-written lot narrative is included with DealerOS.
 What&#x27;s a health score?
 A 0–100 score for each unit across photos, price, mileage, days on lot and description quality, so the weakest listings rise to the top.
 Does it include the VIN decoder?
-Yes. The VIN decoder and factory (OEM) window stickers are part of the Inventory Intelligence tier.
+Yes. The VIN decoder and factory (OEM) window stickers are part of DealerOS.
 Explore more features
 Market Price Reports
 Live US & Canada pricing
@@ -627,7 +660,7 @@ Decode, stickers, brochures
 AI Vision
 Photo quality scoring
 See your lot clearly
-Try MarketSync free for 30 days. No credit card required.
+Try MarketSync free for 7 days. No credit card required.
 Start free trial
 Ask MarketSync
 What is MarketSync?
@@ -641,8 +674,7 @@ AI assistant · answers from marketsync.link
 
 ## Product: Facebook Marketplace Auto-Poster — Facebook Marketplace Auto-Poster for Car Dealers
 (facebook-marketplace-poster.html)
-30-day free trial · No credit card required
-Core — included with every plan
+Part of MarketSync
 Post your whole inventory to Facebook Marketplace in seconds
 Listing a vehicle on Facebook Marketplace by hand takes minutes of retyping and photo uploads. MarketSync&#x27;s Chrome extension fills the entire listing for you — you just click Post.
 Start free trial
@@ -682,7 +714,7 @@ Posted → Appointment → Sold
 Posting Safety
 Ban-protection guardrails
 Start posting to Facebook Marketplace faster
-Try MarketSync free for 30 days. No credit card required.
+Choose your plan and start its free trial. No credit card required.
 Start free trial
 Ask MarketSync
 What is MarketSync?
@@ -696,8 +728,7 @@ AI assistant · answers from marketsync.link
 
 ## Product: CRM & Lead Delivery — ADF/XML CRM Lead Delivery for Dealers
 (crm-lead-delivery.html)
-30-day free trial · No credit card required
-Core — included with every plan
+Part of DealerOS
 Send every lead straight to your CRM
 When a shopper messages you about a car, log the lead and MarketSync delivers a standard ADF/XML lead into your CRM&#x27;s intake email automatically.
 Start free trial
@@ -737,7 +768,7 @@ Posted → Appointment → Sold
 Dealer Groups
 Multi-store roles & billing
 Never lose a Marketplace lead
-Try MarketSync free for 30 days. No credit card required.
+Choose your plan and start its free trial. No credit card required.
 Start free trial
 Ask MarketSync
 What is MarketSync?
@@ -751,14 +782,13 @@ AI assistant · answers from marketsync.link
 
 ## Product: AI Listing Copy — AI Vehicle Listing Descriptions for Facebook Marketplace
 (ai-listing-copy.html)
-30-day free trial · No credit card required
-AI Boost — $129/mo
+Included with DealerOS
 AI-written listing copy for every vehicle
-AI Boost drafts clean, on-brand Marketplace descriptions for each vehicle in your chosen tone, and warns you when a listing is missing photos or a price.
+Intelligence by MarketSync drafts clean, on-brand Marketplace descriptions for each vehicle in your chosen tone, and warns you when a listing is missing photos or a price.
 Start free trial
 See how we compare
 What is AI listing copy?
-AI listing copy is part of AI Boost. For any vehicle, MarketSync drafts a Facebook Marketplace-ready description tuned to your dealership&#x27;s tone — professional, friendly, or aggressive — in seconds. It also runs missing-info checks that flag listings with no photos, no price, or absent mileage before they go live, and emails your manager instantly. It saves reps hours a week and keeps every listing consistent and complete.
+AI listing copy is part of Intelligence by MarketSync. For any vehicle, MarketSync drafts a Facebook Marketplace-ready description tuned to your dealership&#x27;s tone — professional, friendly, or aggressive — in seconds. It also runs missing-info checks that flag listings with no photos, no price, or absent mileage before they go live, and emails your manager instantly. It saves reps hours a week and keeps every listing consistent and complete.
 How it works
 Pick a vehicle
 Choose any vehicle and MarketSync reads its details.
@@ -777,7 +807,7 @@ Consistent quality
 Every listing reads clean and complete, no matter which rep posts it.
 Frequently asked questions
 Which plan includes AI listing copy?
-AI listing copy is part of AI Boost, the add-on that turns on every AI feature for $129/month.
+AI listing copy is part of Intelligence by MarketSync, included with DealerOS.
 Can I control the writing tone?
 Yes. You set a tone per dealership — professional, friendly, or aggressive — and every description is written to match.
 What do the missing-info alerts do?
@@ -792,7 +822,7 @@ Live US & Canada pricing
 AI Vision
 Photo quality scoring
 Let AI write your listings
-Try MarketSync free for 30 days. No credit card required.
+Choose your plan and start its free trial. No credit card required.
 Start free trial
 Ask MarketSync
 What is MarketSync?
@@ -806,14 +836,13 @@ AI assistant · answers from marketsync.link
 
 ## Product: AI Vision Photo Scoring — AI Vehicle Photo Scoring for Listings
 (ai-vision-photo-scoring.html)
-30-day free trial · No credit card required
-AI Boost — $129/mo
+Included with DealerOS
 Score every listing&#x27;s photos, fix the worst first
 Photos sell cars. AI Vision grades each listing&#x27;s gallery 0–100 and flags dark, blurry, placeholder or too-few images so you know exactly what to reshoot.
 Start free trial
 See how we compare
 What is AI Vision?
-AI Vision is part of AI Boost. It scans each listing&#x27;s photo gallery and scores it 0–100 based on how many photos there are, their resolution and lighting, and an AI review of the hero shot for blur, clutter, bad angles, or a photo that doesn&#x27;t clearly show the vehicle. The lowest-scoring listings surface first with clear flags — too dark, only two photos, blurry hero — so your team knows exactly which cars to reshoot to get more clicks. It runs automatically in the background across your lot.
+AI Vision is part of Intelligence by MarketSync. It scans each listing&#x27;s photo gallery and scores it 0–100 based on how many photos there are, their resolution and lighting, and an AI review of the hero shot for blur, clutter, bad angles, or a photo that doesn&#x27;t clearly show the vehicle. The lowest-scoring listings surface first with clear flags — too dark, only two photos, blurry hero — so your team knows exactly which cars to reshoot to get more clicks. It runs automatically in the background across your lot.
 How it works
 Scan galleries
 AI Vision reviews every listing&#x27;s photos automatically.
@@ -832,7 +861,7 @@ Runs in the background
 Scores fill in automatically as inventory syncs — no manual audit.
 Frequently asked questions
 Which plan includes AI Vision?
-AI Vision is part of AI Boost, $129/month — there is no separate photo-scoring add-on.
+AI Vision is part of Intelligence by MarketSync, included with DealerOS — there is no separate photo-scoring add-on.
 What does the score measure?
 Photo count, resolution and lighting, plus an AI review of the hero photo for blur, clutter, bad angles, and whether it clearly shows the vehicle.
 Does it tell me what&#x27;s wrong?
@@ -847,7 +876,7 @@ AI-written descriptions
 Market Price Reports
 Live US & Canada pricing
 Turn better photos into more clicks
-Try MarketSync free for 30 days. No credit card required.
+Choose your plan and start its free trial. No credit card required.
 Start free trial
 Ask MarketSync
 What is MarketSync?
@@ -861,8 +890,7 @@ AI assistant · answers from marketsync.link
 
 ## Product: Market Price Reports — Live Vehicle Market Price Reports (US & Canada)
 (market-price-reports.html)
-30-day free trial · No credit card required
-Inventory Intelligence — $299/mo
+Included with DealerOS
 Know exactly where every car sits vs the market
 Inventory Intelligence builds a per-vehicle price report from live US and Canadian marketplace listings — price-to-market position, mileage analysis, and average days on market.
 Start free trial
@@ -893,7 +921,7 @@ New, demo and current-model-year vehicles have no reliable used-market compariso
 Can I export the report?
 Yes, every report exports to PDF and caches for a week for fast repeat viewing.
 Which plan includes it?
-Market price reports are part of Inventory Intelligence, $299/month.
+Market price reports are part of Intelligence by MarketSync, included with DealerOS.
 Explore more features
 AI Listing Copy
 AI-written descriptions
@@ -902,7 +930,7 @@ Health, turn rate, hot & cold
 VIN Decoder & Stickers
 Decode, stickers, brochures
 Price every car with confidence
-Try MarketSync free for 30 days. No credit card required.
+Choose your plan and start its free trial. No credit card required.
 Start free trial
 Ask MarketSync
 What is MarketSync?
@@ -916,8 +944,7 @@ AI assistant · answers from marketsync.link
 
 ## Product: Sales Pipeline — Car Sales Pipeline & Appointment Tracker
 (sales-pipeline.html)
-30-day free trial · No credit card required
-Core — included with every plan
+Part of DealerOS
 A sales pipeline built for Marketplace deals
 Every car you post lands on a drag-and-drop board. Move each one as the deal progresses, set appointments with reminders, and relist stale posts in one click.
 Start free trial
@@ -957,7 +984,7 @@ Gamified posting & sales
 CRM Lead Delivery
 ADF/XML to your CRM
 Turn postings into tracked deals
-Try MarketSync free for 30 days. No credit card required.
+Choose your plan and start its free trial. No credit card required.
 Start free trial
 Ask MarketSync
 What is MarketSync?
@@ -971,8 +998,7 @@ AI assistant · answers from marketsync.link
 
 ## Product: Sales Leaderboard — Dealership Sales Leaderboard & Team Insights
 (sales-leaderboard.html)
-30-day free trial · No credit card required
-Core — included with every plan
+Part of DealerOS
 Make selling cars a little competitive
 Reps earn points for posting cars and closing sales. A live leaderboard ranks the whole team so managers always know who&#x27;s active and who needs a nudge.
 Start free trial
@@ -1012,7 +1038,7 @@ Posted → Appointment → Sold
 Dealer Groups
 Multi-store roles & billing
 Motivate your team to post more
-Try MarketSync free for 30 days. No credit card required.
+Choose your plan and start its free trial. No credit card required.
 Start free trial
 Ask MarketSync
 What is MarketSync?
@@ -1026,8 +1052,7 @@ AI assistant · answers from marketsync.link
 
 ## Product: Dealer Groups — Multi-Store Dealer Group Management
 (dealer-groups.html)
-30-day free trial · No credit card required
-Core — included with every plan
+Part of DealerOS
 Run every store from one group
 Roll multiple dealerships into a group with a clear role hierarchy, easy invite-code join, and billing that flexes between the whole group or each dealer.
 Start free trial
@@ -1067,7 +1092,7 @@ Gamified posting & sales
 CRM Lead Delivery
 ADF/XML to your CRM
 Bring your whole group together
-Try MarketSync free for 30 days. No credit card required.
+Choose your plan and start its free trial. No credit card required.
 Start free trial
 Ask MarketSync
 What is MarketSync?
@@ -1081,8 +1106,7 @@ AI assistant · answers from marketsync.link
 
 ## Product: Inventory Sync — Automatic Dealer Inventory Sync
 (dealer-inventory-sync.html)
-30-day free trial · No credit card required
-Core — included with every plan
+Part of DealerOS
 Your inventory, always in sync — no spreadsheets
 Connect your dealer website once and MarketSync keeps everything current: new arrivals appear, prices update, and sold cars drop off on their own.
 Start free trial
@@ -1122,7 +1146,7 @@ Health, turn rate, hot & cold
 VIN Decoder & Stickers
 Decode, stickers, brochures
 Keep your inventory in sync automatically
-Try MarketSync free for 30 days. No credit card required.
+Choose your plan and start its free trial. No credit card required.
 Start free trial
 Ask MarketSync
 What is MarketSync?
@@ -1136,21 +1160,20 @@ AI assistant · answers from marketsync.link
 
 ## Product: VIN Decoder & Window Stickers — VIN Decoder, Window Sticker & Brochure Generator
 (vin-decoder-window-stickers.html)
-30-day free trial · No credit card required
-Inventory Intelligence — $299/mo
+Included with DealerOS
 Decode any VIN and print showroom-ready documents
 Reveal full factory specs and open recalls from a VIN, pull the genuine factory window sticker, and print branded stickers and AI-written dealer brochures.
 Start free trial
 See how we compare
 What is the VIN decoder & sticker generator?
-MarketSync decodes any VIN to reveal the full factory spec — engine, drivetrain, transmission, options and more — plus any open safety recalls. It pulls the real factory (OEM) window sticker straight from the manufacturer when one is available. The VIN decoder and factory documents are part of Inventory Intelligence. With AI Boost you can also generate your own branded MarketSync window sticker and a two-page dealer brochure with AI-written copy, your logo, colours and contact info. Every document is cached and shareable.
+MarketSync decodes any VIN to reveal the full factory spec — engine, drivetrain, transmission, options and more — plus any open safety recalls. It pulls the real factory (OEM) window sticker straight from the manufacturer when one is available. The VIN decoder and factory documents are part of Inventory Intelligence. With Intelligence by MarketSync you can also generate your own branded MarketSync window sticker and a two-page dealer brochure with AI-written copy, your logo, colours and contact info. Every document is cached and shareable.
 How it works
 Enter a VIN
 Decode the full factory spec and check for open recalls instantly.
 Pull the factory sticker
 Fetch the genuine OEM window sticker by VIN when available.
 Brand & print
-With AI Boost, generate a branded sticker and a 2-page AI dealer brochure.
+With Intelligence by MarketSync, generate a branded sticker and a 2-page AI dealer brochure.
 What you get
 Full spec decode
 Engine, drivetrain, transmission and options from the VIN, via NHTSA.
@@ -1159,12 +1182,12 @@ Surface open safety recalls and show them on stickers and brochures.
 Genuine factory stickers
 Pull the real OEM Monroney label from the manufacturer by VIN.
 Branded brochures
-With AI Boost, print a 2-page brochure with AI copy, your logo and colours.
+With Intelligence by MarketSync, print a 2-page brochure with AI copy, your logo and colours.
 Frequently asked questions
 Which plan includes the VIN decoder?
-The VIN decoder, open recall check and factory (OEM) window stickers are part of Inventory Intelligence at $299/month.
+The VIN decoder, open recall check and factory (OEM) window stickers are part of Intelligence by MarketSync, included with DealerOS.
 What do I need for a branded sticker or brochure?
-The branded MarketSync sticker and the AI-written 2-page dealer brochure require AI Boost in addition to Inventory Intelligence.
+The branded MarketSync sticker and the AI-written 2-page dealer brochure are included with DealerOS.
 Where does the VIN data come from?
 Factory specifications and recalls come from NHTSA&#x27;s public VIN databases, and factory window stickers are pulled from the manufacturer by VIN.
 Are the documents shareable?
@@ -1177,7 +1200,7 @@ Live US & Canada pricing
 Inventory Intelligence
 Health, turn rate, hot & cold
 Decode VINs and print pro documents
-Try MarketSync free for 30 days. No credit card required.
+Choose your plan and start its free trial. No credit card required.
 Start free trial
 Ask MarketSync
 What is MarketSync?
@@ -1191,8 +1214,7 @@ AI assistant · answers from marketsync.link
 
 ## Product: Facebook Posting Safety — Facebook Marketplace Posting Safety & Ban Protection
 (facebook-posting-safety.html)
-30-day free trial · No credit card required
-Core — included with every plan
+Part of MarketSync
 List your whole lot without getting flagged
 Post too much, too fast and Facebook may flag your account. MarketSync&#x27;s guardrails keep your posting cadence in a natural range so you can list safely.
 Start free trial
@@ -1232,7 +1254,7 @@ Always-current inventory, automatically
 Sales Pipeline
 Posted → Appointment → Sold
 Post safely, at scale
-Try MarketSync free for 30 days. No credit card required.
+Choose your plan and start its free trial. No credit card required.
 Start free trial
 Ask MarketSync
 What is MarketSync?
@@ -1244,7 +1266,7 @@ Send to MarketSync
 AI assistant · answers from marketsync.link
 
 
-## Packages & add-on pricing — MarketSync Pricing & Plans — Free 30-Day Trial
+## Packages & add-on pricing — MarketSync Pricing & Plans — Free Trials
 (upgrade.html)
 Market Sync
 Choose your plan

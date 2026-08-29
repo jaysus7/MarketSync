@@ -16,7 +16,7 @@ import { handleDepositCheckout } from './deposits.js'
 import { accrueAffiliateCommission } from './affiliate.js'
 import { postMarketsyncRevenue } from './accounting.js'
 import { syncSubscriptionFromStripe, cancelSubscriptionCoverage } from '../entitlements.js'
-import { getPlan, stripePriceForPlanExact, planPricingStatus, PLAN_CATALOG, PLAN_IDS, TRIAL_PERIOD_DAYS } from '../plan-catalog.js'
+import { getPlan, stripePriceForPlanExact, planPricingStatus, PLAN_CATALOG, PLAN_IDS, TRIAL_DAYS, trialDaysForPlan } from '../plan-catalog.js'
 import { blockDemoStripeAction } from './demo.js'
 
 // Inventory Intelligence price ID — accept the canonical name OR the
@@ -37,7 +37,7 @@ function addonKeyForPrice(priceId) {
 // Return the Supabase column(s) to toggle for a given add-on key
 function colsForAddon(key, active) {
   // For the two sellable add-ons we also set the *_paid flag from Stripe truth, so
-  // the 30-day full-access expiry sweep can drop granted access without touching a
+  // the full-access expiry sweep can drop granted access without touching a
   // real paid subscription.
   if (key === 'ai_boost')    return { ai_boost_active: active, ai_boost_paid: active }
   if (key === 'vin_sticker') return { vin_sticker_active: active }
@@ -205,7 +205,7 @@ export function registerRoutes(app) {
             dealershipId: meta.dealership_id,
             type: 'billing',
             title: `Trial started — ${addons.map(a => a === 'ai_boost' ? 'AI Boost' : a === 'vin_sticker' ? 'VIN & Brochure' : 'AI Vision').join(', ')}`,
-            body: '30-day free trial is now active. No charge until the trial ends.',
+            body: 'Your 7-day free trial is now active. No charge until the trial ends.',
             linkPage: 'settings',
           })
           break
@@ -403,8 +403,8 @@ export function registerRoutes(app) {
         mode: 'subscription',
         metadata: { type: addonKey, dealership_id: req.dealershipId },
         subscription_data: {
-          // Every add-on gets the canonical free trial (no card required up front).
-          trial_period_days: TRIAL_PERIOD_DAYS,
+          // Add-ons are independent products and receive the 7-day trial.
+          trial_period_days: TRIAL_DAYS.independent,
           metadata: { type: addonKey, dealership_id: req.dealershipId },
         },
         success_url: `${FRONTEND_URL}/dashboard.html?${addonKey}_session={CHECKOUT_SESSION_ID}`,
@@ -454,7 +454,7 @@ export function registerRoutes(app) {
 
   // ── Bundled package subscription (Starter / Growth / Pro) ─────────────────
   // Currency follows the dealer's country (US → USD, else CAD); the client may
-  // override with { currency }. Canonical free trial, no card required up front.
+  // override with { currency }. These are DealerOS packages: 30-day trial.
   async function createPackageCheckout(req, res) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const pkgKey = String(req.body?.package || '').toLowerCase()
@@ -476,7 +476,7 @@ export function registerRoutes(app) {
         line_items: [{ price: priceId, quantity: 1 }],
         mode: 'subscription',
         metadata: { type: 'package', package: pkgKey, currency, dealership_id: req.dealershipId },
-        subscription_data: { trial_period_days: TRIAL_PERIOD_DAYS, metadata: { type: 'package', package: pkgKey, dealership_id: req.dealershipId } },
+        subscription_data: { trial_period_days: TRIAL_DAYS.platform, metadata: { type: 'package', package: pkgKey, dealership_id: req.dealershipId } },
         success_url: `${FRONTEND_URL}/dashboard.html?package_session={CHECKOUT_SESSION_ID}`,
         cancel_url: `${FRONTEND_URL}/dashboard.html`,
       }
@@ -491,7 +491,7 @@ export function registerRoutes(app) {
   // ── Plan subscription (the entitlement-engine flow) ──────────────────────────
   // Start Stripe Checkout for a catalog plan (fb_solo / fb_dealership / os_starter /
   // os_growth / os_pro). Card required, charged immediately: the canonical free trial
-  // (TRIAL_PERIOD_DAYS) is granted once at sign-up, so this post-trial payment path adds
+  // (trialDaysForPlan) is granted once at sign-up, so this post-trial payment path adds
   // no second Stripe trial. On completion the webhook resolves the price → plan and
   // provisionPlan grants the bundle (Pro unlocks Facebook + AI).
   // No requireMfa: this is part of onboarding, before a new owner has set up MFA.
@@ -586,6 +586,7 @@ export function registerRoutes(app) {
         id, label: p.label, monthly: p.monthly, tier: p.tier,
         product_primary: p.product_primary, products: p.products, org_type: p.org_type,
         feature_count: p.features.length,
+        trial_days: trialDaysForPlan(id),
         configured: !!(stripePriceForPlanExact(id, 'usd', process.env) || stripePriceForPlanExact(id, 'cad', process.env)),
         // Per-currency configuration so a missing USD (or CAD) price is visible to ops
         // instead of being masked by the other currency.
@@ -628,6 +629,7 @@ export function registerRoutes(app) {
     const symbol = '$'
     const rows = Object.entries(PACKAGES).map(([key, p]) => ({
       key, label: p.label, amount: p.amount, currency, symbol,
+      trial_days: TRIAL_DAYS.platform,
       configured: !!(currency === 'USD' ? p.priceUsd : p.priceCad),
     }))
     res.json({ currency, packages: rows })

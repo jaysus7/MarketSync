@@ -15,7 +15,7 @@ export const PRODUCTS = Object.freeze([
 ])
 export const ACCOUNT_TYPES = Object.freeze(['solo', 'dealership'])
 
-// The plan a fresh 30-day trial provisions per product. Dealer OS trials at the fullest
+// The default plan a fresh product trial provisions. Dealer OS trials at the fullest
 // tier so the trial experience matches today's "everything unlocked" onboarding; the
 // point products trial on their natural tier (dealership vs solo for Facebook).
 export function defaultTrialPlan(product, accountType) {

@@ -204,7 +204,7 @@
       '<div class="ms-f-cta">' +
         '<h2>Run your whole store from one login.</h2>' +
         '<p>Replace vAuto, your CRM, PBS, DeskIt, eDealer and your Facebook posting tool — with one platform your team actually likes using.</p>' +
-        '<div class="ms-f-cta-btns"><a href="' + TRIAL + '" class="ms-btn ms-btn-primary ms-btn-lg">Start your free 30-day trial</a><a href="/pricing.html" class="ms-btn ms-btn-ghost ms-btn-lg">See pricing</a></div>' +
+        '<div class="ms-f-cta-btns"><a href="' + TRIAL + '" class="ms-btn ms-btn-primary ms-btn-lg">Start your free trial</a><a href="/pricing.html" class="ms-btn ms-btn-ghost ms-btn-lg">See pricing</a></div>' +
         '<div class="ms-f-cta-note">No credit card required · Set up in a day</div>' +
       '</div>' +
       '<div class="ms-f-grid">' +

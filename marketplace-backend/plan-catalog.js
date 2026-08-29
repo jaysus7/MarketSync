@@ -378,14 +378,30 @@ export const PLAN_ALIASES = Object.freeze({
 export const PLAN_IDS = Object.freeze(Object.keys(PLAN_CATALOG))
 
 // ── Trial policy ─────────────────────────────────────────────────────────────
-// THE ONE canonical free-trial length for a new signup — every plan (MarketSync
-// Digital included), every registration path. No route may hardcode a different
-// number: import this constant / helper instead so the trial cannot drift between
-// paths (registration vs. checkout) or between plans.
-export const TRIAL_PERIOD_DAYS = 30
-// The ISO trial-end for a signup happening at `fromMs` (default: now).
-export function trialEndsAtISO(fromMs = Date.now()) {
-  return new Date(fromMs + TRIAL_PERIOD_DAYS * 24 * 60 * 60 * 1000).toISOString()
+// Trial length is part of the plan contract. Keep it here with the entitlement
+// catalog so registration, Stripe Checkout, and public pricing cannot drift:
+//   independent products → 7 days
+//   marketing suites     → 14 days
+//   MarketSync Digital / DealerOS → 30 days
+export const TRIAL_DAYS = Object.freeze({ independent: 7, suite: 14, platform: 30 })
+
+const SUITE_PLAN_IDS = new Set([
+  'sales-marketing-suite',
+  'service-marketing-suite',
+  'complete-marketing-suite',
+])
+
+export function trialDaysForPlan(planId) {
+  const plan = getPlan(planId)
+  if (!plan) return TRIAL_DAYS.independent
+  if (SUITE_PLAN_IDS.has(plan.id)) return TRIAL_DAYS.suite
+  if (plan.id === 'marketsync-digital' || plan.product_primary === 'dealer_os') return TRIAL_DAYS.platform
+  return TRIAL_DAYS.independent
+}
+
+// The ISO trial-end for a plan signup happening at `fromMs` (default: now).
+export function trialEndsAtISO(planId, fromMs = Date.now()) {
+  return new Date(fromMs + trialDaysForPlan(planId) * 24 * 60 * 60 * 1000).toISOString()
 }
 
 export function getPlan(planId) {
