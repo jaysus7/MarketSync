@@ -1722,10 +1722,19 @@ function closeWebsiteBuilder() {
 
   __wsTab = 'setup';
   const back = window.websiteWorkspacePreviousRoute || { dept: 'marketing', page: 'marketing-overview', tab: 'website' };
-  if (typeof engineTab === 'function') {
-    engineTab(back.page || 'marketing-overview', back.tab || 'website');
+  const destination = back.page || 'marketing-overview';
+  const destinationTab = back.tab || 'website';
+  // The builder lives on the Website page, while the shared Marketing shell
+  // owns the Website tab. Calling engineTab() while still on the Website page
+  // finds no marketing engine body and silently leaves the builder mounted.
+  // Switch the page first, then select the tab after its shared shell exists.
+  if (typeof switchPage === 'function' && typeof __currentPage !== 'undefined' && __currentPage !== destination) {
+    switchPage(destination);
+    if (typeof engineTab === 'function') setTimeout(() => engineTab(destination, destinationTab), 0);
+  } else if (typeof engineTab === 'function') {
+    engineTab(destination, destinationTab);
   } else if (typeof switchPage === 'function') {
-    switchPage(back.page || 'marketing-overview');
+    switchPage(destination);
   } else {
     renderWebsitePage();
   }
@@ -1737,13 +1746,8 @@ function closeWebsiteBuilder() {
 window.closeWebsiteBuilder = closeWebsiteBuilder;
 
 function exitWebsiteWorkspace() {
-  __wsTab = 'setup';
   if (typeof closeWebsiteBuilder === 'function') closeWebsiteBuilder();
-  if (typeof switchPage === 'function' && typeof __currentPage !== 'undefined' && __currentPage !== 'website') {
-    switchPage('website');
-  } else {
-    renderWebsitePage();
-  }
+  else { __wsTab = 'setup'; renderWebsitePage(); }
 }
 window.exitWebsiteWorkspace = exitWebsiteWorkspace;
 
