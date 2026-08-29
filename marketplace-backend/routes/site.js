@@ -854,7 +854,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
   })
 
   // ── Dealer blog — authoring (owner / GM), RLS-scoped via req.supabase ────────
-  const BLOG_COLS = 'id, slug, title, excerpt, content_html, cover_image_url, author, category, tags, status, seo_title, seo_description, published_at, created_at, updated_at'
+  const BLOG_COLS = 'id, slug, title, excerpt, content_html, cover_image_url, author, category, tags, status, seo_title, seo_description, scheduled_at, published_at, created_at, updated_at'
   async function uniqueBlogSlug(supa, dealershipId, base, ignoreId) {
     let slug = slugify(base) || 'post'; let n = 1
     while (true) {
@@ -880,7 +880,9 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     const title = String(b.title || '').trim()
     if (!title) return res.status(400).json({ error: 'Title is required' })
     const slug = await uniqueBlogSlug(req.supabase, req.dealershipId, b.slug || title)
-    const status = b.status === 'published' ? 'published' : 'draft'
+    const requestedSchedule = b.scheduled_at ? new Date(b.scheduled_at) : null
+    const scheduled = requestedSchedule && !Number.isNaN(requestedSchedule.getTime()) && requestedSchedule.getTime() > Date.now()
+    const status = b.status === 'published' ? 'published' : (scheduled ? 'scheduled' : 'draft')
     const row = {
       dealership_id: req.dealershipId, slug, title,
       excerpt: String(b.excerpt || '').trim(),
@@ -890,6 +892,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       category: String(b.category || 'General').trim().slice(0, 80) || 'General',
       tags: Array.isArray(b.tags) ? b.tags.filter(Boolean).map(String) : [],
       status, seo_title: b.seo_title || null, seo_description: b.seo_description || null,
+      scheduled_at: status === 'scheduled' ? requestedSchedule.toISOString() : null,
       published_at: status === 'published' ? new Date().toISOString() : null,
       created_by: req.user.id,
     }
@@ -915,8 +918,11 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     if (b.seo_title !== undefined) patch.seo_title = b.seo_title || null
     if (b.seo_description !== undefined) patch.seo_description = b.seo_description || null
     if (b.slug !== undefined && b.slug) patch.slug = await uniqueBlogSlug(req.supabase, req.dealershipId, b.slug, existing.id)
-    if (b.status !== undefined) {
-      patch.status = b.status === 'published' ? 'published' : 'draft'
+    if (b.scheduled_at !== undefined || b.status !== undefined) {
+      const requestedSchedule = b.scheduled_at ? new Date(b.scheduled_at) : null
+      const scheduled = requestedSchedule && !Number.isNaN(requestedSchedule.getTime()) && requestedSchedule.getTime() > Date.now()
+      patch.status = b.status === 'published' ? 'published' : (scheduled ? 'scheduled' : 'draft')
+      patch.scheduled_at = patch.status === 'scheduled' ? requestedSchedule.toISOString() : null
       if (patch.status === 'published' && !existing.published_at) patch.published_at = new Date().toISOString()
     }
     const { data, error } = await req.supabase.from('dealer_blog_posts')
@@ -943,17 +949,19 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
   app.get('/site/:slug/blog', rateLimit('pub-site-blog', 120, 60000), async (req, res) => {
     const d = await dealerBySlug(req.params.slug)
     if (!d) return res.status(404).json({ error: 'Site not found' })
+    const now = new Date().toISOString()
     const { data } = await supabaseAdmin.from('dealer_blog_posts')
       .select('slug, title, excerpt, cover_image_url, author, category, tags, published_at')
-      .eq('dealership_id', d.id).eq('status', 'published').order('published_at', { ascending: false }).limit(100)
+      .eq('dealership_id', d.id).or(`status.eq.published,and(status.eq.scheduled,scheduled_at.lte.${now})`).order('published_at', { ascending: false }).limit(100)
     res.json({ posts: data || [] })
   })
   app.get('/site/:slug/blog/:postSlug', rateLimit('pub-site-blogpost', 120, 60000), async (req, res) => {
     const d = await dealerBySlug(req.params.slug)
     if (!d) return res.status(404).json({ error: 'Site not found' })
+    const now = new Date().toISOString()
     const { data } = await supabaseAdmin.from('dealer_blog_posts')
       .select('slug, title, excerpt, content_html, cover_image_url, author, tags, published_at, seo_title, seo_description')
-      .eq('dealership_id', d.id).eq('slug', String(req.params.postSlug || '').toLowerCase()).eq('status', 'published').maybeSingle()
+      .eq('dealership_id', d.id).eq('slug', String(req.params.postSlug || '').toLowerCase()).or(`status.eq.published,and(status.eq.scheduled,scheduled_at.lte.${now})`).maybeSingle()
     if (!data) return res.status(404).json({ error: 'Post not found' })
     res.json({ post: data })
   })
