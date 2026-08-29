@@ -341,6 +341,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
         <button onclick="setStudioTool('brand')" id="tool-btn-brand" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10M7 12h10m-7 5h7"/></svg>Brand
         </button>
+        <button onclick="setStudioTool('layers')" id="tool-btn-layers" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-base mb-0.5">≡</span>Layers</button>
       </nav>
 
       <!-- Left Tool Panel Drawer -->
@@ -599,6 +600,15 @@ function renderStudioTemplateCards(filter = 'all') {
 }
 
 function renderStudioToolPanelContent(tool) {
+  if (tool === 'layers') {
+    const objects = window.__studioAdapter?.fabricCanvas?.getObjects?.() || [];
+    const rows = objects.slice().reverse().map((object, reversedIndex) => {
+      const index = objects.length - reversedIndex - 1;
+      const label = object.msData?.name || object.text || `${object.type || 'Object'} ${index + 1}`;
+      return `<button type="button" onclick="selectStudioLayer(${index})" class="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600/30 border border-slate-300 dark:border-slate-700 text-left text-xs font-bold text-slate-900 dark:text-white"><span class="text-[10px] text-sky-400">${object.type === 'textbox' ? 'T' : object.type === 'image' ? '▧' : '◇'}</span><span class="truncate">${escS(label)}</span></button>`;
+    }).join('');
+    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Layers</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Select and reorder the current page. Groups and component children remain part of the document model.</p></div><div class="space-y-1.5 max-h-[65vh] overflow-y-auto">${rows || '<p class="text-xs text-slate-500">No layers yet.</p>'}</div></div>`;
+  }
   if (tool === 'templates') {
     return `
       <div class="p-4 space-y-3">
@@ -709,6 +719,15 @@ function renderStudioToolPanelContent(tool) {
   }
   return '';
 }
+
+function selectStudioLayer(index) {
+  const canvas = window.__studioAdapter?.fabricCanvas;
+  const object = canvas?.getObjects?.()[index];
+  if (!canvas || !object) return;
+  canvas.discardActiveObject(); canvas.setActiveObject(object); canvas.requestRenderAll();
+  window.__studioAdapter?.onSelectionChange([object]);
+}
+window.selectStudioLayer = selectStudioLayer;
 
 function renderStudioInspectorHtml(selected) {
   const object = Array.isArray(selected) ? selected[0] : selected;
