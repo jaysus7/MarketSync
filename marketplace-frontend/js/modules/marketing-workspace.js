@@ -1251,7 +1251,7 @@ ENGINES['marketing-overview'] = {
       window.websiteWorkspacePreviousRoute = { dept: 'marketing', page: 'marketing-overview', tab: 'website' };
       body.innerHTML = `
         ${mktSuiteBand('Website', 'Websites', 'SEO analytics live on this Pulse. The builder opens full screen and comes back here.',
-          `<button type="button" onclick="window.websiteWorkspacePreviousRoute={dept:'marketing',page:'marketing-overview',tab:'website'};if(typeof openWebsiteBuilder==='function')openWebsiteBuilder();else switchPage('website')" class="liquid-glass-btn !px-3 !py-1.5 !rounded-lg !text-xs font-black">Open builder</button>`)}
+          `<button type="button" onclick="window.websiteWorkspacePreviousRoute={dept:'marketing',page:'marketing-overview',tab:'website'};if(typeof openWebsiteBuilder==='function')openWebsiteBuilder();else switchPage('website')" class="liquid-glass-btn website-open-builder-btn font-black">Open builder</button>`)}
         <div id="seo-workspace-root" class="space-y-6"></div>
       `;
       if (typeof loadDealerSeo === 'function') loadDealerSeo();
