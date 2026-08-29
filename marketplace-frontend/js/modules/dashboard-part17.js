@@ -1596,6 +1596,9 @@ window.uploadSiteImage = uploadSiteImage;
 // __siteSections = the ACTIVE editing buffer. __wsTarget = 'home' or a page index.
 // The home layout lives in __homeSections; each page's layout in __sitePages[i].sections.
 let __siteCfg = null, __siteSections = [], __homeSections = [], __wsTarget = 'home', __wsTab = 'builder';
+// Governance is loaded separately from the site document so brand locks remain
+// an administrative control, rather than editable page content.
+let __wsGovernance = { locked_fields: [], can_manage: false };
 const SEC_META = {
   hero:               { label: 'Hero', fields: [['bg','Background style','herobg'],['image','Or upload a photo','image'],['headline','Headline','text'],['subheadline','Subheadline','text'],['badge_text','Top Badge Pill','text'],['button_label','Primary Button Label','text'],['button_target','Primary Button Target','target'],['button_link','Primary Button Custom Link','text'],['button2_label','Secondary Button Label','text'],['button2_target','Secondary Button Target','target'],['button2_link','Secondary Button Custom Link','text'],['overlay','Image Darkness (%)','range'],['height','Section Height','height'],['show_trust_strip','Display Trust Badges','bool'],['trust_1_title','Trust Badge 1 Title','text'],['trust_1_sub','Trust Badge 1 Subtitle','text'],['trust_2_title','Trust Badge 2 Title','text'],['trust_2_sub','Trust Badge 2 Subtitle','text'],['trust_3_title','Trust Badge 3 Title','text'],['trust_3_sub','Trust Badge 3 Subtitle','text'],['trust_4_title','Trust Badge 4 Title','text'],['trust_4_sub','Trust Badge 4 Subtitle','text']] },
   feature_cards:      { label: 'Feature cards (Inventory / Finance / Contact)', fields: [['title','Heading (optional)','text']] },
@@ -1638,6 +1641,8 @@ async function loadWebsitePage() {
   if (!root) return;
   root.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div>';
   try { __siteCfg = await apiGetJson('/dealership/site'); } catch (e) { root.innerHTML = `<div class="py-16 text-center text-sm text-slate-500">Couldn't load: ${esc(e.message)}</div>`; return; }
+  try { __wsGovernance = await apiGetJson('/dealership/site/governance', { retries: 1 }); }
+  catch (e) { __wsGovernance = { locked_fields: [], can_manage: false }; }
   __homeSections = normalizeWsSections(__siteCfg.content?.sections);
   __sitePages = Array.isArray(__siteCfg.content?.pages) ? __siteCfg.content.pages.map(p => ({ id: p.id || ('pg' + Math.random().toString(36).slice(2, 9)), ...p, sections: normalizeWsSections(p.sections) })) : [];
   __menuOrder = Array.isArray(__siteCfg.content?.menu_order) ? __siteCfg.content.menu_order.slice() : [];
@@ -3893,9 +3898,41 @@ window.applyCompleteTemplate = applyCompleteTemplate;
 window.applyTemplate = applyCompleteTemplate;
 
 function wsFontOpts(sel) { return `<option value="">— Use preset —</option>` + WS_FONTS.map(f => `<option value="${f}" ${sel === f ? 'selected' : ''}>${f}</option>`).join(''); }
+function wsFieldLocked(field) {
+  return Array.isArray(__wsGovernance?.locked_fields) && __wsGovernance.locked_fields.includes(field);
+}
+function wsGovernanceFieldLabel(field) {
+  return ({
+    logo_url: 'Logo',
+    primary_color: 'Primary color',
+    secondary_color: 'Secondary color',
+    accent_color: 'Accent color',
+    heading_font: 'Heading font',
+    body_font: 'Body font',
+    seo_title: 'SEO title',
+    seo_description: 'SEO description',
+    head_html: 'Custom head code',
+  })[field] || field;
+}
+async function wsSaveGovernance(btn) {
+  if (!__wsGovernance?.can_manage) return;
+  const fields = [...document.querySelectorAll('[data-ws-governance-lock]:checked')].map(el => el.value);
+  const original = btn?.textContent || '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const result = await apiSendJson('/dealership/site/governance', 'PATCH', { locked_fields: fields });
+    __wsGovernance = { ...__wsGovernance, ...result, locked_fields: Array.isArray(result?.locked_fields) ? result.locked_fields : fields };
+    renderWsBody();
+    showToast('Brand protection updated', 'success');
+  } catch (e) {
+    showToast(e.message || 'Could not update brand protection', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = original; }
+  }
+}
+window.wsSaveGovernance = wsSaveGovernance;
 function wsDesign() {
   const c = __siteCfg.content || {};
-  const swatch = (id, label, val) => `<div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">${label}</label><input id="${id}" type="color" value="${esc(val || '#1e3a8a')}" class="w-full h-10 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg"></div>`;
+  const swatch = (id, label, val, lockField) => `<div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1 flex items-center justify-between"><span>${label}</span>${wsFieldLocked(lockField) ? '<span class="text-[10px] font-black uppercase text-amber-600">Locked</span>' : ''}</label><input id="${id}" type="color" value="${esc(val || '#1e3a8a')}" ${wsFieldLocked(lockField) ? 'disabled title="This brand field is locked by an administrator"' : ''} class="w-full h-10 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg ${wsFieldLocked(lockField) ? 'opacity-50 cursor-not-allowed' : ''}"></div>`;
   const typos = [['modern','Modern'],['luxury','Luxury'],['bold','Bold'],['corporate','Corporate'],['minimal','Minimal']];
   const sel = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
   const themes = [
@@ -3932,15 +3969,15 @@ function wsDesign() {
     </div>
     <div>
       <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Brand colours</div>
-      <div class="grid grid-cols-3 gap-2">${swatch('ws-c1', 'Primary', c.primary_color)}${swatch('ws-c2', 'Secondary / hero', c.secondary_color)}${swatch('ws-c3', 'Accent', c.accent_color)}</div>
+      <div class="grid grid-cols-3 gap-2">${swatch('ws-c1', 'Primary', c.primary_color, 'primary_color')}${swatch('ws-c2', 'Secondary / hero', c.secondary_color, 'secondary_color')}${swatch('ws-c3', 'Accent', c.accent_color, 'accent_color')}</div>
     </div>
     <div>
       <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Typography</div>
       <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Font preset</label>
       <select id="ws-typo" class="${sel}">${typos.map(t => `<option value="${t[0]}" ${(c.typography || 'modern') === t[0] ? 'selected' : ''}>${t[1]}</option>`).join('')}</select>
       <div class="grid grid-cols-2 gap-2 mt-2">
-        <div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Heading font</label><select id="ws-hfont" class="${sel}">${wsFontOpts(c.heading_font)}</select></div>
-        <div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Body font</label><select id="ws-bfont" class="${sel}">${wsFontOpts(c.body_font)}</select></div>
+        <div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1 flex items-center justify-between"><span>Heading font</span>${wsFieldLocked('heading_font') ? '<span class="text-[10px] font-black uppercase text-amber-600">Locked</span>' : ''}</label><select id="ws-hfont" class="${sel}" ${wsFieldLocked('heading_font') ? 'disabled' : ''}>${wsFontOpts(c.heading_font)}</select></div>
+        <div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1 flex items-center justify-between"><span>Body font</span>${wsFieldLocked('body_font') ? '<span class="text-[10px] font-black uppercase text-amber-600">Locked</span>' : ''}</label><select id="ws-bfont" class="${sel}" ${wsFieldLocked('body_font') ? 'disabled' : ''}>${wsFontOpts(c.body_font)}</select></div>
       </div>
       <p class="text-[11px] text-slate-400 mt-1">Pick any Google Font for headings/body — they override the preset. Leave on “Use preset” to keep the preset pairing.</p>
     </div>
@@ -3949,6 +3986,14 @@ function wsDesign() {
       <p class="text-[11px] text-slate-400 mt-1">On: each hero shows a real vehicle from your lot (a different one per page). Off: the built-in gradient art. Upload a photo on any individual hero to override either way.</p>
     </div>
     <p class="text-[11px] text-slate-400">Logo comes from your branding (Settings). Colours &amp; fonts update the whole site automatically.</p>
+    ${__wsGovernance?.can_manage ? `<div class="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-3">
+      <div>
+        <div class="text-sm font-black text-slate-900 dark:text-white">Brand protection</div>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Lock brand-critical fields so local editors can build pages without changing approved dealership identity or SEO controls.</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${['logo_url','primary_color','secondary_color','accent_color','heading_font','body_font','seo_title','seo_description','head_html'].map(field => `<label class="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300"><input type="checkbox" value="${field}" data-ws-governance-lock ${wsFieldLocked(field) ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">${wsGovernanceFieldLabel(field)}</label>`).join('')}</div>
+      <button type="button" onclick="wsSaveGovernance(this)" class="w-full rounded-xl bg-slate-900 dark:bg-indigo-600 hover:bg-slate-800 dark:hover:bg-indigo-500 text-white text-xs font-bold px-3 py-2.5 transition">Save brand protection</button>
+    </div>` : (Array.isArray(__wsGovernance?.locked_fields) && __wsGovernance.locked_fields.length ? `<div class="border-t border-slate-100 dark:border-slate-800 pt-4"><div class="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/20 px-3 py-3"><div class="text-xs font-black text-amber-800 dark:text-amber-300">Some brand settings are protected</div><p class="text-[11px] text-amber-700 dark:text-amber-400 mt-1">An administrator has locked: ${__wsGovernance.locked_fields.map(wsGovernanceFieldLabel).join(', ')}. Contact an administrator to change them.</p></div></div>` : '')}
   </div>`;
 }
 // Pages tab: extra content pages + auto-built model/offer pages (moved here from Settings).
