@@ -542,14 +542,21 @@ const STUDIO_TEMPLATES_CATALOG = {
       height: 1920,
       background: { color: '#18181B' },
       elements: [
-        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1600&q=82', x: 0, y: 200, width: 1080, height: 1100, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
-        { id: 'el-top-banner', type: 'shape', shapeType: 'rect', x: 0, y: 0, width: 1080, height: 200, fill: '#EF4444', opacity: 1, z: 2, name: 'Price Reduction Banner' },
-        { id: 'el-top-txt', type: 'text', x: 320, y: 75, text: 'PRICE REDUCED!', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 3, name: 'Banner Text' },
-        { id: 'el-card', type: 'shape', shapeType: 'rect', x: 50, y: 1350, width: 980, height: 480, fill: '#27272A', rx: 32, opacity: 0.95, z: 4, name: 'Card Background' },
-        { id: 'el-ymmt', type: 'text', x: 100, y: 1410, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 48, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'Vehicle Title' },
-        { id: 'el-miles', type: 'text', x: 100, y: 1480, text: 'Mileage: {{vehicle.mileage}} miles', fontSize: 24, fontWeight: '600', fill: '#A1A1AA', z: 6, name: 'Mileage' },
-        { id: 'el-price', type: 'text', x: 100, y: 1560, text: 'NOW ONLY: {{vehicle.price}}', fontSize: 40, fontWeight: '900', fill: '#34D399', z: 7, name: 'Special Price' },
-        { id: 'el-store', type: 'text', x: 100, y: 1720, text: '{{dealership.name}} • {{dealership.phone}}', fontSize: 22, fontWeight: '700', fill: '#E4E4E7', z: 8, name: 'Store Contact' }
+        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1600&q=88', x: 0, y: 0, width: 1080, height: 1410, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
+        { id: 'el-photo-overlay', type: 'shape', shapeType: 'rect', x: 0, y: 0, width: 1080, height: 1410, fill: '#07111F', opacity: 0.34, z: 2, name: 'Photo Contrast Overlay' },
+        { id: 'el-top-banner', type: 'shape', shapeType: 'badge', x: 70, y: 82, width: 330, height: 68, fill: '#EF4444', opacity: 1, rx: 34, z: 3, name: 'Price Reduction Banner' },
+        { id: 'el-top-txt', type: 'text', x: 104, y: 102, width: 270, text: 'PRICE REDUCED', fontSize: 30, fontWeight: '900', fill: '#FFFFFF', z: 4, name: 'Banner Text' },
+        { id: 'el-headline', type: 'text', x: 70, y: 250, width: 820, text: 'YOUR NEXT ADVENTURE STARTS HERE', fontSize: 72, fontWeight: '900', fill: '#FFFFFF', z: 4, name: 'Campaign Headline' },
+        { id: 'el-subhead', type: 'text', x: 74, y: 470, width: 680, text: 'Drive away in a better vehicle for less.', fontSize: 30, fontWeight: '600', fill: '#E2E8F0', z: 4, name: 'Campaign Subheadline' },
+        { id: 'el-card', type: 'shape', shapeType: 'rect', x: 50, y: 1225, width: 980, height: 635, fill: '#0B1220', rx: 34, opacity: 0.97, z: 5, name: 'Vehicle Information Card' },
+        { id: 'el-card-label', type: 'text', x: 100, y: 1290, width: 500, text: 'FEATURED VEHICLE', fontSize: 24, fontWeight: '900', fill: '#67E8F9', z: 6, name: 'Vehicle Label' },
+        { id: 'el-ymmt', type: 'text', x: 100, y: 1340, width: 850, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 54, fontWeight: '900', fill: '#FFFFFF', z: 6, name: 'Vehicle Title' },
+        { id: 'el-miles', type: 'text', x: 100, y: 1425, width: 700, text: '{{vehicle.mileage}} miles • Available now', fontSize: 28, fontWeight: '600', fill: '#CBD5E1', z: 6, name: 'Mileage' },
+        { id: 'el-price-label', type: 'text', x: 100, y: 1500, width: 250, text: 'NOW ONLY', fontSize: 23, fontWeight: '900', fill: '#94A3B8', z: 6, name: 'Price Label' },
+        { id: 'el-price', type: 'text', x: 100, y: 1530, width: 650, text: '{{vehicle.price}}', fontSize: 68, fontWeight: '900', fill: '#34D399', z: 6, name: 'Special Price' },
+        { id: 'el-cta', type: 'shape', shapeType: 'badge', x: 100, y: 1660, width: 470, height: 88, fill: '#2563EB', opacity: 1, rx: 24, z: 6, name: 'Campaign CTA' },
+        { id: 'el-cta-txt', type: 'text', x: 145, y: 1685, width: 380, text: 'BOOK A TEST DRIVE  →', fontSize: 25, fontWeight: '900', fill: '#FFFFFF', z: 7, name: 'CTA Text' },
+        { id: 'el-store', type: 'text', x: 100, y: 1790, width: 850, text: '{{dealership.name}} • {{dealership.phone}}', fontSize: 22, fontWeight: '700', fill: '#CBD5E1', z: 7, name: 'Store Contact' }
       ]
     }
   },
