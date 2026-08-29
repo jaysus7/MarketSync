@@ -91,6 +91,16 @@ class StudioFabricAdapter {
     this.saveHistory(); this.fabricCanvas.requestRenderAll(); return true;
   }
 
+  nudgeSelected(dx = 0, dy = 0) {
+    const active = this.fabricCanvas?.getActiveObject();
+    if (!active || active.lockMovementX || active.lockMovementY) return false;
+    active.set({ left: (active.left || 0) + dx, top: (active.top || 0) + dy });
+    active.setCoords();
+    this.fabricCanvas.requestRenderAll();
+    this.saveHistory();
+    return true;
+  }
+
   bindEvents() {
     if (!this.fabricCanvas) return;
 

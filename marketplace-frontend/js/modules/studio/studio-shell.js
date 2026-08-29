@@ -240,6 +240,7 @@ function studioKeydownHandler(e) {
   const editable = tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable;
   if (editable) return;
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); adapter.deleteSelected(); return; }
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) { e.preventDefault(); const distance = e.shiftKey ? 10 : 1; const delta = { ArrowUp: [0, -distance], ArrowDown: [0, distance], ArrowLeft: [-distance, 0], ArrowRight: [distance, 0] }[e.key]; adapter.nudgeSelected(delta[0], delta[1]); return; }
   const mod = e.ctrlKey || e.metaKey;
   if (!mod) return;
   const key = e.key.toLowerCase();
@@ -302,6 +303,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
           <button onclick="zoomStudioFit()" title="Fit to Screen" class="px-2.5 py-1 ml-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 text-[11px] font-bold text-slate-900 dark:text-white transition">Fit</button>
         </div>
         <button id="studio-guides-toggle" onclick="toggleStudioGuides()" class="px-3 py-1.5 rounded-xl bg-indigo-600 text-white dark:bg-blue-600/20 dark:border dark:border-blue-500/40 dark:text-blue-300 text-xs font-bold">Guides on</button>
+        <button id="studio-grid-toggle" onclick="toggleStudioGrid()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">Grid off</button>
 
         <div class="h-5 w-px bg-slate-200 dark:bg-slate-800"></div>
 
@@ -1408,6 +1410,15 @@ function toggleStudioGuides() {
   guides.classList.toggle('hidden');
   if (button) button.textContent = guides.classList.contains('hidden') ? 'Guides off' : 'Guides on';
 }
+
+function toggleStudioGrid() {
+  const board = document.getElementById('studio-artboard-container');
+  const button = document.getElementById('studio-grid-toggle');
+  if (!board) return;
+  board.classList.toggle('ms-studio-grid-on');
+  if (button) button.textContent = board.classList.contains('ms-studio-grid-on') ? 'Grid on' : 'Grid off';
+}
+window.toggleStudioGrid = toggleStudioGrid;
 
 // Renaming a design that already exists persists straight away, so the title in
 // the header and the title in My Designs never disagree. A design that has not

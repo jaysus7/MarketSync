@@ -3062,6 +3062,7 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
  * single-column layout below tablet width; desktop rails must never squeeze the
  * artboard into an unusable sliver. */
 .studio-mobile-panel-button { display: none; }
+.ms-studio-grid-on::before { content:""; position:absolute; inset:0; pointer-events:none; z-index:19; background-image:linear-gradient(rgba(96,165,250,.16) 1px, transparent 1px),linear-gradient(90deg, rgba(96,165,250,.16) 1px, transparent 1px); background-size:40px 40px; }
 @media (max-width: 768px) {
   #ms-studio-master-modal { overflow: hidden !important; }
   #ms-studio-master-modal > .flex-shrink-0:first-child { min-height: 0; }
