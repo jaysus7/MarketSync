@@ -3947,7 +3947,7 @@ async function uploadStaffPhoto(i, file) {
     __siteStaff[i].photo = d.url; renderSiteStaff(); showToast('Photo added', 'success');
   } catch (e) { showToast(e.message, 'error'); }
 }
-async function saveWebsite(btn) {
+async function saveWebsite(btn, action = 'draft') {
   // Collect design values if on that tab (they persist across tabs via __siteCfg.content).
   const c = __siteCfg.content || (__siteCfg.content = {});
   if (document.getElementById('ws-c1')) { c.primary_color = document.getElementById('ws-c1').value; c.secondary_color = document.getElementById('ws-c2').value; c.accent_color = document.getElementById('ws-c3').value; c.typography = document.getElementById('ws-typo').value; c.heading_font = document.getElementById('ws-hfont')?.value || ''; c.body_font = document.getElementById('ws-bfont')?.value || ''; c.hero_photos = !!document.getElementById('ws-heroimg')?.checked; }
