@@ -83,3 +83,22 @@ export function auditWebsiteDiscoverabilityContracts(content = {}, dealer = {}) 
 export function websitePublishBlockingIssues(result) {
   return (result?.issues || []).filter(issue => issue.severity === 'Critical' || (issue.contract === 'heading-hierarchy' && issue.severity === 'High'))
 }
+
+export function auditAutomotiveComponentContracts(content = {}, dealer = {}) {
+  const issues = []
+  for (const page of pageList(content)) for (const section of Array.isArray(page.sections) ? page.sections : []) {
+    const type = section?.type || ''; const settings = { ...(section.settings || {}), ...(section.content || {}) }; const add = (contract, message, severity = 'Medium') => issues.push(issue(page, section, contract, message, severity, false))
+    if (['inventory_grid', 'featured_inventory', 'new_inventory', 'used_inventory', 'vehicle_carousel'].includes(type)) {
+      if (!settings.vdpUrl && !settings.vehicleLink && !settings.dynamicSource) add('inventory-vdp-link', 'Inventory components must bind each vehicle to a canonical VDP URL.', 'Critical')
+      if (!settings.image && !settings.imageField && !settings.dynamicSource) add('inventory-image', 'Inventory components must bind a factual vehicle image.', 'Medium')
+    }
+    if (['vehicle_detail', 'vdp', 'vehicle'].includes(type)) {
+      if (!settings.canonical && !settings.canonicalUrl) add('vdp-canonical', 'Vehicle Detail components require a canonical URL binding.', 'Critical')
+      if (!settings.vehicleSchema && !settings.schema && !settings.dynamicSource) add('vdp-schema', 'Vehicle Detail components require a Vehicle/Offer schema binding.', 'Critical')
+      if (!settings.vin && !settings.vinField && !settings.dynamicSource) add('vdp-vin', 'Vehicle Detail components require a canonical VIN binding.', 'Critical')
+    }
+    if (['location', 'locations', 'map', 'contact'].includes(type) && (!text(dealer.name) || !text(dealer.address) || !text(dealer.phone))) add('location-entity', 'Dealer Location components require canonical dealership identity data.', 'High')
+    if (['service', 'service_cta', 'service_booking'].includes(type) && !settings.department && !settings.dynamicSource) add('service-department', 'Service components should bind to the canonical service department.', 'Medium')
+  }
+  return { issues, blockingIssues: issues.filter(item => item.severity === 'Critical'), status: issues.some(item => item.severity === 'Critical') ? 'fail' : issues.length ? 'warn' : 'pass' }
+}

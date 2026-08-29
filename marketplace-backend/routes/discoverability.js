@@ -2,7 +2,7 @@ import { supabaseAdmin } from '../shared.js'
 import { requireAuth } from '../middleware.js'
 import { getCurrentAccessContext, hasProductAccess, hasFeature } from '../access.js'
 import { runComprehensiveDiscoverabilityAudit } from '../services/discoverabilityMonitoringService.js'
-import { crawlSite, crawlUrl, assertSafeUrl } from '../services/discoverabilityCrawlerService.js'
+import { crawlSite, crawlUrl, assertSafeUrl, createPersistedCrawlRun, getLatestPersistedCrawl, getPersistedCrawlPages, getPersistedCrawlFindings } from '../services/discoverabilityCrawlerService.js'
 import {
   generateRecommendationsFromAudit,
   canAutoApplyRecommendation,
@@ -491,38 +491,36 @@ export default function registerDiscoverabilityRoutes(app) {
     let safeUrl
     try { safeUrl = await assertSafeUrl(target) } catch (error) { return res.status(400).json({ error: error.message }) }
     const options = { maxPages: Math.min(Math.max(Number(req.body?.maxPages) || 50, 1), 250), maxDepth: Math.min(Math.max(Number(req.body?.maxDepth) || 3, 0), 8), timeoutMs: Math.min(Math.max(Number(req.body?.timeoutMs) || 10000, 1000), 30000), sameHostOnly: req.body?.sameHostOnly !== false, respectRobots: req.body?.respectRobots !== false }
-    const job = { id: `crawl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, dealershipId: req.dealershipId, baseUrl: safeUrl.href, status: 'running', startedAt: new Date().toISOString() }
+    let persistenceId
+    try { persistenceId = await createPersistedCrawlRun({ dealershipId: req.dealershipId, baseUrl: safeUrl.href, options }) } catch (error) { return res.status(503).json({ error: 'Crawl persistence is unavailable', detail: error.message }) }
+    const job = { id: persistenceId, dealershipId: req.dealershipId, baseUrl: safeUrl.href, status: 'running', startedAt: new Date().toISOString() }
     DEALERSHIP_CRAWL_STORE.set(req.dealershipId, job)
-    crawlSite(safeUrl.href, options).then(result => DEALERSHIP_CRAWL_STORE.set(req.dealershipId, { ...job, ...result, status: 'completed' })).catch(error => DEALERSHIP_CRAWL_STORE.set(req.dealershipId, { ...job, status: 'failed', error: error.message, completedAt: new Date().toISOString() }))
+    crawlSite(safeUrl.href, { ...options, dealershipId: req.dealershipId, persistedRunId: persistenceId }).then(result => DEALERSHIP_CRAWL_STORE.set(req.dealershipId, { ...job, ...result, status: 'completed' })).catch(async error => { await supabaseAdmin.from('discoverability_crawl_runs').update({ status: 'failed', completed_at: new Date().toISOString() }).eq('id', persistenceId); DEALERSHIP_CRAWL_STORE.set(req.dealershipId, { ...job, status: 'failed', error: error.message, completedAt: new Date().toISOString() }) })
     res.status(202).json({ success: true, crawl: job })
   })
 
   app.get('/discoverability/crawl/latest', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
     if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
-    const crawl = DEALERSHIP_CRAWL_STORE.get(req.dealershipId)
-    if (!crawl) return res.status(404).json({ error: 'No crawl has been started' })
+    let crawl; try { crawl = await getLatestPersistedCrawl(req.dealershipId) } catch (error) { return res.status(503).json({ error: 'Crawl persistence is unavailable', detail: error.message }) }
+    if (!crawl) { const active = DEALERSHIP_CRAWL_STORE.get(req.dealershipId); if (!active) return res.status(404).json({ error: 'No crawl has been started' }); return res.json({ success: true, crawl: active }) }
     res.json({ success: true, crawl })
   })
 
   app.get('/discoverability/crawl/:runId/pages', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
     if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
-    const crawl = DEALERSHIP_CRAWL_STORE.get(req.dealershipId)
-    if (!crawl || (crawl.id !== req.params.runId && crawl.persistenceId !== req.params.runId)) return res.status(404).json({ error: 'Crawl not found' })
-    res.json({ success: true, pages: crawl.pages || [] })
+    try { const pages = await getPersistedCrawlPages(req.params.runId, req.dealershipId); if (!pages.length) return res.status(404).json({ error: 'Crawl not found' }); res.json({ success: true, pages }) } catch (error) { res.status(503).json({ error: 'Crawl persistence is unavailable', detail: error.message }) }
   })
 
   app.get('/discoverability/crawl/:runId/findings', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
     if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
-    const crawl = DEALERSHIP_CRAWL_STORE.get(req.dealershipId)
-    if (!crawl || (crawl.id !== req.params.runId && crawl.persistenceId !== req.params.runId)) return res.status(404).json({ error: 'Crawl not found' })
-    res.json({ success: true, findings: crawl.findings || [] })
+    try { const findings = await getPersistedCrawlFindings(req.params.runId, req.dealershipId); res.json({ success: true, findings }) } catch (error) { res.status(503).json({ error: 'Crawl persistence is unavailable', detail: error.message }) }
   })
 
   app.post('/discoverability/crawl/recrawl', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
     if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
     const target = req.body?.url
     if (!target) return res.status(400).json({ error: 'url is required' })
-    try { await assertSafeUrl(target); const page = await crawlUrl(target, { timeoutMs: 10000, retryCount: 1 }); res.json({ success: true, page }) } catch (error) { res.status(400).json({ error: error.message }) }
+    try { const safe = await assertSafeUrl(target); const persistenceId = await createPersistedCrawlRun({ dealershipId: req.dealershipId, baseUrl: safe.href, options: { maxPages: 1, maxDepth: 0 } }); const crawl = await crawlSite(safe.href, { maxPages: 1, maxDepth: 0, timeoutMs: 10000, retryCount: 1, dealershipId: req.dealershipId, persistedRunId: persistenceId }); res.json({ success: true, crawl }) } catch (error) { res.status(400).json({ error: error.message }) }
   })
 
   // ── 18. Dealership Automation Settings (GET & PUT) ─────────────────────────

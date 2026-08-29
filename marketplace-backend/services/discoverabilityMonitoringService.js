@@ -3,6 +3,7 @@ import { runAutomatedSeoAudit } from './seoMonitoringService.js'
 import { generateRecommendationsFromAudit } from './recommendationEngine.js'
 import { auditWebsiteDiscoverabilityContracts } from './websiteDiscoverabilityContracts.js'
 import { crawlSite } from './discoverabilityCrawlerService.js'
+import { detectAutomotivePage, extractVehicleEntity, validateAutomotiveSchemas, compareInventoryToPublic, automotiveScore, validateBilingualPages } from './automotiveDiscoverabilityService.js'
 
 export function scoreEvidenceChecks(checks = []) {
   const applicable = checks.filter(check => check.applicable !== false)
@@ -57,6 +58,13 @@ export async function runComprehensiveDiscoverabilityAudit(dealershipId, options
   const liveCrawl = options.liveCrawl && dealer.website_url
     ? await crawlSite(dealer.website_url, { ...(options.crawlOptions || {}), persist: options.persistCrawl !== false }).catch(error => ({ status: 'failed', error: error.message, pages: [], findings: [] }))
     : null
+  const automotiveAudit = liveCrawl?.pages?.length ? (() => {
+    const pagesObserved = liveCrawl.pages.filter(page => page.html).map(page => ({ ...page, automotive: detectAutomotivePage(page), vehicle: extractVehicleEntity(page), schemaValidation: validateAutomotiveSchemas(page, dealer, inventory || []) }))
+    const publicVehicles = pagesObserved.filter(page => page.automotive.pageType === 'vdp').map(page => ({ ...page.vehicle, observedAt: page.fetchedAt }))
+    const inventoryComparison = compareInventoryToPublic(inventory || [], publicVehicles, options)
+    const checks = pagesObserved.flatMap(page => Object.entries(page.schemaValidation).filter(([key]) => ['autoDealer', 'vehicle', 'offer', 'breadcrumb'].includes(key)).map(([key, value]) => ({ id: `${page.finalUrl}-${key}`, status: value.status, applicable: true })))
+    return { pages: pagesObserved, publicVehicles, inventoryComparison, score: automotiveScore(checks), bilingual: validateBilingualPages(pagesObserved.map(page => ({ finalUrl: page.finalUrl, language: page.html.language, hreflang: page.html.hreflang }))) }
+  })() : null
 
   // ── PILLAR 1: SEO HEALTH (0-100) ──────────────────────────────────────────
   const seoMetrics = {
@@ -135,6 +143,9 @@ export async function runComprehensiveDiscoverabilityAudit(dealershipId, options
     affectedUrl: item.sourceUrl,
     autoFixable: false,
     status: 'pending'
+  })))
+  if (automotiveAudit?.inventoryComparison?.findings?.length) validationIssues.push(...automotiveAudit.inventoryComparison.findings.map((item, index) => ({
+    id: `automotive-${item.type}-${index}`, severity: item.severity === 'critical' ? 'Critical' : item.severity === 'high' ? 'High' : 'Medium', category: 'Automotive public inventory', title: item.type, description: 'Canonical inventory was compared with observed public vehicle data.', evidence: item.evidence, source: 'crawler', measured_at: item.evidence?.measuredAt || timestamp, affectedUrl: item.evidence?.sourceUrl || null, autoFixable: false, status: 'pending'
   })))
   
   // Rule 1: Check NAP
@@ -232,7 +243,8 @@ export async function runComprehensiveDiscoverabilityAudit(dealershipId, options
           sourceType: 'crawler', sourceUrl: page.finalUrl || page.requestedUrl, measuredAt: page.fetchedAt,
           statusCode: page.statusCode, responseTimeMs: page.responseTimeMs, bodyHash: page.bodyHash, verified: page.statusCode != null
         })) || []
-      } : { status: 'not_measured', pageCount: 0, findingCount: 0, evidence: [] }
+      } : { status: 'not_measured', pageCount: 0, findingCount: 0, evidence: [] },
+      automotive: automotiveAudit || { status: 'not_measured', score: { qualityScore: null, evidenceCoverage: 0 }, publicVehicles: [], inventoryComparison: { comparisons: [], findings: [] }, bilingual: { status: 'not_applicable', checks: [] } }
     },
     recommendations,
     history: {

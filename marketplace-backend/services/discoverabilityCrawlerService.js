@@ -81,6 +81,7 @@ export function parsePublicHtml(html, sourceUrl) {
   const schema = parseJsonLd(html, sourceUrl)
   const visibleText = cleanText(String(html || '').replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<[^>]+>/gi, ' '))
   const canonicalTags = [...String(html || '').matchAll(/<link\b[^>]*>/gi)].filter(m => (attr(m[0], 'rel') || '').toLowerCase().split(/\s+/).includes('canonical')).map(m => absoluteUrl(attr(m[0], 'href'), sourceUrl)).filter(Boolean)
+  const hreflang = [...String(html || '').matchAll(/<link\b[^>]*>/gi)].filter(m => (attr(m[0], 'rel') || '').toLowerCase().split(/\s+/).includes('alternate') && attr(m[0], 'hreflang')).map(m => ({ lang: attr(m[0], 'hreflang'), href: absoluteUrl(attr(m[0], 'href'), sourceUrl) })).filter(item => item.href)
   const findings = []; const evidence = field => ({ sourceType: 'crawler', sourceUrl, measuredAt: new Date().toISOString(), rawValue: field, verified: true })
   if (!title) findings.push({ type: 'missing_title', severity: 'high', evidence: evidence(null) })
   if (title && (title.length < 10 || title.length > 65)) findings.push({ type: 'title_length', severity: 'medium', evidence: evidence(title) })
@@ -91,7 +92,7 @@ export function parsePublicHtml(html, sourceUrl) {
   if (headings.h1.length > 1) findings.push({ type: 'multiple_h1', severity: 'medium', evidence: evidence(headings.h1) })
   for (const image of images) if (image.alt == null || image.alt === '') findings.push({ type: 'missing_image_alt', severity: 'low', evidence: evidence(image) })
   for (const link of links) if (link.url.startsWith('http:') && sourceUrl.startsWith('https:')) findings.push({ type: 'insecure_http_asset_or_link', severity: 'medium', evidence: evidence(link.url) })
-  return { title, metaDescription: meta.description || null, robots: meta.robots || null, canonical: canonicalTags[0] || null, canonicals: canonicalTags, viewport: meta.viewport || null, language: attr(String(html).match(/<html\b[^>]*>/i)?.[0] || '', 'lang'), openGraph: Object.fromEntries(Object.entries(meta).filter(([k]) => k.startsWith('og:'))), twitter: Object.fromEntries(Object.entries(meta).filter(([k]) => k.startsWith('twitter:'))), headings, visibleTextLength: visibleText.length, links, images, schema, findings }
+  return { title, metaDescription: meta.description || null, robots: meta.robots || null, canonical: canonicalTags[0] || null, canonicals: canonicalTags, hreflang, viewport: meta.viewport || null, language: attr(String(html).match(/<html\b[^>]*>/i)?.[0] || '', 'lang'), openGraph: Object.fromEntries(Object.entries(meta).filter(([k]) => k.startsWith('og:'))), twitter: Object.fromEntries(Object.entries(meta).filter(([k]) => k.startsWith('twitter:'))), headings, visibleTextLength: visibleText.length, links, images, schema, findings }
 }
 
 async function fetchWithRedirects(input, options) {
@@ -114,11 +115,17 @@ export async function crawlUrl(input, options = {}) {
   return { requestedUrl: input, finalUrl: result.finalUrl, statusCode: result.response.status, redirectChain: result.redirectChain, contentType, responseTimeMs: Date.now() - started, fetchedAt: new Date().toISOString(), robotsAllowed: true, bodyHash: sha256(result.body), ...(isHtml ? { html: parsePublicHtml(result.body, result.finalUrl) } : {}), body: result.body.slice(0, 200000) }
 }
 
+export async function createPersistedCrawlRun({ dealershipId, baseUrl, options = {} }) {
+  const { data, error } = await supabaseAdmin.from('discoverability_crawl_runs').insert({ dealership_id: dealershipId || null, base_url: baseUrl, status: 'running', options, started_at: new Date().toISOString() }).select('id').maybeSingle()
+  if (error) throw error
+  return data?.id || null
+}
+
 async function persistCrawl(run, pages, findings) {
   try {
-    const { data } = await supabaseAdmin.from('discoverability_crawl_runs').insert({ dealership_id: run.dealershipId || null, base_url: run.baseUrl, status: run.status, options: run.options, started_at: run.startedAt, completed_at: run.completedAt, page_count: pages.length, finding_count: findings.length }).select('id').maybeSingle()
-    if (data?.id) { await supabaseAdmin.from('discoverability_crawl_pages').insert(pages.map(page => ({ crawl_run_id: data.id, requested_url: page.requestedUrl, final_url: page.finalUrl, status_code: page.statusCode, content_type: page.contentType, response_time_ms: page.responseTimeMs, redirect_chain: page.redirectChain, robots_allowed: page.robotsAllowed, body_hash: page.bodyHash, metadata: page.html || null, fetched_at: page.fetchedAt }))); if (findings.length) await supabaseAdmin.from('discoverability_crawl_findings').insert(findings.map(f => ({ crawl_run_id: data.id, url: f.sourceUrl, finding_type: f.type, severity: f.severity, evidence: f.evidence }))) }
-    return data?.id || null
+    const runId = run.persistedRunId || (await supabaseAdmin.from('discoverability_crawl_runs').insert({ dealership_id: run.dealershipId || null, base_url: run.baseUrl, status: run.status, options: run.options, started_at: run.startedAt, completed_at: run.completedAt, page_count: pages.length, finding_count: findings.length }).select('id').maybeSingle()).data?.id
+    if (runId) { await supabaseAdmin.from('discoverability_crawl_runs').update({ status: run.status, completed_at: run.completedAt, page_count: pages.length, finding_count: findings.length }).eq('id', runId); await supabaseAdmin.from('discoverability_crawl_pages').insert(pages.map(page => ({ crawl_run_id: runId, requested_url: page.requestedUrl, final_url: page.finalUrl, status_code: page.statusCode, content_type: page.contentType, response_time_ms: page.responseTimeMs, redirect_chain: page.redirectChain, robots_allowed: page.robotsAllowed, body_hash: page.bodyHash, metadata: page.html || null, fetched_at: page.fetchedAt }))); if (findings.length) await supabaseAdmin.from('discoverability_crawl_findings').insert(findings.map(f => ({ crawl_run_id: runId, url: f.sourceUrl, finding_type: f.type, severity: f.severity, evidence: f.evidence }))) }
+    return runId || null
   } catch { return null }
 }
 
@@ -165,7 +172,7 @@ export async function crawlSite(baseUrl, options = {}) {
       if (parsed?.type === 'index') sitemapQueue.push(...parsed.urls.filter(url => new URL(url).host === base.host))
     } catch (error) { sitemaps.push({ requestedUrl: sitemapUrl, statusCode: null, error: error.message }) }
   }
-  const run = { baseUrl: base.href, options: config, status: 'completed', startedAt: pages[0]?.fetchedAt || new Date().toISOString(), completedAt: new Date().toISOString(), pageCount: pages.length, findingCount: findings.length }
+  const run = { dealershipId: config.dealershipId || null, persistedRunId: config.persistedRunId || null, baseUrl: base.href, options: config, status: 'completed', startedAt: pages[0]?.fetchedAt || new Date().toISOString(), completedAt: new Date().toISOString(), pageCount: pages.length, findingCount: findings.length }
   run.persistenceId = config.persist === false ? null : await persistCrawl(run, pages, findings); return { ...run, robots, robotsPolicies: verifyRobotsPolicies(robots), sitemaps, pages, findings }
 }
 
@@ -183,4 +190,22 @@ export function parseSitemapXml(xml, baseUrl) {
 export function verifyRobotsPolicies(robots) {
   const groups = robots?.groups || []; const policyFor = agent => groups.filter(group => group.userAgents.includes('*') || group.userAgents.includes(agent.toLowerCase())).flatMap(group => ({ allow: group.allow, disallow: group.disallow }))
   return { search: { googlebot: policyFor('googlebot'), bingbot: policyFor('bingbot') }, aiSearch: { 'gptbot': policyFor('gptbot'), 'oai-searchbot': policyFor('oai-searchbot'), 'perplexitybot': policyFor('perplexitybot'), 'claudebot': policyFor('claudebot'), 'claude-searchbot': policyFor('claude-searchbot') }, classification: 'Robots policies are reported as observed; AI training-crawler blocking is not an SEO failure by itself.' }
+}
+
+export async function getLatestPersistedCrawl(dealershipId) {
+  const { data, error } = await supabaseAdmin.from('discoverability_crawl_runs').select('*').eq('dealership_id', dealershipId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+  if (error) throw error
+  return data || null
+}
+
+export async function getPersistedCrawlPages(runId, dealershipId) {
+  const { data, error } = await supabaseAdmin.from('discoverability_crawl_pages').select('*, discoverability_crawl_runs!inner(dealership_id)').eq('crawl_run_id', runId).eq('discoverability_crawl_runs.dealership_id', dealershipId).order('fetched_at', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+export async function getPersistedCrawlFindings(runId, dealershipId) {
+  const { data, error } = await supabaseAdmin.from('discoverability_crawl_findings').select('*, discoverability_crawl_runs!inner(dealership_id)').eq('crawl_run_id', runId).eq('discoverability_crawl_runs.dealership_id', dealershipId).order('created_at', { ascending: true })
+  if (error) throw error
+  return data || []
 }
