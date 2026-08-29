@@ -1305,8 +1305,17 @@
       return wrap(`<section class="max-w-3xl mx-auto px-4 py-10"><h1 class="text-3xl font-black mb-4">${esc(p.title)}</h1><div class="prose max-w-none text-slate-700">${richText(p.body_html||'')}</div></section>`);
     }
 
+    function siteAttribution(){
+      const allowed=['utm_source','utm_medium','utm_campaign','utm_content','utm_term','gclid','fbclid','campaign_id','c'];
+      let saved={}; try{ saved=JSON.parse(localStorage.getItem('ms_site_attribution_'+SLUG)||'{}')||{}; }catch(_){ saved={}; }
+      const q=new URLSearchParams(location.search), current={};
+      allowed.forEach(k=>{ const v=(q.get(k)||'').trim(); if(v) current[k==='c'?'campaign_id':k]=v.slice(0,180); });
+      if(!saved.referrer_source && document.referrer){ try{ const ref=new URL(document.referrer); if(ref.origin!==location.origin) saved.referrer_source=ref.hostname.slice(0,160); }catch(_){} }
+      if(Object.keys(current).length){ saved={...saved,...current}; try{ localStorage.setItem('ms_site_attribution_'+SLUG,JSON.stringify(saved)); }catch(_){} }
+      return saved;
+    }
     async function postLead(body,formEl,btn){ btn.disabled=true; const t=btn.textContent; btn.textContent='Sending…';
-      try{ const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error('x');
+      try{ const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...siteAttribution(),...body})}); if(!r.ok) throw new Error('x');
         formEl.innerHTML='<div class="text-center py-10"><div class="text-2xl mb-2">✓</div><div class="font-bold text-emerald-600">Thanks! We\'ll be in touch shortly.</div></div>';
       }catch(e){ btn.disabled=false; btn.textContent=t; alert('Sorry, something went wrong. Please call us.'); } }
     const V=(id)=>(document.getElementById(id)?.value||'').trim();
@@ -1449,7 +1458,7 @@
       const when=new Date(date+'T'+time+':00'); if(isNaN(when.getTime())||when.getTime()<Date.now()){ err.textContent='Pick a future time.'; err.classList.remove('hidden'); return; }
       let tz=''; try{ tz=Intl.DateTimeFormat().resolvedOptions().timeZone; }catch(_){}
       btn.disabled=true; const t=btn.textContent; btn.textContent='Booking…';
-      try{ const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/book`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,phone,email,notes,vehicle_id:__bookVeh,when:when.toISOString(),tz,kind:window.__bookKind||'Test drive'})});
+      try{ const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/book`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...siteAttribution(),name,phone,email,notes,vehicle_id:__bookVeh,when:when.toISOString(),tz,kind:window.__bookKind||'Test drive'})});
         const d=await r.json(); if(!r.ok) throw new Error(d.error||'Could not book that time.');
         document.getElementById('bk-body').innerHTML=`<div class="text-center py-6"><div class="text-4xl">✅</div><div class="text-lg font-black text-slate-900 mt-2">You're booked!</div><div class="text-sm text-slate-500 mt-1">Check your inbox for the confirmation. See you then!</div>${d.meet_url?`<a href="${d.meet_url}" target="_blank" class="inline-block mt-3 text-sm font-bold brand-text">Join link</a>`:''}<div class="mt-3"><button onclick="this.closest('.fixed').remove()" class="text-slate-500 font-bold text-sm">Close</button></div></div>`;
       }catch(e){ btn.disabled=false; btn.textContent=t; err.textContent=e.message||'Something went wrong — please call us.'; err.classList.remove('hidden'); } }
