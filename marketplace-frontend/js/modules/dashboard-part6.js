@@ -837,15 +837,15 @@ function deskRenderForm(contactId) {
       <span class="desk-workflow-step"><b>3</b> Structure</span><i></i>
       <span class="desk-workflow-step"><b>4</b> Documents</span>
     </div>
-    ${customerHeaderHtml}
+    <div class="desk-three-column-grid">
+      <div class="desk-column">
+        ${customerHeaderHtml}
 
-    <div class="mb-4">
-      <label class="text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-300 font-bold block mb-1">Co-buyer <span class="font-normal normal-case">(optional)</span></label>
-      <input id="dk-co_buyer" value="${esc(d.co_buyer || '')}" placeholder="Second buyer's full name" class="${iCls} max-w-md">
-    </div>
+        <div class="mb-4">
+          <label class="text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-300 font-bold block mb-1">Co-buyer <span class="font-normal normal-case">(optional)</span></label>
+          <input id="dk-co_buyer" value="${esc(d.co_buyer || '')}" placeholder="Second buyer's full name" class="${iCls}">
+        </div>
 
-    <div class="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-4 items-start">
-      <div>
         ${card('Insurance', `<details ${(ins.company || ins.policy || ins.agent || ins.phone || ins.expiry) ? 'open' : ''} class="group">
             <summary class="cursor-pointer list-none text-sm font-bold text-blue-600 dark:text-blue-400 select-none inline-flex items-center gap-1.5"><span class="group-open:hidden">＋ Add insurance details</span><span class="hidden group-open:inline">Insurance details</span></summary>
             <div class="grid grid-cols-2 gap-3 mt-3">
@@ -857,6 +857,9 @@ function deskRenderForm(contactId) {
             </div>
           </details>`, 'Optional — fills onto the bill of sale and the customer card.')}
 
+      </div>
+
+      <div class="desk-column">
         ${card('Vehicle', `
           <div class="relative mb-2">
             <input id="desk-veh-search" type="text" autocomplete="off" placeholder="Search inventory by VIN, stock # or name…" class="${iCls}">
@@ -892,6 +895,9 @@ function deskRenderForm(contactId) {
             ${fld('Lien / payoff', money('dk-trade_payoff', d.trade_payoff))}
           </div>`, 'HST is charged on the price after the trade allowance (Ontario tax-on-the-difference). Pull the customer\'s saved appraisal to fill this in.')}
 
+      </div>
+
+      <div class="desk-column desk-column--summary">
         ${card('Finance terms', `<div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
             ${fld('Deal type', `<select id="dk-deal_type" class="${iCls}">${['Finance', 'Lease', 'Cash'].map(o => `<option ${d.deal_type === o ? 'selected' : ''}>${o}</option>`).join('')}</select>`)}
             ${fld('Lender', `<input id="dk-finance_company" list="desk-lender-list" value="${esc(d.finance_company || '')}" placeholder="e.g. TD Auto Finance" oninput="deskLenderPicked(this.value)" class="${iCls}"><datalist id="desk-lender-list"></datalist><div id="desk-lender-hint" class="text-[11px] text-slate-400 mt-0.5"></div>`)}
@@ -951,7 +957,7 @@ function deskRenderForm(contactId) {
         </details>
       </div>
 
-      <div class="lg:sticky lg:top-4">
+        <div class="desk-summary-panel">
         <div id="desk-summary" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5"></div>
         <div id="desk-status-bar" class="mt-3">${deskStatusBar(contactId)}</div>
         <div class="flex flex-col gap-2 mt-3">
@@ -964,6 +970,7 @@ function deskRenderForm(contactId) {
           <button onclick="deskEsign('${contactId}','bill')" class="w-full inline-flex items-center justify-center gap-2 liquid-glass-btn text-sm font-black px-3 py-2.5 rounded-xl"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>Send for e-signature</button>
           <button id="desk-deposit-btn" onclick="deskCollectDeposit('${contactId}')" class="w-full inline-flex items-center justify-center gap-2 liquid-glass-btn-secondary text-sm font-black px-3 py-2.5 rounded-xl"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>Collect deposit</button>
           <button onclick="openEsignStatus('${contactId}')" class="w-full text-center text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition py-1">View signature status →</button>
+        </div>
         </div>
       </div>
     </div>`;
