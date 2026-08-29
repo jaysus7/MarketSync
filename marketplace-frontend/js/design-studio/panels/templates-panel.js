@@ -1,0 +1,1 @@
+(function () { window.msDesignStudioTemplatesPanel = { render: () => window.renderStudioToolPanelContent?.('templates'), use: key => window.loadStudioTemplate?.(key), filter: format => window.filterStudioTemplates?.(format) }; })();

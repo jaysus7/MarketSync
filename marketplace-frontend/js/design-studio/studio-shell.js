@@ -1,0 +1,1 @@
+(function () { window.msDesignStudio = { open: (...args) => window.openMarketSyncStudio?.(...args), close: () => window.closeMarketSyncStudio?.(), setTool: tool => window.setStudioTool?.(tool), version: '2.0' }; })();

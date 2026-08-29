@@ -1,0 +1,1 @@
+(function () { window.msDesignStudioExport = { scene: () => window.__studioAdapter?.exportScene(), png: () => window.__studioAdapter?.fabricCanvas?.toDataURL?.({ format: 'png', multiplier: 1 }) }; })();

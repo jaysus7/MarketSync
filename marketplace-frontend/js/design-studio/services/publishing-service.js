@@ -1,0 +1,1 @@
+(function () { window.msDesignStudioPublishing = { save: () => window.saveStudioDesign?.(), publish: () => window.renderStudioDesignAndPublish?.(), close: () => window.closeMarketSyncStudio?.() }; })();

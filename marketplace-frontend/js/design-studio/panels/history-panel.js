@@ -1,0 +1,1 @@
+(function () { window.msDesignStudioHistoryPanel = { open: () => window.openStudioHistory?.(), undo: () => window.__studioAdapter?.undo(), redo: () => window.__studioAdapter?.redo(), restore: id => window.restoreStudioRevision?.(id) }; })();

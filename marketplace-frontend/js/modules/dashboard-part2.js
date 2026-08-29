@@ -2248,6 +2248,12 @@ function switchPage(pageId) {
   if (pageId === 'email-marketing' || pageId === 'email-campaigns') loadDealerEmail();
   if (pageId === 'studio' || pageId === 'design-studio') {
     Promise.resolve(window.msLoadScript ? window.msLoadScript('js/modules/studio/scene-model.js?v=20260814_v12') : null)
+      .then(() => window.msLoadScript && Promise.all([
+        'js/design-studio/state/document-schema.js', 'js/design-studio/state/history-store.js', 'js/design-studio/state/studio-store.js',
+        'js/design-studio/editor/canvas-engine.js', 'js/design-studio/editor/selection-engine.js', 'js/design-studio/editor/transform-engine.js', 'js/design-studio/editor/snapping-engine.js', 'js/design-studio/editor/keyboard-engine.js',
+        'js/design-studio/panels/layers-panel.js', 'js/design-studio/panels/properties-panel.js', 'js/design-studio/panels/assets-panel.js', 'js/design-studio/panels/templates-panel.js', 'js/design-studio/panels/brand-panel.js', 'js/design-studio/panels/pages-panel.js', 'js/design-studio/panels/history-panel.js',
+        'js/design-studio/services/autosave-service.js', 'js/design-studio/services/version-service.js', 'js/design-studio/services/media-service.js', 'js/design-studio/services/export-service.js', 'js/design-studio/services/publishing-service.js', 'js/design-studio/services/ai-service.js', 'js/design-studio/studio-shell.js'
+      ].map(path => window.msLoadScript(`${path}?v=20260829_arch`))))
       .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/document-model.js?v=20260829_v1'))
       .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-store.js?v=20260829_v1'))
       .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-autosave.js?v=20260829_v1'))
@@ -2516,6 +2522,9 @@ window.ensureOpenMarketSyncStudio = function ensureOpenMarketSyncStudio(designId
   }
   const load = window.msLoadScript
     ? Promise.resolve(window.msLoadScript('js/modules/studio/scene-model.js?v=20260814_v12'))
+        .then(() => Promise.all([
+          'js/design-studio/state/document-schema.js', 'js/design-studio/state/history-store.js', 'js/design-studio/state/studio-store.js', 'js/design-studio/editor/canvas-engine.js', 'js/design-studio/editor/selection-engine.js', 'js/design-studio/editor/transform-engine.js', 'js/design-studio/editor/snapping-engine.js', 'js/design-studio/editor/keyboard-engine.js', 'js/design-studio/panels/layers-panel.js', 'js/design-studio/panels/properties-panel.js', 'js/design-studio/panels/assets-panel.js', 'js/design-studio/panels/templates-panel.js', 'js/design-studio/panels/brand-panel.js', 'js/design-studio/panels/pages-panel.js', 'js/design-studio/panels/history-panel.js', 'js/design-studio/services/autosave-service.js', 'js/design-studio/services/version-service.js', 'js/design-studio/services/media-service.js', 'js/design-studio/services/export-service.js', 'js/design-studio/services/publishing-service.js', 'js/design-studio/services/ai-service.js', 'js/design-studio/studio-shell.js'
+        ].map(path => window.msLoadScript(`${path}?v=20260829_arch`))))
         .then(() => window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260818_fontfamily_v1'))
         .then(() => window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260826_digital_pages_v3'))
         .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260826_studio_tp_v1'))
