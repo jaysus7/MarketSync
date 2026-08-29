@@ -3972,7 +3972,23 @@ async function saveWebsite(btn, action = 'draft') {
     theme: c.theme || 'classic',
   };
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
-  try { const result = await apiSendJson('/dealership/site', 'PUT', body); try { localStorage.removeItem(`ms_ws_recovery:${__siteCfg.site_slug}`); } catch {} if (action === 'publish') __siteCfg.site_published = true; markWsSaved(); showToast(action === 'publish' ? 'Website published' : `Draft saved${result?.revision?.number ? ` · revision ${result.revision.number}` : ''}`, 'success'); btn.disabled = false; btn.textContent = orig; }
+  try {
+    const result = await apiSendJson('/dealership/site', 'PUT', body);
+    if (action === 'publish') {
+      // A successful write is not enough to claim production is live. Read the
+      // published control-plane record back and require the exact revision we
+      // just created before showing a success toast.
+      const verified = await apiGetJson('/dealership/site', { retries: 1 });
+      const expectedRevision = result?.revision?.id;
+      const liveRevision = verified?.published_revision?.id;
+      if (!verified?.site_published || (expectedRevision && liveRevision !== expectedRevision)) throw new Error('Publish verification failed — production was not confirmed.');
+      __siteCfg.site_published = true;
+    }
+    try { localStorage.removeItem(`ms_ws_recovery:${__siteCfg.site_slug}`); } catch {}
+    markWsSaved();
+    showToast(action === 'publish' ? 'Website published and verified' : `Draft saved${result?.revision?.number ? ` · revision ${result.revision.number}` : ''}`, 'success');
+    btn.disabled = false; btn.textContent = orig;
+  }
   catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message, 'error'); }
 }
 async function wsOpenRevisions() {
