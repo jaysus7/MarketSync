@@ -92,6 +92,7 @@ import { registerAffiliate } from './routes/affiliate.js'
 import { registerHR } from './routes/hr.js'
 import { registerStaffChat } from './routes/staff-chat.js'
 import { registerHqAgentsRoutes } from './routes/hq-agents.js'
+import { registerHqCrm } from './routes/hq-crm.js'
 
 const app = express()
 const PORT = process.env.PORT || 10000
@@ -232,6 +233,7 @@ registerAffiliate(app)
 registerHR(app)
 registerStaffChat(app)
 registerHqAgentsRoutes(app)
+registerHqCrm(app)
 registerSeoRoutes(app)
 registerDiscoverabilityRoutes(app)
 registerWebhookRoutes(app)
