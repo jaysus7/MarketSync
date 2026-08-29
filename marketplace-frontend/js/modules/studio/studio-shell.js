@@ -176,6 +176,7 @@ window.openMarketSyncStudio = async function(designId = null, initialOptions = {
   }
 
   modal.innerHTML = renderStudioWorkspaceHtml(designName, scene);
+  window.__studioDocument = window.msStudioSceneToDocument ? window.msStudioSceneToDocument(scene, { title: designName }) : scene;
   if (window.__msStudioStore) {
     window.__msStudioStore.hydrate(window.msStudioSceneToDocument ? window.msStudioSceneToDocument(scene, { title: designName }) : scene, window.__studioCurrentDesign?.id || designId);
     window.__msStudioStore.subscribe(studioRenderSaveState);
@@ -372,6 +373,10 @@ function renderStudioWorkspaceHtml(designName, scene) {
       </aside>
     </div>
     <footer class="h-16 flex-shrink-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-3 flex items-center gap-2 overflow-x-auto z-30">
+      <span class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Pages</span>
+      <select onchange="setStudioPage(this.value)" class="max-w-28 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1.5 text-xs font-bold">${(scene.pages || [{ id: 'page-1', name: 'Page 1' }]).map((page, index) => `<option value="${escS(page.id || `page-${index + 1}`)}">${escS(page.name || `Page ${index + 1}`)}</option>`).join('')}</select>
+      <button onclick="addStudioPage()" class="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-700 text-xs font-black">+ Page</button>
+      <div class="h-7 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
       <span class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-1">Text</span>
       <button onclick="studioAddText('heading')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">+ Heading</button>
       <button onclick="studioAddText('subheading')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold">+ Subheading</button>
@@ -910,9 +915,27 @@ function studioSetObjectGeometry(property, value) {
   if (property === 'width') object.scaleToWidth(Math.max(1, number));
   else if (property === 'height') object.scaleToHeight(Math.max(1, number));
   else object.set(property, number);
+  const breakpoint = window.__studioAdapter?.activeBreakpoint || 'desktop';
+  if (breakpoint !== 'desktop') {
+    object.msData = object.msData || {};
+    object.msData.responsive = object.msData.responsive || {};
+    object.msData.responsive[breakpoint] = { ...(object.msData.responsive[breakpoint] || {}), [property]: number };
+  }
   object.setCoords(); window.__studioAdapter?.fabricCanvas?.requestRenderAll(); window.__studioAdapter?.saveHistory();
 }
 window.studioSetObjectGeometry = studioSetObjectGeometry;
+
+function setStudioPage(pageId) { window.__studioAdapter?.setPage(pageId); }
+window.setStudioPage = setStudioPage;
+function addStudioPage() {
+  const adapter = window.__studioAdapter; if (!adapter?.currentScene || !window.msStudioAddPage) return;
+  const doc = window.msStudioAddPage(window.msStudioSceneToDocument(adapter.exportScene()));
+  adapter.currentScene = window.msStudioDocumentToScene(doc); adapter.activePageId = doc.pages[doc.pages.length - 1].id;
+  adapter.renderScene(adapter.currentScene); window.__studioDocument = doc; window.__msStudioStore?.update(doc);
+  const select = document.querySelector('footer select'); if (select) { select.innerHTML = doc.pages.map(page => `<option value="${escS(page.id)}">${escS(page.name)}</option>`).join(''); select.value = adapter.activePageId; }
+  if (typeof showToast === 'function') showToast('New page added', 'success');
+}
+window.addStudioPage = addStudioPage;
 
 // The dealership photo for a vehicle, across the field names inventory returns.
 function studioVehiclePhoto(v) {
