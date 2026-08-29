@@ -611,7 +611,8 @@ function renderStudioToolPanelContent(tool) {
       const label = object.msData?.name || object.text || `${object.type || 'Object'} ${index + 1}`;
       return `<button type="button" onclick="selectStudioLayer(${index})" class="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600/30 border border-slate-300 dark:border-slate-700 text-left text-xs font-bold text-slate-900 dark:text-white"><span class="text-[10px] text-sky-400">${object.type === 'textbox' ? 'T' : object.type === 'image' ? '▧' : '◇'}</span><span class="truncate">${escS(label)}</span></button>`;
     }).join('');
-    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Layers</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Select and reorder the current page. Groups and component children remain part of the document model.</p></div><div class="space-y-1.5 max-h-[65vh] overflow-y-auto">${rows || '<p class="text-xs text-slate-500">No layers yet.</p>'}</div></div>`;
+    const structures = window.__studioAdapter?.currentScene?.components || [];
+    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Layers</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Select and reorder the current page. Groups and component children remain part of the document model.</p></div><div class="grid grid-cols-2 gap-2"><button type="button" onclick="addStudioStructure('component')" class="px-2 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-[10px] font-black text-white">+ Component</button><button type="button" onclick="addStudioStructure('repeater')" class="px-2 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-[10px] font-black text-white">+ Repeater</button></div><div class="space-y-1.5 max-h-[55vh] overflow-y-auto">${rows || '<p class="text-xs text-slate-500">No layers yet.</p>'}</div>${structures.length ? `<div class="pt-2 border-t border-slate-800"><div class="text-[10px] font-black uppercase text-sky-400 mb-1">Structured elements</div>${structures.map(item => `<div class="text-xs text-slate-300 py-1">${item.type === 'repeater' ? '↻' : '◇'} ${escS(item.name)}</div>`).join('')}</div>` : ''}</div>`;
   }
   if (tool === 'templates') {
     return `
@@ -732,6 +733,22 @@ function selectStudioLayer(index) {
   window.__studioAdapter?.onSelectionChange([object]);
 }
 window.selectStudioLayer = selectStudioLayer;
+
+function addStudioStructure(type) {
+  const adapter = window.__studioAdapter;
+  if (!adapter?.currentScene || !window.msStudioSceneToDocument) return;
+  const document = window.msStudioSceneToDocument(adapter.exportScene());
+  const item = type === 'repeater'
+    ? window.msStudioCreateRepeater('Inventory repeater', 'inventory', { type: 'vehicle-card', fields: ['year', 'make', 'model', 'price'] })
+    : window.msStudioCreateComponent('Reusable component', []);
+  document.components = [...(document.components || []), item];
+  adapter.currentScene = window.msStudioDocumentToScene(document);
+  window.__msStudioStore?.update(document);
+  if (window.msStudioScheduleAutosave) window.msStudioScheduleAutosave(adapter.currentScene);
+  setStudioTool('layers');
+  if (typeof showToast === 'function') showToast(`${type === 'repeater' ? 'Repeater' : 'Component'} added`, 'success');
+}
+window.addStudioStructure = addStudioStructure;
 
 function renderStudioInspectorHtml(selected) {
   const object = Array.isArray(selected) ? selected[0] : selected;
