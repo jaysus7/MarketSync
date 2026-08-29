@@ -16,6 +16,7 @@ import {
   beginPasskeyLogin, finishPasskeyLogin,
   listUserPasskeys, deletePasskey
 } from '../passkeys.js'
+import { ingestLead } from '../services/hqCrmService.js'
 
 function maskPhone(phone) {
   const value = String(phone || '')
@@ -561,13 +562,45 @@ export function registerRoutes(app) {
     if (!name || !email) return res.status(400).json({ error: 'name and email are required' })
     if (!isEmailLike(email)) return res.status(400).json({ error: 'A valid email address is required' })
 
-    const { error } = await supabaseAdmin
-      .from('demo_requests')
-      .insert({ name, email, phone, dealership_name, plan, message })
-    if (error) {
-      console.error('Demo request insert failed:', error.message)
-      return res.status(500).json({ error: 'Could not submit your request. Please try again.' })
+    try {
+      // 1. Canonical CRM Lead Ingestion (Identity resolution, company match, consent, timeline)
+      await ingestLead({
+        name,
+        email,
+        phone,
+        dealershipName: dealership_name,
+        plan,
+        message,
+        channel: 'website_demo',
+        firstTouchSource: req.body?.utm_source || 'website',
+        lastTouchSource: req.body?.utm_source || 'website',
+        utmSource: req.body?.utm_source || null,
+        utmMedium: req.body?.utm_medium || null,
+        utmCampaign: req.body?.utm_campaign || null,
+        utmContent: req.body?.utm_content || null,
+        utmTerm: req.body?.utm_term || null,
+        gclid: req.body?.gclid || null,
+        fbclid: req.body?.fbclid || null,
+        wbraid: req.body?.wbraid || null,
+        affiliateId: req.body?.affiliate_id || null,
+        ipAddress: req.ip || req.headers['x-forwarded-for'] || null,
+        userAgent: req.headers['user-agent'] || null,
+        sourceRecord: 'demo_request_form',
+        consentGiven: true,
+        consentPurpose: 'demo_booking',
+      }).catch(e => console.warn('[demo-request] Lead ingest error:', e.message))
+
+      // 2. Maintain legacy table for backwards compatibility
+      const { error } = await supabaseAdmin
+        .from('demo_requests')
+        .insert({ name, email, phone, dealership_name, plan, message })
+      if (error) {
+        console.error('Demo request insert failed:', error.message)
+      }
+    } catch (e) {
+      console.warn('[demo-request] Ingestion warning:', e.message)
     }
+
     console.log('🚗 Demo request:', { name, email, dealership_name, plan })
     if (resend) {
       const escapeHtml = (s) => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
