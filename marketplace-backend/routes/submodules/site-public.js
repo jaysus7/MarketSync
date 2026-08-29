@@ -130,6 +130,7 @@ function marketStatus(v, contactStage) {
 
 function publicVehicle(v) {
   const recallCount = Array.isArray(v.recalls) ? v.recalls.length : 0
+  const marketState = marketStatus(v, v._stage)
   return {
     id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim,
     price: v.price, mileage: v.mileage, condition: v.condition,
@@ -140,12 +141,17 @@ function publicVehicle(v) {
     image_urls: Array.isArray(v.image_urls) ? v.image_urls : [],
     description: v.sales_pitch || v.description || null,
     specs_manual: v.specs_manual && typeof v.specs_manual === 'object' ? v.specs_manual : null,
+    vin_data: v.vin_data && typeof v.vin_data === 'object' ? v.vin_data : null,
     carfax_url: v.carfax_url || null,
     window_sticker_url: v.window_sticker_oem_url || v.window_sticker_gen_url || v.window_sticker_url || null,
     brochure_url: v.brochure_oem_url || v.brochure_gen_url || v.brochure_url || null,
     recalls_count: recallCount,
+    // Keep the public vehicle contract explicit for the shared card and VDP
+    // renderer. These aliases preserve compatibility with older templates.
+    recall_count: recallCount,
     recalls: recallCount ? v.recalls : [],
-    status: marketStatus(v, v._stage),
+    status: marketState,
+    market_status: marketState,
     has_possession: !v.awaiting_possession,
   }
 }
