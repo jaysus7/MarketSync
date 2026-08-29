@@ -189,6 +189,8 @@ function setupMobileMoreMenu() {
         headerTitle.textContent = mktCfg.title;
       } else if (/(marketsync_email|email_marketing|campaigns[-_]email[-_]sms|campaigns)/.test(product)) {
         headerTitle.textContent = 'Email & SMS Campaigns';
+      } else if (document.documentElement.getAttribute('data-dash-mode') === 'marketsync') {
+        headerTitle.textContent = 'MarketSync HQ';
       } else {
         headerTitle.textContent = 'All pages';
       }

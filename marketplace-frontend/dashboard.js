@@ -1472,17 +1472,13 @@ function applyMobileQuickRow() {
     const isHq = (typeof marketsyncOwnerMode === 'function' && marketsyncOwnerMode())
       || document.documentElement.getAttribute('data-dash-mode') === 'marketsync';
     if (isHq) {
-      const hqWanted = ['saas-command', 'saas-customers', 'saas-agents', 'saas-billing'];
-      pages = hqWanted.map(pg => {
-        for (const d of Object.values(__deptRegistry)) {
-          const tab = (d.pages || []).find(p => p.page === pg);
-          if (tab) {
-            const isHome = d.pages[0] && d.pages[0].page === pg;
-            return { page: tab.page, label: isHome ? d.label : (tab.label.includes('Agent') ? 'Platform' : tab.label), icon: d.icon, invmode: tab.invmode };
-          }
-        }
-        return null;
-      }).filter(Boolean);
+      // MarketSync Internal must use the same focused operating navigation on
+      // desktop, in the mobile quick row, and in the "MarketSync HQ" sheet.
+      // The old HQ/Customers/Platform/Revenue shortcut set came from a second
+      // hard-coded registry and made the phone feel like a different product.
+      const hqPages = marketsyncInternalNavPages();
+      pages = hqPages.slice(0, 4);
+      showMoreBtn = hqPages.length > pages.length;
     } else {
       const wanted = typeof msMobileNavForRole === 'function'
         ? msMobileNavForRole(profileContext?.role) : null;
@@ -1537,6 +1533,19 @@ function applyMobileQuickRow() {
   more?.classList.toggle('hidden', !showMoreBtn);
 }
 window.applyMobileQuickRow = applyMobileQuickRow;
+
+function marketsyncInternalNavPages() {
+  return [
+    { page: 'saas-command', label: 'Pulse', icon: 'chart' },
+    { page: 'saas-customers', label: 'Accounts', icon: 'building' },
+    { page: 'saas-funnel', label: 'Leads', icon: 'funnel' },
+    { page: 'saas-followups', label: 'Work', icon: 'check' },
+    { page: 'saas-employees', label: 'People', icon: 'users' },
+    { page: 'saas-automation', label: 'Communications', icon: 'chat' },
+    { page: 'saas-accounting', label: 'Money', icon: 'dollar' },
+  ];
+}
+window.marketsyncInternalNavPages = marketsyncInternalNavPages;
 
 // The page list for a restricted tier's mobile "more" sheet (with labels/icons), or
 // null for the full-OS experience (which uses the department / legacy renderers).
@@ -1596,15 +1605,7 @@ function restrictedNavPages() {
     if (pages && pages.length) return pages;
   }
   if ((profileContext?.workspace === 'saas_admin' || profileContext?.is_marketsync === true) && !previewKey) {
-    return [
-      { page: 'saas-command', label: 'Pulse', icon: 'chart' },
-      { page: 'saas-customers', label: 'Accounts', icon: 'building' },
-      { page: 'saas-funnel', label: 'Leads', icon: 'funnel' },
-      { page: 'saas-followups', label: 'Work', icon: 'check' },
-      { page: 'saas-employees', label: 'People', icon: 'users' },
-      { page: 'saas-automation', label: 'Communications', icon: 'chat' },
-      { page: 'saas-accounting', label: 'Money', icon: 'dollar' },
-    ];
+    return marketsyncInternalNavPages();
   }
   // Exact per-product / per-role nav (Settings lives on the header gear, never here):
   //   Facebook Solo ................. Inventory, Leaderboard
