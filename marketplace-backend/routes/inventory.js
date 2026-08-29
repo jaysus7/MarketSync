@@ -365,7 +365,7 @@ export function registerRoutes(app) {
   app.post('/dealership/site-media/:id/replace', requireAuth, requireMfa, requirePermission('site.manage'), photoUpload.single('image'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     if (!req.file) return res.status(400).json({ error: 'No image uploaded' })
-    const { data: current, error: readError } = await supabaseAdmin.from('dealer_website_media').select('id, storage_path')
+    const { data: current, error: readError } = await supabaseAdmin.from('dealer_website_media').select('id, storage_path, optimized_variants')
       .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (readError) return res.status(500).json({ error: readError.message })
     if (!current) return res.status(404).json({ error: 'Media not found' })
@@ -386,7 +386,19 @@ export function registerRoutes(app) {
     }).eq('id', current.id).eq('dealership_id', req.dealershipId).select('*').maybeSingle()
     if (updateError) return res.status(500).json({ error: updateError.message })
     if (!media) return res.status(404).json({ error: 'Media not found' })
-    await supabaseAdmin.storage.from('vehicle-photos').remove([current.storage_path]).catch(() => {})
+    const oldPaths = [current.storage_path]
+    const oldVariants = current.optimized_variants && typeof current.optimized_variants === 'object' ? current.optimized_variants : {}
+    for (const formats of Object.values(oldVariants)) {
+      for (const url of Object.values(formats || {})) {
+        try {
+          const parsed = new URL(String(url))
+          const marker = '/storage/v1/object/public/vehicle-photos/'
+          const index = parsed.pathname.indexOf(marker)
+          if (index >= 0) oldPaths.push(decodeURIComponent(parsed.pathname.slice(index + marker.length)))
+        } catch {}
+      }
+    }
+    await supabaseAdmin.storage.from('vehicle-photos').remove([...new Set(oldPaths.filter(Boolean))]).catch(() => {})
     res.json({ ok: true, media })
   })
 
