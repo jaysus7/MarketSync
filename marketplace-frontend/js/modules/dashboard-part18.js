@@ -1342,7 +1342,7 @@ function renderAutoOverviewTab(container) {
           <div class="text-xs font-bold text-sky-600 dark:text-sky-400 mt-3 flex items-center gap-1">Manage Campaigns &rarr;</div>
         </div>
 
-<div onclick="autoTab('templates')" class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-violet-500 transition cursor-pointer group">
+<div onclick="autoTab('campaigns')" class="hidden p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-violet-500 transition cursor-pointer group">
           <div class="w-10 h-10 rounded-xl bg-violet-600/10 text-violet-600 dark:text-violet-400 flex items-center justify-center font-black mb-3 group-hover:bg-violet-600 group-hover:text-white transition">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
           </div>
@@ -4735,6 +4735,18 @@ function renderEsbLayout() {
   if (!modal) return;
 
   modal.innerHTML = `
+    <style>
+      /* Email is a light, deliverable artifact even when the dashboard is dark. */
+      #esb-email-canvas-container,#esb-email-canvas{background:#fff!important;color:#0f172a!important;color-scheme:light}
+      #esb-email-canvas-container .bg-white{background-color:#fff!important}
+      #esb-email-canvas-container .bg-slate-50{background-color:#f8fafc!important}
+      #esb-email-canvas-container .bg-slate-900{background-color:#0f172a!important}
+      #esb-email-canvas-container .text-slate-900{color:#0f172a!important}
+      #esb-email-canvas-container .text-slate-700{color:#334155!important}
+      #esb-email-canvas-container .text-slate-600{color:#475569!important}
+      #esb-email-canvas-container .text-slate-500{color:#64748b!important}
+      #esb-email-canvas-container input,#esb-email-canvas-container textarea{color:#0f172a!important;background:#fff!important}
+    </style>
     <!-- Top Global Header -->
     <header class="h-14 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 flex items-center justify-between flex-shrink-0 z-20">
       <div class="flex items-center gap-3">
