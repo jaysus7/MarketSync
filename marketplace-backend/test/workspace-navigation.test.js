@@ -68,9 +68,9 @@ test('MarketSync Internal OS uses the approved company navigation in order', () 
   // this test's real intent (department ORDER) without being fragile to that
   // incidental repetition.
   const rawLabels = [...block.matchAll(/label: '([^']+)'/g)].map(match => match[1])
-    .filter(label => ['HQ', 'Customers', 'Users', 'Revenue', 'Platform', 'Operations'].includes(label))
+    .filter(label => ['HQ', 'Customers', 'Website', 'Revenue', 'Users', 'Platform', 'Operations'].includes(label))
   const labels = rawLabels.filter((label, i) => label !== rawLabels[i - 1])
-  assert.deepEqual(labels, ['HQ', 'Customers', 'Users', 'Revenue', 'Platform', 'Operations'])
+  assert.deepEqual(labels, ['HQ', 'Customers', 'Website', 'Revenue', 'Users', 'Platform', 'Operations'])
   // Creative and website tools remain real routes, but are no longer primary
   // operating departments in the simplified Internal rail.
   for (const page of ['saas-email-marketing', 'saas-studio', 'saas-website']) {
