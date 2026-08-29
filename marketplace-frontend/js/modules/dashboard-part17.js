@@ -4195,7 +4195,17 @@ async function saveWebsite(btn, action = 'draft') {
     showToast(action === 'publish' ? 'Website published and verified' : `Draft saved${result?.revision?.number ? ` · revision ${result.revision.number}` : ''}`, 'success');
     btn.disabled = false; btn.textContent = orig;
   }
-  catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message, 'error'); }
+  catch (e) {
+    btn.disabled = false; btn.textContent = orig;
+    const message = e?.message || 'Could not save website changes.';
+    const conflict = /changed in another session|latest draft|concurrent|conflict/i.test(message);
+    if (conflict) {
+      showToast('This draft changed elsewhere. Reloading keeps the newest saved version.', 'error');
+      if (confirm('This website draft changed in another session. Reload the latest saved draft now?')) await loadWebsitePage();
+    } else if (/publish verification failed|production was not confirmed/i.test(message)) {
+      showToast('Publish was not confirmed. Production was left unchanged; reload and try again.', 'error');
+    } else showToast(message, 'error');
+  }
 }
 async function wsOpenRevisions() {
   const modal = document.createElement('div');
