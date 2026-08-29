@@ -150,9 +150,10 @@
     // Title + description for the current view — updated on every navigation so
     // each page carries its OWN, distinct meta. Custom pages use their per-page SEO
     // (or a description derived from the page's own content + focus keyword).
-    function setMeta(title,desc){
+    function setMeta(title,desc,image){
       if(title){ document.title=title; metaTag('meta[property="og:title"]',['property','og:title'],title); }
       if(desc){ metaTag('meta[name="description"]',['name','description'],desc); metaTag('meta[property="og:description"]',['property','og:description'],desc); }
+      if(image) metaTag('meta[property="og:image"]',['property','og:image'],image);
     }
     function setCanonical(url){
       let el=document.head.querySelector('link[rel="canonical"]');
@@ -181,6 +182,9 @@
       const viewUrl=VIEW==='home'?siteUrl:siteUrl+'#'+(VIEW.startsWith('page:')?VIEW.slice(5):VIEW);
       const currentPage=VIEW.startsWith('page:')?findSitePage(VIEW.slice(5)):null;
       graph.push({'@type':currentPage?'WebPage':'CollectionPage','@id':viewUrl+'#page','url':viewUrl,'name':currentPage?.title||document.title,'description':currentPage?.seo_description||undefined,'isPartOf':{'@id':siteUrl+'#website'},'about':{'@id':siteUrl+'#dealer'},'keywords':terms.length?terms.join(', '):undefined});
+      const crumbs=[{'@type':'ListItem','position':1,'name':s.name||'Home','item':siteUrl}];
+      if(currentPage) crumbs.push({'@type':'ListItem','position':2,'name':currentPage.title||'Page','item':viewUrl});
+      if(crumbs.length>1) graph.push({'@type':'BreadcrumbList','@id':viewUrl+'#breadcrumbs','itemListElement':crumbs});
       if(VIEW==='inventory'||VIEW==='home'){
         const items=(DATA.vehicles||[]).slice(0,100).map((v,i)=>({'@type':'ListItem','position':i+1,'url':siteUrl+'#inventory/'+encodeURIComponent(v.id),'item':{'@type':'Vehicle','name':[v.year,v.make,v.model,v.trim].filter(Boolean).join(' '),'vehicleMake':v.make||undefined,'model':v.model||undefined,'vehicleModelDate':v.year?String(v.year):undefined,'offers':v.price?{'@type':'Offer','price':v.price,'priceCurrency':'CAD','availability':'https://schema.org/InStock'}:undefined,'image':v.image_urls||undefined}}));
         if(items.length) graph.push({'@type':'ItemList','@id':viewUrl+'#inventory','name':s.discovery_summary||'Available vehicles','numberOfItems':items.length,'itemListElement':items});
@@ -214,17 +218,17 @@
     }
     function applyViewSeo(){
       const s=DATA.site, name=s.name||'Our dealership', loc=s.city?` in ${s.city}`:'';
-      let title, desc;
+      let title, desc, image=s.seo_image||s.hero_url||s.logo_url||'';
       if(VIEW.startsWith('page:')){
         const p=findSitePage(VIEW.slice(5));
-        if(p){ title=p.seo_title||`${p.title} | ${name}`; desc=p.seo_description||pageDerivedDesc(p,name,loc); }
+        if(p){ title=p.seo_title||`${p.title} | ${name}`; desc=p.seo_description||pageDerivedDesc(p,name,loc); image=p.seo_image||image; }
       }
       if(!title){
         const D={ inventory:['Inventory',`Browse new & used vehicles${loc}`], build:['Build & Price','Build and price your next vehicle'], trade:['Value Your Trade','Get a real trade-in value in minutes'], finance:['Financing','Get pre-approved fast — no impact to your credit score'], team:['Our Team','Meet our sales, finance and service team'], inquiry:['Contact','Hours, directions and a quick way to reach us'] }[VIEW];
         if(VIEW==='home'||!D){ title=s.seo_title||`${name}${s.city?' | '+s.city:''}`; desc=s.seo_description||s.about||`Browse inventory, build your vehicle, and get financing at ${name}.`; }
         else { title=`${D[0]} | ${name}`; desc=`${D[1]} at ${name}${loc}.`; }
       }
-      setMeta(title,desc);
+      setMeta(title,desc,image);
       const canonicalBase=location.origin+location.pathname+(SLUG?`?d=${encodeURIComponent(SLUG)}`:'');
       setCanonical(VIEW==='home'?canonicalBase:canonicalBase+'#'+(VIEW.startsWith('page:')?VIEW.slice(5):VIEW));
       applyDiscoverySchema(s);
