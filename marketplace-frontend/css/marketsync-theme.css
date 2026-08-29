@@ -1607,6 +1607,112 @@ body.website-builder-mode {
   .website-builder-mode #ws-frame-wrapper[data-ws-device="mobile"] { width: min(375px, calc(100vw - 1rem)) !important; max-width: calc(100vw - 1rem) !important; }
 }
 
+/* Website Builder editor chrome: keep the preview expressive, but make the
+ * controls calm, opaque, and readable. The editor is a work surface, not a
+ * translucent marketing card. This intentionally overrides the global glass
+ * treatment only inside builder mode. */
+.website-builder-mode {
+  --ws-panel: #101b31;
+  --ws-panel-raised: #182641;
+  --ws-border: #344766;
+  --ws-text: #f8fafc;
+  --ws-text-secondary: #dbe7f5;
+  --ws-text-muted: #a8b7cc;
+  --ws-input-bg: #0b1426;
+  --ws-input-border: #405577;
+  --ws-input-text: #f8fafc;
+}
+.website-builder-mode .ws-top-action-bar,
+.website-builder-mode #ws-left-dock-wrapper nav,
+.website-builder-mode #ws-left-drawer-content,
+.website-builder-mode #ws-right-dock-wrapper > div,
+.website-builder-mode #ws-inspector-panel {
+  background: var(--ws-panel) !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: var(--ws-border) !important;
+  color: var(--ws-text) !important;
+  box-shadow: 0 12px 28px rgba(2, 8, 23, .34) !important;
+}
+.website-builder-mode #ws-left-drawer-content,
+.website-builder-mode #ws-inspector-panel {
+  opacity: 1 !important;
+}
+.website-builder-mode .ws-top-action-bar button,
+.website-builder-mode .ws-top-action-bar select,
+.website-builder-mode #ws-right-collapse-btn,
+.website-builder-mode #ws-left-collapse-btn,
+.website-builder-mode .ws-device-btn,
+.website-builder-mode .ws-nav-rail-btn {
+  text-shadow: none !important;
+  filter: none !important;
+}
+.website-builder-mode .ws-top-action-bar button:not(.bg-indigo-600),
+.website-builder-mode .ws-top-action-bar select,
+.website-builder-mode #ws-right-collapse-btn,
+.website-builder-mode #ws-left-collapse-btn {
+  background: var(--ws-panel-raised) !important;
+  color: var(--ws-text-secondary) !important;
+  border-color: var(--ws-border) !important;
+}
+.website-builder-mode .ws-top-action-bar button:not(.bg-indigo-600):hover,
+.website-builder-mode #ws-right-collapse-btn:hover,
+.website-builder-mode #ws-left-collapse-btn:hover {
+  background: #223453 !important;
+  color: #fff !important;
+}
+.website-builder-mode .ws-top-action-bar .bg-indigo-600,
+.website-builder-mode .ws-device-btn.bg-indigo-600 {
+  background: #2563eb !important;
+  color: #fff !important;
+  border-color: #60a5fa !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, .28) !important;
+}
+.website-builder-mode #ws-left-drawer-content input,
+.website-builder-mode #ws-left-drawer-content select,
+.website-builder-mode #ws-left-drawer-content textarea,
+.website-builder-mode #ws-inspector-panel input,
+.website-builder-mode #ws-inspector-panel select,
+.website-builder-mode #ws-inspector-panel textarea {
+  background: var(--ws-input-bg) !important;
+  color: var(--ws-input-text) !important;
+  border-color: var(--ws-input-border) !important;
+}
+.website-builder-mode #ws-left-drawer-content input::placeholder,
+.website-builder-mode #ws-inspector-panel input::placeholder,
+.website-builder-mode #ws-inspector-panel textarea::placeholder {
+  color: #8fa2bd !important;
+  opacity: 1 !important;
+}
+.website-builder-mode #ws-left-drawer-content .liquid-glass-card,
+.website-builder-mode #ws-inspector-panel .liquid-glass-card,
+.website-builder-mode #ws-left-drawer-content .liquid-glass-panel,
+.website-builder-mode #ws-inspector-panel .liquid-glass-panel {
+  background: var(--ws-panel-raised) !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: var(--ws-border) !important;
+  box-shadow: none !important;
+}
+.website-builder-mode #ws-left-drawer-content .text-slate-500,
+.website-builder-mode #ws-left-drawer-content .text-slate-400,
+.website-builder-mode #ws-inspector-panel .text-slate-500,
+.website-builder-mode #ws-inspector-panel .text-slate-400 {
+  color: var(--ws-text-muted) !important;
+}
+@media (max-width: 900px) {
+  .website-builder-mode #ws-left-dock-wrapper,
+  .website-builder-mode #ws-right-dock-wrapper { max-width: calc(100vw - 1rem); }
+  .website-builder-mode #ws-left-drawer-content { width: min(290px, calc(100vw - 4.5rem)) !important; }
+  .website-builder-mode #ws-inspector-panel { width: min(320px, calc(100vw - 3rem)) !important; }
+  .website-builder-mode .ws-top-action-bar { padding-left: .65rem !important; padding-right: .65rem !important; gap: .4rem !important; }
+  .website-builder-mode .ws-top-action-bar > div { min-width: 0; }
+  .website-builder-mode .ws-top-action-bar button,
+  .website-builder-mode .ws-top-action-bar select { min-height: 34px; }
+}
+
 /* Builder contrast and glass regression guard.  The dashboard's generic
    `.dark`/`.text-slate-*` utilities can win against the builder's design
    tokens, leaving light mode with low-contrast navy panels and unreadable
