@@ -1608,6 +1608,7 @@ async function loadWebsitePage() {
   __siteBuiltins = normBuiltins(__siteCfg.content?.builtins);
   __wsTarget = 'home'; __siteSections = __homeSections;
   wsOfferRecovery();
+  __wsLastSnapshot = wsSnapshot();
 
   // Handle returning Stripe checkout session or deep link parameters
   const params = new URLSearchParams(location.search);
@@ -1877,7 +1878,7 @@ window.setBuilderMode = setBuilderMode;
 // postMessage and render instantly (never saved until "Save"). Clicking a section in
 let __livePreviewReady = false, __liveMsgWired = false, __livePushTimer = null;
 let __livePreviewToken = null, __livePreviewOrigin = null;
-let __wsUndoStack = [], __wsRedoStack = [], __wsHistoryTimer = null, __wsHistoryMute = false;
+let __wsUndoStack = [], __wsRedoStack = [], __wsHistoryTimer = null, __wsHistoryMute = false, __wsLastSnapshot = null;
 let __wsAutosaveTimer = null;
 
 function wsSnapshot() {
@@ -1893,17 +1894,18 @@ function wsRestoreSnapshot(snap) {
   __siteBuiltins = snap.builtins || {}; __siteStaff = snap.staff || [];
   __menuOrder = snap.menu || []; __wsTarget = snap.target || 'home';
   __siteSections = typeof __wsTarget === 'number' && __sitePages[__wsTarget] ? __sitePages[__wsTarget].sections : __homeSections;
-  markWsUnsaved(); renderWsBody(); livePreviewPush();
+  __wsLastSnapshot = wsSnapshot(); markWsUnsaved(); renderWsBody(); livePreviewPush();
 }
 function wsQueueHistory() {
   if (__wsHistoryMute) return;
   if (!__wsHistoryTimer) {
-    __wsUndoStack.push(wsSnapshot());
+    __wsUndoStack.push(__wsLastSnapshot || wsSnapshot());
     if (__wsUndoStack.length > 80) __wsUndoStack.shift();
     __wsRedoStack = [];
   }
   clearTimeout(__wsHistoryTimer);
   __wsHistoryTimer = setTimeout(() => { __wsHistoryTimer = null; }, 350);
+  __wsLastSnapshot = wsSnapshot();
   clearTimeout(__wsAutosaveTimer);
   __wsAutosaveTimer = setTimeout(wsPersistRecovery, 500);
 }
@@ -1980,6 +1982,7 @@ window.markWsUnsaved = markWsUnsaved;
 
 function markWsSaved() {
   window.__wsHasUnsavedChanges = false;
+  __wsLastSnapshot = wsSnapshot();
   const badges = document.querySelectorAll('.ws-saved-badge');
   badges.forEach(b => {
     b.className = 'ws-saved-badge px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40';
