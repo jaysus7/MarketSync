@@ -50,6 +50,28 @@ function isMissingTableError(e) {
   return msg.includes('schema cache') || msg.includes('does not exist') || msg.includes('42p01') || e.code === 'PGRST204'
 }
 
+async function createStudioRevision(req, design, scene, changeSummary = 'Saved Studio draft') {
+  if (!scene || !design?.id) return null
+  const revisionNumber = Number(design.revision_number || 0) + 1
+  const { data, error } = await supabaseAdmin.from('studio_design_revisions').insert({
+    design_id: design.id,
+    dealership_id: req.dealershipId,
+    revision_number: revisionNumber,
+    name: design.name || 'Untitled Design',
+    scene,
+    format_key: design.format_key || 'square',
+    width: Number(design.width) || 1080,
+    height: Number(design.height) || 1080,
+    change_summary: String(changeSummary || 'Saved Studio draft').slice(0, 240),
+    created_by: req.user?.id || null,
+  }).select('*').single()
+  if (error) {
+    if (isMissingTableError(error)) return null
+    throw error
+  }
+  return data
+}
+
 const assetUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024, files: 10 } })
 const studioVideoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024, files: 1 } })
 
@@ -317,7 +339,9 @@ export function registerMarketingStudio(app) {
   app.post('/marketing/studio/designs', requireAuth, requireMfa, canEdit, async (req, res) => {
     if (!guard(req, res)) return
     const payload = {
-      id: `sd_${crypto.randomUUID()}`,
+      // Keep the database UUID contract intact so revisions can reference the
+      // design. The old sd_ prefix made new designs fall out of the DB path.
+      id: crypto.randomUUID(),
       dealership_id: req.dealershipId,
       owner_user_id: req.user?.id,
       ownership: req.body?.ownership || 'dealership',
@@ -331,7 +355,10 @@ export function registerMarketingStudio(app) {
       template_id: req.body?.template_id || null,
       created_by: req.user?.id,
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
+      status: 'draft',
+      revision_number: 0,
+      last_saved_by: req.user?.id || null
     }
     try {
       const { data, error } = await supabaseAdmin.from('studio_designs').insert(payload).select('*').single()
@@ -346,6 +373,11 @@ export function registerMarketingStudio(app) {
         throw error
       }
       audit(req, 'marketing.studio_design_created', { after_state: { id: data.id, name: data.name } })
+      const revision = await createStudioRevision(req, data, data.scene, 'Created Studio design')
+      if (revision) {
+        const { data: updated } = await supabaseAdmin.from('studio_designs').update({ revision_number: revision.revision_number, last_saved_by: req.user?.id || null }).eq('id', data.id).eq('dealership_id', req.dealershipId).select('*').single()
+        return res.json({ ok: true, design: updated || { ...data, revision_number: revision.revision_number }, revision })
+      }
       res.json({ ok: true, design: data })
     } catch (e) {
       if (isMissingTableError(e)) {
@@ -388,6 +420,59 @@ export function registerMarketingStudio(app) {
     }
   })
 
+  app.get('/marketing/studio/designs/:id/revisions', requireAuth, requireMfa, canView, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const { data, error } = await supabaseAdmin.from('studio_design_revisions')
+        .select('id, design_id, revision_number, name, format_key, width, height, change_summary, created_by, created_at')
+        .eq('design_id', req.params.id).eq('dealership_id', req.dealershipId)
+        .order('revision_number', { ascending: false }).limit(100)
+      if (error) {
+        if (isMissingTableError(error)) return res.json({ revisions: [] })
+        throw error
+      }
+      res.json({ revisions: data || [] })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.post('/marketing/studio/designs/:id/status', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const status = String(req.body?.status || '').toLowerCase()
+    if (!['draft', 'published', 'archived'].includes(status)) return res.status(400).json({ error: 'status must be draft, published, or archived' })
+    try {
+      const { data: current, error: findError } = await supabaseAdmin.from('studio_designs').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).single()
+      if (findError || !current) return res.status(404).json({ error: 'Design not found' })
+      const patch = { status, updated_at: new Date().toISOString(), last_saved_by: req.user?.id || null }
+      if (status === 'published') {
+        if (!Number(current.revision_number)) {
+          const revision = await createStudioRevision(req, current, current.scene, 'Published Studio design')
+          if (revision) patch.revision_number = revision.revision_number
+        }
+        patch.published_revision_number = Number(patch.revision_number || current.revision_number || 0) || null
+        patch.published_at = new Date().toISOString()
+      }
+      const { data, error } = await supabaseAdmin.from('studio_designs').update(patch).eq('id', current.id).eq('dealership_id', req.dealershipId).select('*').single()
+      if (error) throw error
+      audit(req, `marketing.studio_design_${status}`, { after_state: { id: data.id, status: data.status, revision_number: data.revision_number } })
+      res.json({ ok: true, design: data })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.post('/marketing/studio/designs/:id/revisions/:revisionId/restore', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    try {
+      const { data: design } = await supabaseAdmin.from('studio_designs').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
+      const { data: revision } = await supabaseAdmin.from('studio_design_revisions').select('*').eq('id', req.params.revisionId).eq('design_id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+      if (!design || !revision) return res.status(404).json({ error: 'Design revision not found' })
+      const nextRevision = await createStudioRevision(req, { ...design, name: design.name, format_key: revision.format_key, width: revision.width, height: revision.height, revision_number: design.revision_number }, revision.scene, `Restored revision ${revision.revision_number}`)
+      const updates = { scene: revision.scene, format_key: revision.format_key, width: revision.width, height: revision.height, revision_number: nextRevision?.revision_number || Number(design.revision_number || 0) + 1, status: 'draft', updated_at: new Date().toISOString(), last_saved_by: req.user?.id || null }
+      const { data, error } = await supabaseAdmin.from('studio_designs').update(updates).eq('id', design.id).eq('dealership_id', req.dealershipId).select('*').single()
+      if (error) throw error
+      audit(req, 'marketing.studio_design_revision_restored', { after_state: { id: data.id, restored_from: revision.id, revision_number: data.revision_number } })
+      res.json({ ok: true, design: data, revision: nextRevision })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
   app.put('/marketing/studio/designs/:id', requireAuth, requireMfa, canEdit, async (req, res) => {
     if (!guard(req, res)) return
     const updates = {
@@ -398,7 +483,8 @@ export function registerMarketingStudio(app) {
       scene: req.body?.scene,
       vehicle_id: req.body?.vehicle_id,
       campaign_id: req.body?.campaign_id,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
+      last_saved_by: req.user?.id || null
     }
     Object.keys(updates).forEach(k => updates[k] === undefined && delete updates[k])
 
@@ -431,6 +517,12 @@ export function registerMarketingStudio(app) {
           return res.json({ ok: true, design: designs[idx] })
         }
         throw error
+      }
+      let revision = null
+      if (updates.scene) revision = await createStudioRevision(req, data, data.scene, req.body?.change_summary || 'Saved Studio draft')
+      if (revision) {
+        const { data: withRevision } = await supabaseAdmin.from('studio_designs').update({ revision_number: revision.revision_number, last_saved_by: req.user?.id || null }).eq('id', data.id).eq('dealership_id', req.dealershipId).select('*').single()
+        return res.json({ ok: true, design: withRevision || { ...data, revision_number: revision.revision_number }, revision })
       }
       res.json({ ok: true, design: data })
     } catch (e) {

@@ -151,6 +151,7 @@ function applyStudioZoom() {
 }
 
 window.openMarketSyncStudio = async function(designId = null, initialOptions = {}) {
+  window.__studioCurrentDesign = null;
   let modal = document.getElementById('ms-studio-master-modal');
   if (!modal) {
     modal = document.createElement('div');
@@ -168,13 +169,17 @@ window.openMarketSyncStudio = async function(designId = null, initialOptions = {
       const res = await apiGetJson(`/marketing/studio/designs/${designId}`).catch(() => null);
       if (res?.design) {
         window.__studioCurrentDesign = res.design;
-        scene = res.design.scene || scene;
+        scene = window.msStudioDocumentToScene ? window.msStudioDocumentToScene(res.design.scene || scene) : (res.design.scene || scene);
         designName = res.design.name || designName;
       }
     } catch (e) { /* fallback */ }
   }
 
   modal.innerHTML = renderStudioWorkspaceHtml(designName, scene);
+  if (window.__msStudioStore) {
+    window.__msStudioStore.hydrate(window.msStudioSceneToDocument ? window.msStudioSceneToDocument(scene, { title: designName }) : scene, window.__studioCurrentDesign?.id || designId);
+    window.__msStudioStore.subscribe(studioRenderSaveState);
+  }
   initStudioAdapter(scene);
   window.__studioFitObserver?.disconnect();
   const viewport = document.getElementById('studio-canvas-viewport');
@@ -188,6 +193,14 @@ window.openMarketSyncStudio = async function(designId = null, initialOptions = {
     document.addEventListener('keydown', studioKeydownHandler);
   }
 };
+
+function studioRenderSaveState(state) {
+  const el = document.getElementById('studio-save-status');
+  if (!el) return;
+  const styles = { SAVED: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40', SAVING: 'bg-sky-500/20 text-sky-400 border-sky-500/40', UNSAVED: 'bg-amber-500/20 text-amber-400 border-amber-500/40', 'SAVE FAILED': 'bg-rose-500/20 text-rose-400 border-rose-500/40', PUBLISHED: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40' };
+  el.textContent = state.status;
+  el.className = `px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold border ${styles[state.status] || styles.UNSAVED}`;
+}
 
 // Standard editor shortcuts (undo/redo/copy/cut/paste/duplicate/group/delete). Every
 // shortcut is disabled while focus is in an input/textarea/contenteditable — including
@@ -283,6 +296,8 @@ function renderStudioWorkspaceHtml(designName, scene) {
         <button onclick="saveStudioDesign()" class="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition flex items-center gap-1.5">
           <svg class="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>Save
         </button>
+        <button onclick="openStudioRevisionHistory()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition">History</button>
+        <button onclick="publishStudioDesign()" class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-lg transition">Publish</button>
         <button onclick="if(typeof openStudioSchedulerWithEntitlementCheck === 'function') openStudioSchedulerWithEntitlementCheck()" class="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition flex items-center gap-1.5">
           <svg class="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Schedule
         </button>
@@ -730,6 +745,7 @@ async function initStudioAdapter(scene) {
     onStateChange: () => {
       const status = document.getElementById('studio-save-status');
       if (status) { status.textContent = 'UNSAVED'; status.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/40'; }
+      if (window.msStudioScheduleAutosave) window.msStudioScheduleAutosave(window.__studioAdapter.exportScene());
     }
   });
 
@@ -1220,29 +1236,78 @@ async function saveStudioDesign() {
   const scene = window.__studioAdapter.exportScene();
   const name = document.getElementById('studio-design-name')?.value || 'Untitled Design';
 
+  const persistedScene = window.msStudioSceneToDocument ? window.msStudioSceneToDocument(scene, { title: name }) : scene;
   const payload = {
     name,
     format_key: scene.format_key || 'square',
     width: scene.width,
     height: scene.height,
-    scene,
+    scene: persistedScene,
+    change_summary: 'Saved Studio draft',
     vehicle_id: window.__studioCurrentVehicle?.id || null
   };
 
   try {
     if (window.__studioCurrentDesign?.id) {
-      await apiSendJson(`/marketing/studio/designs/${window.__studioCurrentDesign.id}`, 'PUT', payload);
+      const res = await apiSendJson(`/marketing/studio/designs/${window.__studioCurrentDesign.id}`, 'PUT', payload);
+      if (res?.design) window.__studioCurrentDesign = res.design;
     } else {
       const res = await apiSendJson('/marketing/studio/designs', 'POST', payload);
       if (res?.design) window.__studioCurrentDesign = res.design;
     }
+    if (window.__msStudioStore) window.__msStudioStore.saved(persistedScene, window.__studioCurrentDesign?.id);
     const status = document.getElementById('studio-save-status');
     if (status) { status.textContent = 'SAVED'; status.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'; }
     if (typeof showToast === 'function') showToast('Design saved', 'success');
+    return true;
   } catch (e) {
     if (typeof showToast === 'function') showToast('Save failed: ' + e.message, 'error');
+    return false;
   }
 }
+
+async function publishStudioDesign() {
+  if (!await saveStudioDesign()) return;
+  const id = window.__studioCurrentDesign?.id;
+  if (!id) return;
+  try {
+    const res = await apiSendJson(`/marketing/studio/designs/${id}/status`, 'POST', { status: 'published' });
+    if (res?.design) window.__studioCurrentDesign = res.design;
+    window.__msStudioStore?.setStatus('PUBLISHED', false);
+    if (typeof showToast === 'function') showToast('Design published', 'success');
+  } catch (e) { if (typeof showToast === 'function') showToast('Publish failed: ' + e.message, 'error'); }
+}
+window.publishStudioDesign = publishStudioDesign;
+
+async function openStudioRevisionHistory() {
+  const id = window.__studioCurrentDesign?.id;
+  if (!id) { if (typeof showToast === 'function') showToast('Save the design once to create history', 'info'); return; }
+  try {
+    const res = await apiGetJson(`/marketing/studio/designs/${id}/revisions`);
+    const revisions = res?.revisions || [];
+    const rows = revisions.length ? revisions.map(rev => `<div class="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-900/60 border border-slate-700"><div class="min-w-0"><div class="text-sm font-bold text-white">Revision ${rev.revision_number}</div><div class="text-[11px] text-slate-400 truncate">${escS(rev.change_summary || 'Saved draft')} · ${new Date(rev.created_at).toLocaleString()}</div></div><button type="button" onclick="restoreStudioRevision('${rev.id}')" class="shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-indigo-600 text-xs font-bold text-white">Restore</button></div>`).join('') : '<p class="text-sm text-slate-400">No saved revisions yet.</p>';
+    if (typeof crmOverlay === 'function') crmOverlay(`<div class="p-5 space-y-4 max-w-xl"><div class="flex items-center justify-between"><h3 class="text-lg font-black text-white">Design history</h3><span class="text-xs text-slate-400">${revisions.length} checkpoints</span></div><p class="text-xs text-slate-400">Restoring creates a new draft revision, so published work remains protected.</p><div class="space-y-2 max-h-[55vh] overflow-y-auto">${rows}</div></div>`);
+  } catch (e) { if (typeof showToast === 'function') showToast('History unavailable: ' + e.message, 'error'); }
+}
+window.openStudioRevisionHistory = openStudioRevisionHistory;
+
+async function restoreStudioRevision(revisionId) {
+  const id = window.__studioCurrentDesign?.id;
+  if (!id) return;
+  try {
+    const res = await apiSendJson(`/marketing/studio/designs/${id}/revisions/${revisionId}/restore`, 'POST', {});
+    if (res?.design) {
+      window.__studioCurrentDesign = res.design;
+      const scene = window.msStudioDocumentToScene ? window.msStudioDocumentToScene(res.design.scene) : res.design.scene;
+      await window.__studioAdapter?.renderScene(scene);
+      window.__msStudioStore?.saved(res.design.scene, res.design.id);
+      document.getElementById('studio-design-name').value = res.design.name || document.getElementById('studio-design-name').value;
+    }
+    document.querySelector('[data-crm-overlay-close]')?.click();
+    if (typeof showToast === 'function') showToast('Revision restored as a draft', 'success');
+  } catch (e) { if (typeof showToast === 'function') showToast('Restore failed: ' + e.message, 'error'); }
+}
+window.restoreStudioRevision = restoreStudioRevision;
 
 function hasSocialSchedulerEntitlement() {
   const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};

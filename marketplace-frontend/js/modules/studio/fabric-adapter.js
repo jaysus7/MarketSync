@@ -81,7 +81,7 @@ class StudioFabricAdapter {
     if (this.isRendering) return;
     const json = JSON.stringify(this.exportScene());
     this.undoStack.push(json);
-    if (this.undoStack.length > 30) this.undoStack.shift();
+    if (this.undoStack.length > 100) this.undoStack.shift();
     this.redoStack = [];
     if (typeof this.options.onStateChange === 'function') this.options.onStateChange();
   }
