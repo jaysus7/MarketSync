@@ -104,6 +104,7 @@ class StudioFabricAdapter {
   bindEvents() {
     if (!this.fabricCanvas) return;
 
+    this.fabricCanvas.on('object:moving', event => this.snapMovingObject(event.target));
     this.fabricCanvas.on('object:modified', () => this.saveHistory());
     this.fabricCanvas.on('object:added', () => { if (!this.isRendering) this.saveHistory(); });
     this.fabricCanvas.on('object:removed', () => { if (!this.isRendering) this.saveHistory(); });
@@ -121,6 +122,20 @@ class StudioFabricAdapter {
     if (typeof this.options.onSelection === 'function') {
       this.options.onSelection(selected);
     }
+  }
+
+  snapMovingObject(object) {
+    if (!object || object.msData?.repeaterPreview || object.msData?.snapDisabled) return;
+    const width = this.fabricCanvas?.getWidth?.() || 0;
+    const height = this.fabricCanvas?.getHeight?.() || 0;
+    const objectWidth = object.getScaledWidth?.() || object.width || 0;
+    const objectHeight = object.getScaledHeight?.() || object.height || 0;
+    const left = object.left || 0;
+    const top = object.top || 0;
+    const targetsX = [0, width / 2 - objectWidth / 2, width - objectWidth];
+    const targetsY = [0, height / 2 - objectHeight / 2, height - objectHeight];
+    const snap = (value, targets) => { const match = targets.find(target => Math.abs(value - target) <= 8); return match == null ? value : match; };
+    object.set({ left: snap(left, targetsX), top: snap(top, targetsY) });
   }
 
   saveHistory() {
