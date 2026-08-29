@@ -95,6 +95,13 @@ export function pexelsSearchEndpoint(mediaType) {
     : 'https://api.pexels.com/v1/search'
 }
 
+export function studioGifProviderConfig(provider) {
+  const key = provider === 'tenor' ? String(process.env.TENOR_API_KEY || '').trim() : String(process.env.GIPHY_API_KEY || '').trim()
+  return provider === 'tenor'
+    ? { provider: 'tenor', key, endpoint: 'https://tenor.googleapis.com/v2/search' }
+    : { provider: 'giphy', key, endpoint: 'https://api.giphy.com/v1/gifs/search' }
+}
+
 const HEX = /^#[0-9a-f]{6}$/i
 const xml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]))
 
@@ -596,6 +603,42 @@ export function registerMarketingStudio(app) {
       const templates = [...(data || []), ...GLOBAL_TEMPLATES]
       res.json({ templates })
     } catch (e) { res.json({ templates: GLOBAL_TEMPLATES }) }
+  })
+
+  // ── GIF Search Proxy ─────────────────────────────────────────────────────
+  // Provider credentials stay server-side. The Studio only receives normalized
+  // preview/source URLs, so keys are never exposed in browser code or markup.
+  app.get('/marketing/studio/gifs/search', requireAuth, requireMfa, canView, async (req, res) => {
+    if (!guard(req, res)) return
+    const provider = req.query.provider === 'tenor' ? 'tenor' : 'giphy'
+    const query = String(req.query.q || '').trim().slice(0, 120)
+    if (!query) return res.status(400).json({ error: 'A GIF search query is required.' })
+    const config = studioGifProviderConfig(provider)
+    if (!config.key) return res.status(503).json({ error: `${provider === 'giphy' ? 'GIPHY' : 'Tenor'} search is not configured on this environment.`, provider })
+
+    try {
+      const params = new URLSearchParams({ q: query, limit: '24' })
+      if (provider === 'giphy') {
+        params.set('api_key', config.key)
+        params.set('rating', 'pg-13')
+      } else {
+        params.set('key', config.key)
+        params.set('client_key', 'marketsync-studio')
+        params.set('contentfilter', 'medium')
+      }
+      const response = await fetch(`${config.endpoint}?${params}`, { signal: AbortSignal.timeout(10000), headers: { Accept: 'application/json' } })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        const detail = payload?.message || payload?.error || response.statusText || 'provider request failed'
+        return res.status(response.status === 429 ? 429 : 502).json({ error: `GIF provider search failed: ${String(detail).slice(0, 180)}`, provider })
+      }
+      const results = provider === 'giphy'
+        ? (payload.data || []).map(item => ({ id: `giphy_${item.id}`, title: item.title || query, preview_url: item.images?.fixed_width?.url || item.images?.original?.url, source_url: item.images?.original?.url || item.images?.fixed_width?.url }))
+        : (payload.results || []).map(item => ({ id: `tenor_${item.id}`, title: item.content_description || query, preview_url: item.media_formats?.tinygif?.url || item.media_formats?.gif?.url || item.media_formats?.mediumgif?.url, source_url: item.media_formats?.gif?.url || item.media_formats?.mediumgif?.url || item.media_formats?.tinygif?.url }))
+      res.json({ provider, query, results: results.filter(item => item.preview_url && item.source_url) })
+    } catch (e) {
+      res.status(502).json({ error: 'GIF provider search could not be reached. Try again shortly.', provider })
+    }
   })
 
   // ── Free Asset Library Search & Import ────────────────────────────────────

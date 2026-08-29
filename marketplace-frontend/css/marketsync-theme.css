@@ -3398,6 +3398,29 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 #ms-studio-master-modal button[class*="bg-blue-"],
 #ms-studio-master-modal button[class*="bg-indigo-"],
 #ms-studio-master-modal button[class*="bg-sky-"] { text-shadow: 0 1px 1px rgba(0,0,0,.18); }
+#ms-studio-master-modal .studio-gif-panel { border-top: 1px solid #dbe3ef; padding-top: 14px; display: grid; gap: 10px; }
+#ms-studio-master-modal .studio-gif-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#ms-studio-master-modal .studio-gif-heading h4 { margin: 0; color: #0369a1; font: 900 11px/1.2 ui-sans-serif, sans-serif; text-transform: uppercase; letter-spacing: .08em; }
+#ms-studio-master-modal .studio-gif-heading span { color: #64748b; font: 700 9px/1 ui-sans-serif, sans-serif; }
+#ms-studio-master-modal .studio-gif-featured { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+#ms-studio-master-modal .studio-gif-card, #ms-studio-master-modal .studio-gif-result { min-width: 0; overflow: hidden; border: 1px solid #dbe3ef; border-radius: 12px; background: #fff; color: #334155; text-align: left; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
+#ms-studio-master-modal .studio-gif-card:hover, #ms-studio-master-modal .studio-gif-result:hover { border-color: #60a5fa; box-shadow: 0 5px 14px rgba(37,99,235,.14); transform: translateY(-1px); }
+#ms-studio-master-modal .studio-gif-card img, #ms-studio-master-modal .studio-gif-result-image { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #e8eef6; }
+#ms-studio-master-modal .studio-gif-card span, #ms-studio-master-modal .studio-gif-result-title { display: block; overflow: hidden; padding: 6px 7px; color: #334155; font: 800 9px/1.1 ui-sans-serif, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+#ms-studio-master-modal .studio-gif-search-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
+#ms-studio-master-modal .studio-gif-search-row input, #ms-studio-master-modal .studio-gif-search-row select, #ms-studio-master-modal .studio-gif-paste input { min-width: 0; height: 36px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: #0f172a; padding: 0 10px; font: 700 11px/1 ui-sans-serif, sans-serif; }
+#ms-studio-master-modal .studio-gif-search-row input::placeholder, #ms-studio-master-modal .studio-gif-paste input::placeholder { color: #94a3b8; }
+#ms-studio-master-modal .studio-gif-search-row button, #ms-studio-master-modal .studio-gif-paste button { min-height: 36px; border: 0; border-radius: 10px; background: #2563eb; color: #fff; padding: 0 13px; font: 900 11px/1 ui-sans-serif, sans-serif; cursor: pointer; }
+#ms-studio-master-modal .studio-gif-search-row button:hover, #ms-studio-master-modal .studio-gif-paste button:hover { background: #1d4ed8; }
+#ms-studio-master-modal .studio-gif-quick-label { color: #64748b; font: 900 9px/1 ui-sans-serif, sans-serif; text-transform: uppercase; letter-spacing: .08em; }
+#ms-studio-master-modal .studio-gif-filters { display: flex; flex-wrap: wrap; gap: 6px; max-height: 116px; overflow-y: auto; padding: 2px; }
+#ms-studio-master-modal .studio-gif-filter { border: 1px solid #cbd5e1; border-radius: 999px; background: #f8fafc; color: #334155; padding: 6px 9px; font: 800 9px/1 ui-sans-serif, sans-serif; cursor: pointer; transition: border-color .15s ease, color .15s ease, background .15s ease; }
+#ms-studio-master-modal .studio-gif-filter:hover { border-color: #60a5fa; background: #eff6ff; color: #1d4ed8; }
+#ms-studio-master-modal .studio-gif-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-height: 300px; overflow-y: auto; }
+#ms-studio-master-modal .studio-gif-paste { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+#ms-studio-master-modal .studio-gif-status { grid-column: 1 / -1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 10px; color: #64748b; background: #f8fafc; font: 700 10px/1.4 ui-sans-serif, sans-serif; }
+#ms-studio-master-modal .studio-gif-status-error { border-color: #fbbf24; color: #92400e; background: #fffbeb; }
+#ms-studio-master-modal .studio-gif-status-error span { color: #a16207; }
 @media (max-width: 768px) {
   #ms-studio-master-modal { overflow: hidden !important; }
   #ms-studio-master-modal > .flex-shrink-0:first-child { min-height: 0; }
