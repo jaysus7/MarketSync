@@ -195,7 +195,10 @@ async function loadSocialSchedulerPageTab(tab) {
 
   window.__socialTab = __studioSchedulerTab;
 
-  const root = document.getElementById('social-scheduler-root');
+  // Marketing-suite navigation hosts Scheduler inside the shared workspace
+  // shell; the legacy standalone route still uses its own root when opened
+  // directly.
+  const root = document.getElementById('mkt-scheduler-mount') || document.getElementById('social-scheduler-root');
   if (!root) return;
 
   const tabsConfig = [
