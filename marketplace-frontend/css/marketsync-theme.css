@@ -2990,3 +2990,36 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
   color: #f8fafc;
   border-color: #334155;
 }
+
+/* Design Studio phone workspace. The editor is intentionally a drawer-based
+ * single-column layout below tablet width; desktop rails must never squeeze the
+ * artboard into an unusable sliver. */
+.studio-mobile-panel-button { display: none; }
+@media (max-width: 768px) {
+  #ms-studio-master-modal { overflow: hidden !important; }
+  #ms-studio-master-modal > .flex-shrink-0:first-child { min-height: 0; }
+  #ms-studio-master-modal header { height: auto !important; min-height: 58px; padding: 8px 12px !important; }
+  #ms-studio-master-modal header > div { min-width: 0; gap: 7px !important; }
+  #ms-studio-master-modal header img { width: 44px; height: auto; object-fit: contain; }
+  #ms-studio-master-modal header input { min-width: 0; max-width: 120px; font-size: 13px !important; }
+  #ms-studio-master-modal header button { white-space: normal; line-height: 1.15; }
+  #ms-studio-master-modal .studio-mobile-panel-button { display: inline-flex; align-items: center; justify-content: center; }
+  #ms-studio-master-modal > .flex-shrink-0:first-child > div:nth-child(2) { height: auto !important; min-height: 54px; padding: 7px 10px !important; overflow-x: auto; }
+  #ms-studio-master-modal > .flex-shrink-0:first-child > div:nth-child(2) > div:first-child { display: none; }
+  #ms-studio-master-modal > .flex-shrink-0:first-child > div:nth-child(2) > div:last-child { width: 100%; overflow-x: auto; justify-content: flex-start; }
+  #ms-studio-master-modal > .flex-1 { display: block !important; position: relative; overflow: hidden !important; min-height: 0; }
+  #ms-studio-master-modal #studio-canvas-viewport { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; overflow: auto; padding: 16px; }
+  #ms-studio-master-modal #studio-artboard-container { position: absolute; left: 50%; top: 50%; max-width: none; }
+  #ms-studio-master-modal #studio-tool-panel,
+  #ms-studio-master-modal #studio-inspector-panel { position: absolute; top: 0; bottom: 0; width: min(86vw, 330px) !important; max-width: 330px; height: 100%; z-index: 50; box-shadow: 0 18px 45px rgba(0,0,0,.45); transition: transform .2s ease; }
+  #ms-studio-master-modal #studio-tool-panel { left: 0; transform: translateX(-105%); }
+  #ms-studio-master-modal #studio-inspector-panel { right: 0; transform: translateX(105%); }
+  #ms-studio-master-modal #studio-tool-panel.ms-studio-mobile-open,
+  #ms-studio-master-modal #studio-inspector-panel.ms-studio-mobile-open { transform: translateX(0); }
+  #ms-studio-master-modal #studio-tool-panel:not(.hidden),
+  #ms-studio-master-modal #studio-inspector-panel:not(.hidden) { transform: translateX(0); }
+  #ms-studio-master-modal > footer { min-height: 72px; height: auto !important; padding: 8px 10px !important; flex-wrap: nowrap; overflow-x: auto; }
+  #ms-studio-master-modal > footer .ml-auto { margin-left: 0 !important; }
+  #ms-studio-master-modal .w-16 { display: none; }
+  #ms-studio-master-modal .w-60 { width: min(86vw, 330px) !important; }
+}
