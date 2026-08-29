@@ -290,6 +290,11 @@ function renderStudioWorkspaceHtml(designName, scene) {
         <select id="studio-format-picker" onchange="changeStudioFormat(this.value)" class="bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700">
           ${Object.entries(STUDIO_SOCIAL_FORMATS).map(([key, format]) => `<option value="${key}" ${scene.format_key === key ? 'selected' : ''}>${format.label} (${format.w}×${format.h})</option>`).join('')}
         </select>
+        <div class="flex items-center rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 p-0.5" title="Preview breakpoint-specific layout overrides">
+          <button type="button" onclick="setStudioBreakpoint('desktop')" data-studio-breakpoint="desktop" class="studio-breakpoint px-2 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-black">Desktop</button>
+          <button type="button" onclick="setStudioBreakpoint('tablet')" data-studio-breakpoint="tablet" class="studio-breakpoint px-2 py-1 rounded-lg text-slate-500 dark:text-slate-300 text-[10px] font-bold">Tablet</button>
+          <button type="button" onclick="setStudioBreakpoint('mobile')" data-studio-breakpoint="mobile" class="studio-breakpoint px-2 py-1 rounded-lg text-slate-500 dark:text-slate-300 text-[10px] font-bold">Mobile</button>
+        </div>
       </div>
 
       <div class="flex items-center gap-2 flex-shrink-0">
@@ -1191,6 +1196,18 @@ function changeStudioFormat(formatKey) {
   zoomStudioFit();
   if (typeof showToast === 'function') showToast(`Format set to ${formatKey.toUpperCase()}`, 'info');
 }
+
+function setStudioBreakpoint(breakpoint) {
+  window.__studioAdapter?.setBreakpoint(breakpoint);
+  document.querySelectorAll('[data-studio-breakpoint]').forEach(button => {
+    const active = button.dataset.studioBreakpoint === breakpoint;
+    button.classList.toggle('bg-indigo-600', active);
+    button.classList.toggle('text-white', active);
+    button.classList.toggle('font-black', active);
+    button.classList.toggle('font-bold', !active);
+  });
+}
+window.setStudioBreakpoint = setStudioBreakpoint;
 
 function filterStudioTemplates(formatKey) {
   const cards = document.getElementById('studio-template-cards');
