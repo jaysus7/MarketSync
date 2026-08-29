@@ -125,6 +125,8 @@
         injectHead(s.head_html);
         applyTypography(s);
         renderChrome(); go(hashToView(location.hash));
+        const initialVehicle = vehicleIdFromHash(location.hash);
+        if(initialVehicle) setTimeout(()=>openVehicle(initialVehicle),0);
         if(s.sales_chat) mountSalesChat(s);
         maybeDepositBanner();
       }catch(e){ document.getElementById('app').innerHTML=errPage(e.message); }
@@ -473,8 +475,9 @@
     // Hash routing: gives every page a distinct, shareable, crawlable URL and lets
     // AI-inserted internal links (href="#finance", "#/page-slug") just work.
     function viewToHash(v){ if(!v||v==='home') return '#home'; if(v.startsWith('page:')) return '#/'+v.slice(5); if(v==='inquiry') return '#contact'; return '#'+v; }
-    function hashToView(h){ h=(h||'').replace(/^#/,''); if(!h||h==='home') return 'home'; if(h[0]==='/') return 'page:'+h.slice(1); if(h==='contact') return 'inquiry'; if(['inventory','build','trade','finance','team'].includes(h)) return h; return 'home'; }
-    window.addEventListener('hashchange',()=>{ const v=hashToView(location.hash); if(v===VIEW) return; VIEW=v; window.scrollTo(0,0); renderView(); applyViewSeo(); requestAnimationFrame(ensureImagePerformanceAndA11y); });
+    function vehicleIdFromHash(h){ const raw=String(h||'').replace(/^#/,''); if(!raw.toLowerCase().startsWith('inventory/')) return ''; try{return decodeURIComponent(raw.slice('inventory/'.length));}catch{return raw.slice('inventory/'.length);} }
+    function hashToView(h){ h=(h||'').replace(/^#/,''); if(!h||h==='home') return 'home'; if(h[0]==='/') return 'page:'+h.slice(1); if(h==='contact') return 'inquiry'; if(h.startsWith('inventory/')) return 'inventory'; if(['inventory','build','trade','finance','team'].includes(h)) return h; return 'home'; }
+    window.addEventListener('hashchange',()=>{ const v=hashToView(location.hash); VIEW=v; window.scrollTo(0,0); renderView(); applyViewSeo(); requestAnimationFrame(ensureImagePerformanceAndA11y); const vehicleId=vehicleIdFromHash(location.hash); if(vehicleId) setTimeout(()=>openVehicle(vehicleId),0); });
     // Is a built-in page switched on? (default on when unset)
     function builtinOn(k){ const bi=(DATA.site&&DATA.site.builtins)||{}; return !bi[k]||bi[k].enabled!==false; }
     // Map a view to the builtin key that gates it (null = always available).
@@ -1044,6 +1047,8 @@
       go('inventory');
     }
     function openVehicle(id){ const v=(DATA.vehicles||[]).find(x=>x.id===id); if(!v) return;
+      const canonicalHash='#inventory/'+encodeURIComponent(String(id));
+      if(location.hash!==canonicalHash){ const u=new URL(location.href); u.hash=canonicalHash; history.replaceState({},'',u.href); }
       const imgs=Array.isArray(v.image_urls)?v.image_urls:[];
       const label=esc([v.year,v.make,v.model].filter(Boolean).join(' '));
       const gallery=imgs.length
