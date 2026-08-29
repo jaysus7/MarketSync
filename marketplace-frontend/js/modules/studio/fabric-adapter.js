@@ -606,6 +606,7 @@ class StudioFabricAdapter {
     const active = this.fabricCanvas?.getActiveObject();
     if (!active || active.type !== 'activeSelection') return;
     const group = active.toGroup();
+    group.msData = { ...(group.msData || {}), type: 'component', name: 'Reusable component' };
     this.fabricCanvas.setActiveObject(group);
     this.fabricCanvas.requestRenderAll();
     this.saveHistory();
