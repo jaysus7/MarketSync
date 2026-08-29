@@ -111,6 +111,14 @@ function buildMarketingSuiteConfig(key) {
     suiteItem('studio', 'Design Studio', 'camera', { studioLaunch: true }),
     suiteItem('social-scheduler', 'Social Studio & Scheduler', 'calendar'),
     suiteItem('video-studio', 'Video', 'video'),
+    // Website is a complete product area, not only an SEO destination. Keep
+    // setup and content management beside Discovery so dealers can reach the
+    // existing website setup and blog editor from the shared suite navigation.
+    suiteItem('website', 'Website Setup', 'wrench', { tab: 'setup' }),
+    suiteItem('website', 'Website Builder', 'globe', { tab: 'builder' }),
+    suiteItem('blog', 'Blog Post Tips', 'document'),
+    suiteItem('discoverability', 'Discovery', 'sparkles'),
+    suiteItem('website-settings', 'Website Settings', 'shield'),
     suiteItem('academy', 'Academy', 'sparkles'),
   );
 
