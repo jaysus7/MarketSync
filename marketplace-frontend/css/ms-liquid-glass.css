@@ -33,37 +33,6 @@
   box-shadow: var(--ms-glass-shadow-dark);
 }
 
-/* Any standalone product or marketing page that uses one of the shared CSS
- * bundles gets the same canvas and named glass cards without needing a body
- * class or a page-specific patch. */
-body:not(.ms-app-booting) {
-  background: var(--ms-glass-canvas) !important;
-  background-attachment: fixed;
-}
-body:not(.ms-app-booting) :is(.glass,.glass-card,.glass-panel,.liquid-glass-card,.liquid-glass-panel,.ms-glass-surface,.ms-glass-panel) {
-  background: var(--ms-glass-light) !important;
-  border-color: var(--ms-glass-line) !important;
-  box-shadow: var(--ms-glass-shadow);
-  backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
-  -webkit-backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
-}
-body:not(.ms-app-booting) :is(div,section,article,aside,form,details,header,footer,nav).bg-white,
-body:not(.ms-app-booting) :is(div,section,article,aside,form,details,header,footer,nav).dark\:bg-slate-900 {
-  background: var(--ms-glass-light) !important;
-  border-color: var(--ms-glass-line) !important;
-  box-shadow: var(--ms-glass-shadow);
-  backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
-  -webkit-backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
-}
-@media (prefers-color-scheme: dark) {
-  body:not(.ms-app-booting) :is(.glass,.glass-card,.glass-panel,.liquid-glass-card,.liquid-glass-panel,.ms-glass-surface,.ms-glass-panel),
-  body:not(.ms-app-booting) :is(div,section,article,aside,form,details,header,footer,nav).dark\:bg-slate-900 {
-    background: var(--ms-glass-dark) !important;
-    border-color: var(--ms-glass-line-dark) !important;
-    box-shadow: var(--ms-glass-shadow-dark);
-  }
-}
-
 /* The public site is one materialized canvas. Semantic containers are selected
  * instead of buttons so calls-to-action retain reliable contrast. */
 body.ms-glass-site {
@@ -119,6 +88,28 @@ html[data-ms-glass="global"].dark :is(div,section,article,aside,form,details,hea
   box-shadow: var(--ms-glass-shadow-dark);
 }
 html[data-ms-glass="global"].dark :is(input,select,textarea) { background: rgba(7,20,38,.78) !important; color: #f8fafc; border-color: rgba(148,190,230,.3) !important; }
+
+/* MarketSync's dark dashboard has intentionally dark semantic surfaces even
+ * when its markup still carries light utility classes. Keep the glass layer
+ * translucent without repainting cards white and destroying text contrast. */
+html[data-ms-glass="global"][data-dash-mode="marketsync"] body {
+  background: radial-gradient(circle at 8% 0%, rgba(22,132,190,.26), transparent 34%), radial-gradient(circle at 92% 8%, rgba(85,64,190,.24), transparent 36%), linear-gradient(135deg, #071426 0%, #0b1830 52%, #071d25 100%) !important;
+}
+html[data-ms-glass="global"][data-dash-mode="marketsync"] :is(#dashboard-nav,#dept-tabbar,.ms-app-shell,.ms-glass-target),
+html[data-ms-glass="global"][data-dash-mode="marketsync"] :is(div,section,article,aside,form,details,header,footer,nav).rounded-xl.bg-white,
+html[data-ms-glass="global"][data-dash-mode="marketsync"] :is(div,section,article,aside,form,details,header,footer,nav).rounded-2xl.bg-white,
+html[data-ms-glass="global"][data-dash-mode="marketsync"] :is(div,section,article,aside,form,details,header,footer,nav).dark\:bg-slate-900 {
+  background: rgba(9,20,39,.58) !important;
+  border-color: var(--ms-glass-line-dark) !important;
+  box-shadow: var(--ms-glass-shadow-dark);
+  backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
+  -webkit-backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
+}
+html[data-ms-glass="global"][data-dash-mode="marketsync"] :is(input,select,textarea) {
+  background: rgba(7,20,38,.78) !important;
+  color: #f8fafc !important;
+  border-color: rgba(148,190,230,.3) !important;
+}
 
 /* Builder-specific inheritance: all existing hard-coded panel utilities become
  * the same material, while accent buttons remain untouched. */
