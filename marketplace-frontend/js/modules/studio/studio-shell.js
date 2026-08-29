@@ -404,7 +404,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
     <!-- Main Workspace Body -->
     <div class="flex-1 flex overflow-hidden relative">
       <!-- Left Tool Rail -->
-      <nav class="w-16 bg-slate-50 dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 flex flex-col items-center py-3 gap-3 flex-shrink-0 z-10">
+      <nav data-studio-region="rail" class="w-16 bg-slate-50 dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 flex flex-col items-center py-3 gap-3 flex-shrink-0 z-10">
         <button onclick="setStudioTool('templates')" id="tool-btn-templates" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition ${window.__studioActiveTool==='templates'?'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50':''}">
           <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Templates
         </button>
@@ -436,7 +436,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
       </nav>
 
       <!-- Left Tool Panel Drawer -->
-      <aside class="w-60 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0 z-10 overflow-y-auto transition-all duration-200" id="studio-tool-panel">
+      <aside data-studio-region="drawer" class="w-60 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0 z-10 overflow-y-auto transition-all duration-200" id="studio-tool-panel">
         <div class="flex items-center justify-between p-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
           <span class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Tool Drawer</span>
           <button type="button" onclick="toggleStudioToolPanel()" class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-xs font-bold px-1.5 py-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800" title="Collapse Tool Panel">&lt;</button>
@@ -445,7 +445,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
       </aside>
 
       <!-- Center Artboard Viewport Canvas -->
-      <main id="studio-canvas-viewport" class="flex-1 min-w-0 bg-slate-50 dark:bg-slate-950 overflow-hidden relative">
+      <main data-studio-region="canvas" id="studio-canvas-viewport" class="flex-1 min-w-0 bg-slate-50 dark:bg-slate-950 overflow-hidden relative">
         <div id="studio-artboard-container" class="absolute left-1/2 top-1/2 shadow-2xl rounded-2xl overflow-hidden border-4 border-blue-500/70 bg-white dark:bg-slate-900 ring-4 ring-blue-500/20 transition-transform duration-200 origin-center" style="width:${scene.width}px; height:${scene.height}px; transform:translate(-50%, -50%) scale(0.55);">
           <canvas id="studio-main-canvas"></canvas>
           ${renderStudioSafeGuides(scene.format_key || 'square')}
@@ -453,7 +453,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
       </main>
 
       <!-- Right Property Inspector & Layer Controls -->
-      <aside class="w-60 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0 p-3 z-10 overflow-y-auto transition-all duration-200" id="studio-inspector-panel">
+      <aside data-studio-region="inspector" class="w-60 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0 p-3 z-10 overflow-y-auto transition-all duration-200" id="studio-inspector-panel">
         <div class="flex items-center justify-between pb-2.5 mb-2 border-b border-slate-200 dark:border-slate-800">
           <span class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Inspector</span>
           <button type="button" onclick="toggleStudioInspectorPanel()" class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-xs font-bold px-1.5 py-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800" title="Collapse Inspector">&gt;</button>
@@ -461,7 +461,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
         ${renderStudioInspectorHtml(null)}
       </aside>
     </div>
-    <footer class="h-16 flex-shrink-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-3 flex items-center gap-2 overflow-x-auto z-30">
+    <footer data-studio-region="footer" class="h-16 flex-shrink-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-3 flex items-center gap-2 overflow-x-auto z-30">
       <span class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Pages</span>
       <select onchange="setStudioPage(this.value)" class="max-w-28 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1.5 text-xs font-bold">${(scene.pages || [{ id: 'page-1', name: 'Page 1' }]).map((page, index) => `<option value="${escS(page.id || `page-${index + 1}`)}">${escS(page.name || `Page ${index + 1}`)}</option>`).join('')}</select>
       <button onclick="addStudioPage()" class="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-700 text-xs font-black">+ Page</button>

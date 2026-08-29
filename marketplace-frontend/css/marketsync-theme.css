@@ -3107,6 +3107,56 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 /* Design Studio phone workspace. The editor is intentionally a drawer-based
  * single-column layout below tablet width; desktop rails must never squeeze the
  * artboard into an unusable sliver. */
+#ms-studio-master-modal {
+  --studio-blue: #2563eb;
+  --studio-ink: #0b1220;
+  --studio-panel: rgba(15, 23, 42, .94);
+  background: #eef2f7 !important;
+  color: #0f172a;
+}
+#ms-studio-master-modal > .flex-shrink-0:first-child > header {
+  background: linear-gradient(100deg, #0ea5c9 0%, #2563eb 48%, #7c3aed 100%) !important;
+  color: #fff !important;
+  border-bottom-color: rgba(255,255,255,.2) !important;
+  min-height: 58px;
+}
+#ms-studio-master-modal > .flex-shrink-0:first-child > header input { color: #fff !important; }
+#ms-studio-master-modal > .flex-shrink-0:first-child > header input::placeholder { color: rgba(255,255,255,.72) !important; }
+#ms-studio-master-modal > .flex-shrink-0:first-child > div:nth-child(2) {
+  background: rgba(255,255,255,.88) !important;
+  border-bottom-color: #dbe3ef !important;
+}
+#ms-studio-master-modal [data-studio-region="rail"],
+#ms-studio-master-modal [data-studio-region="drawer"],
+#ms-studio-master-modal [data-studio-region="inspector"] {
+  background: rgba(255,255,255,.96) !important;
+  border-color: #dbe3ef !important;
+}
+#ms-studio-master-modal [data-studio-region="rail"] { width: 76px !important; padding-top: 12px; gap: 8px; }
+#ms-studio-master-modal [data-studio-region="rail"] button { width: 64px; min-height: 58px; color: #475569 !important; border-radius: 14px; }
+#ms-studio-master-modal [data-studio-region="rail"] button:hover,
+#ms-studio-master-modal [data-studio-region="rail"] button[class*="bg-indigo-600"] { background: #e8efff !important; color: #1d4ed8 !important; }
+#ms-studio-master-modal [data-studio-region="drawer"] { width: 320px !important; }
+#ms-studio-master-modal [data-studio-region="inspector"] { width: 300px !important; }
+#ms-studio-master-modal [data-studio-region="canvas"] {
+  background: #eef2f7 !important;
+  background-image: radial-gradient(#cbd5e1 1px, transparent 1px) !important;
+  background-size: 22px 22px !important;
+  overflow: auto !important;
+  padding: 38px 48px 70px;
+}
+#ms-studio-master-modal #studio-artboard-container {
+  border: 0 !important;
+  border-radius: 2px !important;
+  box-shadow: 0 18px 55px rgba(15,23,42,.22), 0 0 0 1px rgba(15,23,42,.12) !important;
+}
+#ms-studio-master-modal [data-studio-region="footer"] {
+  background: rgba(255,255,255,.97) !important;
+  border-top-color: #dbe3ef !important;
+  color: #334155 !important;
+}
+#ms-studio-master-modal [data-studio-region="footer"] button,
+#ms-studio-master-modal [data-studio-region="footer"] select { color: #334155 !important; }
 .studio-mobile-panel-button { display: none; }
 .ms-studio-grid-on::before { content:""; position:absolute; inset:0; pointer-events:none; z-index:19; background-image:linear-gradient(rgba(96,165,250,.16) 1px, transparent 1px),linear-gradient(90deg, rgba(96,165,250,.16) 1px, transparent 1px); background-size:40px 40px; }
 #ms-studio-master-modal [class*="bg-blue-500"],
@@ -3130,12 +3180,12 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
   #ms-studio-master-modal > .flex-shrink-0:first-child > div:nth-child(2) > div:first-child { display: none; }
   #ms-studio-master-modal > .flex-shrink-0:first-child > div:nth-child(2) > div:last-child { width: 100%; overflow-x: auto; justify-content: flex-start; }
   #ms-studio-master-modal > .flex-1 { display: flex !important; flex-direction: column; position: relative; overflow: hidden !important; min-height: 0; }
-  #ms-studio-master-modal > .flex-1 > .w-16 { display: flex !important; flex-direction: row; align-items: center; gap: 6px; width: 100%; height: 68px; min-height: 68px; padding: 6px 10px; overflow-x: auto; overflow-y: hidden; border-right: 0; border-bottom: 1px solid rgba(148,163,184,.2); order: 0; z-index: 30; background: rgba(15,23,42,.92); backdrop-filter: blur(18px) saturate(1.35); }
-  #ms-studio-master-modal > .flex-1 > .w-16 button { flex: 0 0 68px; width: 68px; height: 56px; min-height: 56px; white-space: nowrap; }
-  #ms-studio-master-modal #studio-canvas-viewport { position: relative; flex: 1 1 auto; width: 100%; height: auto; min-height: 0; overflow: auto; padding: 16px; order: 1; }
+  #ms-studio-master-modal > .flex-1 > [data-studio-region="rail"] { display: flex !important; flex-direction: row; align-items: center; gap: 6px; width: 100% !important; height: 72px; min-height: 72px; padding: 6px 10px; overflow-x: auto; overflow-y: hidden; border-right: 0; border-bottom: 1px solid #dbe3ef; order: 2; z-index: 30; background: rgba(255,255,255,.97) !important; backdrop-filter: blur(18px) saturate(1.35); }
+  #ms-studio-master-modal > .flex-1 > [data-studio-region="rail"] button { flex: 0 0 70px; width: 70px; height: 58px; min-height: 58px; white-space: nowrap; }
+  #ms-studio-master-modal #studio-canvas-viewport { position: relative; flex: 1 1 auto; width: 100%; height: auto; min-height: 0; overflow: auto; padding: 22px 16px 32px; order: 1; }
   #ms-studio-master-modal #studio-artboard-container { position: absolute; left: 50%; top: 50%; max-width: none; }
   #ms-studio-master-modal #studio-tool-panel,
-  #ms-studio-master-modal #studio-inspector-panel { position: absolute; top: 68px; bottom: 0; width: min(86vw, 330px) !important; max-width: 330px; height: auto; z-index: 50; box-shadow: 0 18px 45px rgba(0,0,0,.45); transition: transform .2s ease; }
+  #ms-studio-master-modal #studio-inspector-panel { position: absolute; top: 0; bottom: 0; width: min(88vw, 340px) !important; max-width: 340px; height: auto; z-index: 50; box-shadow: 0 18px 45px rgba(15,23,42,.28); transition: transform .2s ease; }
   #ms-studio-master-modal #studio-tool-panel { left: 0; transform: translateX(-105%); }
   #ms-studio-master-modal #studio-inspector-panel { right: 0; transform: translateX(105%); }
   #ms-studio-master-modal #studio-tool-panel.ms-studio-mobile-open,
