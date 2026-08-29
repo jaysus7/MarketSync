@@ -446,6 +446,8 @@ function renderStudioWorkspaceHtml(designName, scene) {
 
       <!-- Center Artboard Viewport Canvas -->
       <main data-studio-region="canvas" id="studio-canvas-viewport" class="flex-1 min-w-0 bg-slate-50 dark:bg-slate-950 overflow-hidden relative">
+        <div id="studio-page-stack" aria-label="Pages" class="studio-page-stack"></div>
+        <div class="studio-page-stage-label"><span id="studio-active-page-label">Page 1</span><span class="studio-page-stage-actions"><button type="button" onclick="duplicateStudioPage(window.__studioAdapter?.activePageId)" title="Duplicate page">⧉</button><button type="button" onclick="deleteStudioPage(window.__studioAdapter?.activePageId)" title="Delete page">⌫</button></span></div>
         <div id="studio-artboard-container" class="absolute left-1/2 top-1/2 shadow-2xl rounded-2xl overflow-hidden border-4 border-blue-500/70 bg-white dark:bg-slate-900 ring-4 ring-blue-500/20 transition-transform duration-200 origin-center" style="width:${scene.width}px; height:${scene.height}px; transform:translate(-50%, -50%) scale(0.55);">
           <canvas id="studio-main-canvas"></canvas>
           ${renderStudioSafeGuides(scene.format_key || 'square')}
@@ -931,6 +933,7 @@ async function initStudioAdapter(scene) {
   });
 
   await window.__studioAdapter.init(scene, window.__studioCurrentVehicle);
+  syncStudioPageUi();
   wireStudioContextMenu(window.__studioAdapter);
 }
 
@@ -1071,14 +1074,40 @@ function renameStudioLayer(name) {
 }
 window.renameStudioLayer = renameStudioLayer;
 
-function setStudioPage(pageId) { window.__studioAdapter?.setPage(pageId); }
+function setStudioPage(pageId) { window.__studioAdapter?.setPage(pageId); setTimeout(syncStudioPageUi, 0); }
 window.setStudioPage = setStudioPage;
+function renderStudioPageStack(scene = window.__studioAdapter?.currentScene) {
+  const stack = document.getElementById('studio-page-stack');
+  if (!stack) return;
+  const pages = scene?.pages || [];
+  const activeId = window.__studioAdapter?.activePageId || pages[0]?.id;
+  stack.innerHTML = pages.map((page, index) => `<div class="studio-page-stack-item ${page.id === activeId ? 'is-active' : ''}"><button type="button" onclick="setStudioPage('${escS(page.id)}')" class="studio-page-card" title="Open ${escS(page.name || `Page ${index + 1}`)}"><span class="studio-page-card-canvas" style="background:${escS(page.background?.color || '#0F172A')}"><span>${(page.objects || []).length || 0} objects</span></span><span class="studio-page-card-label">${index + 1}. ${escS(page.name || `Page ${index + 1}`)}</span></button><div class="studio-page-card-actions"><button type="button" onclick="duplicateStudioPage('${escS(page.id)}')" title="Duplicate page">＋</button><button type="button" onclick="deleteStudioPage('${escS(page.id)}')" title="Delete page">×</button></div></div>`).join('') || '<div class="p-3 text-xs text-slate-500">No pages yet.</div>';
+}
+window.renderStudioPageStack = renderStudioPageStack;
+function syncStudioPageUi() {
+  renderStudioPageStack();
+  const select = document.querySelector('#ms-studio-master-modal footer select');
+  const pages = window.__studioAdapter?.currentScene?.pages || [];
+  const active = pages.find(page => page.id === window.__studioAdapter?.activePageId) || pages[0];
+  const label = document.getElementById('studio-active-page-label');
+  if (label) label.textContent = active?.name || 'Page 1';
+  if (select) { select.innerHTML = pages.map((page, index) => `<option value="${escS(page.id)}">${escS(page.name || `Page ${index + 1}`)}</option>`).join(''); select.value = window.__studioAdapter?.activePageId || pages[0]?.id || ''; }
+}
+function duplicateStudioPage(pageId) {
+  const adapter = window.__studioAdapter; const current = adapter?.currentScene; const source = current?.pages?.find(page => page.id === pageId); if (!adapter || !current || !source || !window.msStudioSceneToDocument) return;
+  const doc = window.msStudioSceneToDocument(adapter.exportScene()); const copy = JSON.parse(JSON.stringify(source)); copy.id = `page_${Date.now()}`; copy.name = `${source.name || 'Page'} copy`; doc.pages.splice(doc.pages.findIndex(page => page.id === source.id) + 1, 0, copy); adapter.currentScene = window.msStudioDocumentToScene(doc); adapter.activePageId = copy.id; window.__studioDocument = doc; window.__msStudioStore?.update(doc); adapter.renderScene(adapter.currentScene); syncStudioPageUi(); if (typeof showToast === 'function') showToast('Page duplicated', 'success');
+}
+function deleteStudioPage(pageId) {
+  const adapter = window.__studioAdapter; const current = adapter?.currentScene; if (!adapter || !current?.pages || current.pages.length <= 1) { if (typeof showToast === 'function') showToast('Keep at least one page', 'info'); return; }
+  const doc = window.msStudioSceneToDocument(adapter.exportScene()); const index = doc.pages.findIndex(page => page.id === pageId); if (index < 0) return; doc.pages.splice(index, 1); const next = doc.pages[Math.max(0, index - 1)]; adapter.currentScene = window.msStudioDocumentToScene(doc); adapter.activePageId = next.id; window.__studioDocument = doc; window.__msStudioStore?.update(doc); adapter.renderScene(adapter.currentScene); syncStudioPageUi(); if (typeof showToast === 'function') showToast('Page deleted', 'success');
+}
+window.duplicateStudioPage = duplicateStudioPage; window.deleteStudioPage = deleteStudioPage;
 function addStudioPage() {
   const adapter = window.__studioAdapter; if (!adapter?.currentScene || !window.msStudioAddPage) return;
   const doc = window.msStudioAddPage(window.msStudioSceneToDocument(adapter.exportScene()));
   adapter.currentScene = window.msStudioDocumentToScene(doc); adapter.activePageId = doc.pages[doc.pages.length - 1].id;
   adapter.renderScene(adapter.currentScene); window.__studioDocument = doc; window.__msStudioStore?.update(doc);
-  const select = document.querySelector('footer select'); if (select) { select.innerHTML = doc.pages.map(page => `<option value="${escS(page.id)}">${escS(page.name)}</option>`).join(''); select.value = adapter.activePageId; }
+  syncStudioPageUi();
   if (typeof showToast === 'function') showToast('New page added', 'success');
 }
 window.addStudioPage = addStudioPage;
