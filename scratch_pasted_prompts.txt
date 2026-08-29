@@ -1,0 +1,717 @@
+[2026-08-28T22:04:32Z] [a495f176-e625-4ef2-93b0-b196dd3f79ff]
+The goal is that I should not need separate spreadsheets to understand how MarketSync is performing financially or where customers came from.
+
+[2026-08-28T22:04:32Z] [7690d5ed-5c20-4632-b5d5-45972f683c8f]
+├── Trials
+
+[2026-08-28T22:04:32Z] [7938eb3d-6952-4d96-b25a-5b0fe9462f33]
+* phone
+
+[2026-08-28T22:04:32Z] [361a3760-c04e-4201-8310-4e3cb81922df]
+* product
+
+[2026-08-28T22:04:32Z] [63e46b26-6b9a-42d2-bd10-bb4b35676648]
+MarketSync HQ also needs to become the business operating system for MarketSync itself.
+
+[2026-08-28T22:04:32Z] [add9fff9-964a-48d4-8f49-0a64567fb86d]
+1. Customers / CRM / Lead Attribution
+
+[2026-08-28T22:04:32Z] [2026a1af-2ea1-4ac5-92e5-6582bf603acc]
+Do NOT replace or restart the previous Website Control Plane / Discovery Engine / CMS work.
+
+[2026-08-28T22:04:32Z] [3f0fd68d-a94f-4a56-99a6-cc50b3fca078]
+├── Opportunities
+
+[2026-08-28T22:04:32Z] [f42c9632-eb97-4aa9-a157-08f938a1bdfc]
+* email
+
+[2026-08-28T22:04:32Z] [408352f5-9620-4034-902a-8009b96c9ba3]
+⸻
+
+[2026-08-28T22:04:32Z] [a84fa973-aff3-4b75-9852-74c1535ea863]
+├── Customers
+
+[2026-08-28T22:04:32Z] [eca3a305-8686-4f55-9638-fd487707b899]
+├── Companies
+
+[2026-08-28T22:04:32Z] [b27fbcfd-fa61-4096-8f26-3894581c91e3]
+├── Activity
+
+[2026-08-28T22:04:32Z] [fd0b59b7-dc76-4678-9ed9-53b0460c6ac8]
+This is an additional permanent requirement.
+
+[2026-08-28T22:04:32Z] [00736b50-0ed3-4b68-8789-1c4f6a17351c]
+* job title
+
+[2026-08-28T22:04:32Z] [53008e97-10a6-48b5-ab1d-9ada25b3f6dd]
+├── Campaign Attribution
+
+[2026-08-28T22:04:32Z] [3ce7876f-c6da-4426-8355-93bd8ecffda0]
+Extend the MarketSync HQ implementation described in the previous specification.
+
+[2026-08-28T22:04:32Z] [ea9df511-ef79-4bb0-bd4e-25d6614a5f34]
+├── Contacts
+
+[2026-08-28T22:04:32Z] [6ff17062-179d-448b-b394-df84aea1471d]
+Two major systems need to be expanded:
+
+[2026-08-28T22:04:32Z] [d6e107fd-a743-4d24-87d6-468234f4d2ac]
+├── Subscribers
+
+[2026-08-28T22:04:32Z] [3cdcb621-e299-41bb-ac35-0dcf85263a75]
+MARKETSYNC HQ — ADD-ON: CUSTOMER CRM + REVENUE, BUDGETING, EXPENSES & RECEIPT MANAGEMENT
+
+[2026-08-28T22:04:32Z] [6d76b5d2-12de-455f-9919-d9e907fd7a5a]
+* name
+
+[2026-08-28T22:04:32Z] [4e084f0f-dbc4-42c7-92b3-323b85aed713]
+2. Finance / Revenue / Budgets / Expenses / Receipts
+
+[2026-08-28T22:04:33Z] [ef688588-15ac-4eaf-9e0c-0e1bb8a231bd]
+└── Imports
+
+[2026-08-28T22:04:33Z] [0785ab70-9786-48fb-a534-628b9ba04dd8]
+Example:
+
+[2026-08-28T22:04:33Z] [5d8b511f-e8dd-4683-b721-cc36f3423479]
+* expected close date
+
+[2026-08-28T22:04:33Z] [bd2cb4c8-19ce-42aa-8565-0d02521d2e71]
+├── Consent
+
+[2026-08-28T22:04:33Z] [7aac3517-13d7-4a29-8579-bf4299cd6f44]
+* number of locations
+
+[2026-08-28T22:04:33Z] [5c3677df-8567-4a33-a18a-f861430557a1]
+A possible MarketSync sale with:
+
+[2026-08-28T22:04:33Z] [277dc25b-555e-44ac-9b41-8c1b647c27e6]
+Do NOT confuse this with dealership CRM data inside DealerOS.
+
+[2026-08-28T22:04:33Z] [3e6ad0db-6731-49f2-a94c-3be3ea9f2fb7]
+An individual person.
+
+[2026-08-28T22:04:33Z] [4afd2e53-7584-4d55-906e-ff203207b532]
+├── Leads
+
+[2026-08-28T22:04:33Z] [378a28e3-a241-4df9-b1b0-34f8d8296eda]
+* dealer group
+
+[2026-08-28T22:04:33Z] [78516e7b-e2dd-4799-ae53-a90284830fb4]
+Lead
+
+[2026-08-28T22:04:33Z] [1f1e28b0-8f1f-4a91-aa45-f9e7d11ae503]
+├── Overview
+
+[2026-08-28T22:04:33Z] [b82acd53-5fbe-489c-a42f-c248d9a03d3e]
+Example:
+
+[2026-08-28T22:04:33Z] [cf4592e5-76ca-4f4b-9c88-5238fe1cde7b]
+Add:
+
+[2026-08-28T22:04:33Z] [5c9eefc3-5204-47fa-80e2-49a186c1ccd2]
+├── Sources
+
+[2026-08-28T22:04:33Z] [8559a86f-ac84-4630-91dc-1516750f7846]
+* probability
+
+[2026-08-28T22:04:33Z] [febefab4-6810-46f1-b941-63f6ddba5f27]
+* expected value
+
+[2026-08-28T22:04:33Z] [c123285a-5346-453a-b654-db266e013f53]
+2. CANONICAL CUSTOMER ARCHITECTURE
+
+[2026-08-28T22:04:33Z] [1119e1d7-8aa6-4b6c-8369-cb063356f482]
+* account owner
+
+[2026-08-28T22:04:33Z] [ac9a7bd8-0d8d-424c-907e-18f938a624d7]
+⸻
+
+[2026-08-28T22:04:33Z] [6d543436-0ce7-4008-a8bc-03c73e785776]
+Company / Account
+
+[2026-08-28T22:04:33Z] [bdd06841-7353-450c-8b07-54419199e5e5]
+1. ADD CUSTOMERS AS A PRIMARY HQ SECTION
+
+[2026-08-28T22:04:33Z] [929e130b-5aaa-4b94-aa01-a5e03bc28bc7]
+* address
+
+[2026-08-28T22:04:33Z] [f87ffc2d-4502-4aac-89af-a4210ca8de36]
+Opportunity
+
+[2026-08-28T22:04:33Z] [6227404e-8d3f-4af0-b4b3-72b463058f5d]
+This is MarketSync’s internal CRM for selling MarketSync.
+
+[2026-08-28T22:04:33Z] [ea4b65b9-c87f-454f-9530-37025b307f3a]
+The dealership or business they work for.
+
+[2026-08-28T22:04:33Z] [52b07193-9073-400d-9fa1-9059fb414722]
+Separate these entities correctly:
+
+[2026-08-28T22:04:33Z] [e9e6233c-56a8-4318-9a89-db49522dd7ef]
+This CRM belongs to MarketSync HQ.
+
+[2026-08-28T22:04:33Z] [3ecf2d0b-dbf7-4d9a-8fea-300da2ff10ee]
+* website
+
+[2026-08-28T22:04:33Z] [75c75cb8-dcd9-4d03-9887-f99e09d8fcde]
+Contact
+
+[2026-08-28T22:04:33Z] [0834dc7d-1b7f-4423-908e-4536beeac919]
+* stage
+
+[2026-08-28T22:04:33Z] [699ea0e2-59b7-4c33-8a65-59e21d2d2fc8]
+* dealership name
+
+[2026-08-28T22:04:33Z] [5d9a19b0-f3cf-4f93-a311-e016834e8a78]
+A potential sales relationship.
+
+[2026-08-28T22:04:33Z] [d8889e87-1cbc-4e18-957d-bba183ffb655]
+Customers
+
+[2026-08-28T22:04:34Z] [ce97e866-b38c-4c46-a3c4-4ac25d292a48]
+Trial
+
+[2026-08-28T22:04:38Z] [99fc01b2-ab19-44e0-9262-13081203284a]
+* referrer
+
+[2026-08-28T22:04:38Z] [cf69b588-ac23-4047-b446-456e4f5cd4f5]
+* known identifiers
+
+[2026-08-28T22:04:38Z] [2cdf3cba-621c-4451-a730-438683e6d55f]
+* affiliate
+
+[2026-08-28T22:04:38Z] [00500d05-499f-4b27-aa67-7f8404dd4350]
+Never lose the original attribution when records merge.
+
+[2026-08-28T22:04:38Z] [3618fab4-2097-4ff5-8458-f60c6a12e860]
+4. DEDUPLICATION
+
+[2026-08-28T22:04:38Z] [1cd55d43-b6f6-4828-8d88-aacc6b69e020]
+Contact + Company + Lead
+
+[2026-08-28T22:04:38Z] [3ed8ad2c-823e-4d8a-a474-433014c3e2cc]
+⸻
+
+[2026-08-28T22:04:38Z] [6f7bb4ea-792b-4cff-8873-37e9e5c61b62]
+* filled out a form
+
+[2026-08-28T22:04:38Z] [15f823a8-af02-4dc8-b6d3-f554a88252eb]
+5. CUSTOMER 360 VIEW
+
+[2026-08-28T22:04:38Z] [87f8c35f-5792-4877-993f-235214d87437]
+* keyword where available
+
+[2026-08-28T22:04:38Z] [9c8a783a-a85e-4f19-abcf-0365d216112d]
+⸻
+
+[2026-08-28T22:04:38Z] [54178ff2-33e6-4406-b82f-28951b399479]
+Create a complete customer profile.
+
+[2026-08-28T22:04:38Z] [908846b4-a634-4d86-9ad3-23c115d0b8ce]
+Show revenue attribution.
+
+[2026-08-28T22:04:38Z] [9c083dfa-6fd3-460c-a0b5-20bc4a5210a2]
+Maintain source history.
+
+[2026-08-28T22:04:38Z] [40ddba1b-a3a7-4a0d-a7b6-7e7146ad2862]
+↓
+
+[2026-08-28T22:04:38Z] [1fd11489-2886-4bcd-9be0-bd077c8e987b]
+Timeline
+
+[2026-08-28T22:04:38Z] [afdcdfd8-edf2-40fc-a989-0355e3118b80]
+* UTM parameters
+
+[2026-08-28T22:04:42Z] [5fce30e4-7147-4855-bf20-0202ae18c1a1]
+* subscribed to email
+
+[2026-08-28T22:04:45Z] [53715adc-894c-4179-8cad-617a10a9fbdf]
+DealerOS Core $8,994
+
+[2026-08-28T22:04:45Z] [de7fec20-ec52-4f70-bb82-3a6ecd982167]
+* refunds
+
+[2026-08-28T22:04:45Z] [a78ea4fc-9e8a-455b-bdd2-33fd8d876f3e]
+DealerOS Complete $19,995
+
+[2026-08-28T22:04:45Z] [9e0f1008-7f79-411e-b349-d004f9b98166]
+Affiliate Liability
+
+[2026-08-28T22:04:45Z] [6fa16e02-9969-477c-b6b5-9e2605ce5059]
+August Revenue
+
+[2026-08-28T22:04:45Z] [5cfcfa34-9165-4a72-81e4-a85579e5441b]
+* affiliate
+
+[2026-08-28T22:04:45Z] [73f1e7ef-0700-4e88-922d-66b49196966e]
+├── Forecast
+
+[2026-08-28T22:04:45Z] [6b3e2e28-d7c1-4bb3-94b9-2703b94e4f5b]
+DealerOS Pro $14,994
+
+[2026-08-28T22:04:45Z] [8b452a00-dac5-441f-859e-3d5258811a59]
+Expenses This Month
+
+[2026-08-28T22:04:45Z] [7cd97e3c-96d1-4072-a524-12c424fa2046]
+Do not calculate ROAS from leads.
+
+[2026-08-28T22:04:45Z] [a65774c2-3fd1-4c60-a07d-7b637fb6aa92]
+10. REVENUE
+
+[2026-08-28T22:04:45Z] [635937ec-435a-4565-ba43-b093c56a1065]
+├── Expenses
+
+[2026-08-28T22:04:45Z] [d5a1f519-8f4e-4a8c-ad98-622f4b061a8a]
+└── Settings
+
+[2026-08-28T22:04:45Z] [a21708bb-6f15-4842-9e8a-9f3ff4dd6c74]
+MarketSync Digital $5,391
+
+[2026-08-28T22:04:45Z] [6b8c8253-8109-4c1f-91e8-9bff7fc75791]
+* month
+
+[2026-08-28T22:04:45Z] [0f3a93f6-9666-4931-bba3-1d93cad279fd]
+* started a trial
+
+[2026-08-28T22:04:45Z] [079f96c0-227b-4f9d-906a-d1a8412ede42]
+I need to be able to use my phone and upload or photograph a receipt directly into MarketSync HQ.
+
+[2026-08-28T22:04:45Z] [c041327a-3dec-4b2a-ae44-efe866d60c5e]
+* recurring
+
+[2026-08-28T22:04:45Z] [a474b1a2-a97a-4f97-baef-3304b707d532]
+* discounts
+
+[2026-08-28T22:04:45Z] [37c464f3-68a2-4de3-90e0-6e1512f3f41b]
+Example:
+
+[2026-08-28T22:04:45Z] [acb96110-6846-49c8-a883-2d2344e46e10]
+⸻
+
+[2026-08-28T22:04:45Z] [02a7775d-bc6b-460f-917f-a5f8a5854f68]
+* budget
+
+[2026-08-28T22:04:45Z] [899314b1-7822-40f3-badc-057a43dc986c]
+Example:
+
+[2026-08-28T22:04:45Z] [70b0beab-533f-448c-855b-1125187c0abe]
+Google Ads
+
+[2026-08-28T22:04:45Z] [32e21fd9-224d-4674-9c30-2eecdc572b22]
+ROAS: 4.18x
+
+[2026-08-28T22:04:46Z] [bf5ef4ed-9294-45e8-8e31-a14ab4611b43]
+Build proper expense tracking.
+
+[2026-08-28T22:04:46Z] [3c271ca2-f209-4310-b133-2ae59619b919]
+12. EXPENSE MANAGEMENT
+
+[2026-08-28T22:04:46Z] [35f02e8a-bc4e-406f-a577-fc2af0149369]
+Do not count one-time revenue as MRR.
+
+[2026-08-28T22:04:46Z] [7a7176d8-037f-44f8-b0a9-814328079b91]
+├── Tax
+
+[2026-08-28T22:04:46Z] [6506c5d2-dced-4ed9-9638-ee7bcadca4bb]
+Net Operating Income
+
+[2026-08-28T22:04:46Z] [bc4c0553-fba3-488f-ac41-88a10ced9f5b]
+* associated customer where relevant
+
+[2026-08-28T22:04:46Z] [e348a70f-3820-4bb7-98a7-b14f21459c84]
+* vendor
+
+[2026-08-28T22:04:46Z] [f2d21ecb-d6d1-4d38-90de-b8193d4987ea]
+* upload timestamp
+
+[2026-08-28T22:04:46Z] [4ca7806a-fc7e-4825-8627-2c39e2e018a3]
+Upcoming Expenses
+
+[2026-08-28T22:04:46Z] [055a5f5d-7a59-47c2-9b38-59ac9c1bd1e2]
+* date
+
+[2026-08-28T22:04:46Z] [612c69e7-6d26-4e8a-8ffa-68a5fb67a0e3]
+Revenue YTD
+
+[2026-08-28T22:04:46Z] [2112de8b-3747-4f15-be6e-267f44049e92]
+* authenticated user ID
+
+[2026-08-28T22:04:46Z] [646ebe3c-fbc1-4eb7-a911-f69c76e44099]
+Commission Liability
+
+[2026-08-28T22:04:46Z] [60ac2e35-6ba6-4dfa-b09f-0f5cf717c3aa]
+* later became a customer
+
+[2026-08-28T22:04:46Z] [88f6d893-f9ce-4621-b037-22ce68fff839]
+├── Reports
+
+[2026-08-28T22:04:46Z] [eba8cd4d-49bb-44f2-a63a-9a6679dc2303]
+It is NOT necessary to replace a professional accountant or certified accounting platform immediately.
+
+[2026-08-28T22:04:46Z] [018f3e2e-c6cb-4018-87ea-6912cd372561]
+Do not create five customer records because the same person:
+
+[2026-08-28T22:04:46Z] [1611d758-bee4-4cfa-bb0e-a7e6e4bc5f46]
+⸻
+
+[2026-08-28T22:04:46Z] [7d3e017f-5111-49d8-9fc5-3bbf8d7aafc2]
+Projected Month End
+
+[2026-08-28T22:04:47Z] [42a94dfc-2fed-4d94-92e7-a69b8ccc0ac1]
+Break it down by:
+
+[2026-08-28T22:04:47Z] [7d6315b8-6e5c-47de-be24-712873615fd7]
+* customer
+
+[2026-08-28T22:04:47Z] [b21f2509-64d5-4065-9ece-efceee1f9c9f]
+* pricing forms
+
+[2026-08-28T22:04:47Z] [dfe058d2-e442-4d92-9c35-656260533cad]
+* salesperson
+
+[2026-08-28T22:04:47Z] [20ba447c-39c8-4c78-a03e-6c03291ad1f6]
+* customer segment
+
+[2026-08-28T22:04:47Z] [a582744e-e1c9-4e36-9d8e-2eb193d18f8a]
+Sources include:
+
+[2026-08-28T22:04:47Z] [83f84ae6-6c3f-491e-86bc-a5d531591baf]
+All inbound MarketSync leads should flow into this system.
+
+[2026-08-28T22:04:47Z] [3fa33c71-ad71-467f-ac37-6dd552097f77]
+Account Status: Prospect
+
+[2026-08-28T22:04:47Z] [d231f701-2eef-48c3-9cf3-842eee751ed3]
+⸻
+
+[2026-08-28T22:04:47Z] [37f2a695-a583-4bc9-86a2-c0a7f6be539b]
+* PNG
+
+[2026-08-28T22:04:49Z] [b6570055-5994-4bb7-be7b-d7adac96fa1f]
+* Instagram Lead Ads
+
+[2026-08-28T22:04:49Z] [31c1ebbb-0d8b-4e9b-9d0b-b1c773919601]
+├── Budgets
+
+[2026-08-28T22:04:49Z] [bda48842-7e03-4675-a1a9-af76d49c1746]
+├── Categories
+
+[2026-08-28T22:04:49Z] [070c5843-a1c9-4782-84a3-d0e3872566cd]
+↓
+
+[2026-08-28T22:04:49Z] [ae78398d-9e52-4cf9-b92d-6a43d1f94234]
+* chatbot leads
+
+[2026-08-28T22:04:49Z] [f494742c-28b0-4990-ac1f-fd791c0567ab]
+↓
+
+[2026-08-28T22:04:49Z] [bc154d46-2612-4c23-9601-f68d1541f98f]
+↓
+
+[2026-08-28T22:04:49Z] [39a2560b-504f-441b-9c5f-c487ab7d1210]
+General Manager
+
+[2026-08-28T22:04:49Z] [416708f0-fdb2-4cd4-9fd8-d5ff800d7f40]
+Duplicate Detection
+
+[2026-08-28T22:04:49Z] [1416b864-435c-4431-9bc4-8c9a23959ead]
+Identity Resolution
+
+[2026-08-28T22:04:49Z] [bc45c283-a545-47e5-8208-5117dc873016]
+CAC: $537
+
+[2026-08-28T22:04:49Z] [979a72d1-3f06-4087-b502-4821e05ec741]
+First Touch: Google Ads
+
+[2026-08-28T22:04:49Z] [747502ad-e187-4ac5-acd4-b76621c264f8]
+↓
+
+[2026-08-28T22:04:49Z] [9e46a935-d9f6-4da7-8d25-e2d468deb638]
+* manually entered leads
+
+[2026-08-28T22:04:49Z] [951e6b94-5a69-4d1b-9d5b-a53cfbee24ba]
+Create a chronological timeline.
+
+[2026-08-28T22:04:49Z] [61e3fc2e-0bbc-4abf-bba1-8db2f188b884]
+John Smith
+
+[2026-08-28T22:04:49Z] [aa9f6f61-521c-4bc6-80c0-816cc4028729]
+Acquisition
+
+[2026-08-28T22:04:49Z] [6d73b791-d0ab-43e3-8fac-24eb541bb3ca]
+Contacts
+
+[2026-08-28T22:04:49Z] [1a4f648f-db90-40fc-a429-d41b936c186d]
+Website / Forms / Ads / Chat / Trials
+
+[2026-08-28T22:04:49Z] [f078430f-7f67-472f-a833-f68c61ee3035]
+Contact created
+
+[2026-08-28T22:04:49Z] [809ecfe0-bcb5-4a6c-a2c8-d37783a37137]
+* Google Ads lead forms
+
+[2026-08-28T22:04:49Z] [b3acaee7-250c-4a13-8833-5ee7cb25a95f]
+* Facebook Lead Ads
+
+[2026-08-28T22:04:49Z] [47a1a1a8-5f50-4dbf-8c81-c9990300f95a]
+New MRR: $8,996
+
+[2026-08-28T22:04:49Z] [4d3c96a3-82be-4bc5-aafd-5dfe82a8f992]
+Lead Ingestion Layer
+
+[2026-08-28T22:04:49Z] [c8ccc273-da02-4f4b-9e4b-627b12449925]
+The objective is operational financial management.
+
+[2026-08-28T22:04:49Z] [21e3d672-958c-43f8-bbff-a4d10a227f33]
+Timeline
+
+[2026-08-28T22:04:49Z] [33084af2-e732-4379-9a19-d7db4db81445]
+* imported CSV leads
+
+[2026-08-28T22:04:49Z] [434c181a-b9e7-453e-ad70-f59e389db646]
+* LinkedIn leads
+
+[2026-08-28T22:04:51Z] [94574a24-8dfa-4001-b52a-0345a3e95878]
+* same month previous year where data exists
+
+[2026-08-28T22:04:51Z] [9c5a8f4f-4b68-4186-862b-b9f3c8e2033a]
+* last-touch source
+
+[2026-08-28T22:04:51Z] [7f38fe60-6547-4d24-b659-e2dc1a77474a]
+Subscription started
+
+[2026-08-28T22:04:51Z] [2d94090e-4487-4b20-98f4-e5aa1e4087f4]
+Upload / Take Receipt Photo
+
+[2026-08-28T22:04:51Z] [93a2bac5-f451-4a82-97bc-364b7bdd9ee7]
+* product
+
+[2026-08-28T22:04:51Z] [95ddca72-7b7a-43ee-aa88-41a2d68bb4e3]
+* expense
+
+[2026-08-28T22:04:51Z] [892aaae7-d8cf-484f-b7f1-9114254480c9]
+* amount
+
+[2026-08-28T22:04:51Z] [7ed79047-1972-4732-8b86-35b8139b98e9]
+ABC Chevrolet
+
+[2026-08-28T22:04:51Z] [becdfb27-b451-4e3b-91a4-926077f864da]
+* acquisition source
+
+[2026-08-28T22:04:51Z] [1d53dbd3-e446-4fb9-8c83-e4565a1cc662]
+A paying MarketSync account.
+
+[2026-08-28T22:04:51Z] [e284eaa7-b76b-475c-984c-651d31510bfb]
+Marketing Suites $3,486
+
+[2026-08-28T22:04:51Z] [4c3f56e2-3a93-4e9c-b915-c901abc2953f]
+HST:
+
+[2026-08-28T22:04:51Z] [289939c0-db78-4202-9d09-a44d690cb87f]
+* missing information
+
+[2026-08-28T22:04:51Z] [b0356b17-46b5-4dba-967e-b853fbdaab70]
+Workflow:
+
+[2026-08-28T22:04:51Z] [d66956e6-e2b2-454a-8aae-51b3c258b3ca]
+Customer
+
+[2026-08-28T22:04:51Z] [5f0576a7-c617-49e5-885b-db71b092dfd3]
+* usage revenue
+
+[2026-08-28T22:04:51Z] [7cd875f6-d273-487f-9650-c79bff9b94e1]
+* HEIC where practical
+
+[2026-08-28T22:04:51Z] [f0d79ec3-66f8-49cc-85cb-eb0ba92d1b59]
+* category
+
+[2026-08-28T22:04:51Z] [6b1a9019-9482-4145-8a07-84d9cd8a2fd7]
+* forecast
+
+[2026-08-28T22:04:51Z] [0eded9da-46d3-466d-9312-86da28947603]
+Subscription cancelled
+
+[2026-08-28T22:04:51Z] [ea1bcfca-dd2e-40f3-b62b-965f0ad9fa73]
+* PDF
+
+[2026-08-28T22:04:51Z] [49da9162-0dfc-40ec-a6b7-201556ba3035]
+User
+
+[2026-08-28T22:04:51Z] [33fb1f00-de63-4c90-be6b-224bc4dcf7b4]
+* campaign
+
+[2026-08-28T22:04:51Z] [2193f16f-3bd4-4e44-82b8-130bf25104d5]
+Save / Approve
+
+[2026-08-28T22:04:51Z] [c35ec6e7-9b4d-469d-a410-ae3e7c912752]
+Architecture:
+
+[2026-08-28T22:04:51Z] [31520fb5-33e6-4048-aa6c-3d583996286a]
+Each expense should support:
+
+[2026-08-28T22:04:51Z] [d5bd3fe7-cfb6-4437-8240-3968819af599]
+Projected Year End
+
+[2026-08-28T22:04:51Z] [458a58ab-b3fc-43e3-aed7-6ce85fef395f]
+* one-time
+
+[2026-08-28T22:04:51Z] [8f4b8f90-bcc0-4530-8d8d-1bc2b084ffc1]
+* vendor
+
+[2026-08-28T22:04:51Z] [0b8aaa99-35ee-4195-b6f0-00161032a57f]
+↓
+
+[2026-08-28T22:04:53Z] [c9709cdb-a945-4b1d-808a-4571abaf7488]
+Proposal sent
+
+[2026-08-28T22:04:53Z] [70584851-6874-4881-8064-eac2fcf106d0]
+* date
+
+[2026-08-28T22:04:54Z] [cc668adb-e7d9-4bcd-95b7-a3e5ac74d309]
+Track:
+
+[2026-08-28T22:04:55Z] [0bad5252-6664-49ba-966b-1f8279e63939]
+Primary Contact
+
+[2026-08-28T22:04:55Z] [9ac2753f-17f1-4ea9-89ce-bdcd87b41fb2]
+* n8n workflows
+
+[2026-08-28T22:04:55Z] [5fbccbb2-0c92-4bea-b627-ef6f55208e6d]
+Invoice created
+
+[2026-08-28T22:04:55Z] [76e2a899-42c8-408d-8510-8b92fa01e3b4]
+Advertising $6,000 $4,820 $1,180
+
+[2026-08-28T22:04:55Z] [befed920-0b67-4a9d-8270-9aee33b7f655]
+* Render
+
+[2026-08-28T22:04:55Z] [393239d3-817c-4852-aa8a-f3b7af947f61]
+Support recurring expenses such as:
+
+[2026-08-28T22:04:55Z] [77115cc9-1eef-402d-9893-1b0a8dafb975]
+* free trials
+
+[2026-08-28T22:04:55Z] [8dd8c345-7cac-479a-a443-2d141df5b0b0]
+* ad
+
+[2026-08-28T22:04:55Z] [41afd099-1fa5-4c19-b10b-e5ce53dfb2db]
+* affiliate referrals
+
+[2026-08-28T22:04:55Z] [8ce11783-9a37-453f-9568-2c942dca76b0]
+These objects can be linked but must NOT all be stored as the same thing.
+
+[2026-08-28T22:04:55Z] [30120a11-c2c9-41ad-b7a1-9195b4abaad8]
+Create vendor profiles.
+
+[2026-08-28T22:04:55Z] [aa904fd5-05a8-4b44-abbc-05d5d477a012]
+* website contact forms
+
+[2026-08-28T22:05:01Z] [fdce866b-8780-4a05-bc7f-164e82b8b992]
+Demo booked
+
+[2026-08-28T22:05:01Z] [a1a0cbf6-b602-4459-9059-50a076b77419]
+Every system should write activities into the canonical timeline where appropriate.
+
+[2026-08-28T22:05:01Z] [efa77b14-d357-4926-b071-34800fc2501d]
+Payment received
+
+[2026-08-28T22:05:01Z] [2d1b455e-7274-41c0-82fb-98ff9ccd4e2d]
+Sales call logged
+
+[2026-08-28T22:05:01Z] [2c39291e-c88b-42fe-8811-d230d1bafa73]
+Include tabs:
+
+[2026-08-28T22:05:01Z] [4c34f6e4-903b-4325-9d5e-dee00a5ef794]
+Opportunity created
+
+[2026-08-28T22:05:01Z] [5872e2be-c903-495e-b82b-a0fbd1d53b19]
+* first-touch source
+
+[2026-08-28T22:05:01Z] [93a83f12-8e53-4d6a-8e7e-6e22a0b69133]
+Overview
+
+[2026-08-28T22:05:01Z] [bbe1e65d-b439-405b-bc78-57edfef55b8f]
+* subscription plan
+
+[2026-08-28T22:05:01Z] [4512d062-8f16-4f28-bc27-b34ed3c1b9a9]
+* campaign
+
+[2026-08-28T22:05:01Z] [bdfad3ad-615c-4035-a4ca-d35d609f06ae]
+⸻
+
+[2026-08-28T22:05:01Z] [d4aaea35-974a-407a-8783-e49311690817]
+Demo request submitted
+
+[2026-08-28T22:05:01Z] [f270da7b-948a-4efd-bc01-d09b21cbe4e6]
+Email link clicked
+
+[2026-08-28T22:05:01Z] [224f49a3-7689-429b-80c9-c1653ff32274]
+Subscription upgraded
+
+[2026-08-28T22:05:01Z] [bbf45a6c-bc8e-4cd6-b2b2-58d74ec35aaf]
+Support ticket opened
+
+[2026-08-28T22:05:01Z] [6c3ee391-3e23-4509-94df-fdb0258c3b9a]
+7. ATTRIBUTION
+
+[2026-08-28T22:05:02Z] [e4417b08-92d8-4f50-bb59-0620fc525d0d]
+Sales + Marketing + Automations
+
+[2026-08-28T22:05:02Z] [0628225e-902e-412e-ab92-95c321ef0423]
+* Downgrade MRR
+
+[2026-08-28T22:05:02Z] [06ba33c2-edb2-4c58-8221-78480dd31cce]
+Budget Remaining
+
+[2026-08-28T22:05:02Z] [df86620e-6c23-4e84-ada2-bf347425bc8e]
+* partner
+
+[2026-08-28T22:05:02Z] [7f222b57-e432-48f5-ac7f-ba064115e2c2]
+* landing page
+
+[2026-08-28T22:05:02Z] [45841419-f2f7-46ed-897a-ce6109620909]
+* ad group
+
+[2026-08-28T22:05:03Z] [4f56ef43-be4e-483e-914b-0ecfc75ba890]
+* employee/staff member
+
+[2026-08-28T22:05:03Z] [bb28a710-871b-4278-9704-c32acb340250]
+* date
+
+[2026-08-28T22:05:03Z] [ead4f1a0-2ec6-4719-a190-78e488fa003e]
+5. Choose category.
+
+[2026-08-28T22:05:03Z] [a1ba91a0-f444-4eb4-bef8-f86e0924936d]
+* price/product
+
+[2026-08-28T22:05:03Z] [480db6be-4be7-4826-98e3-fab61db60c84]
+Create a financial command center.
+
+[2026-08-28T22:05:03Z] [f5f2d07b-918f-44f8-9904-6b9ec0a0798e]
+Require:
+
+[2026-08-28T22:05:03Z] [36151246-c818-4a3a-8262-796e7d9795ff]
+* discounts
+
+[2026-08-28T22:05:03Z] [1d2d98d8-6fe9-4ffe-807d-85bb05083cf4]
+Example:
+
+[2026-08-28T22:05:03Z] [c7e02b3b-92aa-467b-8986-a4f93cd401e1]
+Do not duplicate payments if webhook retries occur.
+
+[2026-08-28T22:05:03Z] [74043db9-71e6-4017-a6c6-acd76c138df8]
+9. FINANCE OVERVIEW
+
+[2026-08-28T22:05:03Z] [6c5d4145-05b3-467d-a3af-ff79e6a482c4]
+* source
+
+[2026-08-28T22:05:03Z] [1e8dbe4c-6ae5-4aef-859d-990bc1e30a50]
+* refunds
+
+[2026-08-28T22:05:03Z] [c2f26153-ab38-4e93-93b0-d610cdec9f50]
+Expected MRR: $2,499
+
+[2026-08-28T22:05:03Z] [cb550ed8-f38f-4ada-8c77-df4c9481557e]
+Show:
+
