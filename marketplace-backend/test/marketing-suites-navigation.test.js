@@ -203,7 +203,11 @@ test('Service Marketing Suite navigation and workspace isolation', (t) => {
   assert.equal(pageLabels.includes('F&I'), false);
 });
 
-test('Complete Marketing Suite navigation includes distinct Sales & Service sections', (t) => {
+// Complete deliberately folds sales and service into its single Pulse rather than
+// carrying two named hubs: it covers both modes, so a named hub for each would be
+// redundant. Sales-only and Service-only suites keep one named hub because that hub IS
+// the product they bought. See the comment in marketing-workspace.js beside navItems.
+test('Complete Marketing Suite folds sales and service into one Pulse', (t) => {
   const sandbox = createFrontendSandbox({
     productAttr: 'complete-marketing-suite',
     profileContext: { package_id: 'complete-marketing-suite', role: 'DEALER_ADMIN' },
@@ -223,8 +227,9 @@ test('Complete Marketing Suite navigation includes distinct Sales & Service sect
   const pageLabels = pages.map(p => p.label);
   
   assert.ok(pageLabels.includes('Pulse'));
-  assert.ok(pageLabels.includes('Sales Marketing'));
-  assert.ok(pageLabels.includes('Service Marketing'));
+  // No separate named hubs — Pulse covers both modes for Complete.
+  assert.equal(pageLabels.includes('Sales Marketing'), false);
+  assert.equal(pageLabels.includes('Service Marketing'), false);
   assert.ok(pageLabels.includes('Campaigns'));
   assert.ok(pageLabels.includes('Automations'));
   assert.ok(pageLabels.includes('Design Studio'));

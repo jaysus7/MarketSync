@@ -170,16 +170,23 @@ function suiteConfigWithAccess(suiteKey, access) {
 // MarketSync SEO (marketsync-seo / marketsync_seo) is independently purchasable on top
 // of Sales/Service/Complete Marketing Suite even though it isn't bundled in — these
 // suites have no website concept at all, so it must never be folded into anything else.
-test('a suite dealer who separately owns MarketSync SEO gets it as its own area; one who does not, does not', () => {
+// SEO is purchasable on top of Sales/Service/Complete even though it is not bundled.
+// Under the flat suite shell it arrives as a destination in the one suite area rather
+// than as its own area, injected live by getMarketingSuiteConfig — MARKETING_SUITE_CONFIG
+// is built once at load, before window.__access exists, so it cannot carry it.
+test('a suite dealer who separately owns MarketSync SEO can reach it; one who does not, cannot', () => {
   const withSeo = suiteConfigWithAccess('sales', { products: ['design_studio', 'marketsync_seo'] });
-  const seoArea = withSeo.areas.find(area => area.id === 'seo');
-  assert.ok(seoArea, 'Sales Marketing Suite + owned SEO must expose an SEO area');
-  assert.equal(seoArea.label, 'MarketSync SEO');
-  assert.deepEqual(labels(seoArea), ['SEO Builder', 'Pulse']);
-  // Never combined with a "website" area — Sales/Service/Complete Marketing Suite sell
-  // no website product, so there is nothing to combine it with in the first place.
+  const items = withSeo.areas.find(area => area.id === 'suite').items;
+  const seo = items.find(item => item.page === 'seo');
+  assert.ok(seo, 'Sales Marketing Suite + owned SEO must expose a route to SEO');
+  assert.equal(seo.label, 'MarketSync SEO');
+  // Placed with the products, ahead of Academy, rather than appended after it.
+  assert.ok(items.findIndex(item => item.page === 'seo') < items.findIndex(item => item.page === 'academy'));
+  // Never combined with a "website" area — these suites sell no website product, so
+  // there is nothing to combine it with in the first place.
   assert.ok(!withSeo.areas.some(area => area.id === 'website' || area.id === 'digital-presence'));
 
   const withoutSeo = suiteConfigWithAccess('service', { products: ['design_studio'] });
-  assert.ok(!withoutSeo.areas.some(area => area.id === 'seo'), 'no SEO area without the entitlement');
+  const withoutItems = withoutSeo.areas.find(area => area.id === 'suite').items;
+  assert.ok(!withoutItems.some(item => item.page === 'seo'), 'no SEO route without the entitlement');
 });
