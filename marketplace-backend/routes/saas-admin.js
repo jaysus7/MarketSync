@@ -29,9 +29,16 @@ export function registerSaasAdmin(app) {
 
   app.get('/saas/overview', requireAuth, async (req, res) => {
     if (!need('view_customers')(req, res)) return
-    const [{ data: dealers }, { data: profiles }] = await Promise.all([
+    // Affiliate commissions is optional — the table may not be present in every
+    // environment. Any failure resolves to null so the overview stays honest
+    // (rendered as "Not connected") rather than fabricating a zero.
+    const affiliatePromise = supabaseAdmin.from('affiliate_commissions')
+      .select('amount, status, created_at').limit(20000)
+      .then(r => r, () => ({ data: null, error: true }))
+    const [{ data: dealers }, { data: profiles }, affRes] = await Promise.all([
       supabaseAdmin.from('dealerships').select('id, name, is_personal, billing_status, trial_ends_at, plan, products, created_at').order('created_at', { ascending: false }).limit(2000),
       supabaseAdmin.from('profiles').select('id, dealership_id, billing_status, trial_ends_at').limit(8000),
+      affiliatePromise,
     ])
     // Personal workspaces bill on the profile — index the (single) profile per personal org.
     const profByDealer = {}
@@ -40,6 +47,7 @@ export function registerSaasAdmin(app) {
     const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0)
     const soon = Date.now() + 5 * 86400000
     let mrr = 0, active = 0, trials = 0, churnRisk = 0, newThisMonth = 0
+    let pastDue = 0, newMrrThisMonth = 0, trialsExpiring = 0
     const trialList = [], topAccounts = []
 
     for (const d of (dealers || [])) {
@@ -52,19 +60,46 @@ export function registerSaasAdmin(app) {
       // Anyone inside a live trial window counts as a trial customer, even if the
       // billing_status hasn't been set to TRIALING yet (fresh sign-ups).
       const futureTrial = trialEnds && new Date(trialEnds) > new Date()
-      if (activeStatus(status)) { active++; mrr += accountMrr; topAccounts.push({ id: d.id, name: d.name, mrr: accountMrr, products }) }
-      else if (dunningStatus(status)) { churnRisk++ }
+      if (activeStatus(status)) {
+        active++; mrr += accountMrr
+        topAccounts.push({ id: d.id, name: d.name, mrr: accountMrr, products })
+        if (d.created_at && new Date(d.created_at) >= monthStart) newMrrThisMonth += accountMrr
+      }
+      else if (dunningStatus(status)) { churnRisk++; pastDue++ }
       else if (trialingStatus(status) || futureTrial) {
         if (futureTrial) {
           trials++
           const days = Math.max(0, Math.round((new Date(trialEnds) - Date.now()) / 86400000))
           trialList.push({ id: d.id, name: d.name, days_left: days, products })
-          if (new Date(trialEnds).getTime() < soon) churnRisk++
+          if (new Date(trialEnds).getTime() < soon) { churnRisk++; trialsExpiring++ }
         } else { churnRisk++ }   // trialing status but the trial window has lapsed = at-risk / recovery
       }
 
       if (d.created_at && new Date(d.created_at) >= monthStart) newThisMonth++
     }
+
+    // Affiliate program is the recurring cost-of-goods. `pending` = owed but not yet
+    // paid. If the table is absent (or unreadable), affiliate stays null so the UI
+    // renders "Not connected" instead of a fake $0.
+    let affiliate = null
+    if (affRes && affRes.data && !affRes.error) {
+      const num = (v) => Number(v) || 0
+      let affPending = 0, affPaidThisMonth = 0
+      for (const c of affRes.data) {
+        const amt = num(c.amount)
+        if (c.status === 'paid') { if (c.created_at && new Date(c.created_at) >= monthStart) affPaidThisMonth += amt }
+        else { affPending += amt }
+      }
+      affiliate = {
+        payouts_due: Math.round(affPending * 100) / 100,
+        paid_this_month: Math.round(affPaidThisMonth * 100) / 100,
+      }
+    }
+
+    // Platform health: derived here from what we can actually observe from HQ.
+    // `ok` = nothing dunning + no expired trials in the churn bucket. Anything
+    // richer (queue depth, integration failures) comes from /owner/health.
+    const health = { status: pastDue > 0 ? 'degraded' : 'ok', past_due: pastDue }
 
     topAccounts.sort((a, b) => b.mrr - a.mrr)
     trialList.sort((a, b) => (a.days_left ?? 999) - (b.days_left ?? 999))
@@ -73,6 +108,11 @@ export function registerSaasAdmin(app) {
       // "Customers" includes everyone on the books — paying + in-trial.
       customers: active + trials,
       churn_risk: churnRisk, new_this_month: newThisMonth,
+      past_due: pastDue,
+      revenue_this_month: newMrrThisMonth,   // new MRR added in the current month
+      trials_expiring_5d: trialsExpiring,
+      affiliate,                              // null → "Not connected"
+      health,
       trials: trialList.slice(0, 12),
       top_accounts: topAccounts.slice(0, 8),
       total_accounts: (dealers || []).length,

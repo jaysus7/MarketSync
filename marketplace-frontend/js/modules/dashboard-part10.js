@@ -1712,38 +1712,98 @@ ENGINES['saas-command'] = {
       const activePct = d.total_accounts ? Math.round((d.active_customers || 0) / d.total_accounts * 100) : 0;
       const trials = (d.trials || []).slice(0, 5);
       const expiring = trials.filter(t => t.days_left != null && t.days_left <= 5);
+      // A KPI that we cannot compute (no data source, or the source is unreachable)
+      // must show "Not connected" — never a fabricated zero. Rule #25.
+      const NC = '<span class="text-slate-400 text-base font-bold">Not connected</span>';
+      // MRR history is not yet captured, so trend + comparison are hidden until they
+      // can be derived from real invoice/entitlement snapshots.
+      const affiliateDue = d.affiliate && Number.isFinite(d.affiliate.payouts_due)
+        ? '$' + Math.round(d.affiliate.payouts_due).toLocaleString() : NC;
+      const healthLabel = d.health && d.health.status
+        ? (d.health.status === 'ok' ? 'Healthy' : 'Degraded')
+        : NC;
+      const healthTone = d.health && d.health.status === 'ok'
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : d.health && d.health.status ? 'text-amber-600 dark:text-amber-400' : '';
       const attention = [];
+      if (d.past_due) attention.push(`<button onclick="switchPage('saas-billing')" class="w-full flex items-center justify-between gap-3 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/20 px-4 py-3 text-left"><span><b class="block text-sm text-slate-900 dark:text-white">${d.past_due} account${d.past_due === 1 ? '' : 's'} past due</b><span class="text-xs text-slate-500 dark:text-slate-400">Recover payment before service is suspended.</span></span><span class="text-rose-500">${svgIcon('chevronRight','w-4 h-4')}</span></button>`);
       if (d.churn_risk) attention.push(`<button onclick="switchPage('saas-customers')" class="w-full flex items-center justify-between gap-3 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/20 px-4 py-3 text-left"><span><b class="block text-sm text-slate-900 dark:text-white">${d.churn_risk} customer${d.churn_risk === 1 ? '' : 's'} may leave</b><span class="text-xs text-slate-500 dark:text-slate-400">Review health and choose the next follow-up.</span></span><span class="text-rose-500">${svgIcon('chevronRight','w-4 h-4')}</span></button>`);
       if (expiring.length) attention.push(`<button onclick="switchPage('owner-users')" class="w-full flex items-center justify-between gap-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 px-4 py-3 text-left"><span><b class="block text-sm text-slate-900 dark:text-white">${expiring.length} trial${expiring.length === 1 ? '' : 's'} end within five days</b><span class="text-xs text-slate-500 dark:text-slate-400">Contact these accounts before access ends.</span></span><span class="text-amber-500">${svgIcon('chevronRight','w-4 h-4')}</span></button>`);
+      if (d.affiliate && d.affiliate.payouts_due > 0) attention.push(`<button onclick="switchPage('saas-accounting')" class="w-full flex items-center justify-between gap-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 px-4 py-3 text-left"><span><b class="block text-sm text-slate-900 dark:text-white">$${Math.round(d.affiliate.payouts_due).toLocaleString()} in affiliate payouts due</b><span class="text-xs text-slate-500 dark:text-slate-400">Approve or schedule payouts in Accounting.</span></span><span class="text-amber-500">${svgIcon('chevronRight','w-4 h-4')}</span></button>`);
       const trialRows = trials.map(hqTrialRow).join('') || engEmpty('No active trials right now.');
       const customerRows = (d.top_accounts || []).slice(0, 5).map(a => `<button onclick="switchPage('saas-customers')" class="w-full flex items-center justify-between gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0 text-left"><span class="font-semibold text-sm text-slate-700 dark:text-slate-200 truncate">${esc(a.name || 'Customer')}</span><span class="font-black text-sm text-slate-900 dark:text-white">${engMoney0(a.mrr)}/month</span></button>`).join('') || engEmpty('No paying customers yet.');
+      // Five command groups (Customers / Revenue / Team / Growth / Platform) — each
+      // groups two-to-four real routes so HQ reads as an operating system, not a
+      // flat list. Sub-links only appear if their target page is a real page.
+      const groups = [
+        { label: 'Customers', copy: 'Accounts, trials, onboarding, support', icon: 'building', primary: "switchPage('saas-customers')", links: [
+          ['All accounts', "switchPage('saas-customers')"],
+          ['Trials', "switchPage('owner-users')"],
+          ['Follow-ups', "switchPage('saas-followups')"],
+        ]},
+        { label: 'Revenue', copy: 'Billing, invoices, accounting, budgets', icon: 'currency', primary: "switchPage('saas-accounting')", links: [
+          ['Accounting', "switchPage('saas-accounting')"],
+          ['Billing', "switchPage('saas-billing')"],
+          ['Funnel', "switchPage('saas-funnel')"],
+        ]},
+        { label: 'Team', copy: 'Staff, roles, permissions, commissions', icon: 'users', primary: "switchPage('saas-employees')", links: [
+          ['Employees', "switchPage('saas-employees')"],
+          ['Roles', "switchPage('saas-roles')"],
+        ]},
+        { label: 'Growth', copy: 'Leads, campaigns, automations, affiliates', icon: 'funnel', primary: "switchPage('saas-automation')", links: [
+          ['Automation', "switchPage('saas-automation')"],
+          ['Email marketing', "switchPage('saas-email-marketing')"],
+        ]},
+        { label: 'Platform', copy: 'Integrations, jobs, system health', icon: 'bolt', primary: "switchPage('saas-health')", links: [
+          ['System health', "switchPage('saas-health')"],
+          ['Integrations', "switchPage('saas-integrations')"],
+          ['Audit log', "switchPage('saas-audit')"],
+        ]},
+      ];
       body.innerHTML = `
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
           ${engKpi('Monthly recurring revenue', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('Active accounts', (d.customers ?? ((d.active_customers || 0) + (d.trial_accounts || 0))).toLocaleString(), 'text-indigo-600 dark:text-indigo-400')}
+          ${engKpi('Annual recurring revenue', engMoney0(d.arr), 'text-emerald-600 dark:text-emerald-400')}
+          ${engKpi('Active accounts', (d.active_customers || 0).toLocaleString(), 'text-indigo-600 dark:text-indigo-400')}
           ${engKpi('Trials', (d.trial_accounts || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
-          ${engKpi('New accounts this month', (d.new_this_month || 0).toLocaleString())}
+          ${engKpi('New this month', (d.new_this_month || 0).toLocaleString())}
+          ${engKpi('New MRR this month', engMoney0(d.revenue_this_month || 0), (d.revenue_this_month || 0) > 0 ? 'text-emerald-600 dark:text-emerald-400' : '')}
+          ${engKpi('Past due', (d.past_due || 0).toLocaleString(), (d.past_due || 0) > 0 ? 'text-rose-600 dark:text-rose-400' : '')}
+          ${engKpi('Affiliate payouts due', affiliateDue, (d.affiliate && d.affiliate.payouts_due > 0) ? 'text-amber-600 dark:text-amber-400' : '')}
         </div>
-        ${engCard('Operate MarketSync', `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
-          ${[
-            ['Accounts', 'Customer records, trials and onboarding', 'building', "switchPage('saas-customers')"],
-            ['Leads', 'New interest and conversion work', 'funnel', "switchPage('saas-funnel')"],
-            ['Work', 'Owned follow-ups and due dates', 'check', "switchPage('saas-followups')"],
-            ['People', 'HQ staff, roles and access', 'users', "switchPage('saas-employees')"],
-            ['Communications', 'Email, SMS, templates and automations', 'chat', "switchPage('saas-automation')"],
-            ['Money', 'Revenue, billing and company spending', 'currency', "switchPage('saas-accounting')"],
-          ].map(([label, copy, icon, action]) => `<button onclick="${action}" class="ms-hq-launch"><span class="ms-hq-launch__icon">${svgIcon(icon, 'w-5 h-5')}</span><span><b>${label}</b><small>${copy}</small></span>${svgIcon('chevronRight', 'w-4 h-4 ms-hq-launch__chevron')}</button>`).join('')}
+        ${engCard('Operate MarketSync', `<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+          ${groups.map(g => `
+            <div class="ms-c ms-c--compact rounded-xl p-3 flex flex-col gap-2 border border-slate-200 dark:border-slate-800">
+              <button onclick="${g.primary}" class="flex items-center gap-2 text-left group">
+                <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300">${svgIcon(g.icon, 'w-4 h-4')}</span>
+                <span class="min-w-0">
+                  <b class="block text-sm font-black text-slate-900 dark:text-white truncate">${esc(g.label)}</b>
+                  <small class="block text-[11px] text-slate-500 dark:text-slate-400 truncate">${esc(g.copy)}</small>
+                </span>
+              </button>
+              <div class="flex flex-wrap gap-1.5 mt-1">
+                ${g.links.map(([l, a]) => `<button onclick="${a}" class="text-[11px] font-bold px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition">${esc(l)}</button>`).join('')}
+              </div>
+            </div>`).join('')}
         </div>`)}
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
           ${engCard('Needs attention', attention.join('<div class="h-2"></div>') || '<div class="py-8 text-center"><div class="font-black text-emerald-600 dark:text-emerald-400">Everything looks good</div><div class="text-xs text-slate-500 mt-1">Nothing urgent needs your attention.</div></div>')}
           ${engCard('Trials to contact', `<div class="space-y-1.5">${trialRows}</div><button onclick="switchPage('owner-users')" class="mt-3 w-full rounded-lg bg-blue-600 hover:bg-blue-500 px-3 py-2 text-sm font-black text-white">Review all trials</button>`)}
           ${engCard('Top customers', `${customerRows}<button onclick="switchPage('saas-customers')" class="mt-3 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-black text-slate-700 dark:text-slate-200">View all customers</button>`)}
         </div>
-        ${engCard('Customer status', engBar([
-          { pct: activePct, cls: 'bg-emerald-500', label: `Paying (${d.active_customers || 0})` },
-          { pct: d.total_accounts ? Math.round((d.trial_accounts || 0) / d.total_accounts * 100) : 0, cls: 'bg-blue-500', label: `Trial (${d.trial_accounts || 0})` },
-          { pct: d.total_accounts ? Math.round((d.churn_risk || 0) / d.total_accounts * 100) : 0, cls: 'bg-rose-500', label: `May leave (${d.churn_risk || 0})` },
-        ]))}`;
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div class="lg:col-span-2">${engCard('Customer status', engBar([
+            { pct: activePct, cls: 'bg-emerald-500', label: `Paying (${d.active_customers || 0})` },
+            { pct: d.total_accounts ? Math.round((d.trial_accounts || 0) / d.total_accounts * 100) : 0, cls: 'bg-blue-500', label: `Trial (${d.trial_accounts || 0})` },
+            { pct: d.total_accounts ? Math.round((d.churn_risk || 0) / d.total_accounts * 100) : 0, cls: 'bg-rose-500', label: `May leave (${d.churn_risk || 0})` },
+          ]))}</div>
+          ${engCard('Platform', `
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-[11px] uppercase tracking-wider text-slate-800 dark:text-slate-200 font-black">Status</span>
+              <span class="text-sm font-black ${healthTone || 'text-slate-700 dark:text-slate-200'}">${healthLabel}</span>
+            </div>
+            <button onclick="switchPage('saas-health')" class="mt-3 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-black text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800">Open System Health</button>`)}
+        </div>`;
     },
     work(body, d) {
       const trials = (d.trials || []).map(hqTrialRow).join('') || engEmpty('No active trials.');
