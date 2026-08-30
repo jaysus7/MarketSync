@@ -120,15 +120,16 @@ test('DealerOS Complete reaches every department it sells', () => {
 // training and messaging are not plan upsells, and gating SETUP would stop a
 // dealership configuring what it just bought.
 //
-// `commissions` is a FOURTH, and it is not an oversight — it is one page id doing
-// two jobs. Sales lists it as "My Commission" (a rep's own earnings, correctly
-// broad) and Accounting lists it as "Payroll" (administration). Gates are keyed by
-// page id, so no single gate expresses both: gating on os.accounting would take a
-// rep's own commission away on every plan without accounting, and leaving it open
-// means a manager on a plan without accounting sees a lone "Payroll" entry in an
-// otherwise-empty Accounting workspace. Splitting the page id is the real fix and
-// is a product decision. Pinned here so it stays visible instead of becoming
-// folklore, and so a FIFTH ungated page cannot appear unnoticed.
+// `commissions` is a FOURTH. It used to be one page id doing two jobs — Sales'
+// "My Commission" (a rep's own earnings, correctly broad) and Accounting's
+// "Payroll" (administration) — so no single gate could express both: gating on
+// os.accounting took a rep's own commission away on every plan without accounting,
+// and leaving it open showed a lone "Payroll" row in an otherwise-empty Accounting
+// workspace. The duplicate row is gone: Accounting reaches payroll through the
+// Accounting engine's own `payroll` tab, which lives on the gated `accounting`
+// page. `commissions` now does one job and is correctly ungated. Pinned here so
+// this stays visible instead of becoming folklore, and so a FIFTH ungated page
+// cannot appear unnoticed.
 test('the set of ungated pages is exactly the known set', () => {
   const gated = new Set([...Object.keys(PAGE_FEATURE), ...Object.keys(PAGE_ANY), ...Object.keys(PAGE_PRODUCT)])
   const ungated = [...new Set(registry.msAllWorkspacePages().filter(p => !gated.has(p)))].sort()

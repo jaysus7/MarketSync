@@ -134,7 +134,15 @@ const MS_WORKSPACES = {
     pages: [
       { page: 'accounting-overview', label: 'Pulse' },
       { page: 'accounting', label: 'Overview' },
-      { page: 'commissions', label: 'Payroll' },
+      // Payroll is NOT a page row here. The Accounting engine already carries a
+      // `payroll` tab (accounting-workspace.js) that mounts the same commission
+      // engine, and that tab lives on `accounting`, which is gated on
+      // os.accounting. Listing the standalone `commissions` page here as well made
+      // one page id serve two jobs — Sales' "My Commission" (a rep's own earnings,
+      // correctly open to everyone) and Accounting's "Payroll" (administration) —
+      // so no single entitlement gate could express both. Dropping the duplicate
+      // row leaves `commissions` doing one job, and leaves Payroll gated where it
+      // always should have been: behind the Accounting engine.
     ],
   },
 
