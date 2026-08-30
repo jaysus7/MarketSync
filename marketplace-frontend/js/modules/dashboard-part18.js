@@ -4673,6 +4673,35 @@ const ESB_DYNAMIC_MERGE_VARS = [
 // email editor. The campaign keeps audience, channels, timing, and the selected
 // content asset; Email Builder only owns the message itself.
 let __campaignDraft = null;
+// The campaign card's Preview button called this before it existed, so clicking it threw
+// a ReferenceError. Shows the campaign's actual subject line and block structure rather
+// than opening the full builder.
+function previewCampaignModal(campaignId) {
+  const campaigns = typeof DEMO_CAMPAIGNS !== 'undefined' ? DEMO_CAMPAIGNS : [];
+  const campaign = campaigns.find(c => String(c.id) === String(campaignId));
+  if (!campaign) return;
+  const templates = typeof DEFAULT_COMMUNICATION_TEMPLATES !== 'undefined' ? DEFAULT_COMMUNICATION_TEMPLATES : [];
+  const tpl = templates.find(t => t.id === campaign.template_id) || null;
+  const blocks = campaign.blocks_preview || (tpl && Array.isArray(tpl.blocks) ? tpl.blocks.map(b => String(b.type).replace(/_/g, ' ')) : []);
+  const subject = campaign.subject || (tpl && tpl.subject) || null;
+  automationModal(`
+    <div class="space-y-4 text-left">
+      <div>
+        <h3 class="text-lg font-black text-slate-900 dark:text-white">${esc(campaign.name || 'Campaign')}</h3>
+        <p class="text-xs text-slate-500 mt-0.5">${esc(tpl ? tpl.name : 'Custom Layout')}${campaign.audience ? ' \u00b7 ' + esc(campaign.audience) : ''}</p>
+      </div>
+      <div>
+        <div class="text-[10px] uppercase font-black tracking-wider text-slate-400">Subject</div>
+        <div class="mt-1 text-sm font-semibold text-slate-900 dark:text-white">${subject ? esc(subject) : '<span class="text-slate-400 font-normal italic">No subject line set</span>'}</div>
+      </div>
+      <div>
+        <div class="text-[10px] uppercase font-black tracking-wider text-slate-400">Content blocks</div>
+        ${blocks.length ? `<ol class="mt-1 space-y-1 text-sm text-slate-700 dark:text-slate-300 list-decimal list-inside capitalize">${blocks.map(b => `<li>${esc(b)}</li>`).join('')}</ol>` : '<div class="mt-1 text-sm text-slate-400 italic">This campaign has no saved content blocks yet.</div>'}
+      </div>
+    </div>
+  `, 'max-w-xl');
+}
+
 function openCampaignBuilder(opts = {}) {
   __campaignDraft = opts.__draft || {
     name: opts.name || 'New Campaign', objective: opts.objective || 'promotion',
@@ -4699,7 +4728,7 @@ function renderCampaignBuilder() {
   : d.step === 2 ? `
     <label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">CRM audience</label>
     <div class="space-y-2">${CRM_AUDIENCE_SEGMENTS.map(s => `<button type="button" onclick="__campaignDraft.audience='${s.key}';__campaignDraft.audienceName='${esc(s.name)}';renderCampaignBuilder()" class="w-full flex items-center justify-between gap-3 p-3 rounded-xl border text-left ${d.audience === s.key ? 'border-indigo-500 bg-indigo-500/15' : 'border-slate-700 bg-slate-900/60'}"><span><b class="text-sm text-white">${esc(s.name)}</b><span class="block text-[11px] text-slate-400 mt-0.5">${esc(s.desc)}</span></span><span class="text-sm font-black text-indigo-300">${esc(s.count)}</span></button>`).join('')}</div>`
-  : d.step === 3 ? `<label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">Delivery channels</label><div class="grid sm:grid-cols-2 gap-3">${[['email','Email'],['sms','SMS']].map(([v,l]) => `<button type="button" onclick="campaignToggleChannel('${v}')" class="p-4 rounded-xl border text-left ${d.channels.includes(v) ? 'border-indigo-500 bg-indigo-500/15' : 'border-slate-700 bg-slate-900/60'}"><span class="text-sm font-black text-white">${d.channels.includes(v) ? '✓ ' : ''}${l}</span><span class="block text-xs text-slate-400 mt-1">${v === 'email' ? 'Use a reusable Email Builder asset.' : 'Write a compliant follow-up message.'}</span></button>`).join('')}</div>`
+  : d.step === 3 ? `<label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">Delivery channels</label><div class="grid sm:grid-cols-2 gap-3">${[['email','Email'],['sms','SMS']].map(([v,l]) => `<button type="button" onclick="campaignToggleChannel('${v}')" class="p-4 rounded-xl border text-left ${d.channels.includes(v) ? 'border-indigo-500 bg-indigo-500/15' : 'border-slate-700 bg-slate-900/60'}"><span class="text-sm font-black text-white">${d.channels.includes(v) ? '<svg class="w-3.5 h-3.5 inline-block align-[-2px] mr-1" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>' : ''}${l}</span><span class="block text-xs text-slate-400 mt-1">${v === 'email' ? 'Use a reusable Email Builder asset.' : 'Write a compliant follow-up message.'}</span></button>`).join('')}</div>`
   : d.step === 4 ? `<div class="space-y-4">${d.channels.includes('email') ? `<div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4"><div class="flex items-center justify-between"><div><div class="text-xs font-black uppercase tracking-wider text-indigo-300">Email content</div><div class="text-sm font-bold text-white mt-1">${tpl ? esc(tpl.name) : 'No email selected'}</div></div><button type="button" onclick="campaignSelectTemplate()" class="px-3 py-2 rounded-lg bg-slate-800 text-xs font-bold text-slate-200">Select template</button></div><button type="button" onclick="openEmailSmsBuilder({mode:'email',isNewTemplate:true,returnCampaign:true})" class="mt-3 w-full px-3 py-2.5 rounded-lg bg-indigo-600 text-white text-xs font-black">Create New Email</button></div>` : ''}${d.channels.includes('sms') ? `<div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4"><label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1">SMS content</label><textarea id="cb-sms" rows="5" oninput="__campaignDraft.sms=this.value" class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-white" placeholder="Write the follow-up message…">${esc(d.sms)}</textarea><div class="text-right text-[11px] text-slate-400 mt-1">${d.sms.length}/320</div></div>` : ''}</div>`
   : d.step === 5 ? `<label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1">Send time</label><select onchange="__campaignDraft.scheduledAt=this.value" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2.5 text-sm text-white"><option value="">Send now</option><option value="scheduled">Schedule for later</option></select><p class="text-xs text-slate-400 mt-3">Timezone and recipient count are confirmed during review. Recurring sends stay in Automations until production scheduling is enabled.</p>`
   : `<div class="space-y-3">${[['Campaign',d.name],['Goal',d.objective.replace(/_/g,' ')],['Audience',d.audienceName],['Channels',d.channels.join(' + ')],['Email',tpl?.name || (d.channels.includes('email') ? 'Not selected' : '—')],['SMS',d.channels.includes('sms') ? (d.sms ? 'Message ready' : 'Needs content') : '—'],['Schedule',d.scheduledAt === 'scheduled' ? 'Scheduled' : 'Send now']].map(([k,v]) => `<div class="flex items-center justify-between gap-4 py-2 border-b border-slate-800 last:border-0"><span class="text-xs uppercase tracking-wider text-slate-400">${k}</span><b class="text-sm text-white text-right capitalize">${esc(v)}</b></div>`).join('')}</div>`;
