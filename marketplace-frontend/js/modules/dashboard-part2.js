@@ -2270,9 +2270,9 @@ function switchPage(pageId) {
       .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-store.js?v=20260830_prostudio'))
       .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-autosave.js?v=20260830_prostudio'))
       .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260830_prostudio'))
-      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260829_pinterest_v1'))
-      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-shell.js?v=20260830_prostudio'))
-      .then(() => { if (typeof openMarketSyncStudio === 'function') openMarketSyncStudio(); });
+      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-shell.js?v=20260830_bootfix'))
+      .then(() => { if (typeof openMarketSyncStudio === 'function') openMarketSyncStudio(); })
+      .catch(renderMarketSyncStudioBootError);
   }
   if (pageId === 'social-scheduler') {
     const bootSched = () => { if (typeof loadSocialSchedulerPage === 'function') loadSocialSchedulerPage(); };
@@ -2519,6 +2519,13 @@ async function extractPdfText(file, options = {}) {
   return out.slice(0, maxChars);
 }
 
+function renderMarketSyncStudioBootError(error) {
+  console.error('[Design Studio] Failed to start', error);
+  const root = document.getElementById('studio-root');
+  if (root) root.innerHTML = `<div class="m-4 rounded-3xl border border-rose-200 bg-white/80 p-6 text-slate-900 shadow-xl backdrop-blur-2xl dark:border-rose-500/30 dark:bg-slate-900/80 dark:text-white"><p class="text-xs font-black uppercase tracking-[0.18em] text-rose-600 dark:text-rose-300">Design Studio could not start</p><h2 class="mt-2 text-2xl font-black">The editor hit a loading error.</h2><p class="mt-2 text-base text-slate-600 dark:text-slate-300">Refresh this page to retry. Social Scheduler remains available separately.</p><button type="button" class="mt-5 rounded-2xl border border-slate-300 bg-white/70 px-5 py-3 text-sm font-bold shadow-sm dark:border-white/15 dark:bg-white/10" onclick="location.reload()">Refresh Design Studio</button></div>`;
+  if (typeof showToast === 'function') showToast('Design Studio could not start. Refresh to retry.', 'error');
+}
+
 window.ensureOpenMarketSyncStudio = function ensureOpenMarketSyncStudio(designId, opts) {
   const run = () => {
     const fn = window.__msOpenStudioReal || (typeof window.openMarketSyncStudio === 'function' && window.openMarketSyncStudio !== ensureOpenMarketSyncStudio ? window.openMarketSyncStudio : null);
@@ -2538,14 +2545,15 @@ window.ensureOpenMarketSyncStudio = function ensureOpenMarketSyncStudio(designId
           'js/design-studio/state/document-schema.js', 'js/design-studio/state/history-store.js', 'js/design-studio/state/studio-store.js', 'js/design-studio/editor/canvas-engine.js', 'js/design-studio/editor/selection-engine.js', 'js/design-studio/editor/transform-engine.js', 'js/design-studio/editor/snapping-engine.js', 'js/design-studio/editor/keyboard-engine.js', 'js/design-studio/panels/layers-panel.js', 'js/design-studio/panels/properties-panel.js', 'js/design-studio/panels/assets-panel.js', 'js/design-studio/panels/templates-panel.js', 'js/design-studio/panels/brand-panel.js', 'js/design-studio/panels/pages-panel.js', 'js/design-studio/panels/history-panel.js', 'js/design-studio/services/autosave-service.js', 'js/design-studio/services/version-service.js', 'js/design-studio/services/media-service.js', 'js/design-studio/services/export-service.js', 'js/design-studio/services/publishing-service.js', 'js/design-studio/services/ai-service.js', 'js/design-studio/studio-shell.js'
         ].map(path => window.msLoadScript(`${path}?v=20260830_prostudio`))))
         .then(() => window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260830_prostudio'))
-        .then(() => window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260829_pinterest_v1'))
-        .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260830_prostudio'))
+        .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260830_bootfix'))
     : Promise.resolve();
   return Promise.resolve(load).then(() => {
     if (typeof window.openMarketSyncStudio === 'function' && window.openMarketSyncStudio !== ensureOpenMarketSyncStudio) {
       window.__msOpenStudioReal = window.openMarketSyncStudio;
     }
     run();
-  }).catch(run);
+  }).catch((error) => {
+    renderMarketSyncStudioBootError(error);
+  });
 };
 if (typeof window.openMarketSyncStudio !== 'function') window.openMarketSyncStudio = window.ensureOpenMarketSyncStudio;
