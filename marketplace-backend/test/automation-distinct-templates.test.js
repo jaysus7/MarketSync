@@ -40,7 +40,10 @@ test('Automation Templates — Every workflow in ALL_AUTOMATIONS_CATALOG is uniq
 });
 
 test('Communication Templates — DEFAULT_COMMUNICATION_TEMPLATES contains distinct layouts and preview blocks', async (t) => {
-  const p18Src = fs.readFileSync(path.join(__dirname, '../../marketplace-frontend/js/modules/dashboard-part18.js'), 'utf8');
+  // The template CONTENT now lives in js/data/, separated from Dealer OS chrome so the
+  // no-emoji interface rule does not strip marketing copy out of campaign subject
+  // lines. The assertions below are unchanged: same templates, same strictness.
+  const p18Src = fs.readFileSync(path.join(__dirname, '../../marketplace-frontend/js/data/communication-templates.js'), 'utf8');
 
   assert.ok(p18Src.includes('DEFAULT_COMMUNICATION_TEMPLATES = ['), 'DEFAULT_COMMUNICATION_TEMPLATES is defined');
   assert.ok(p18Src.includes('tpl_lead_90s'), 'Contains 90-second rapid lead response template');
