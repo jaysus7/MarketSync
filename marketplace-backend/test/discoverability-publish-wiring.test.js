@@ -26,12 +26,38 @@ test('queuing validation never blocks a dealership from publishing', () => {
   assert.match(block.slice(0, 600), /catch \(validationError\)/)
 })
 
+test('every deployment status written is one the schema permits', () => {
+  // website_deployments.status carries a CHECK constraint. A value outside it does not
+  // degrade - the insert is rejected outright, so publish or rollback fails. The table
+  // does not exist on staging yet, so an illegal value would have stayed invisible
+  // until the control-plane migration landed.
+  const allowed = new Set([
+    'draft', 'queued', 'building', 'build_failed', 'built',
+    'deploying', 'deployment_failed', 'deployed',
+    'verifying', 'verified', 'verification_failed', 'rolled_back'
+  ])
+  // Scan each website_deployments statement in isolation; a window that runs on picks
+  // up statuses belonging to other tables.
+  const written = new Set()
+  for (const match of siteRoute.matchAll(/from\('website_deployments'\)[\s\S]{0,900}?\}\)/g)) {
+    for (const hit of match[0].matchAll(/status: (?:verified \? '([a-z_]+)' : '([a-z_]+)'|'([a-z_]+)')/g)) {
+      for (const value of [hit[1], hit[2], hit[3]]) if (value) written.add(value)
+    }
+  }
+  assert.ok(written.size > 0, 'sanity: deployment statuses should be found')
+  for (const status of written) {
+    assert.ok(allowed.has(status), `deployment status '${status}' violates the website_deployments CHECK constraint`)
+  }
+})
+
 test('a publish no longer certifies itself as verified', () => {
   // The deployment record used to be written with status verified and
   // "Database-backed public site state confirmed" at publish time, having looked at
   // nothing. A database write is not evidence the public site changed.
   assert.doesNotMatch(siteRoute, /Database-backed public site state confirmed/)
   assert.match(siteRoute, /Published — awaiting public validation/)
+  // 'deployed' is the schema's value for deployed-but-unverified.
+  assert.match(siteRoute, /trigger_type: 'publish',[\s\S]{0,300}?status: 'deployed'/)
 })
 
 test('the public dealer site exposes no crawlable metadata (known blocker)', () => {
@@ -56,7 +82,7 @@ test('a rollback is not complete until publicly verified', () => {
   // Batch 8: restoring a revision and republishing is not a finished rollback. The
   // rollback deployment used to be written as verified in the same statement that
   // created it.
-  assert.match(siteRoute, /trigger_type: 'rollback', status: 'published_pending_validation'/)
+  assert.match(siteRoute, /trigger_type: 'rollback', status: 'deployed'/)
   assert.match(siteRoute, /Rolled back — awaiting public verification/)
   const block = siteRoute.slice(siteRoute.indexOf("trigger_type: 'rollback'"))
   assert.match(block.slice(0, 1600), /await orchestratePublishValidation\(\{/)

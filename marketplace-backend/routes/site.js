@@ -895,7 +895,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       await promoteDealerWebsiteContent(req.dealershipId, source.content)
       const now = new Date().toISOString()
       const { data: rollbackDeployment, error: rollbackDeploymentError } = await supabaseAdmin.from('website_deployments').insert({
-        site_id: req.dealershipId, trigger_type: 'rollback', status: 'published_pending_validation',
+        site_id: req.dealershipId, trigger_type: 'rollback', status: 'deployed',
         published_summary: { revision_id: restored.id, revision_number: restored.revision_number, rollback_source_revision_id: revisionId, change_summary: `Rolled back to revision ${source.revision_number}` },
         // Restoring a revision and republishing is not a completed rollback. Only a
         // public recrawl showing the original state restored can close it.
@@ -941,7 +941,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
         ? `Database-backed production projection confirmed at revision ${live.revision_number}`
         : 'Production projection does not match the deployment revision'
       const { data: updated, error: updateError } = await supabaseAdmin.from('website_deployments').update({
-        status: verified ? 'verified' : 'failed', verified_at: new Date().toISOString(), verified_status: verifiedStatus, updated_at: new Date().toISOString(),
+        status: verified ? 'verified' : 'verification_failed', verified_at: new Date().toISOString(), verified_status: verifiedStatus, updated_at: new Date().toISOString(),
       }).eq('id', deployment.id).eq('site_id', req.dealershipId).select('id, status, trigger_type, published_summary, deployed_at, verified_at, verified_status').single()
       if (updateError) throw updateError
       audit(req, verified ? 'site.deployment_verified' : 'site.deployment_verification_failed', { after_state: { deployment_id: deployment.id, revision_id: live?.id || null, expected_revision_id: expectedRevisionId || null, verified } })
@@ -1131,7 +1131,9 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
         site_id: req.dealershipId,
         change_set_id: approvedChangeSet?.id || null,
         trigger_type: 'publish',
-        status: 'verified',
+        // 'deployed' is the constraint's value for deployed-but-unverified. It becomes
+        // 'verified' only once a live recrawl proves the change is public.
+        status: 'deployed',
         published_summary: { revision_id: revisionInfo.id, revision_number: revisionInfo.number, change_summary: rawBody.change_summary || 'Published website builder changes' },
         deployed_at: new Date().toISOString(),
         // A publish is not a verification. Nothing has looked at the public site yet,
