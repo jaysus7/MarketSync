@@ -6,6 +6,7 @@
  *   2. Template CRUD & Stock Automotive Templates: `GET /marketing/studio/templates`
  *   3. Free Asset Library Proxy & Import: `GET /marketing/studio/library/search`, `POST /marketing/studio/library/import`
  *   4. Server Scene Renderer: `POST /marketing/studio/render` (renders full MarketSync scene JSON to WebP in marketing_assets)
+ *   5. Project Organization: tenant-scoped folders and design drag/drop assignment
  */
 
 import { supabaseAdmin } from '../shared.js'
@@ -339,6 +340,79 @@ export function registerMarketingStudio(app) {
     res.json({ ok: true, asset: data })
   })
 
+  // ── Studio Project Folders ───────────────────────────────────────────────
+  app.get('/marketing/studio/folders', requireAuth, requireMfa, canView, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data, error } = await supabaseAdmin.from('studio_project_folders')
+      .select('id, name, color, position, created_at, updated_at')
+      .eq('dealership_id', req.dealershipId)
+      .is('deleted_at', null)
+      .order('position', { ascending: true })
+      .order('created_at', { ascending: true })
+    if (error) {
+      if (isMissingTableError(error)) return res.json({ folders: [] })
+      return res.status(500).json({ error: error.message })
+    }
+    res.json({ folders: data || [] })
+  })
+
+  app.post('/marketing/studio/folders', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const name = String(req.body?.name || '').trim().slice(0, 80)
+    const color = /^#[0-9a-f]{6}$/i.test(String(req.body?.color || '')) ? String(req.body.color) : '#2563eb'
+    if (!name) return res.status(400).json({ error: 'Folder name is required.' })
+    const { data, error } = await supabaseAdmin.from('studio_project_folders').insert({
+      dealership_id: req.dealershipId,
+      name,
+      color,
+      position: Number.isFinite(Number(req.body?.position)) ? Number(req.body.position) : 0,
+      created_by: req.user?.id || null,
+    }).select('id, name, color, position, created_at, updated_at').single()
+    if (error) {
+      if (error.code === '23505') return res.status(409).json({ error: 'A folder with that name already exists.' })
+      if (isMissingTableError(error)) return res.status(503).json({ error: 'Project folders are not available on this environment yet.' })
+      return res.status(500).json({ error: error.message })
+    }
+    audit(req, 'marketing.studio_folder_created', { after_state: { id: data.id, name: data.name } })
+    res.json({ ok: true, folder: data })
+  })
+
+  app.put('/marketing/studio/folders/:id', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const updates = { updated_at: new Date().toISOString() }
+    if (req.body?.name !== undefined) {
+      updates.name = String(req.body.name || '').trim().slice(0, 80)
+      if (!updates.name) return res.status(400).json({ error: 'Folder name is required.' })
+    }
+    if (req.body?.color !== undefined && /^#[0-9a-f]{6}$/i.test(String(req.body.color))) updates.color = String(req.body.color)
+    if (req.body?.position !== undefined && Number.isFinite(Number(req.body.position))) updates.position = Number(req.body.position)
+    const { data, error } = await supabaseAdmin.from('studio_project_folders').update(updates)
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null)
+      .select('id, name, color, position, created_at, updated_at').single()
+    if (error) {
+      if (error.code === '23505') return res.status(409).json({ error: 'A folder with that name already exists.' })
+      return res.status(500).json({ error: error.message })
+    }
+    audit(req, 'marketing.studio_folder_updated', { after_state: { id: data.id, fields: Object.keys(updates) } })
+    res.json({ ok: true, folder: data })
+  })
+
+  app.delete('/marketing/studio/folders/:id', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data: folder, error: findError } = await supabaseAdmin.from('studio_project_folders').select('id, name')
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
+    if (findError) return res.status(500).json({ error: findError.message })
+    if (!folder) return res.status(404).json({ error: 'Folder not found.' })
+    const { error: moveError } = await supabaseAdmin.from('studio_designs').update({ folder_id: null, updated_at: new Date().toISOString() })
+      .eq('dealership_id', req.dealershipId).eq('folder_id', folder.id).is('deleted_at', null)
+    if (moveError) return res.status(500).json({ error: moveError.message })
+    const { error } = await supabaseAdmin.from('studio_project_folders').update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', folder.id).eq('dealership_id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'marketing.studio_folder_deleted', { before_state: { id: folder.id, name: folder.name } })
+    res.json({ ok: true })
+  })
+
   // ── Studio Designs CRUD ───────────────────────────────────────────────────
   app.get('/marketing/studio/designs', requireAuth, requireMfa, canView, async (req, res) => {
     if (!guard(req, res)) return
@@ -574,12 +648,19 @@ export function registerMarketingStudio(app) {
       scene: req.body?.scene,
       vehicle_id: req.body?.vehicle_id,
       campaign_id: req.body?.campaign_id,
+      folder_id: req.body?.folder_id,
       updated_at: new Date().toISOString(),
       last_saved_by: req.user?.id || null
     }
     Object.keys(updates).forEach(k => updates[k] === undefined && delete updates[k])
 
     try {
+      if (Object.hasOwn(updates, 'folder_id') && updates.folder_id !== null) {
+        const { data: folder, error: folderError } = await supabaseAdmin.from('studio_project_folders').select('id')
+          .eq('id', updates.folder_id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
+        if (folderError) throw folderError
+        if (!folder) return res.status(400).json({ error: 'Choose a valid project folder.' })
+      }
       const { data, error } = await supabaseAdmin.from('studio_designs')
         .update(updates)
         .eq('id', req.params.id)

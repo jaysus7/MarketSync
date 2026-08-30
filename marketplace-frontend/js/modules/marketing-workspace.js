@@ -1237,9 +1237,68 @@ ENGINES['marketing-overview'] = {
     studio(body, d) {
       body.innerHTML = `
         <div class="space-y-4">
-          ${typeof mktSuiteBand === 'function' ? mktSuiteBand('Creative', 'Design Studio', 'Brand kit and assets used on Settings, Website, and the canvas.', '<button type="button" onclick="openMarketSyncStudio()" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Open Studio Canvas</button>') : ''}
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <section class="ms-c ms-c--standard ms-c--glass p-4 space-y-3">
+          ${typeof mktSuiteBand === 'function' ? mktSuiteBand('Creative', 'Design Studio', 'Your saved projects, dealership assets, Brand Kit, and editable canvas in one workspace.', '<button type="button" onclick="openMarketSyncStudio()" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Create design</button>') : ''}
+          <section class="ms-c ms-c--standard ms-c--glass p-4 md:p-5 space-y-4" aria-labelledby="mkt-studio-projects-heading">
+            <div class="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <div class="text-[11px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-300">Projects</div>
+                <h3 id="mkt-studio-projects-heading" class="text-xl font-black text-slate-950 dark:text-white">My projects</h3>
+                <p class="text-sm text-slate-600 dark:text-slate-300">Open saved designs or drag them into folders to stay organized.</p>
+              </div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <button type="button" onclick="mktShowNewStudioFolderForm()" class="liquid-glass-btn px-3 py-2 rounded-xl text-sm font-black inline-flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5A2.5 2.5 0 015.5 5H10l2 2h6.5A2.5 2.5 0 0121 9.5v7A2.5 2.5 0 0118.5 19h-13A2.5 2.5 0 013 16.5v-9zM12 11v5m-2.5-2.5h5"/></svg>
+                  New folder
+                </button>
+                <button type="button" onclick="openMarketSyncStudio()" class="liquid-glass-btn px-3 py-2 rounded-xl text-sm font-black inline-flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14"/></svg>
+                  New design
+                </button>
+              </div>
+            </div>
+            <div id="mkt-studio-new-folder" class="hidden rounded-2xl border border-blue-200/70 dark:border-blue-500/30 bg-blue-50/70 dark:bg-blue-950/20 p-3">
+              <form onsubmit="mktCreateStudioFolder(event)" class="flex items-end gap-2 flex-wrap">
+                <label class="min-w-0 flex-1 text-xs font-black text-slate-700 dark:text-slate-200">Folder name<input id="mkt-studio-folder-name" maxlength="80" autocomplete="off" placeholder="Example: Weekend campaigns" class="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white/80 dark:bg-slate-950/70 text-base"></label>
+                <label class="text-xs font-black text-slate-700 dark:text-slate-200">Colour<input id="mkt-studio-folder-color" type="color" value="#2563eb" class="mt-1 block w-12 h-11 rounded-xl border border-slate-300 dark:border-slate-700 bg-white"></label>
+                <button class="liquid-glass-btn px-4 py-2.5 rounded-xl text-sm font-black" type="submit">Create folder</button>
+                <button class="px-3 py-2.5 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300" type="button" onclick="mktHideNewStudioFolderForm()">Cancel</button>
+              </form>
+            </div>
+            <div class="flex items-center gap-3 flex-wrap">
+              <label class="relative min-w-[220px] flex-1 max-w-xl">
+                <span class="sr-only">Search projects</span>
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="m20 20-3.5-3.5"/></svg>
+                <input type="search" oninput="mktFilterStudioProjects(this.value)" placeholder="Search your projects" class="w-full pl-10 pr-3 py-2.5 rounded-2xl border border-white/50 dark:border-white/10 bg-white/60 dark:bg-slate-950/50 text-base shadow-sm">
+              </label>
+              <div id="mkt-studio-project-count" class="text-sm font-bold text-slate-500 dark:text-slate-400">Loading projects…</div>
+            </div>
+            <div id="mkt-studio-folders" class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3" aria-label="Project folders"><div class="col-span-full py-4 text-sm text-slate-400">Loading folders…</div></div>
+            <div id="mkt-studio-projects" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3" aria-live="polite"><div class="col-span-full py-10 text-center text-sm text-slate-400">Loading your projects…</div></div>
+          </section>
+          <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <section class="xl:col-span-2 ms-c ms-c--standard ms-c--glass p-4 md:p-5 space-y-3" aria-labelledby="mkt-studio-assets-heading">
+              <div class="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <div class="text-[11px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-300">My assets / library</div>
+                  <h3 id="mkt-studio-assets-heading" class="text-xl font-black text-slate-950 dark:text-white">Photos, logos and videos</h3>
+                  <p class="text-sm text-slate-600 dark:text-slate-300">Your reusable dealership media for Studio, Scheduler, campaigns, and Website.</p>
+                </div>
+                <label class="liquid-glass-btn px-3 py-2 rounded-xl text-sm font-black cursor-pointer inline-flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 002 2h10a2 2 0 002-2v-4"/></svg>
+                  Upload asset<input type="file" class="hidden" accept="image/*,video/*" onchange="mktUploadStudioAsset(this)">
+                </label>
+              </div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <input type="search" oninput="mktFilterStudioAssets(this.value)" placeholder="Search my assets" class="min-w-[200px] flex-1 px-3 py-2.5 rounded-2xl border border-white/50 dark:border-white/10 bg-white/60 dark:bg-slate-950/50 text-base shadow-sm">
+                <div class="inline-flex rounded-2xl border border-white/50 dark:border-white/10 bg-white/50 dark:bg-slate-950/40 p-1">
+                  <button type="button" data-studio-asset-kind="all" onclick="mktSetStudioAssetKind('all')" class="px-3 py-1.5 rounded-xl text-xs font-black">All</button>
+                  <button type="button" data-studio-asset-kind="image" onclick="mktSetStudioAssetKind('image')" class="px-3 py-1.5 rounded-xl text-xs font-black">Images</button>
+                  <button type="button" data-studio-asset-kind="video" onclick="mktSetStudioAssetKind('video')" class="px-3 py-1.5 rounded-xl text-xs font-black">Videos</button>
+                </div>
+              </div>
+              <div id="mkt-studio-assets" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">Loading assets…</div>
+            </section>
+            <section class="ms-c ms-c--standard ms-c--glass p-4 md:p-5 space-y-3">
               <div class="flex items-center justify-between">
                 <div>
                   <div class="text-[11px] font-black uppercase tracking-wider text-slate-500">Brand kit</div>
@@ -1248,16 +1307,6 @@ ENGINES['marketing-overview'] = {
                 <button type="button" onclick="mktSaveStudioBrand()" class="liquid-glass-btn px-3 py-1.5 rounded-lg text-xs font-black">Save brand</button>
               </div>
               <div id="mkt-studio-brand" class="space-y-3 text-sm">Loading brand…</div>
-            </section>
-            <section class="ms-c ms-c--standard ms-c--glass p-4 space-y-3">
-              <div class="flex items-center justify-between">
-                <div>
-                  <div class="text-[11px] font-black uppercase tracking-wider text-slate-500">Assets library</div>
-                  <div class="text-sm text-slate-500">Logos, photos, and clips used in Studio and posts.</div>
-                </div>
-                <label class="liquid-glass-btn px-3 py-1.5 rounded-lg text-xs font-black cursor-pointer">Upload<input type="file" class="hidden" accept="image/*,video/*" onchange="mktUploadStudioAsset(this)"></label>
-              </div>
-              <div id="mkt-studio-assets" class="grid grid-cols-2 md:grid-cols-3 gap-2">Loading assets…</div>
             </section>
           </div>
         </div>`;
