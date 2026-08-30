@@ -17,6 +17,12 @@ import {
   generateWeeklyDiscoverabilityReport,
   getRollbackSnapshot
 } from '../services/recommendationEngine.js'
+import {
+  enqueueRecommendation,
+  transitionQueue,
+  getAutopilotQueue,
+  getAutopilotAuditTrail
+} from '../services/discoverabilityAutopilotService.js'
 
 /**
  * MarketSync Discoverability Intelligence API Router
@@ -821,5 +827,30 @@ export default function registerDiscoverabilityRoutes(app) {
       timestamp,
       message: `Action "${action_type}" successfully executed.`
     })
+  })
+
+  // ── 21. Batch 8A durable Autopilot core ───────────────────────────────────
+  app.get('/discoverability/autopilot/queue', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    try { res.json({ success: true, queue: await getAutopilotQueue(req.dealershipId, { status: req.query.status || null, limit: req.query.limit }) }) } catch (error) { res.status(503).json({ error: 'Autopilot queue is unavailable', detail: error.message }) }
+  })
+
+  app.post('/discoverability/autopilot/queue', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    try {
+      const result = await enqueueRecommendation({ dealershipId: req.dealershipId, recommendation: req.body?.recommendation || {}, findings: req.body?.findings || [], mode: req.body?.mode || 'recommend', external: req.body?.external === true, idempotencyKey: req.body?.idempotencyKey })
+      res.status(201).json({ success: true, ...result })
+    } catch (error) { res.status(400).json({ error: error.message }) }
+  })
+
+  app.post('/discoverability/autopilot/queue/:id/transition', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    if (!req.body?.to) return res.status(400).json({ error: 'to status is required' })
+    try { res.json({ success: true, queue: await transitionQueue({ dealershipId: req.dealershipId, queueId: req.params.id, to: req.body.to, evidence: req.body.evidence || null, actorId: req.user?.id || null }) }) } catch (error) { res.status(400).json({ error: error.message }) }
+  })
+
+  app.get('/discoverability/autopilot/queue/:id/audit', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    try { res.json({ success: true, audit: await getAutopilotAuditTrail(req.dealershipId, req.params.id) }) } catch (error) { res.status(503).json({ error: 'Autopilot audit trail is unavailable', detail: error.message }) }
   })
 }
