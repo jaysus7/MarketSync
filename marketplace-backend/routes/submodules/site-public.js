@@ -1,4 +1,5 @@
-import { supabaseAdmin, resend, EMAIL_FROM } from '../../shared.js'
+import { supabaseAdmin, resend, EMAIL_FROM, PUBLIC_SITE_ORIGIN } from '../../shared.js'
+import { buildDealerSiteMetadata, renderDealerSiteHead } from '../../services/dealerSiteHeadService.js'
 import { findOrCreateContact } from '../crm.js'
 import { enqueueForTrigger } from '../automation.js'
 import { routeAndNotifyLead } from '../../lead-routing.js'
@@ -241,6 +242,39 @@ export function registerSitePublicRoutes(app) {
     const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS).ilike('site_slug', slug).maybeSingle()
     if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
     res.json(await buildSiteResponse(d))
+  })
+
+  // Server-rendered <head> metadata for the public site shell.
+  //
+  // site.html injects its title/description/canonical/schema with JavaScript, so every
+  // crawler that does not execute JS sees the placeholder <title>Inventory</title> and
+  // nothing else. This endpoint exposes the real metadata, computed from the same
+  // published payload the client renders from, so an edge worker (or an origin serving
+  // the shell) can put it in the HTML before it reaches a crawler.
+  app.get('/site/:slug/head-metadata', rateLimit('pub-site-head', 240, 60000), async (req, res) => {
+    const slug = String(req.params.slug || '').toLowerCase().trim()
+    if (!slug) return res.status(404).json({ error: 'Not found' })
+    const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS).ilike('site_slug', slug).maybeSingle()
+    if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
+    const response = await buildSiteResponse(d)
+    const metadata = buildDealerSiteMetadata(response.site, { publicSiteOrigin: PUBLIC_SITE_ORIGIN })
+    res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600')
+    res.json({ ...metadata, head_html: renderDealerSiteHead(metadata) })
+  })
+
+  // Custom-domain twin of /site/:slug/head-metadata, mirroring how /site-by-domain
+  // pairs with /site/:slug. A dealer site served from its own domain has no slug in
+  // the URL, so the edge resolves it by hostname instead.
+  app.get('/site-head-metadata', rateLimit('pub-site-head-domain', 240, 60000), async (req, res) => {
+    const host = String(req.query.host || '').toLowerCase().trim().replace(/^www\./, '').replace(/:\d+$/, '')
+    if (!host) return res.status(404).json({ error: 'Not found' })
+    const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS)
+      .or(`custom_domain.ilike.${host},custom_domain.ilike.www.${host}`).maybeSingle()
+    if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
+    const response = await buildSiteResponse(d)
+    const metadata = buildDealerSiteMetadata(response.site, { publicSiteOrigin: PUBLIC_SITE_ORIGIN })
+    res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600')
+    res.json({ ...metadata, head_html: renderDealerSiteHead(metadata) })
   })
 
   // Machine-readable Discovery surface. SEO and Discovery consume the same

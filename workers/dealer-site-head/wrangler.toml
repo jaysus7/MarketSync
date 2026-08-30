@@ -1,0 +1,27 @@
+name = "marketsync-dealer-site-head"
+main = "src/index.js"
+compatibility_date = "2026-08-30"
+
+# Routes are intentionally NOT declared here.
+#
+# Dealer custom domains are provisioned at runtime through Cloudflare for SaaS (see
+# cfCreateHostname in marketplace-backend/routes/site.js), so the set of hostnames this
+# worker must cover changes whenever a dealership connects a domain. Pinning them in a
+# committed file would go stale the first time that happens.
+#
+# Bind the worker to the hosted origin route, and to the custom-hostname fallback
+# origin, from the dashboard or via `wrangler deploy --route`. See README.md.
+
+[vars]
+# Backend origin that serves the metadata endpoints. No secret: both endpoints are
+# public and already rate-limited, and they expose only what the rendered page shows.
+API_ORIGIN = "https://api.marketsync.link"
+
+# The hosted public-site host. A shell request to this host without a ?d= slug
+# identifies no dealership, so the worker leaves it alone rather than guessing.
+PUBLIC_SITE_HOST = "sites.marketsync.link"
+
+[env.staging]
+[env.staging.vars]
+API_ORIGIN = "https://api-staging.marketsync.link"
+PUBLIC_SITE_HOST = "sites-staging.marketsync.link"
