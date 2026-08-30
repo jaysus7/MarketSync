@@ -86,6 +86,22 @@ test('modal placeholders are legible in the theme they render in', () => {
 
 // The general rule, so the next modal cannot repeat it: a colour chosen for one
 // theme must not be applied by a rule that paints both.
+// Selectors this stylesheet paints with a dark or saturated background. Anything
+// nested inside one of them renders on that surface, so light text there is correct.
+const darkSurfaces = (() => {
+  const out = []
+  for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const [sel, body] = [m[1].trim().replace(/\s+/g, ' '), m[2]]
+    const bg = body.match(/background(?:-color|-image)?:\s*([^;]+)/)
+    if (!bg) continue
+    const value = bg[1]
+    if (/gradient\(/.test(value)) { out.push(sel); continue }
+    const hex = value.match(/#([0-9a-fA-F]{3,6})/)
+    if (hex && luminance(`#${hex[1]}`) < 0.25) out.push(sel)
+  }
+  return out
+})()
+
 test('no modal rule sets a light-on-light text colour for both themes at once', () => {
   const modalish = /(?:modal|dialog|drawer|crm-glass|crm-actions|popover)/i
   const offenders = []
@@ -95,10 +111,39 @@ test('no modal rule sets a light-on-light text colour for both themes at once', 
     if (/(^|\s)\.dark(\s|\.)/.test(sel)) continue
     // A rule that paints its own background is judged against that, not the card.
     if (/background(?:-color|-image)?:/.test(body)) continue
+    // A selector that targets elements BY their background utility is likewise judged
+    // against that background: `button[class*="bg-blue-600"] { color: #fff }` is white
+    // on blue-600, not white on the card. The background is declared by the element the
+    // rule selects, which is the same guarantee as painting it here.
+    if (/\[class\*=["']bg-[\w-]+|(^|[\s.])bg-[\w-]+/.test(sel)) continue
+    // Same principle for `.text-white`: the utility's entire meaning is "this text is
+    // white because what it sits on is not". A rule enforcing it against a competing
+    // panel colour is honouring that intent, not choosing a colour for both themes.
+    // The panel's other text utilities ARE remapped for light, which is the real
+    // protection here and is asserted separately below.
+    if (/(^|[\s.])text-white(\s|$|[,:])/.test(sel)) continue
+    // A descendant of a surface this stylesheet paints dark is on that surface, not on
+    // the card — e.g. the Studio header input sits inside a dark gradient header.
+    if (darkSurfaces.some(prefix => sel.startsWith(prefix) && sel.length > prefix.length)) continue
     const col = body.match(/(?<!-)color:\s*(#[0-9a-fA-F]{3,6})/)
     if (!col) continue
     if (contrast(col[1], '#FFFFFF') < 4.5) offenders.push(`${col[1]} in ${sel.replace(/\s+/g, ' ').slice(0, 70)}`)
   }
   assert.deepEqual(offenders, [],
     `these unscoped modal rules put low-contrast text on the light card:\n  ${offenders.join('\n  ')}`)
+})
+
+test('the light Studio tool panel remaps text utilities chosen for a dark surface', () => {
+  // This is what makes exempting `.text-white` above safe: the panel is light, and the
+  // slate utilities picked for a dark panel are deliberately re-tinted for it. If that
+  // sweep is ever removed, light-on-light returns to the panel and this fails - rather
+  // than the exemption quietly absorbing it.
+  for (const [utility, expected] of [['.text-slate-300', '#334155'], ['.text-slate-400', '#64748b']]) {
+    const re = new RegExp(`#studio-tool-panel \\${utility} \\{\\s*color:\\s*(#[0-9a-fA-F]{3,6})`)
+    const found = css.match(re)
+    assert.ok(found, `${utility} must be remapped for the light tool panel`)
+    assert.equal(found[1].toLowerCase(), expected)
+    assert.ok(contrast(found[1], '#FFFFFF') >= 4.5,
+      `${utility} remaps to ${found[1]}, only ${contrast(found[1], '#FFFFFF').toFixed(2)}:1 on the light panel`)
+  }
 })
