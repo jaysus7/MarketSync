@@ -10,6 +10,7 @@ import { sendEmail } from '../securityAlerts.js'
 import { ensureGetReadyCard } from './recon.js'
 import { emitWebhook } from '../webhooks.js'
 import { emitEvent } from './events.js'
+import { notifyDealDelivered } from '../notifications.js'
 import { dealSettlement } from './dashboard.js'
 
 const FNI_NOTIFICATION_ROLES = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'FNI']
@@ -436,7 +437,7 @@ export function registerFni(app) {
   app.post('/fni/deals/:id/delivered', requireAuth, requireMfa, requirePermission('deal.finalize'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership associated' })
     const { data: deal } = await supabaseAdmin.from('deals')
-      .select('id, inventory_id, contact_id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+      .select('id, deal_number, inventory_id, contact_id, created_by').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!deal) return res.status(404).json({ error: 'Deal not found' })
     const now = new Date().toISOString()
     await supabaseAdmin.from('deals').update({ deal_status: 'delivered', delivered_at: now, updated_at: now })
@@ -446,6 +447,9 @@ export function registerFni(app) {
     if (deal.contact_id) await supabaseAdmin.from('contacts').update({ status: 'delivered', updated_at: now })
       .eq('id', deal.contact_id).eq('dealership_id', req.dealershipId)
     emitWebhook(req.dealershipId, 'deal.delivered', { deal_id: deal.id, contact_id: deal.contact_id || null, inventory_id: deal.inventory_id || null, at: now })
+    // Same "sold & delivered" alert the Delivery queue raises — this is the other
+    // path a car can reach delivered through, so it must notify identically.
+    await notifyDealDelivered({ dealershipId: req.dealershipId, deal })
     // Emit to the spine so every engine reacts uniformly: the Accounting Engine posts
     // the delivery journal, the Commission Engine calculates, and the Integration Engine
     // syncs to external books. No direct cross-engine calls (kernel contract §3/§4).
