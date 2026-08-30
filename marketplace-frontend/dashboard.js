@@ -1727,8 +1727,12 @@ function restrictedNavPages() {
     return ['marketing-overview', 'email-marketing', 'video-studio', 'website', 'ai-home', 'inventory', 'leaderboard']
       .filter(p => __productAllowedPages.has(p)).map(p => meta[p]);
   }
-  // Legacy pure fb_only accounts with no product set: the same two Facebook items.
-  if (__fbOnly) return [INV('Inventory'), LEADER];
+  // Legacy pure fb_only accounts with no product set: the same two Facebook items,
+  // with the per-role split the header comment above describes. A rep's Facebook
+  // surface is their own listings, so their nav says so; an owner/admin/manager sees
+  // the store's. (`canManageTeam` is declared for exactly this and had no other
+  // reader, which is how the distinction went missing.)
+  if (__fbOnly) return canManageTeam ? [INV('Inventory'), LEADER] : [INV('My Inventory'), LEADER];
   return null;
 }
 window.restrictedNavPages = restrictedNavPages;

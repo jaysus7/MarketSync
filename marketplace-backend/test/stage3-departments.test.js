@@ -98,11 +98,14 @@ test('Inventory Work exposes the vehicle lifecycle', () => {
   for (const heading of ['Vehicles']) {
     assert.ok(fn.includes(heading), `Inventory (work tab) must still cover ${heading}`)
   }
-  for (const heading of ['Acquisition', 'Merchandising', 'Pricing and age', 'Cleanup', 'Reconditioning']) {
+  // 'Pricing and age' is now titled 'Pricing & Age Alignment'. Both lists below use
+  // the live wording: with the old string, the negative assertion could never fail
+  // again, so a Pricing section leaking back into the list tab would go unnoticed.
+  for (const heading of ['Acquisition', 'Merchandising', 'Pricing & Age', 'Cleanup', 'Reconditioning']) {
     assert.ok(!fn.includes(heading), `${heading} must not render in the Inventory list tab`)
   }
   const engineBlock = inv.slice(inv.indexOf("ENGINES['inventory-overview']"))
-  for (const heading of ['Acquisition', 'Merchandising', 'Pricing and age']) {
+  for (const heading of ['Acquisition', 'Merchandising', 'Pricing & Age']) {
     assert.ok(engineBlock.includes(heading), `Pulse (overview) must cover ${heading}`)
   }
   assert.match(fn, /engMountPage\(body, 'inventory'/, 'adding and removing vehicles happens here')

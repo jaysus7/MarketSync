@@ -20,9 +20,16 @@ test('the top-level Settings hub uses real column-based masonry, not a rigid gri
   assert.match(hub, /break-inside-avoid mb-3 rounded-xl/, 'each Settings hub section card should avoid breaking across columns')
 })
 
-test('Website Setup & Configuration uses real column-based masonry, not a rigid grid', () => {
+// Website Setup went the other way, deliberately and later: its own source marks the
+// grid as "replaces uneven masonry columns". The dead-space objection above does not
+// apply to it because its cards are built for a grid — `flex flex-col justify-between
+// h-full` stretches each card to its row and pins the action to the bottom, so a
+// shorter card fills its cell instead of leaving a gap. This asserts that pairing,
+// since the grid without it is exactly the layout the hub above rejects.
+test('Website Setup & Configuration uses an even grid whose cards fill their row', () => {
   const setup = dashboardPart17.slice(dashboardPart17.indexOf('function wsSetup'), dashboardPart17.indexOf('function wsSetup') + 6000)
-  assert.match(setup, /columns-1 md:columns-2 lg:columns-3 gap-5/, 'Website Setup container should use CSS multi-column, not grid-cols')
-  assert.doesNotMatch(setup, /grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5/, 'Website Setup should no longer use a rigid grid container')
-  assert.match(setup, /break-inside-avoid mb-5 bg-white/, 'each Website Setup card should avoid breaking across columns')
+  assert.match(setup, /grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5/, 'Website Setup should use an even responsive grid')
+  assert.match(setup, /flex flex-col justify-between gap-4 h-full/,
+    'each card must stretch to its row and pin its action to the bottom, or the grid leaves dead space under short cards')
+  assert.doesNotMatch(setup, /columns-1 md:columns-2/, 'the multi-column masonry it replaced must not come back alongside the grid')
 })
