@@ -143,7 +143,7 @@ test('Sales Marketing Suite navigation and workspace isolation', (t) => {
   assert.ok(pageLabels.includes('Campaigns'));
   assert.ok(pageLabels.includes('Automations'));
   assert.ok(pageLabels.includes('Design Studio'));
-  assert.ok(pageLabels.includes('Social Scheduler'));
+  assert.ok(pageLabels.includes('Social Studio & Scheduler'));
   assert.ok(pageLabels.includes('Video'));
   // Performance was a dead-end destination (pointed at a fabricated demo table) — every
   // suite's performance metrics live on Pulse instead, not a separate nav entry.
@@ -152,7 +152,7 @@ test('Sales Marketing Suite navigation and workspace isolation', (t) => {
   const pulse = pages.find(p => p.label === 'Pulse');
   assert.deepEqual({ page: pulse.page, tab: pulse.tab }, { page: 'marketing-overview', tab: 'overview' });
   const automations = pages.find(p => p.label === 'Automations');
-  assert.deepEqual({ page: automations.page, tab: automations.tab }, { page: 'automation-builder', tab: 'automations' });
+  assert.deepEqual({ page: automations.page, tab: automations.tab }, { page: 'automation-builder', tab: 'overview' });
 
   // Must NOT include Service-specific or Digital/DealerOS items
   assert.equal(pageLabels.includes('Service Marketing'), false);
@@ -190,7 +190,7 @@ test('Service Marketing Suite navigation and workspace isolation', (t) => {
   assert.ok(pageLabels.includes('Campaigns'));
   assert.ok(pageLabels.includes('Automations'));
   assert.ok(pageLabels.includes('Design Studio'));
-  assert.ok(pageLabels.includes('Social Scheduler'));
+  assert.ok(pageLabels.includes('Social Studio & Scheduler'));
   assert.ok(pageLabels.includes('Video'));
   assert.equal(pageLabels.includes('Performance'), false);
 
@@ -257,24 +257,30 @@ test('MarketSync Digital package exposes its complete Digital Presence area', (t
   const pages = sandbox.restrictedNavPages();
   const pageLabels = pages.map(p => p.label);
   
+  // Digital keeps one area per product. Facebook Marketplace is now Facebook Auto
+  // Poster, and the single "Email, SMS & Campaigns" entry was split into the campaign
+  // tooling it actually contains.
   assert.equal(pageLabels.join('|'), [
     'Pulse',
+    'Facebook Auto Poster',
     'Dealer Website',
     'MarketSync SEO',
     'AI Customer Agent',
     'Design Studio',
     'Social Studio & Scheduler',
-    'Facebook Marketplace',
     'Video',
-    'Email, SMS & Campaigns',
+    'Automations',
+    'Campaigns',
+    'Templates',
+    'Audiences',
   ].join('|'));
   assert.equal(pageLabels.includes('Accounting'), false);
 
   const digitalConfig = sandbox.getMarketingSuiteConfig('digital');
-  assert.deepEqual(Array.from(digitalConfig.areas.find(area => area.id === 'website').items, item => item.label), ['Setup', 'Builder', 'Website Settings']);
+  assert.deepEqual(Array.from(digitalConfig.areas.find(area => area.id === 'website').items, item => item.label), ['Setup', 'Builder', 'Blog Post Tips', 'Discovery', 'Website Settings']);
   assert.deepEqual(Array.from(digitalConfig.areas.find(area => area.id === 'seo').items, item => item.label), ['SEO Builder', 'Pulse']);
   assert.equal(digitalConfig.navItems.find(item => item.page === 'website').tab, 'setup');
-  assert.equal(digitalConfig.navItems.find(item => item.page === 'seo').tab, 'settings');
+  assert.equal(digitalConfig.navItems.find(item => item.page === 'seo').tab, 'overview');
   assert.deepEqual(Array.from(digitalConfig.areas.find(area => area.id === 'ai').items, item => item.label), ['Pulse', 'Setup']);
 });
 
@@ -310,7 +316,7 @@ test('MarketSync Digital is inferred from owned component products without an ag
   const ctx = sandbox.resolveWorkspaceContext();
   assert.equal(ctx.type, 'marketing_suite');
   assert.equal(ctx.suite, 'digital');
-  assert.equal(sandbox.restrictedNavPages().at(-1).label, 'Email, SMS & Campaigns');
+  assert.equal(sandbox.restrictedNavPages().at(-1).label, 'Audiences');
 });
 
 test('Tracked migration 2026-08-20-marketing-suite-plan-entitlements.sql aligns plan_products and plan_features', (t) => {
