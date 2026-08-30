@@ -95,23 +95,36 @@ async function replaceDemoDealershipPackage({ dealershipId, planId, status = 'ac
     .eq('dealership_id', dealershipId)
   if (subErr) throw subErr
 
-  // Clean coverage table IF it exists
+  // Clean coverage rows IF this environment stores them separately.
+  //
+  // On current databases `subscription_product_coverage` is a plain pass-through
+  // VIEW over `subscriptions` (SELECT ... FROM subscriptions), left behind by the
+  // coverage migration. service_role holds SELECT on it but not DELETE, so this
+  // delete raises Postgres 42501 "permission denied for view
+  // subscription_product_coverage" — which used to escape and fail the whole
+  // package switch with that raw error in the UI.
+  //
+  // Where coverage is a view there is nothing to delete: the `subscriptions`
+  // delete above already removed every row it exposes. So a permission error here
+  // means "already handled", exactly like the table being absent. Where coverage
+  // is still a real, writable table the delete runs as before.
+  const coverageHandled = (e) => {
+    if (!e) return true
+    if (e.code === '42P01' || e.code === '42501') return true
+    const msg = (e.message || '').toLowerCase()
+    return msg.includes('does not exist')
+        || msg.includes('42p01')
+        || msg.includes('schema cache')
+        || msg.includes('permission denied')
+  }
   try {
     const covQuery = supabaseAdmin.from('subscription_product_coverage')
     if (covQuery && typeof covQuery.delete === 'function') {
       const { error: covErr } = await covQuery.delete().eq('dealership_id', dealershipId)
-      if (covErr && covErr.code !== '42P01') {
-        const msg = (covErr.message || '').toLowerCase()
-        if (!msg.includes('does not exist') && !msg.includes('schema cache')) {
-          throw covErr
-        }
-      }
+      if (!coverageHandled(covErr)) throw covErr
     }
   } catch (err) {
-    const msg = (err.message || '').toLowerCase()
-    if (!msg.includes('does not exist') && !msg.includes('42p01') && !msg.includes('schema cache')) {
-      throw err
-    }
+    if (!coverageHandled(err)) throw err
   }
 
   // Reset demo legacy flags in dealerships table

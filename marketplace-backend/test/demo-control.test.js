@@ -95,3 +95,31 @@ test('demo GET exposes the selected canonical plan entitlements for navigation p
   assert.match(route, /products: \[\.\.\.activePlan\.products\]/)
   assert.match(route, /features: \[\.\.\.activePlan\.features\]/)
 })
+
+test('switching demo packages survives a read-only subscription_product_coverage view', () => {
+  // `subscription_product_coverage` is a plain pass-through VIEW over `subscriptions`
+  // (SELECT ... FROM subscriptions) on current databases. service_role holds SELECT
+  // but not DELETE, so deleting from it raises Postgres 42501:
+  //   "permission denied for view subscription_product_coverage"
+  // That escaped the old handler (which only tolerated 42P01 / "does not exist" /
+  // "schema cache") and failed the whole package switch with the raw Postgres string
+  // surfaced in the Demo Control Center.
+  //
+  // Nothing is lost by skipping it: the `subscriptions` delete above already removes
+  // every row the view exposes.
+  const match = source.match(/const coverageHandled = \([\s\S]*?\n  \}/)
+  assert.ok(match, 'the coverage error classifier must exist')
+  const fn = match[0]
+  assert.match(fn, /'42501'/, 'a permission-denied SQLSTATE must be treated as already-handled')
+  assert.match(fn, /permission denied/, 'the permission-denied message must be treated as already-handled')
+  // The pre-existing tolerances must survive.
+  assert.match(fn, /'42P01'/, 'a missing coverage table must still be tolerated')
+  assert.match(fn, /does not exist/, 'the missing-table message must still be tolerated')
+  assert.match(fn, /schema cache/, 'the schema-cache message must still be tolerated')
+
+  // The subscriptions delete is what actually clears coverage, so it must still run
+  // and must still fail loudly — tolerating its failure would silently leave the
+  // demo tenant on its old package.
+  assert.match(source, /from\('subscriptions'\)\s*\n?\s*\.delete\(\)[\s\S]{0,120}?if \(subErr\) throw subErr/,
+    'the subscriptions delete must remain and must still throw on error')
+})
