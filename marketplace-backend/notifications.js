@@ -64,3 +64,55 @@ export async function createNotifications(rows) {
     console.error('[notifications] Bulk insert failed:', err.message)
   }
 }
+
+
+/**
+ * "Sold & delivered" alert. Raised when a deal reaches the delivered state, for the
+ * salesperson who owns the deal and — when the car was live on Facebook Marketplace —
+ * the rep who posted it. The browser extension polls these via GET /listings/fb-alerts
+ * and raises a desktop notification, so a rep hears about it without watching the
+ * dashboard. Best-effort: a notification failure must never fail the delivery itself.
+ *
+ * @param {object} opts
+ * @param {string} opts.dealershipId
+ * @param {object} opts.deal — needs { id, inventory_id, created_by, deal_number? }
+ */
+export async function notifyDealDelivered({ dealershipId, deal }) {
+  if (!dealershipId || !deal) return
+  try {
+    let label = 'A vehicle'
+    if (deal.inventory_id) {
+      const { data: v } = await supabaseAdmin.from('inventory')
+        .select('year, make, model, trim, stock_number')
+        .eq('id', deal.inventory_id).eq('dealership_id', dealershipId).maybeSingle()
+      if (v) {
+        label = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || label
+        if (v.stock_number) label += ` (#${v.stock_number})`
+      }
+    }
+
+    const recipients = new Set()
+    if (deal.created_by) recipients.add(deal.created_by)
+    if (deal.inventory_id) {
+      const { data: listings } = await supabaseAdmin.from('listings')
+        .select('posted_by').eq('inventory_id', deal.inventory_id).not('posted_by', 'is', null)
+      for (const l of (listings || [])) if (l.posted_by) recipients.add(l.posted_by)
+    }
+    if (!recipients.size) return
+
+    const dealRef = deal.deal_number ? ` on deal ${deal.deal_number}` : ''
+    for (const targetUserId of recipients) {
+      await createNotification({
+        dealershipId,
+        type: 'deal_delivered',
+        targetUserId,
+        linkPage: 'inventory',
+        linkFilter: deal.inventory_id || null,
+        title: 'Sold & delivered',
+        body: `${label} is sold and has now been delivered to the customer${dealRef}.`,
+      })
+    }
+  } catch (err) {
+    console.warn('[notifications] delivered notification failed (non-fatal):', err.message)
+  }
+}

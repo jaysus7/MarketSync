@@ -365,9 +365,10 @@ export function registerRoutes(app) {
     res.json({ success: true })
   })
 
-  // FB alerts for the browser extension: recent unread "sold" / "price changed"
-  // notifications for the signed-in rep, so the extension can raise a desktop
-  // notification prompting them to update/close their Facebook listing. Mark them
+  // Alerts for the browser extension: recent unread "sold" / "price changed" /
+  // "sold & delivered" notifications for the signed-in rep, so the extension can
+  // raise a desktop notification prompting them to update/close their Facebook
+  // listing, or telling them a car has been handed to the customer. Mark them
   // read via the existing POST /notifications/:id/read once shown.
   app.get('/listings/fb-alerts', requireAuth, async (req, res) => {
     const since = new Date(Date.now() - 7 * 86400000).toISOString()
@@ -375,7 +376,7 @@ export function registerRoutes(app) {
       .from('notifications')
       .select('id, type, title, body, link_url, link_filter, created_at')
       .eq('target_user_id', req.user.id)
-      .in('type', ['fb_sold', 'fb_price_change'])
+      .in('type', ['fb_sold', 'fb_price_change', 'deal_delivered'])
       .eq('read', false)
       .gte('created_at', since)
       .order('created_at', { ascending: false })

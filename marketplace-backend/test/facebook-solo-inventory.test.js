@@ -69,33 +69,33 @@ test('mobile "Menu" overflow button hides for a restricted tier whose whole page
     'the Menu button visibility must follow showMoreBtn, not be forced visible unconditionally')
 })
 
-test('Sync Now is gated the same as Add Feed — a dealer rep sees the panel but not the controls', () => {
-  // canManageFeeds = isAdmin || isSolo was already documented as covering "Add Feed,
-  // Sync Now" (see the comment above the feeds/catalog panel-visibility block), but
-  // sync-now-btn never actually carried [data-admin-only], so a plain dealer rep
-  // (SALES_REP inside a real, non-personal dealership) could see and click Sync Now
-  // and just get a 403 "Insufficient permission" back from the server. Dealer Admin,
-  // Group Admin, and a solo/independent rep should keep it working.
+test('Sync Now still carries data-admin-only, so the rep exemption stays an explicit opt-out rather than an ungated button', () => {
+  // The attribute stays on the button: the gating block below exempts it by id, so
+  // removing the attribute would make Sync Now ungated for every role by accident
+  // rather than by the one deliberate exemption.
   const btn = dashboardHtml.match(/<button id="sync-now-btn"[^>]*>/)?.[0] || ''
   assert.ok(btn, 'sync-now-btn must exist')
-  assert.match(btn, /data-admin-only/, 'Sync Now must be gated by the same admin-only rule as Add Feed')
+  assert.match(btn, /data-admin-only/, 'Sync Now must keep the admin-only marker that the gating block exempts by id')
 })
 
 test('isAdmin includes DEALER_GROUP, so a Group Admin gets the same feed-management and settings access as a Dealer Admin', () => {
   assert.match(part2, /const isAdmin = role === 'DEALER_ADMIN' \|\| role === 'OWNER' \|\| role === 'MANAGER' \|\| role === 'DEALER_GROUP';/)
 })
 
-test('a Facebook dealer rep keeps Sync Now even without canManageFeeds — every rep posts and syncs their own inventory there', () => {
-  // Unlike a full DealerOS store (centralized inventory, sync stays admin-gated),
-  // a Facebook dealer rep manages their own assigned inventory on their own
-  // Facebook profile, so Sync Now must stay reachable for them specifically —
-  // Add Feed (connecting a new data source) stays admin-only everywhere, Facebook
-  // included, so this exception is scoped to just the one button.
+test('any sales rep keeps Sync Now without canManageFeeds — every sales role refreshes its own dealership inventory', () => {
+  // Previously scoped to Facebook-only workspaces; a rep at a full DealerOS store
+  // saw a read-only feeds panel. Sync only re-reads the dealer's existing feed and
+  // creates no new data source, so it is now reachable for a rep at ANY store.
+  // Add Feed (connecting a new data source) stays admin-only everywhere, so the
+  // exemption remains scoped to just this one button.
   const block = part2.match(/if \(!canManageFeeds\) \{[\s\S]*?\n {4}\}/)?.[0] || ''
   assert.ok(block, 'the canManageFeeds gating block must exist')
-  assert.match(block, /isFacebookOnlyWorkspace/)
-  assert.match(block, /if \(fbOnlyForSync && el\.id === 'sync-now-btn'\) return;/,
-    'sync-now-btn must be exempted from the admin-only hide when the account is Facebook-only')
+  assert.match(block, /if \(el\.id === 'sync-now-btn'\) return;/,
+    'sync-now-btn must be exempted from the admin-only hide for every role, not only Facebook-only accounts')
+  assert.doesNotMatch(block, /fbOnlyForSync/,
+    'the Facebook-only scoping must be gone — the exemption now applies to every dealership')
+  // The exemption must stay narrow: nothing else escapes the admin-only hide.
+  assert.doesNotMatch(block, /add-feed/, 'Add Feed must remain admin-only')
 })
 
 test('POST /inventory-feeds lets a Group Admin manage feeds too, matching the frontend isAdmin check', () => {

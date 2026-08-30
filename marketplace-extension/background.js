@@ -351,8 +351,7 @@ function fbItemIdFromUrl(url) {
   return m ? m[1] : null
 }
 
-async function pollFbSync() {
-  // ── Proactive sold scanner ────────────────────────────────────────────────────
+// ── Proactive sold scanner ────────────────────────────────────────────────────
 // Catches vehicles marked sold directly on Facebook (not through MarketSync).
 // Every 4 hours, open each active FB listing in a hidden background tab —
 // content.js's existing detectFbSoldBadge() + checkSold() logic does the rest
@@ -391,6 +390,8 @@ async function runSoldScan() {
     }
   }
 }
+
+async function pollFbSync() {
   const { token } = await chrome.storage.local.get(['token'])
   if (!token) return
 
@@ -451,13 +452,17 @@ async function pollFbAlerts() {
   const { fbAlertsShown = {} } = await chrome.storage.local.get(['fbAlertsShown'])
   for (const a of alerts) {
     if (!a.id || fbAlertsShown[a.id]) continue
+    // A car reaching "sold & delivered" is the one the dealer actually acts on,
+    // so it stays on screen until dismissed rather than auto-fading.
+    const isDelivered = a.type === 'deal_delivered'
     try {
       chrome.notifications.create('msfb-' + a.id, {
         type: 'basic',
         iconUrl: chrome.runtime.getURL('icons/icon128.png'),
-        title: a.title || 'MarketSync',
+        title: a.title || (isDelivered ? 'Sold & delivered' : 'MarketSync'),
         message: a.body || '',
         priority: 2,
+        requireInteraction: isDelivered,
       })
     } catch (e) { console.warn('[MarketSync] notification failed:', e.message) }
     fbAlertsShown[a.id] = Date.now()

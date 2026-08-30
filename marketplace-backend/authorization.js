@@ -128,3 +128,20 @@ export function requirePermission(permission) {
     next()
   }
 }
+
+// Passes when the caller holds ANY of the listed permissions. Use this where one
+// action is legitimately reachable by two different grants — for example a narrow
+// capability permission alongside the broader one that implies it. Keeping both
+// accepted means a deploy and its permission migration can land in either order
+// without locking anyone out in between.
+// A lookup failure still fails closed (500), never a silent allow.
+export function requireAnyPermission(...permissions) {
+  return async (req, res, next) => {
+    for (const permission of permissions) {
+      const { allowed, error } = await permissionLookup(req, permission)
+      if (error) return res.status(500).json({ error: 'Permission check failed' })
+      if (allowed) return next()
+    }
+    return res.status(403).json({ error: 'Insufficient permission' })
+  }
+}

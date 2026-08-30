@@ -117,13 +117,41 @@ async function typeInto(el, value) {
   return true;
 }
 
-async function pickDropdown(labelText, value) {
-  const lower = labelText.toLowerCase();
+// Overlays FB mounts for a dropdown. Used both to wait for one to appear and to
+// confirm the previous one is gone before we open the next.
+function openOverlays() {
+  return [...document.querySelectorAll('[role="dialog"], [role="listbox"], [role="menu"]')]
+    .filter(c => !c.closest('[aria-hidden="true"]') && c.offsetParent !== null);
+}
 
-  // Ensure any previously-open overlay is dismissed so we don't accidentally
-  // type into the prior step's still-visible search input.
-  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  await sleep(400);
+// Dismiss any dropdown overlay and WAIT until it's actually gone. The old code
+// fired Escape and slept a flat 400ms; when FB was slow to unmount, the next
+// field's search-input hunt would land in the PREVIOUS overlay (or, via the old
+// document-wide fallback, in Facebook's global search bar). That is what stalled
+// the run at Year — Make was typed somewhere it could never match an option.
+async function closeOpenOverlays(timeout = 3000) {
+  const start = Date.now();
+  while (openOverlays().length && Date.now() - start < timeout) {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    document.body?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await sleep(250);
+  }
+  return openOverlays().length === 0;
+}
+
+const isDisabled = (el) =>
+  el.getAttribute('aria-disabled') === 'true' || el.getAttribute('disabled') !== null;
+
+async function pickDropdown(labelText, value, { retry = true } = {}) {
+  const lower = labelText.toLowerCase();
+  const wanted = String(value ?? '').trim();
+  if (!wanted) {
+    console.warn(`↷ ${labelText}: no value supplied, skipping`);
+    return false;
+  }
+
+  // Ensure the previous step's overlay is really closed before we touch this one.
+  await closeOpenOverlays();
 
   // Helper: verify a candidate combobox is actually labeled `labelText` by checking its
   // aria-label OR a nearby label element. Prevents matching a sibling combobox that just
@@ -144,15 +172,20 @@ async function pickDropdown(labelText, value) {
     return false;
   };
 
-  // Find the dropdown using multiple strategies (FB keeps moving things around)
-  const trigger = await waitFor(() => {
+  // Find the dropdown using multiple strategies (FB keeps moving things around).
+  // Fields like Make only mount/enable AFTER the previous field commits, so we
+  // also require the trigger to be enabled — otherwise we click a dead element
+  // and silently move on.
+  const findTrigger = (requireEnabled) => {
+    const ok = (el) => el && (!requireEnabled || !isDisabled(el)) ? el : null;
+
     // 1. Exact aria-label match (most reliable when present)
-    const byAria = document.querySelector(`[role="combobox"][aria-label="${labelText}" i]`);
+    const byAria = ok(document.querySelector(`[role="combobox"][aria-label="${labelText}" i]`));
     if (byAria) return byAria;
 
     // 2. Combobox whose own text content is exactly the label (placeholder state)
     const comboboxes = [...document.querySelectorAll('[role="combobox"]')];
-    const exact = comboboxes.find(el => el.textContent.trim().toLowerCase() === lower);
+    const exact = ok(comboboxes.find(el => el.textContent.trim().toLowerCase() === lower));
     if (exact) return exact;
 
     // 3. Label-element pattern: a label/span with text "Year" near a combobox
@@ -163,73 +196,89 @@ async function pickDropdown(labelText, value) {
           || lbl.parentElement?.querySelector('[role="combobox"]')
           || lbl.closest('label')?.querySelector('[role="combobox"]');
         // Confirm this combobox really belongs to our label, not a neighbor
-        if (combo && isLabeled(combo)) return combo;
+        if (combo && isLabeled(combo) && ok(combo)) return combo;
       }
     }
 
     // 4. Loose fallback — combobox text starts with label but isn't enormous,
     //    AND confirmed to actually belong to this label by aria/sibling check.
-    return comboboxes.find(el => {
+    return ok(comboboxes.find(el => {
       const txt = el.textContent.trim().toLowerCase();
       return txt.startsWith(lower) && txt.length < lower.length + 30 && isLabeled(el);
-    });
-  }, 10000);
+    }));
+  };
+
+  // Prefer an enabled trigger; fall back to a disabled one late so a genuinely
+  // read-only field still reports "not found" rather than hanging forever.
+  let trigger = await waitFor(() => findTrigger(true), 12000);
+  if (!trigger) trigger = await waitFor(() => findTrigger(false), 2000);
 
   if (!trigger) {
     console.warn(`❌ Dropdown not found: ${labelText}`);
     return false;
   }
 
+  const before = trigger.textContent.trim();
+
   trigger.scrollIntoView({ behavior: 'smooth', block: 'center' });
   await sleep(500);
   trigger.click();
-  await sleep(1500); // Wait for FB's dropdown overlay to mount
 
-  // Find search input INSIDE a dropdown/overlay container (anchored — not just any visible empty input on page)
+  // Wait for THIS dropdown's overlay to mount, then work only inside it.
+  const overlay = await waitFor(() => openOverlays().slice(-1)[0] || null, 5000);
+  if (!overlay) {
+    console.warn(`❌ ${labelText}: dropdown overlay never opened`);
+    return retry ? pickDropdown(labelText, value, { retry: false }) : false;
+  }
+  await sleep(600);
+
+  // Search input must live INSIDE this overlay. The old document-wide fallback
+  // could grab Facebook's own search bar or a stale overlay's box.
   const searchInput = await waitFor(() => {
-    const containers = [...document.querySelectorAll('[role="dialog"], [role="listbox"], [role="menu"]')];
-    for (const c of containers) {
-      if (c.closest('[aria-hidden="true"]')) continue;
-      const input = c.querySelector('input:not([type="hidden"])');
-      if (input && !input.value && input.offsetParent !== null) return input;
-    }
-    // Fallback: any empty visible input (older FB DOMs)
-    return [...document.querySelectorAll('input')].find(el =>
-      el.offsetParent !== null
-      && el.type !== 'hidden'
-      && !el.closest('[aria-hidden="true"]')
-      && !el.value
-    );
-  }, 4000);
+    const input = overlay.querySelector('input:not([type="hidden"])');
+    return input && input.offsetParent !== null ? input : null;
+  }, 3000);
 
   if (searchInput) {
     searchInput.click();
     searchInput.focus();
     await sleep(300);
     const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-    if (nativeSetter) nativeSetter.call(searchInput, value);
-    else searchInput.value = value;
+    if (nativeSetter) nativeSetter.call(searchInput, wanted);
+    else searchInput.value = wanted;
     searchInput.dispatchEvent(new Event('input', { bubbles: true }));
     searchInput.dispatchEvent(new Event('change', { bubbles: true }));
     await sleep(1200);
   }
 
+  // Options are scoped to the overlay too, so we can never click an option
+  // belonging to a different field that FB left mounted.
+  const target = wanted.toLowerCase();
   const option = await waitFor(() => {
-    const targets = [...document.querySelectorAll('[role="option"]')];
-    return targets.find(el => el.textContent.trim().toLowerCase() === value.toString().toLowerCase())
-        || targets.find(el => el.textContent.trim().toLowerCase().includes(value.toString().toLowerCase()));
+    const scope = document.contains(overlay) ? overlay : document;
+    const targets = [...scope.querySelectorAll('[role="option"]')]
+      .filter(el => el.offsetParent !== null);
+    return targets.find(el => el.textContent.trim().toLowerCase() === target)
+        || targets.find(el => el.textContent.trim().toLowerCase().includes(target));
   }, 6000);
 
   if (option) {
     option.click();
     await sleep(800);
-    console.log(`✓ ${labelText} set:`, value);
+    console.log(`✓ ${labelText} set:`, wanted);
     return true;
   }
 
-  console.warn(`❌ Option not found for ${labelText}:`, value);
-  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  await sleep(400);
+  console.warn(`❌ Option not found for ${labelText}:`, wanted);
+  await closeOpenOverlays();
+
+  // One clean retry — FB frequently mounts these fields a beat late, and a single
+  // retry from a known-closed state fixes most transient misses.
+  if (retry) {
+    console.log(`↻ Retrying ${labelText}...`);
+    await sleep(1200);
+    return pickDropdown(labelText, value, { retry: false });
+  }
   return false;
 }
 
@@ -584,19 +633,29 @@ async function fillListingForm(vehicle) {
   showStatus('Starting engine execution... please maintain view focus.');
   await sleep(2500);
 
+  // Track which fields we couldn't set. A failed dropdown must never abort the
+  // run (the rest of the listing is still worth filling), but it must not pass
+  // silently either — that is how a stall at Year went unnoticed.
+  const failedFields = [];
+  const step = async (label, value) => {
+    const ok = await pickDropdown(label, value);
+    if (!ok) failedFields.push(label);
+    return ok;
+  };
+
   // VEHICLE TYPE
   showStatus('Selecting vehicle type...');
-  await pickDropdown('Vehicle type', 'Car/Truck');
+  await step('Vehicle type', 'Car/Truck');
   await sleep(DELAY);
 
   // YEAR
   showStatus('Selecting year...');
-  await pickDropdown('Year', String(vehicle.year));
+  await step('Year', String(vehicle.year));
   await sleep(DELAY);
 
   // MAKE
   showStatus('Selecting make...');
-  await pickDropdown('Make', make);
+  await step('Make', make);
   await sleep(2000); // Let Facebook commit Make before Model field activates
 
   // MODEL — FB renders this AFTER Make commits. Wait longer + use multiple selector strategies
@@ -669,6 +728,7 @@ async function fillListingForm(vehicle) {
 
   if (!modelTrigger) {
     console.error('❌ Model dropdown not found after 15s. Fill manually.');
+    failedFields.push('Model');
     showStatus('Could not find Model field — fill manually.', 'info');
   } else if (modelTrigger.tagName === 'INPUT' && modelTrigger.getAttribute('role') !== 'combobox') {
     // FB renders Model as a plain free-text input for some makes (no option list).
@@ -854,12 +914,12 @@ if (modelComboboxNow && (
   // strict about aria-label / sibling-label matching, so it won't accidentally
   // re-target the Model field even if Facebook re-renders the form.
   showStatus(`Selecting body style (${bodyStyle})...`);
-  await pickDropdown('Body style', bodyStyle);
+  await step('Body style', bodyStyle);
   await sleep(DELAY);
 
   // EXTERIOR COLOR
   showStatus('Selecting exterior color...');
-  await pickDropdown('Exterior color', mapColor(vehicle.exterior_color));
+  await step('Exterior color', mapColor(vehicle.exterior_color));
   await sleep(DELAY);
 
   // INTERIOR COLOR
@@ -868,7 +928,7 @@ if (modelComboboxNow && (
     [...document.querySelectorAll('[role="combobox"]')]
       .find(el => el.textContent.trim().toLowerCase().includes('interior'))
   );
-  await pickDropdown('Interior color', mapColor(vehicle.interior_color) || 'Black');
+  await step('Interior color', mapColor(vehicle.interior_color) || 'Black');
   await sleep(DELAY);
 
   // VEHICLE CONDITION
@@ -880,17 +940,17 @@ if (modelComboboxNow && (
   // FB Marketplace's vehicle condition uses 5-point labels ("Excellent","Very Good",
   // "Good","Fair","Poor"). Per request, condition is ALWAYS listed as "Good"
   // regardless of the source vehicle's condition value.
-  await pickDropdown('Vehicle condition', 'Good');
+  await step('Vehicle condition', 'Good');
   await sleep(DELAY);
 
   // FUEL TYPE
   showStatus('Selecting fuel type...');
-  await pickDropdown('Fuel type', vehicle.fuel_type || 'Gasoline');
+  await step('Fuel type', vehicle.fuel_type || 'Gasoline');
   await sleep(DELAY);
 
   // TRANSMISSION
   showStatus('Selecting transmission...');
-  await pickDropdown('Transmission', vehicle.transmission || 'Automatic');
+  await step('Transmission', vehicle.transmission || 'Automatic');
   await sleep(DELAY);
 
   // MILEAGE — use the vehicle's actual kms. Facebook rejects unusually-low values
@@ -1089,6 +1149,16 @@ if (modelComboboxNow && (
     }
   } else {
     showStatus('✅ Form filled! No photos found for this vehicle.', 'success');
+  }
+
+  // Surface anything Facebook wouldn't accept so the rep fixes it before posting,
+  // instead of discovering a half-filled listing after the fact.
+  if (failedFields.length) {
+    console.warn('⚠️ Fields MarketSync could not set:', failedFields.join(', '));
+    showStatus(
+      `⚠️ Fill these manually: ${failedFields.join(', ')}`,
+      'info'
+    );
   }
 
   console.log('✅ Automated pipeline processing successfully executed.');}
