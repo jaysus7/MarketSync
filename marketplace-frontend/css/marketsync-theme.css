@@ -3344,7 +3344,7 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
   --studio-blue: #2563eb;
   --studio-ink: #0b1220;
   --studio-panel: rgba(15, 23, 42, .94);
-  background: #eef2f7 !important;
+  background: #f7f8fa !important;
   color: #0f172a;
 }
 #ms-studio-master-modal > .flex-shrink-0:first-child > header {
@@ -3365,15 +3365,24 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
   background: rgba(255,255,255,.96) !important;
   border-color: #dbe3ef !important;
 }
-#ms-studio-master-modal [data-studio-region="rail"] { width: 76px !important; padding-top: 12px; gap: 8px; }
-#ms-studio-master-modal [data-studio-region="rail"] button { width: 64px; min-height: 58px; color: #475569 !important; border-radius: 14px; }
-#ms-studio-master-modal [data-studio-region="rail"] button:hover,
-#ms-studio-master-modal [data-studio-region="rail"] button[class*="bg-indigo-600"] { background: #e8efff !important; color: #1d4ed8 !important; }
+#ms-studio-master-modal [data-studio-region="rail"] { width: 88px !important; padding-top: 12px; gap: 8px; }
+#ms-studio-master-modal .studio-tool-rail-button {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 82px; min-height: 58px; padding: 6px 3px; border: 0 !important;
+  border-radius: 0; background: transparent !important; color: #475569 !important;
+  font-size: 11px; line-height: 1.1; font-weight: 800; white-space: nowrap;
+  transition: color .16s ease;
+}
+#ms-studio-master-modal .studio-tool-rail-button:hover { background: transparent !important; color: #1e293b !important; }
+#ms-studio-master-modal .studio-tool-rail-button .studio-tool-icon { color: #64748b !important; transition: color .16s ease; }
+#ms-studio-master-modal .studio-tool-rail-button[aria-current="page"] { background: transparent !important; color: #1e293b !important; }
+#ms-studio-master-modal .studio-tool-rail-button[aria-current="page"] .studio-tool-icon { color: #2563eb !important; }
+#ms-studio-master-modal .studio-tool-rail-button:focus-visible { outline: 2px solid rgba(37,99,235,.45); outline-offset: -2px; }
 #ms-studio-master-modal [data-studio-region="drawer"] { width: 320px !important; }
 #ms-studio-master-modal [data-studio-region="inspector"] { width: 300px !important; }
 #ms-studio-master-modal [data-studio-region="canvas"] {
-  background: #eef2f7 !important;
-  background-image: radial-gradient(#cbd5e1 1px, transparent 1px) !important;
+  background: #f7f8fa !important;
+  background-image: radial-gradient(#d7dee8 1px, transparent 1px) !important;
   background-size: 22px 22px !important;
   overflow: auto !important;
   padding: 38px 48px 70px;
@@ -3401,7 +3410,7 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 #ms-studio-master-modal #studio-tool-panel textarea::placeholder { color: #64748b !important; }
 #ms-studio-master-modal #studio-tool-panel button[class*="bg-slate-100"],
 #ms-studio-master-modal #studio-tool-panel button[class*="bg-slate-50"] { background: #e8eef6 !important; color: #172033 !important; border-color: #cbd5e1 !important; }
-#ms-studio-master-modal #studio-tool-panel button[class*="bg-slate-800"] { background: #1e293b !important; color: #f8fafc !important; border-color: #475569 !important; }
+#ms-studio-master-modal #studio-tool-panel button[class*="bg-slate-800"] { background: #e8eef6 !important; color: #172033 !important; border-color: #cbd5e1 !important; }
 #ms-studio-master-modal #studio-tool-panel button[class*="bg-indigo-500/20"] { background: #e8efff !important; color: #1d4ed8 !important; }
 #ms-studio-master-modal #studio-tool-panel button[class*="bg-blue-600"],
 #ms-studio-master-modal #studio-tool-panel button[class*="bg-sky-600"],
@@ -3410,6 +3419,7 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 #ms-studio-master-modal #studio-tool-panel .text-slate-900 { color: #172033 !important; }
 #ms-studio-master-modal #studio-tool-panel .text-slate-500,
 #ms-studio-master-modal #studio-tool-panel .text-slate-400 { color: #64748b !important; }
+#ms-studio-master-modal #studio-tool-panel .text-slate-300 { color: #334155 !important; }
 #ms-studio-master-modal #studio-tool-panel .text-white { color: #fff !important; }
 #ms-studio-master-modal .studio-upload-dropzone {
   padding: 22px 14px 14px;

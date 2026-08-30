@@ -418,34 +418,34 @@ function renderStudioWorkspaceHtml(designName, scene) {
     <div class="flex-1 flex overflow-hidden relative">
       <!-- Left Tool Rail -->
       <nav data-studio-region="rail" class="w-16 bg-slate-50 dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 flex flex-col items-center py-3 gap-3 flex-shrink-0 z-10">
-        <button onclick="setStudioTool('templates')" id="tool-btn-templates" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition ${window.__studioActiveTool==='templates'?'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50':''}">
-          <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Templates
+        <button onclick="setStudioTool('templates')" id="tool-btn-templates" data-studio-tool="templates" aria-current="${window.__studioActiveTool === 'templates' ? 'page' : 'false'}" class="studio-tool-rail-button">
+          <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Templates
         </button>
-        <button onclick="setStudioTool('elements')" id="tool-btn-elements" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition ${window.__studioActiveTool==='elements'?'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50':''}"><span class="text-base mb-0.5">✦</span>Elements</button>
-        <button onclick="setStudioTool('inventory')" id="tool-btn-inventory" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition ${window.__studioActiveTool==='inventory'?'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50':''}">
-          <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 17a2 2 0 100 4 2 2 0 000-4zm10 0a2 2 0 100 4 2 2 0 000-4zM4 9h16l-1.5 5H5.5L4 9z"/></svg>Inventory
+        <button onclick="setStudioTool('elements')" id="tool-btn-elements" data-studio-tool="elements" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base mb-0.5">✦</span>Elements</button>
+        <button onclick="setStudioTool('inventory')" id="tool-btn-inventory" data-studio-tool="inventory" aria-current="false" class="studio-tool-rail-button">
+          <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 17a2 2 0 100 4 2 2 0 000-4zm10 0a2 2 0 100 4 2 2 0 000-4zM4 9h16l-1.5 5H5.5L4 9z"/></svg>Inventory
         </button>
-        <button onclick="setStudioTool('photos')" id="tool-btn-photos" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-          <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Photos
+        <button onclick="setStudioTool('photos')" id="tool-btn-photos" data-studio-tool="photos" aria-current="false" class="studio-tool-rail-button">
+          <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Photos
         </button>
-        <button onclick="setStudioTool('videos')" id="tool-btn-videos" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-base">▶</span>Videos</button>
-        <button onclick="setStudioTool('record')" id="tool-btn-record" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition ${window.__studioActiveTool==='record'?'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50':''}"><span class="text-base">●</span>Record</button>
-        <button onclick="setStudioTool('uploads')" id="tool-btn-uploads" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-base">↑</span>Uploads</button>
-        <button onclick="setStudioTool('media')" id="tool-btn-media" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-base mb-0.5">▧</span>Media</button>
-        <button onclick="setStudioTool('shapes')" id="tool-btn-shapes" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-          <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/></svg>Shapes
+        <button onclick="setStudioTool('videos')" id="tool-btn-videos" data-studio-tool="videos" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base">▶</span>Videos</button>
+        <button onclick="setStudioTool('record')" id="tool-btn-record" data-studio-tool="record" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base">●</span>Record</button>
+        <button onclick="setStudioTool('uploads')" id="tool-btn-uploads" data-studio-tool="uploads" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base">↑</span>Uploads</button>
+        <button onclick="setStudioTool('media')" id="tool-btn-media" data-studio-tool="media" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base mb-0.5">▧</span>Media</button>
+        <button onclick="setStudioTool('shapes')" id="tool-btn-shapes" data-studio-tool="shapes" aria-current="false" class="studio-tool-rail-button">
+          <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/></svg>Shapes
         </button>
-        <button onclick="setStudioTool('icons')" id="tool-btn-icons" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-base mb-0.5">✦</span>Icons</button>
-        <button onclick="setStudioTool('stickers')" id="tool-btn-stickers" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-          <span class="text-base mb-0.5">⭐</span>Stickers
+        <button onclick="setStudioTool('icons')" id="tool-btn-icons" data-studio-tool="icons" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base mb-0.5">✦</span>Icons</button>
+        <button onclick="setStudioTool('stickers')" id="tool-btn-stickers" data-studio-tool="stickers" aria-current="false" class="studio-tool-rail-button">
+          <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3z"/></svg>Stickers
         </button>
-        <button onclick="setStudioTool('text')" id="tool-btn-text" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition ${window.__studioActiveTool==='text'?'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50':''}">
-          <span class="text-base font-black">Aa</span>Text
+        <button onclick="setStudioTool('text')" id="tool-btn-text" data-studio-tool="text" aria-current="false" class="studio-tool-rail-button">
+          <span class="studio-tool-icon text-base font-black">Aa</span>Text
         </button>
-        <button onclick="setStudioTool('brand')" id="tool-btn-brand" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-          <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10M7 12h10m-7 5h7"/></svg>Brand
+        <button onclick="setStudioTool('brand')" id="tool-btn-brand" data-studio-tool="brand" aria-current="false" class="studio-tool-rail-button">
+          <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10M7 12h10m-7 5h7"/></svg>Brand
         </button>
-        <button onclick="setStudioTool('layers')" id="tool-btn-layers" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-base mb-0.5">≡</span>Layers</button>
+        <button onclick="setStudioTool('layers')" id="tool-btn-layers" data-studio-tool="layers" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base mb-0.5">≡</span>Layers</button>
       </nav>
 
       <!-- Left Tool Panel Drawer -->
@@ -482,7 +482,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
       <button onclick="addStudioPage()" class="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-700 text-xs font-black">+ Page</button>
       <div class="h-7 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
       <span class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-1">Text</span>
-      <button onclick="studioAddText('heading')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">+ Heading</button>
+      <button onclick="studioAddText('heading')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black">+ Heading</button>
       <button onclick="studioAddText('subheading')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold">+ Subheading</button>
       <button onclick="studioAddText('body')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-medium">+ Body text</button>
       <div class="h-7 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
@@ -1076,6 +1076,9 @@ window.studioCtxAction = studioCtxAction;
 
 function setStudioTool(tool) {
   window.__studioActiveTool = tool;
+  document.querySelectorAll('[data-studio-tool]').forEach(button => {
+    button.setAttribute('aria-current', button.dataset.studioTool === tool ? 'page' : 'false');
+  });
   const panel = document.getElementById('studio-tool-panel');
   if (panel) panel.innerHTML = renderStudioToolPanelContent(tool);
   if (tool === 'photos') setTimeout(() => searchStudioLibrary('car dealership'), 0);
