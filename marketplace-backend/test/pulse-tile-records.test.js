@@ -155,7 +155,10 @@ test('a tile with records expands in place instead of navigating away', () => {
 // The affordance is chrome, not data — on a zero tile it would be an invitation
 // to open an empty list.
 test('a quiet tile does not advertise records it has none of', () => {
-  assert.match(ds, /\[data-emphasis="quiet"\] \.ms-kpi__hint \{ display: none; \}/)
+  // Whitespace-normalised: the stylesheet is machine-formatted, so a reformat
+  // must not read as a deleted rule. See pulse-kpi-hierarchy.test.js.
+  const flat = ds.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s*>\s*/g, ' > ').replace(/\s+/g, ' ')
+  assert.match(flat, /\[data-emphasis="quiet"\] \.ms-kpi__hint \{ display: none; \}/)
 })
 
 // ── Links land on the record, not the department page ────────────────────────

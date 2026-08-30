@@ -12,6 +12,19 @@ const part11 = readFileSync(path.join(FRONTEND, 'js', 'modules', 'dashboard-part
 const tileFn = part11.slice(part11.indexOf('const tile = (label, val, page'),
                             part11.indexOf('const now = new Date()'))
 
+// ms-design-system.css is machine-formatted: a formatter run puts every
+// declaration on its own line and drops the spaces around the `>` combinator.
+// That is cosmetic — it changes no rule — so these checks read a
+// whitespace-normalised copy. Matching the raw text instead made a reformat
+// indistinguishable from a deleted style rule, which is what happened here:
+// every rule below was present and correct while the assertions read as missing.
+// Comments go first so prose inside them can never satisfy a rule check.
+const flatCss = (s) => s
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/\s*>\s*/g, ' > ')
+  .replace(/\s+/g, ' ')
+const dsFlat = flatCss(ds)
+
 // ── Emphasis comes from the data ─────────────────────────────────────────────
 // The whole point of this phase: a tile is prominent because its number says
 // something needs a person, not because of where it sits in the row. A layout
@@ -52,14 +65,16 @@ test('the lead tile is exactly two tracks and the grid grows a track to fit it',
     'no lead means five equal tiles in one clean row')
   assert.match(ds, /\.pulse-summary-grid:has\(\[data-emphasis="lead"\]\) \{\s*grid-template-columns: repeat\(6, minmax\(0, 1fr\)\)/,
     'a double-width lead needs a sixth track or the row leaves a dead one')
-  assert.match(ds, /\.pulse-summary-grid > \[data-emphasis="lead"\] \{ grid-column: span 2; \}/)
+  assert.match(dsFlat, /\.pulse-summary-grid > \[data-emphasis="lead"\] \{ grid-column: span 2; \}/)
 })
 
 test('narrow layouts give the first tile the whole row so five tiles still tile evenly', () => {
   for (const bp of ['@media (max-width: 1279px)', '@media (max-width: 767px)']) {
-    const at = ds.indexOf(bp)
+    const at = dsFlat.indexOf(bp)
     assert.ok(at > 0, `${bp} must exist`)
-    const block = ds.slice(at, ds.indexOf('\n}', ds.indexOf('.pulse-summary-grid', at)) + 2)
+    // Up to the next breakpoint, so one @media cannot answer for another.
+    const next = dsFlat.indexOf('@media', at + 1)
+    const block = next === -1 ? dsFlat.slice(at) : dsFlat.slice(at, next)
     assert.match(block, /\.pulse-summary-grid > :first-child \{ grid-column: 1 \/ -1; \}/,
       `${bp}: five tiles do not divide evenly, so the first must take the full row`)
   }
@@ -113,7 +128,7 @@ test('KPI tiles are exempt from the board glass so their own borders paint', () 
 })
 
 test('the lead accent does not need !important to win', () => {
-  const lead = ds.match(/\.pulse-summary-grid > \[data-emphasis="lead"\] \{[^}]*box-shadow[^}]*\}/)
+  const lead = dsFlat.match(/\.pulse-summary-grid > \[data-emphasis="lead"\] \{[^}]*box-shadow[^}]*\}/)
   assert.ok(lead, 'the lead tile must carry an accent edge')
   assert.doesNotMatch(lead[0], /!important/,
     'the design system wins by cascade order; an !important here means the exemption above failed')
