@@ -66,13 +66,13 @@ class StudioFabricAdapter {
       objects.forEach(object => {
         const animation = object.msData?.animation;
         if (!animation || animation === 'none') return;
-        object.__animationBase ||= { left: object.left || 0, top: object.top || 0, angle: object.angle || 0, opacity: object.opacity ?? 1 };
+        object.__animationBase ||= { left: object.left || 0, top: object.top || 0, angle: object.angle || 0, opacity: object.opacity ?? 1, scaleX: object.scaleX || 1, scaleY: object.scaleY || 1 };
         const base = object.__animationBase;
         const duration = Number(animation.duration || 1600);
         const phase = (time % duration) / duration;
         const wave = Math.sin(phase * Math.PI * 2);
         if (animation.type === 'float') object.set({ top: base.top + wave * 12 });
-        else if (animation.type === 'pulse') object.set({ opacity: base.opacity * (0.78 + (wave + 1) * 0.11), scaleX: (object.scaleX || 1) * (1 + wave * 0.015), scaleY: (object.scaleY || 1) * (1 + wave * 0.015) });
+        else if (animation.type === 'pulse') object.set({ opacity: base.opacity * (0.78 + (wave + 1) * 0.11), scaleX: base.scaleX * (1 + wave * 0.035), scaleY: base.scaleY * (1 + wave * 0.035) });
         else if (animation.type === 'spin') object.set({ angle: base.angle + phase * 360 });
         else if (animation.type === 'bounce') object.set({ top: base.top - Math.max(0, wave) * 24 });
         else if (animation.type === 'fade') object.set({ opacity: 0.45 + (wave + 1) * 0.25 });
@@ -83,11 +83,11 @@ class StudioFabricAdapter {
     this.animationFrame = requestAnimationFrame(tick);
   }
 
-  setSelectedAnimation(type = 'none') {
+  setSelectedAnimation(type = 'none', duration = 1600) {
     const object = this.fabricCanvas?.getActiveObject();
     if (!object) return false;
     if (type === 'none') { delete object.msData.animation; delete object.__animationBase; }
-    else { object.msData = { ...(object.msData || {}), animation: { type, duration: 1600 } }; object.__animationBase = { left: object.left || 0, top: object.top || 0, angle: object.angle || 0, opacity: object.opacity ?? 1 }; }
+    else { object.msData = { ...(object.msData || {}), animation: { type, duration: Math.max(300, Number(duration) || 1600) } }; object.__animationBase = { left: object.left || 0, top: object.top || 0, angle: object.angle || 0, opacity: object.opacity ?? 1, scaleX: object.scaleX || 1, scaleY: object.scaleY || 1 }; }
     this.saveHistory(); this.fabricCanvas.requestRenderAll(); return true;
   }
 
@@ -167,6 +167,7 @@ class StudioFabricAdapter {
     this.isRendering = true;
     this.currentScene = scene;
     const fabric = window.fabric;
+    const shadowFor = (value) => value ? new fabric.Shadow({ color: value.color || 'rgba(15,23,42,.28)', blur: Number(value.blur ?? 18), offsetX: Number(value.offsetX ?? 0), offsetY: Number(value.offsetY ?? 8) }) : null;
 
     this.fabricCanvas.setDimensions({ width: scene.width || 1080, height: scene.height || 1080 });
 
@@ -211,6 +212,7 @@ class StudioFabricAdapter {
           charSpacing: el.charSpacing || 0,
           textAlign: el.textAlign || 'left'
         });
+        if (el.shadow) txt.set('shadow', shadowFor(el.shadow));
         txt.msData = el;
         txt.set({ selectable: el.locked !== true, evented: el.locked !== true, visible: el.visible !== false, lockMovementX: el.locked === true, lockMovementY: el.locked === true, lockScalingX: el.locked === true, lockScalingY: el.locked === true, lockRotation: el.locked === true });
         this.fabricCanvas.add(txt);
@@ -243,6 +245,7 @@ class StudioFabricAdapter {
           });
         }
         shapeObj.set({ angle: el.rotation || 0, opacity: el.opacity ?? 1, selectable: el.locked !== true, evented: el.locked !== true, visible: el.visible !== false, lockMovementX: el.locked === true, lockMovementY: el.locked === true, lockScalingX: el.locked === true, lockScalingY: el.locked === true, lockRotation: el.locked === true });
+        if (el.shadow) shapeObj.set('shadow', shadowFor(el.shadow));
         if (el.gradient?.colors?.length >= 2) {
           shapeObj.set('fill', new fabric.Gradient({ type: 'linear', gradientUnits: 'pixels', coords: { x1: 0, y1: 0, x2: shapeObj.width || el.width || 300, y2: shapeObj.height || el.height || 200 }, colorStops: el.gradient.colors.map((color, index, all) => ({ offset: index / (all.length - 1), color })) }));
         }
@@ -268,6 +271,7 @@ class StudioFabricAdapter {
                 img.scaleToWidth(500);
               }
               img.msData = el;
+              if (el.shadow) img.set('shadow', shadowFor(el.shadow));
               img.set({ selectable: el.locked !== true, evented: el.locked !== true, visible: el.visible !== false, flipX: el.flipX === true, flipY: el.flipY === true, lockMovementX: el.locked === true, lockMovementY: el.locked === true, lockScalingX: el.locked === true, lockScalingY: el.locked === true, lockRotation: el.locked === true });
               this.applyImageAdjustments(img, el.adjustments || {});
               this.fabricCanvas.add(img);
@@ -323,6 +327,7 @@ class StudioFabricAdapter {
         lineHeight: obj.lineHeight || ms.lineHeight || undefined,
         charSpacing: obj.charSpacing || ms.charSpacing || undefined,
         textAlign: obj.textAlign || ms.textAlign || undefined,
+        shadow: obj.shadow ? { color: obj.shadow.color, blur: Number(obj.shadow.blur || 0), offsetX: Number(obj.shadow.offsetX || 0), offsetY: Number(obj.shadow.offsetY || 0) } : (ms.shadow || undefined),
         children: obj.type === 'group' ? obj.getObjects().map(child => ({ type: child.type, text: child.text || '', name: child.msData?.name || child.type })) : undefined
       };
     });
@@ -401,6 +406,21 @@ class StudioFabricAdapter {
     this.fabricCanvas.requestRenderAll();
     this.saveHistory();
     this.onSelectionChange([active]);
+    return true;
+  }
+
+  setSelectedShadow(preset = 'none') {
+    const active = this.fabricCanvas?.getActiveObject();
+    if (!active || !window.fabric?.Shadow) return false;
+    const presets = {
+      soft: { color: 'rgba(15,23,42,.24)', blur: 20, offsetX: 0, offsetY: 9 },
+      lift: { color: 'rgba(15,23,42,.32)', blur: 34, offsetX: 0, offsetY: 18 },
+      glow: { color: 'rgba(37,99,235,.52)', blur: 26, offsetX: 0, offsetY: 0 }
+    };
+    const value = presets[preset] || null;
+    active.set('shadow', value ? new window.fabric.Shadow(value) : null);
+    active.msData = { ...(active.msData || {}), shadow: value || undefined };
+    active.setCoords(); this.fabricCanvas.requestRenderAll(); this.saveHistory(); this.onSelectionChange([active]);
     return true;
   }
 
