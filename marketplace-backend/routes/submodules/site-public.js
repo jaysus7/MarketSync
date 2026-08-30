@@ -262,6 +262,21 @@ export function registerSitePublicRoutes(app) {
     res.json({ ...metadata, head_html: renderDealerSiteHead(metadata) })
   })
 
+  // Custom-domain twin of /site/:slug/head-metadata, mirroring how /site-by-domain
+  // pairs with /site/:slug. A dealer site served from its own domain has no slug in
+  // the URL, so the edge resolves it by hostname instead.
+  app.get('/site-head-metadata', rateLimit('pub-site-head-domain', 240, 60000), async (req, res) => {
+    const host = String(req.query.host || '').toLowerCase().trim().replace(/^www\./, '').replace(/:\d+$/, '')
+    if (!host) return res.status(404).json({ error: 'Not found' })
+    const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS)
+      .or(`custom_domain.ilike.${host},custom_domain.ilike.www.${host}`).maybeSingle()
+    if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
+    const response = await buildSiteResponse(d)
+    const metadata = buildDealerSiteMetadata(response.site, { publicSiteOrigin: PUBLIC_SITE_ORIGIN })
+    res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600')
+    res.json({ ...metadata, head_html: renderDealerSiteHead(metadata) })
+  })
+
   // Machine-readable Discovery surface. SEO and Discovery consume the same
   // canonical payload instead of maintaining separate keyword/page inventories.
   app.get('/site/:slug/discovery', rateLimit('pub-site-discovery', 120, 60000), async (req, res) => {
