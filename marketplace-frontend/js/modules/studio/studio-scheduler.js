@@ -1284,11 +1284,11 @@ function studioSchedulerAiCaption(type) {
     studioSchedulerAddHashtags();
     return;
   } else if (type === 'punchy') {
-    captionEl.value = `Incredible deal of the week! Drive home in style with competitive pricing and instant financing approvals. Tap below or stop by the lot today!`;
+    captionEl.value = `Explore this week's featured inventory. Contact our team for current vehicle availability, verified pricing, and approved offer details.`;
   } else if (type === 'cta') {
     captionEl.value += `\n\nContact our sales specialists or message us today to schedule your VIP test drive!`;
   } else {
-    captionEl.value = `Featured Deal of the Day:\n\nLooking for your next reliable ride? We just added exciting inventory with low mileage, warranty included, and great finance rates.\n\nCall or message us to get pre-approved in minutes!\n\n#Dealership #CarSales #QualityVehicles #ShopLocal`;
+    captionEl.value = `Featured vehicle:\n\nExplore the photos and confirmed details in this listing. Availability, pricing, financing, and program eligibility must be verified with the dealership.\n\nCall or message our team to learn more.\n\n#Dealership #CarSales #ShopLocal`;
   }
   updateComposerPreview();
   showToast('AI copy updated!', 'success');

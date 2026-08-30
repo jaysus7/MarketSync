@@ -83,3 +83,10 @@ test('old demo vehicle fallback records are removed from Design Studio', () => {
   assert.doesNotMatch(shell, /demo_v1|F-150 Lariat|F9041/)
   assert.match(shell, /apiGetJson\('\/inventory'\)/)
 })
+
+test('creative presets and social copy do not ship invented prices, rates, reviews, warranties, or approval promises', () => {
+  const shell = read('marketplace-frontend/js/modules/studio/studio-shell.js')
+  const scheduler = read('marketplace-frontend/js/modules/studio/studio-scheduler.js')
+  for (const unsafe of ['$29,995', '$499 / MONTH', '9.99% APR', '4.9 ★ VERIFIED REVIEWS', '100% GUARANTEE', '2-MIN PRE-APPROVAL']) assert.equal(shell.includes(unsafe), false, unsafe)
+  assert.doesNotMatch(scheduler, /instant financing approvals|warranty included|great finance rates|pre-approved in minutes/i)
+})
