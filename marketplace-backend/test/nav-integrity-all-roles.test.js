@@ -125,11 +125,13 @@ test('DealerOS Complete reaches every department it sells', () => {
 // "Payroll" (administration) — so no single gate could express both: gating on
 // os.accounting took a rep's own commission away on every plan without accounting,
 // and leaving it open showed a lone "Payroll" row in an otherwise-empty Accounting
-// workspace. The duplicate row is gone: Accounting reaches payroll through the
-// Accounting engine's own `payroll` tab, which lives on the gated `accounting`
-// page. `commissions` now does one job and is correctly ungated. Pinned here so
-// this stays visible instead of becoming folklore, and so a FIFTH ungated page
-// cannot appear unnoticed.
+// workspace. It is now ungated, and the second job moved off the gate: Accounting's
+// real payroll surface is the Accounting engine's own `payroll` tab, on the gated
+// `accounting` page, and the Accounting row for `commissions` is marked `legacy`, so
+// it stays a deep-link target without keeping the whole department visible on a plan
+// that did not buy accounting. Giving each job its own page id is still the cleaner
+// end state, and is a product decision. Pinned here so this stays visible instead of
+// becoming folklore, and so a FIFTH ungated page cannot appear unnoticed.
 test('the set of ungated pages is exactly the known set', () => {
   const gated = new Set([...Object.keys(PAGE_FEATURE), ...Object.keys(PAGE_ANY), ...Object.keys(PAGE_PRODUCT)])
   const ungated = [...new Set(registry.msAllWorkspacePages().filter(p => !gated.has(p)))].sort()

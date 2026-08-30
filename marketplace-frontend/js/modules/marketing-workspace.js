@@ -2234,16 +2234,21 @@ async function mktLoadStudioBrandAndAssets() {
   const brandHost = document.getElementById('mkt-studio-brand');
   const [brandResult, sitesResult, assetsResult, designsResult, foldersResult] = await Promise.all([
     apiGetJson('/branding').catch(() => ({})),
-    apiGetJson('/websites').catch(() => ({})),
+    apiGetJson('/dealership/site').catch(() => ({})),
     apiGetJson('/marketing/assets').catch(() => ({ assets: [] })),
     apiGetJson('/marketing/studio/designs').catch(() => ({ designs: [] })),
     apiGetJson('/marketing/studio/folders').catch(() => ({ folders: [] })),
   ]);
   const brand = brandResult.branding || {};
-  const site = (sitesResult.sites || sitesResult.websites || [])[0] || sitesResult.site || {};
+  // GET /dealership/site returns the site's content object directly (siteContent(),
+  // routes/site.js), so read that first. The array and `site` shapes are kept for
+  // any older payload. This used to call /websites, which no backend route serves —
+  // the .catch() above swallowed the 404, so the whole brand fallback was silently
+  // dead rather than visibly broken.
+  const site = sitesResult.content || (sitesResult.sites || sitesResult.websites || [])[0] || sitesResult.site || {};
   const logo = brand.logo_url || site.logo_url || '';
   const primary = brand.primary_color || site.primary_color || '#4f46e5';
-  const accent = brand.secondary_color || site.accent_color || '#0f172a';
+  const accent = brand.secondary_color || site.secondary_color || site.accent_color || '#0f172a';
   const tagline = brand.tagline || site.tagline || '';
   window.__mktStudioBrand = { ...brand, logo_url: logo, primary_color: primary, secondary_color: accent, tagline };
   if (brandHost) brandHost.innerHTML = `

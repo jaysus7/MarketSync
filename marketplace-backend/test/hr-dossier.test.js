@@ -39,7 +39,18 @@ test('Team is Staff, and Settings exists', () => {
   assert.match(ws, /work: 'Staff'/)
   assert.match(ws, /settings: 'Settings'/)
   const order = ws.match(/get tabOrder\(\)[\s\S]*?\n  \},/)?.[0] || ''
-  assert.match(order, /'overview', 'work', 'insights', 'settings'/)
+  assert.ok(order, 'the department must declare a tab order')
+  // Pulse leads and Staff follows it; the middle of the order is the department's
+  // own business and has grown since (Time and Reports replaced a single Insights
+  // tab, and the global Insights destination was retired outright — see
+  // legacy-global-pulse.test.js). What must not drift is that Settings is the last
+  // tab AND is manager-only: it configures what the department asks of everyone,
+  // so a non-manager must not be offered it at all.
+  assert.match(order, /'overview', 'work'/, 'Pulse leads, Staff follows it')
+  const [mgrTabs, staffTabs] = [...order.matchAll(/\[([^\]]*)\]/g)].slice(-2).map((m) => m[1])
+  assert.ok(mgrTabs && staffTabs, 'the order must branch on role')
+  assert.match(mgrTabs, /'settings'$/, 'Settings must be the last tab a manager sees')
+  assert.doesNotMatch(staffTabs, /'settings'/, 'a non-manager must not be offered HR Settings')
   assert.match(ws, /settings: pplRenderSettings/)
   assert.match(ws, /function pplRenderSettings/)
 })

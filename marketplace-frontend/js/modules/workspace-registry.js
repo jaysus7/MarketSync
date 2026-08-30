@@ -134,15 +134,17 @@ const MS_WORKSPACES = {
     pages: [
       { page: 'accounting-overview', label: 'Pulse' },
       { page: 'accounting', label: 'Overview' },
-      // Payroll is NOT a page row here. The Accounting engine already carries a
-      // `payroll` tab (accounting-workspace.js) that mounts the same commission
-      // engine, and that tab lives on `accounting`, which is gated on
-      // os.accounting. Listing the standalone `commissions` page here as well made
-      // one page id serve two jobs — Sales' "My Commission" (a rep's own earnings,
-      // correctly open to everyone) and Accounting's "Payroll" (administration) —
-      // so no single entitlement gate could express both. Dropping the duplicate
-      // row leaves `commissions` doing one job, and leaves Payroll gated where it
-      // always should have been: behind the Accounting engine.
+      // Payroll's real surface is the Accounting engine's own `payroll` tab
+      // (accounting-workspace.js), which mounts the same commission engine and sits
+      // on `accounting`, gated on os.accounting. This row is `legacy` so the id stays
+      // a resolvable deep-link target without drawing a second button for that tab —
+      // and, critically, so deptVisible() ignores it: `commissions` is ungated (it is
+      // also Sales' "My Commission", a rep's own earnings, which no plan should
+      // withhold), and a non-legacy row would keep the whole Accounting department
+      // visible on plans that do not include accounting, showing a lone Payroll entry
+      // in an otherwise-empty workspace. Splitting the page id so each job has its own
+      // is still the cleaner end state, and is a product decision.
+      { page: 'commissions', label: 'Payroll', legacy: true },
     ],
   },
 
