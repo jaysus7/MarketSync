@@ -1,6 +1,7 @@
 import dns from 'node:dns/promises'
 import Anthropic from '@anthropic-ai/sdk'
-import { supabaseAdmin, resend, EMAIL_FROM } from '../shared.js'
+import { supabaseAdmin, resend, EMAIL_FROM, PUBLIC_SITE_ORIGIN } from '../shared.js'
+import { orchestratePublishValidation } from '../services/discoverabilityValidationService.js'
 import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { requireProduct } from '../access.js'
@@ -387,6 +388,17 @@ function siteContent(d) {
     inventory_source: ['auto', 'dealer', 'marketplace', 'merged'].includes(b.site_inventory_source)
       ? b.site_inventory_source : 'auto',
   }
+}
+
+// The public address a dealer site is actually served from: a verified custom domain
+// when one is connected, otherwise the hosted slug URL. Validation must fetch the URL
+// the public sees, never an internal or preview address.
+function dealerPublicSiteUrl(site = {}) {
+  const domain = String(site.custom_domain || '').trim()
+  if (domain && site.custom_domain_verified) return `https://${domain.replace(/^https?:\/\//, '').replace(/\/$/, '')}`
+  const slug = String(site.site_slug || '').trim()
+  if (!slug) return null
+  return `${PUBLIC_SITE_ORIGIN}/site.html?d=${encodeURIComponent(slug)}`
 }
 
 const SITE_COLS = 'id, name, branding, site_published, site_slug, custom_domain, city, province, postal_code, website_url, photo_background_url'
@@ -883,11 +895,27 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
       await promoteDealerWebsiteContent(req.dealershipId, source.content)
       const now = new Date().toISOString()
       const { data: rollbackDeployment, error: rollbackDeploymentError } = await supabaseAdmin.from('website_deployments').insert({
-        site_id: req.dealershipId, trigger_type: 'rollback', status: 'verified',
+        site_id: req.dealershipId, trigger_type: 'rollback', status: 'published_pending_validation',
         published_summary: { revision_id: restored.id, revision_number: restored.revision_number, rollback_source_revision_id: revisionId, change_summary: `Rolled back to revision ${source.revision_number}` },
-        deployed_at: now, verified_at: now, verified_status: 'Database-backed public site state confirmed', created_by: req.user?.id,
+        // Restoring a revision and republishing is not a completed rollback. Only a
+        // public recrawl showing the original state restored can close it.
+        deployed_at: now, verified_at: null, verified_status: 'Rolled back — awaiting public verification', created_by: req.user?.id,
       }).select('id, status, trigger_type, published_summary, deployed_at, verified_at, verified_status').single()
       if (rollbackDeploymentError || !rollbackDeployment) throw rollbackDeploymentError || new Error('Rollback deployment record was not created')
+      try {
+        const { data: rollbackSite } = await supabaseAdmin.from('dealerships').select('site_slug, custom_domain, custom_domain_verified').eq('id', req.dealershipId).maybeSingle()
+        const publicUrl = dealerPublicSiteUrl(rollbackSite || {})
+        if (publicUrl) {
+          await orchestratePublishValidation({
+            dealershipId: req.dealershipId,
+            revisionId: restored.id,
+            affectedUrls: [publicUrl],
+            expectedState: { action: 'metadata', canonical: publicUrl, rollbackSourceRevisionId: revisionId },
+          })
+        }
+      } catch (validationError) {
+        audit(req, 'site.rollback_validation_not_queued', { after_state: { revision_id: restored.id, reason: validationError.message } })
+      }
       audit(req, 'site.rollback', { after_state: { source_revision_id: revisionId, published_revision_id: restored.id } })
       res.status(201).json({ ok: true, revision: { id: restored.id, number: restored.revision_number, state: restored.state }, deployment: rollbackDeployment || null })
     } catch (e) { res.status(500).json({ error: e.message }) }
@@ -1106,12 +1134,33 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
         status: 'verified',
         published_summary: { revision_id: revisionInfo.id, revision_number: revisionInfo.number, change_summary: rawBody.change_summary || 'Published website builder changes' },
         deployed_at: new Date().toISOString(),
-        verified_at: new Date().toISOString(),
-        verified_status: 'Database-backed public site state confirmed',
+        // A publish is not a verification. Nothing has looked at the public site yet,
+        // so the deployment stays pending until a live recrawl proves the change is
+        // actually visible. Marking it verified here asserted success from a database
+        // write alone.
+        verified_at: null,
+        verified_status: 'Published — awaiting public validation',
         created_by: req.user?.id,
       })
       if (deploymentError) return res.status(500).json({ error: `Website published, but deployment verification could not be recorded: ${deploymentError.message}`, code: 'WEBSITE_DEPLOYMENT_RECORD_FAILED', revision: revisionInfo })
       if (approvedChangeSet?.id) await supabaseAdmin.from('website_change_sets').update({ status: 'published', published_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', approvedChangeSet.id).eq('site_id', req.dealershipId)
+
+      // Publishing automatically creates the Discoverability validation work, so no
+      // human has to remember to recrawl. Non-fatal: a dealership without
+      // Discoverability configured must still be able to publish its website.
+      try {
+        const publicUrl = dealerPublicSiteUrl({ ...(currentSite || {}), ...update })
+        if (publicUrl) {
+          await orchestratePublishValidation({
+            dealershipId: req.dealershipId,
+            revisionId: revisionInfo.id,
+            affectedUrls: [publicUrl],
+            expectedState: { action: 'metadata', canonical: publicUrl },
+          })
+        }
+      } catch (validationError) {
+        audit(req, 'site.publish_validation_not_queued', { after_state: { revision_id: revisionInfo.id, reason: validationError.message } })
+      }
     }
     audit(req, 'site.configuration_updated', { after_state: { fields: Object.keys(update), site_published: update.site_published, site_slug: update.site_slug, custom_domain: update.custom_domain } })
     res.json({ ok: true, site_slug: update.site_slug, site_published: update.site_published, custom_domain: update.custom_domain, domain_target: SITE_HOST, revision: revisionInfo, current_revision: revisionInfo, discoverability: builderContractAudit })
