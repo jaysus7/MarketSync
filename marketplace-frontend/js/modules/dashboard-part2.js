@@ -762,14 +762,14 @@ async function initializeDashboardEcosystem() {
     }
 
     if (!canManageFeeds) {
-      // Dealer reps see feeds read-only — hide add/sync controls. Facebook is the
-      // one exception: every rep posts and syncs their own assigned inventory to
-      // their own Facebook profile there, so Sync Now stays available for a
-      // Facebook dealer rep too (Add Feed — connecting a new data source — stays
-      // admin-only everywhere, Facebook included).
-      const fbOnlyForSync = typeof isFacebookOnlyWorkspace === 'function' && isFacebookOnlyWorkspace();
+      // Dealer reps see feeds read-only — hide add/sync controls, with one
+      // exception: Sync Now. Every sales role refreshes its own dealership's
+      // inventory, so sync stays reachable for a rep at ANY store, not just a
+      // Facebook-only workspace (it used to be scoped to those). Sync only
+      // re-reads the dealer's existing feed; it creates no new data source.
+      // Add Feed — connecting a new source — stays admin-only everywhere.
       document.querySelectorAll('[data-admin-only]').forEach(el => {
-        if (fbOnlyForSync && el.id === 'sync-now-btn') return;
+        if (el.id === 'sync-now-btn') return;
         el.classList.add('hidden');
       });
     }
