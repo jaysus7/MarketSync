@@ -441,6 +441,13 @@ export function registerMarketingStudio(app) {
 
   app.post('/marketing/studio/designs', requireAuth, requireMfa, canEdit, async (req, res) => {
     if (!guard(req, res)) return
+    const folderId = req.body?.folder_id || null
+    if (folderId) {
+      const { data: folder, error: folderError } = await supabaseAdmin.from('studio_project_folders').select('id')
+        .eq('id', folderId).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
+      if (folderError) return res.status(500).json({ error: folderError.message })
+      if (!folder) return res.status(400).json({ error: 'Choose a valid project folder.' })
+    }
     const payload = {
       // Keep the database UUID contract intact so revisions can reference the
       // design. The old sd_ prefix made new designs fall out of the DB path.
@@ -456,6 +463,7 @@ export function registerMarketingStudio(app) {
       vehicle_id: req.body?.vehicle_id || null,
       campaign_id: req.body?.campaign_id || null,
       template_id: req.body?.template_id || null,
+      folder_id: folderId,
       created_by: req.user?.id,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

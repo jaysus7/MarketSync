@@ -2076,17 +2076,171 @@ Object.assign(window, {
   closeSocialChannelModal
 });
 
+let __mktStudioProjectFolder = 'all';
+let __mktStudioProjectQuery = '';
+let __mktStudioAssetQuery = '';
+let __mktStudioAssetKind = 'all';
+let __mktStudioDraggedDesignId = null;
+
+function mktStudioSceneSummary(design) {
+  const scene = design?.scene || {};
+  const page = Array.isArray(scene.pages) ? (scene.pages[0] || {}) : scene;
+  const elements = page.elements || page.objects || scene.elements || [];
+  const background = page.background?.color || scene.background?.color || '#172554';
+  const safeBackground = /^#[0-9a-f]{3,8}$/i.test(String(background)) ? String(background) : '#172554';
+  const headline = elements.find(element => element?.type === 'text' && String(element.text || '').trim())?.text || design?.name || 'Untitled Design';
+  return { background: safeBackground, headline: String(headline).replace(/\{\{[^}]+\}\}/g, 'Vehicle details').slice(0, 90) };
+}
+
+function mktStudioRelativeDate(value) {
+  const date = new Date(value || 0);
+  if (!Number.isFinite(date.getTime())) return 'Saved project';
+  const days = Math.max(0, Math.floor((Date.now() - date.getTime()) / 86400000));
+  if (days === 0) return 'Updated today';
+  if (days === 1) return 'Updated yesterday';
+  if (days < 30) return `Updated ${days} days ago`;
+  return `Updated ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: date.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' })}`;
+}
+
+function mktRenderStudioProjectLibrary() {
+  const folderHost = document.getElementById('mkt-studio-folders');
+  const projectHost = document.getElementById('mkt-studio-projects');
+  const countHost = document.getElementById('mkt-studio-project-count');
+  if (!folderHost || !projectHost) return;
+  const folders = Array.isArray(window.__mktStudioFolders) ? window.__mktStudioFolders : [];
+  const designs = Array.isArray(window.__mktStudioDesigns) ? window.__mktStudioDesigns : [];
+  const countFor = folderId => designs.filter(design => folderId === null ? !design.folder_id : design.folder_id === folderId).length;
+  const folderClass = active => `min-w-0 rounded-2xl border p-3 text-left transition ${active ? 'border-blue-400 bg-blue-500/10 ring-2 ring-blue-500/20' : 'border-white/60 dark:border-white/10 bg-white/55 dark:bg-slate-950/35 hover:border-blue-300 dark:hover:border-blue-500/50'}`;
+  const allCard = `<button type="button" onclick="mktSetStudioProjectFolder('all')" class="${folderClass(__mktStudioProjectFolder === 'all')}"><span class="flex items-center gap-2"><svg class="w-5 h-5 text-blue-600 dark:text-blue-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6.5A2.5 2.5 0 016.5 4h3L12 6.5h5.5A2.5 2.5 0 0120 9v8.5a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 17.5v-11z"/></svg><span class="min-w-0"><span class="block text-sm font-black truncate">All projects</span><span class="block text-xs text-slate-500 dark:text-slate-400">${designs.length} design${designs.length === 1 ? '' : 's'}</span></span></span></button>`;
+  const unfiledCard = `<button type="button" onclick="mktSetStudioProjectFolder('unfiled')" ondragover="mktAllowStudioProjectDrop(event)" ondragleave="mktLeaveStudioProjectDrop(event)" ondrop="mktDropStudioProject(event, '')" class="${folderClass(__mktStudioProjectFolder === 'unfiled')} studio-project-dropzone"><span class="flex items-center gap-2"><svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16v12H4zM8 4h8v3H8z"/></svg><span class="min-w-0"><span class="block text-sm font-black truncate">Unfiled</span><span class="block text-xs text-slate-500 dark:text-slate-400">${countFor(null)} design${countFor(null) === 1 ? '' : 's'}</span></span></span></button>`;
+  const folderCards = folders.map(folder => {
+    const count = countFor(folder.id);
+    return `<div role="button" tabindex="0" onclick="mktSetStudioProjectFolder('${esc(folder.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();mktSetStudioProjectFolder('${esc(folder.id)}')}" ondragover="mktAllowStudioProjectDrop(event)" ondragleave="mktLeaveStudioProjectDrop(event)" ondrop="mktDropStudioProject(event, '${esc(folder.id)}')" class="${folderClass(__mktStudioProjectFolder === folder.id)} studio-project-dropzone group"><div class="flex items-center gap-2"><svg class="w-5 h-5 shrink-0" style="color:${esc(folder.color || '#2563eb')}" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.75A2.75 2.75 0 015.75 4h3.69c.73 0 1.43.29 1.94.81L13.57 7h4.68A2.75 2.75 0 0121 9.75v7.5A2.75 2.75 0 0118.25 20H5.75A2.75 2.75 0 013 17.25V6.75z"/></svg><span class="min-w-0 flex-1"><span class="block text-sm font-black truncate">${esc(folder.name)}</span><span class="block text-xs text-slate-500 dark:text-slate-400">${count} design${count === 1 ? '' : 's'}</span></span><span class="flex items-center opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition"><button type="button" title="Rename folder" aria-label="Rename ${esc(folder.name)}" onclick="event.stopPropagation();mktRenameStudioFolder('${esc(folder.id)}')" class="p-1.5 rounded-lg hover:bg-white/70 dark:hover:bg-white/10"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m4 20 4.5-1L19 8.5 15.5 5 5 15.5 4 20z"/></svg></button><button type="button" title="Delete folder" aria-label="Delete ${esc(folder.name)}" onclick="event.stopPropagation();mktDeleteStudioFolder('${esc(folder.id)}')" class="p-1.5 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-500/10 text-rose-600"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16m-10 4v5m4-5v5M9 7V4h6v3m-9 0 1 13h10l1-13"/></svg></button></span></div></div>`;
+  }).join('');
+  folderHost.innerHTML = allCard + unfiledCard + folderCards;
+
+  const query = __mktStudioProjectQuery.trim().toLowerCase();
+  const visible = designs.filter(design => {
+    const folderMatch = __mktStudioProjectFolder === 'all' || (__mktStudioProjectFolder === 'unfiled' ? !design.folder_id : design.folder_id === __mktStudioProjectFolder);
+    return folderMatch && (!query || `${design.name || ''} ${design.format_key || ''} ${design.status || ''}`.toLowerCase().includes(query));
+  });
+  if (countHost) countHost.textContent = `${visible.length} of ${designs.length} project${designs.length === 1 ? '' : 's'}`;
+  projectHost.innerHTML = visible.length ? visible.map(design => {
+    const summary = mktStudioSceneSummary(design);
+    const folder = folders.find(item => item.id === design.folder_id);
+    return `<article draggable="true" ondragstart="mktStartStudioProjectDrag(event, '${esc(design.id)}')" ondragend="mktEndStudioProjectDrag(event)" class="studio-project-card group rounded-3xl border border-white/60 dark:border-white/10 bg-white/65 dark:bg-slate-950/45 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition cursor-grab active:cursor-grabbing"><button type="button" onclick="openMarketSyncStudio('${esc(design.id)}')" class="block w-full text-left"><div class="relative aspect-[16/9] p-4 flex items-end overflow-hidden" style="background:${esc(summary.background)}"><div class="absolute inset-0 opacity-60" style="background:radial-gradient(circle at 80% 15%,rgba(96,165,250,.7),transparent 38%),linear-gradient(135deg,transparent,rgba(15,23,42,.45))"></div><div class="relative max-w-[85%] text-white font-black text-lg leading-tight line-clamp-2">${esc(summary.headline)}</div><span class="absolute right-3 top-3 rounded-full bg-black/35 backdrop-blur-lg px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white">${esc(design.format_key || 'custom')}</span></div><div class="p-3"><div class="flex items-start justify-between gap-2"><div class="min-w-0"><h4 class="text-base font-black text-slate-950 dark:text-white truncate">${esc(design.name || 'Untitled Design')}</h4><p class="text-xs text-slate-500 dark:text-slate-400">${Number(design.width) || 1080} × ${Number(design.height) || 1080} · ${mktStudioRelativeDate(design.updated_at)}</p></div><span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wider ${design.status === 'published' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300'}">${esc(design.status || 'draft')}</span></div><div class="mt-3 flex items-center justify-between gap-2"><span class="inline-flex min-w-0 items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400"><svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16v12H4zM8 4h8v3H8z"/></svg><span class="truncate">${esc(folder?.name || 'Unfiled')}</span></span><span class="text-xs font-black text-blue-600 dark:text-blue-300">Open design →</span></div></div></button></article>`;
+  }).join('') : `<div class="col-span-full rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 bg-white/30 dark:bg-slate-950/20 py-12 px-5 text-center"><svg class="mx-auto w-10 h-10 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6.5A2.5 2.5 0 016.5 4H10l2 2h5.5A2.5 2.5 0 0120 8.5v9A2.5 2.5 0 0117.5 20h-11A2.5 2.5 0 014 17.5v-11z"/></svg><h4 class="mt-3 text-base font-black text-slate-900 dark:text-white">No projects here yet</h4><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Create a design or drag an existing project into this folder.</p><button type="button" onclick="openMarketSyncStudio()" class="mt-4 liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Create design</button></div>`;
+}
+
+function mktRenderStudioAssets() {
+  const host = document.getElementById('mkt-studio-assets');
+  if (!host) return;
+  const query = __mktStudioAssetQuery.trim().toLowerCase();
+  const assets = (window.__mktStudioAssets || []).filter(asset => {
+    const kind = String(asset.kind || asset.type || 'image').toLowerCase();
+    const kindMatch = __mktStudioAssetKind === 'all' || kind === __mktStudioAssetKind;
+    return kindMatch && (!query || `${asset.title || ''} ${asset.alt_text || ''} ${asset.storage_path || ''}`.toLowerCase().includes(query));
+  });
+  document.querySelectorAll('[data-studio-asset-kind]').forEach(button => {
+    const active = button.dataset.studioAssetKind === __mktStudioAssetKind;
+    button.classList.toggle('bg-white', active);
+    button.classList.toggle('dark:bg-white/10', active);
+    button.classList.toggle('shadow-sm', active);
+    button.classList.toggle('text-blue-700', active);
+    button.classList.toggle('dark:text-blue-300', active);
+  });
+  host.innerHTML = assets.length ? assets.map(asset => {
+    const url = asset.public_url || asset.url || asset.src || '';
+    const name = asset.title || asset.name || asset.filename || 'Untitled asset';
+    const kind = String(asset.kind || asset.type || 'image').toLowerCase();
+    const media = kind === 'video'
+      ? `<video src="${esc(url)}" muted playsinline preload="metadata" class="w-full h-32 object-cover bg-slate-950"></video>`
+      : (url ? `<img src="${esc(url)}" alt="${esc(asset.alt_text || '')}" loading="lazy" class="w-full h-32 object-cover bg-slate-100 dark:bg-slate-900">` : '<div class="h-32 bg-slate-100 dark:bg-slate-900"></div>');
+    return `<button type="button" onclick="openMarketSyncStudio()" class="group rounded-2xl border border-white/60 dark:border-white/10 overflow-hidden bg-white/65 dark:bg-slate-950/45 text-left shadow-sm hover:shadow-lg transition">${media}<div class="p-2.5"><div class="text-sm font-black text-slate-900 dark:text-white truncate">${esc(name)}</div><div class="mt-0.5 flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400"><span class="capitalize">${esc(kind)}</span><span>${asset.width && asset.height ? `${Number(asset.width)} × ${Number(asset.height)}` : mktStudioRelativeDate(asset.created_at).replace('Updated', 'Added')}</span></div></div></button>`;
+  }).join('') : '<div class="col-span-full rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 py-10 px-4 text-center text-sm text-slate-500 dark:text-slate-400">No assets match this view. Upload a dealership photo, logo, or video to start your library.</div>';
+}
+
+window.mktSetStudioProjectFolder = function (folderId) { __mktStudioProjectFolder = folderId || 'unfiled'; mktRenderStudioProjectLibrary(); };
+window.mktFilterStudioProjects = function (value) { __mktStudioProjectQuery = String(value || ''); mktRenderStudioProjectLibrary(); };
+window.mktFilterStudioAssets = function (value) { __mktStudioAssetQuery = String(value || ''); mktRenderStudioAssets(); };
+window.mktSetStudioAssetKind = function (kind) { __mktStudioAssetKind = kind || 'all'; mktRenderStudioAssets(); };
+window.mktShowNewStudioFolderForm = function () { const host = document.getElementById('mkt-studio-new-folder'); host?.classList.remove('hidden'); setTimeout(() => document.getElementById('mkt-studio-folder-name')?.focus(), 0); };
+window.mktHideNewStudioFolderForm = function () { document.getElementById('mkt-studio-new-folder')?.classList.add('hidden'); };
+window.mktStartStudioProjectDrag = function (event, designId) { __mktStudioDraggedDesignId = designId; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', designId); event.currentTarget.classList.add('opacity-60'); };
+window.mktEndStudioProjectDrag = function (event) { __mktStudioDraggedDesignId = null; event.currentTarget.classList.remove('opacity-60'); document.querySelectorAll('.studio-project-dropzone').forEach(zone => zone.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-500/15')); };
+window.mktAllowStudioProjectDrop = function (event) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; event.currentTarget.classList.add('ring-2', 'ring-blue-500', 'bg-blue-500/15'); };
+window.mktLeaveStudioProjectDrop = function (event) { event.currentTarget.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-500/15'); };
+window.mktDropStudioProject = async function (event, folderId) {
+  event.preventDefault();
+  event.stopPropagation();
+  const designId = event.dataTransfer.getData('text/plain') || __mktStudioDraggedDesignId;
+  const targetFolderId = folderId || null;
+  const design = (window.__mktStudioDesigns || []).find(item => item.id === designId);
+  if (!design || (design.folder_id || null) === targetFolderId) { mktEndStudioProjectDrag({ currentTarget: event.currentTarget }); return; }
+  try {
+    await apiSendJson(`/marketing/studio/designs/${encodeURIComponent(designId)}`, 'PUT', { folder_id: targetFolderId });
+    design.folder_id = targetFolderId;
+    design.updated_at = new Date().toISOString();
+    const folder = (window.__mktStudioFolders || []).find(item => item.id === targetFolderId);
+    showToast(folder ? `Moved to ${folder.name}` : 'Moved to Unfiled', 'success');
+    mktRenderStudioProjectLibrary();
+  } catch (error) { showToast(error.message || 'Could not move project', 'error'); }
+  __mktStudioDraggedDesignId = null;
+};
+
+window.mktCreateStudioFolder = async function (event) {
+  event?.preventDefault();
+  const name = document.getElementById('mkt-studio-folder-name')?.value?.trim();
+  const color = document.getElementById('mkt-studio-folder-color')?.value || '#2563eb';
+  if (!name) return showToast('Enter a folder name', 'info');
+  try {
+    const response = await apiSendJson('/marketing/studio/folders', 'POST', { name, color });
+    window.__mktStudioFolders = [...(window.__mktStudioFolders || []), response.folder];
+    __mktStudioProjectFolder = response.folder.id;
+    mktHideNewStudioFolderForm();
+    mktRenderStudioProjectLibrary();
+    showToast(`${response.folder.name} folder created`, 'success');
+  } catch (error) { showToast(error.message || 'Could not create folder', 'error'); }
+};
+
+window.mktRenameStudioFolder = async function (folderId) {
+  const folder = (window.__mktStudioFolders || []).find(item => item.id === folderId);
+  if (!folder) return;
+  const name = window.prompt('Rename folder', folder.name)?.trim();
+  if (!name || name === folder.name) return;
+  try {
+    const response = await apiSendJson(`/marketing/studio/folders/${encodeURIComponent(folderId)}`, 'PUT', { name });
+    Object.assign(folder, response.folder);
+    mktRenderStudioProjectLibrary();
+    showToast('Folder renamed', 'success');
+  } catch (error) { showToast(error.message || 'Could not rename folder', 'error'); }
+};
+
+window.mktDeleteStudioFolder = async function (folderId) {
+  const folder = (window.__mktStudioFolders || []).find(item => item.id === folderId);
+  if (!folder || !window.confirm(`Delete “${folder.name}”? Designs inside it will move to Unfiled.`)) return;
+  try {
+    await apiSendJson(`/marketing/studio/folders/${encodeURIComponent(folderId)}`, 'DELETE', {});
+    (window.__mktStudioDesigns || []).forEach(design => { if (design.folder_id === folderId) design.folder_id = null; });
+    window.__mktStudioFolders = (window.__mktStudioFolders || []).filter(item => item.id !== folderId);
+    if (__mktStudioProjectFolder === folderId) __mktStudioProjectFolder = 'all';
+    mktRenderStudioProjectLibrary();
+    showToast('Folder deleted. Its designs are now Unfiled.', 'success');
+  } catch (error) { showToast(error.message || 'Could not delete folder', 'error'); }
+};
+
 
 async function mktLoadStudioBrandAndAssets() {
   const brandHost = document.getElementById('mkt-studio-brand');
-  const assetHost = document.getElementById('mkt-studio-assets');
-  let brand = {};
-  let site = {};
-  try { brand = (await apiGetJson('/branding')).branding || {}; } catch {}
-  try {
-    const sites = await apiGetJson('/websites').catch(() => ({}));
-    site = (sites.sites || sites.websites || [])[0] || sites.site || {};
-  } catch {}
+  const [brandResult, sitesResult, assetsResult, designsResult, foldersResult] = await Promise.all([
+    apiGetJson('/branding').catch(() => ({})),
+    apiGetJson('/websites').catch(() => ({})),
+    apiGetJson('/marketing/assets').catch(() => ({ assets: [] })),
+    apiGetJson('/marketing/studio/designs').catch(() => ({ designs: [] })),
+    apiGetJson('/marketing/studio/folders').catch(() => ({ folders: [] })),
+  ]);
+  const brand = brandResult.branding || {};
+  const site = (sitesResult.sites || sitesResult.websites || [])[0] || sitesResult.site || {};
   const logo = brand.logo_url || site.logo_url || '';
   const primary = brand.primary_color || site.primary_color || '#4f46e5';
   const accent = brand.secondary_color || site.accent_color || '#0f172a';
@@ -2104,19 +2258,11 @@ async function mktLoadStudioBrandAndAssets() {
     <input id="mkt-brand-tagline" value="${esc(tagline)}" placeholder="Tagline" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
     <div class="text-xs text-slate-500">Same record as Settings → Branding and the Website wordmark.</div>
   `;
-  let assets = [];
-  try { assets = (await apiGetJson('/marketing/assets')).assets || []; } catch {}
-  window.__mktStudioAssets = assets;
-  if (assetHost) {
-    assetHost.innerHTML = assets.length ? assets.slice(0, 24).map(a => {
-      const url = a.url || a.public_url || a.src || '';
-      const name = a.name || a.filename || 'Asset';
-      return `<button type="button" onclick="openMarketSyncStudio()" class="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 text-left">
-        ${url && !String(a.kind||a.type||'').includes('video') ? `<img src="${esc(url)}" class="w-full h-24 object-cover">` : `<div class="h-24 flex items-center justify-center text-xs text-slate-400">File</div>`}
-        <div class="px-2 py-1.5 text-[11px] font-semibold truncate">${esc(name)}</div>
-      </button>`;
-    }).join('') : '<div class="col-span-full text-sm text-slate-400 py-6 text-center">No assets yet. Upload a logo or photo.</div>';
-  }
+  window.__mktStudioAssets = assetsResult.assets || [];
+  window.__mktStudioDesigns = designsResult.designs || [];
+  window.__mktStudioFolders = foldersResult.folders || [];
+  mktRenderStudioProjectLibrary();
+  mktRenderStudioAssets();
 }
 window.mktLoadStudioBrandAndAssets = mktLoadStudioBrandAndAssets;
 
@@ -2152,11 +2298,15 @@ window.mktUploadStudioAsset = async function (input) {
   if (!file) return;
   const fd = new FormData();
   fd.append('file', file);
+  fd.append('title', file.name);
   try {
     const token = localStorage.getItem('token');
-    const r = await fetch(`${API}/marketing/assets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
-    if (!r.ok) throw new Error('Upload failed');
+    const endpoint = /^video\//.test(file.type || '') ? '/marketing/assets/video' : '/marketing/assets';
+    const r = await fetch(`${API}${endpoint}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+    const response = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(response.error || 'Upload failed');
     showToast('Added to the assets library', 'success');
+    input.value = '';
     mktLoadStudioBrandAndAssets();
   } catch (e) { showToast(e.message, 'error'); }
 };
