@@ -41,7 +41,15 @@ const STUDIO_SOCIAL_FORMATS = {
   linkedin: { label: 'LinkedIn Page Post', w: 1200, h: 627, safe: [6, 6, 8, 6], note: 'LinkedIn 1.91:1 safe content area' },
   x_landscape: { label: 'X Landscape Post', w: 1600, h: 900, safe: [6, 6, 8, 6], note: 'Keep text away from crop edges' },
   youtube: { label: 'YouTube Thumbnail', w: 1280, h: 720, safe: [6, 6, 8, 6], note: 'Keep title and logo inside' },
-  pinterest: { label: 'Pinterest Pin 2:3', w: 1000, h: 1500, safe: [7, 7, 10, 7], note: 'Pin-safe content area' }
+  pinterest: { label: 'Pinterest Pin 2:3', w: 1000, h: 1500, safe: [7, 7, 10, 7], note: 'Pin-safe content area' },
+  facebook_post: { label: 'Facebook Post', w: 1200, h: 630, safe: [6, 6, 8, 6], note: 'Feed-safe content area' },
+  facebook_story: { label: 'Facebook Story', w: 1080, h: 1920, safe: [14, 15, 20, 6], note: 'Story controls remain clear' },
+  marketplace: { label: 'Marketplace Image', w: 1200, h: 900, safe: [6, 6, 8, 6], note: 'Vehicle and price stay visible in search cards' },
+  email_hero: { label: 'Email Hero', w: 1200, h: 600, safe: [7, 7, 9, 7], note: 'Email-safe headline and CTA area' },
+  website_banner: { label: 'Website Banner', w: 1920, h: 720, safe: [8, 7, 10, 7], note: 'Responsive website content bounds' },
+  display_300x250: { label: 'Display Ad 300×250', w: 300, h: 250, safe: [7, 7, 9, 7], note: 'Compact display-ad safe area' },
+  display_728x90: { label: 'Display Ad 728×90', w: 728, h: 90, safe: [8, 4, 8, 4], note: 'Leaderboard safe area' },
+  display_160x600: { label: 'Display Ad 160×600', w: 160, h: 600, safe: [4, 8, 5, 8], note: 'Skyscraper safe area' }
 };
 
 // Small inline SVG previews so each Shapes button shows the actual shape, not just
@@ -377,6 +385,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
         <select id="studio-format-picker" onchange="changeStudioFormat(this.value)" class="bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700">
           ${Object.entries(STUDIO_SOCIAL_FORMATS).map(([key, format]) => `<option value="${key}" ${scene.format_key === key ? 'selected' : ''}>${format.label} (${format.w}×${format.h})</option>`).join('')}
         </select>
+        <button type="button" onclick="openStudioMagicResize()" class="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-black whitespace-nowrap">✦ Magic Resize</button>
         <div class="flex items-center rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 p-0.5" title="Preview breakpoint-specific layout overrides">
           <button type="button" onclick="setStudioBreakpoint('desktop')" data-studio-breakpoint="desktop" class="studio-breakpoint px-2 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-black">Desktop</button>
           <button type="button" onclick="setStudioBreakpoint('tablet')" data-studio-breakpoint="tablet" class="studio-breakpoint px-2 py-1 rounded-lg text-slate-500 dark:text-slate-300 text-[10px] font-bold">Tablet</button>
@@ -391,6 +400,9 @@ function renderStudioWorkspaceHtml(designName, scene) {
           <svg class="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>Save
         </button>
         <button onclick="openStudioRevisionHistory()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition">History</button>
+        <button onclick="openStudioCollaboration()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition">Review</button>
+        <button onclick="openStudioAiDesign()" class="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-black transition">✦ AI Design</button>
+        <button onclick="openStudioExport()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition">Export</button>
         <button onclick="publishStudioDesign()" class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-lg transition">Publish</button>
         <button onclick="if(typeof openStudioSchedulerWithEntitlementCheck === 'function') openStudioSchedulerWithEntitlementCheck()" class="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition flex items-center gap-1.5">
           <svg class="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Schedule
@@ -569,7 +581,7 @@ const STUDIO_TEMPLATES_CATALOG = {
         { id: 'el-card', type: 'shape', shapeType: 'rect', x: 600, y: 0, width: 600, height: 628, fill: '#1E293B', opacity: 1, z: 2, name: 'Right Copy Panel' },
         { id: 'el-badge', type: 'text', x: 650, y: 60, text: 'WEEKEND SPECIAL', fontSize: 20, fontWeight: '800', fill: '#F59E0B', z: 3, name: 'Badge' },
         { id: 'el-title', type: 'text', x: 650, y: 110, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 36, fontWeight: '900', fill: '#FFFFFF', z: 4, name: 'Vehicle Name' },
-        { id: 'el-offer', type: 'text', x: 650, y: 220, text: '0% APR FOR 60 MONTHS AVAILABLE', fontSize: 22, fontWeight: '700', fill: '#94A3B8', z: 5, name: 'Offer Text' },
+        { id: 'el-offer', type: 'text', x: 650, y: 220, text: 'ASK ABOUT CURRENT APPROVED OFFERS', fontSize: 22, fontWeight: '700', fill: '#94A3B8', z: 5, name: 'Offer Text', approval_required: true },
         { id: 'el-price', type: 'text', x: 650, y: 300, text: 'PRICE: {{vehicle.price}}', fontSize: 38, fontWeight: '900', fill: '#10B981', z: 6, name: 'Price Text' },
         { id: 'el-cta-btn', type: 'shape', shapeType: 'rect', x: 650, y: 440, width: 480, height: 75, fill: '#2563EB', rx: 16, opacity: 1, z: 7, name: 'CTA Button' },
         { id: 'el-cta-txt', type: 'text', x: 790, y: 465, text: 'CLAIM THIS OFFER', fontSize: 22, fontWeight: '800', fill: '#FFFFFF', z: 8, name: 'CTA Text' }
@@ -595,8 +607,8 @@ const STUDIO_TEMPLATES_CATALOG = {
         { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1600&q=82', x: 0, y: 120, width: 1080, height: 780, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
         { id: 'el-card', type: 'shape', shapeType: 'rect', x: 40, y: 920, width: 1000, height: 380, fill: '#1E293B', rx: 24, opacity: 0.95, z: 4, name: 'Bottom Details Card' },
         { id: 'el-ymmt', type: 'text', x: 80, y: 970, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 42, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'Title' },
-        { id: 'el-insp', type: 'text', x: 80, y: 1040, text: '172-Point Inspection Passed • Low Mileage', fontSize: 22, fontWeight: '600', fill: '#94A3B8', z: 6, name: 'Inspection' },
-        { id: 'el-price', type: 'text', x: 80, y: 1120, text: '{{vehicle.price}} • 12-Month Warranty Included', fontSize: 28, fontWeight: '800', fill: '#34D399', z: 7, name: 'Price & Warranty' },
+        { id: 'el-insp', type: 'text', x: 80, y: 1040, text: 'CERTIFICATION DETAILS AVAILABLE', fontSize: 22, fontWeight: '600', fill: '#94A3B8', z: 6, name: 'Inspection', approval_required: true },
+        { id: 'el-price', type: 'text', x: 80, y: 1120, text: '{{vehicle.sale_price|Contact dealer for details}}', binding: { template: '{{vehicle.sale_price|Contact dealer for details}}' }, fontSize: 28, fontWeight: '800', fill: '#34D399', z: 7, name: 'Price & Warranty' },
         { id: 'el-phone', type: 'text', x: 80, y: 1210, text: 'Call Us Today: {{dealership.phone}}', fontSize: 22, fontWeight: '700', fill: '#38BDF8', z: 8, name: 'Phone' }
       ]
     }
@@ -616,7 +628,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       background: { color: '#064E3B' },
       elements: [
         { id: 'el-hdr', type: 'text', x: 60, y: 80, text: 'TOP MARKET TRADE VALUE', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 1, name: 'Header' },
-        { id: 'el-sub', type: 'text', x: 60, y: 150, text: 'We Need Used Inventory — Get Up to 120% KBB Value!', fontSize: 26, fontWeight: '700', fill: '#A7F3D0', z: 2, name: 'Subtitle' },
+        { id: 'el-sub', type: 'text', x: 60, y: 150, text: 'We Need Used Inventory — Request Your Trade Appraisal', fontSize: 26, fontWeight: '700', fill: '#A7F3D0', z: 2, name: 'Subtitle' },
         { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=1600&q=82', x: 60, y: 220, width: 960, height: 560, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
         { id: 'el-btn', type: 'shape', shapeType: 'rect', x: 60, y: 840, width: 960, height: 160, fill: '#10B981', rx: 24, opacity: 1, z: 4, name: 'CTA Card' },
         { id: 'el-btn-txt', type: 'text', x: 180, y: 900, text: 'VALUE YOUR TRADE IN 60 SECONDS', fontSize: 32, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'CTA Text' }
@@ -642,7 +654,7 @@ const STUDIO_TEMPLATES_CATALOG = {
         { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1592833159155-c62df1b65634?auto=format&fit=crop&w=1600&q=82', x: 0, y: 160, width: 1080, height: 1100, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
         { id: 'el-card', type: 'shape', shapeType: 'rect', x: 50, y: 1300, width: 980, height: 520, fill: '#0F172A', rx: 32, opacity: 0.95, z: 4, name: 'Card' },
         { id: 'el-title', type: 'text', x: 100, y: 1360, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'Title' },
-        { id: 'el-rebate', type: 'text', x: 100, y: 1430, text: 'Federal & State Rebates Up to $7,500 Available', fontSize: 24, fontWeight: '700', fill: '#38BDF8', z: 6, name: 'Rebate' },
+        { id: 'el-rebate', type: 'text', x: 100, y: 1430, text: 'ASK ABOUT CURRENT EV PROGRAM ELIGIBILITY', fontSize: 24, fontWeight: '700', fill: '#38BDF8', z: 6, name: 'Rebate', approval_required: true },
         { id: 'el-price', type: 'text', x: 100, y: 1510, text: 'NET PRICE: {{vehicle.price}}', fontSize: 40, fontWeight: '900', fill: '#34D399', z: 7, name: 'Price' },
         { id: 'el-btn', type: 'shape', shapeType: 'rect', x: 100, y: 1620, width: 880, height: 100, fill: '#06B6D4', rx: 20, opacity: 1, z: 8, name: 'Button' },
         { id: 'el-btn-txt', type: 'text', x: 340, y: 1655, text: 'EXPLORE EV OFFERS', fontSize: 26, fontWeight: '800', fill: '#FFFFFF', z: 9, name: 'Button Text' }
@@ -672,6 +684,18 @@ Object.entries(STUDIO_SOCIAL_FORMATS).forEach(([formatKey, format], index) => {
       { id: `${key}-cta`, type: 'shape', shapeType: 'badge', x: pad, y: ctaY, width: Math.round(format.w * .42), height: Math.round(format.h * .075), fill: '#FFFFFF', rx: 24, name: 'CTA Button', z: 7 },
       { id: `${key}-ctatxt`, type: 'text', x: pad + 32, y: ctaY + Math.round(format.h * .02), width: Math.round(format.w * .35), text: 'LEARN MORE →', fontSize: Math.max(20, Math.round(format.w * .025)), fontWeight: '900', fill: '#1D4ED8', name: 'CTA Text', z: 8 }
     ] }
+  };
+});
+
+// The professional template catalogue is generated as editable scene JSON by the
+// shared document schema. It extends this existing picker instead of introducing
+// another template system or flattened artwork format.
+(window.msDesignStudioAutomotiveTemplates || []).forEach(template => {
+  STUDIO_TEMPLATES_CATALOG[template.template_key] = {
+    ...template,
+    desc: `${template.category} · fully editable`,
+    width: template.scene.width,
+    height: template.scene.height
   };
 });
 
@@ -714,11 +738,13 @@ function templatePreviewMarkup(tmpl) {
   return `<div class="studio-template-preview" style="aspect-ratio:${width}/${height};background:${escS(scene.background?.color || '#0f172a')};">${nodes}</div>`;
 }
 
-function renderStudioTemplateCards(filter = 'all') {
-  return Object.values(STUDIO_TEMPLATES_CATALOG).filter(t => filter === 'all' || t.format_key === filter).map(t => {
+function renderStudioTemplateCards(filter = window.__studioTemplateFormat || 'all', category = window.__studioTemplateCategory || 'all', limit = window.__studioTemplateLimit || 24) {
+  const matches = Object.values(STUDIO_TEMPLATES_CATALOG).filter(t => (filter === 'all' || t.format_key === filter) && (category === 'all' || t.category === category));
+  const cards = matches.slice(0, limit).map(t => {
     const format = STUDIO_SOCIAL_FORMATS[t.format_key];
     return `<button onclick="loadStudioTemplate('${t.template_key}')" class="w-full text-left rounded-2xl overflow-hidden bg-white border border-slate-200 hover:border-blue-500 hover:shadow-lg transition group"><div class="relative overflow-hidden bg-slate-950">${templatePreviewMarkup(t)}<span class="absolute left-2 top-2 px-2 py-1 rounded-lg bg-slate-950/80 text-[9px] font-black text-blue-100">${format ? `${format.w}×${format.h}` : 'READY'}</span></div><div class="p-3"><div class="text-xs font-black text-slate-900 group-hover:text-blue-600">${escS(t.name)}</div><div class="mt-1 text-[10px] text-slate-500">${escS(t.desc)}</div></div></button>`;
   }).join('');
+  return cards + (matches.length > limit ? `<button type="button" onclick="loadMoreStudioTemplates()" class="w-full py-3 rounded-2xl border border-slate-300 dark:border-slate-700 text-xs font-black">Show more templates (${matches.length - limit})</button>` : '');
 }
 
 function renderStudioToolPanelContent(tool) {
@@ -743,7 +769,8 @@ function renderStudioToolPanelContent(tool) {
     return `
       <div class="p-4 space-y-3">
         <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Social Templates</h3><p class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Ready-made layouts with gradients, shapes and safe text placement.</p></div>
-        <select onchange="filterStudioTemplates(this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white"><option value="all">All social sizes</option>${Object.entries(STUDIO_SOCIAL_FORMATS).map(([key,f]) => `<option value="${key}">${f.label}</option>`).join('')}</select>
+        <select onchange="filterStudioTemplates(this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white"><option value="all">All output sizes</option>${Object.entries(STUDIO_SOCIAL_FORMATS).map(([key,f]) => `<option value="${key}">${f.label}</option>`).join('')}</select>
+        <select onchange="filterStudioTemplateCategory(this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white"><option value="all">All categories</option>${[...new Set(Object.values(STUDIO_TEMPLATES_CATALOG).map(template => template.category).filter(Boolean))].map(category => `<option value="${escS(category)}">${escS(category)}</option>`).join('')}</select>
         <div id="studio-template-cards" class="space-y-3">${renderStudioTemplateCards()}</div>
         <div class="pt-3 mt-1 border-t border-slate-200 dark:border-slate-800 space-y-2">
           <h4 class="text-[11px] font-black uppercase tracking-wider text-sky-400">✦ Generate a template</h4>
@@ -762,13 +789,7 @@ function renderStudioToolPanelContent(tool) {
         <p class="text-[11px] text-slate-500 dark:text-slate-400 -mt-1">Pick a vehicle — its photo and details fill an automotive template, ready to edit and schedule.</p>
         <input type="text" placeholder="Search stock #, VIN, year make model..." oninput="searchStudioInventory(this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white">
         <div class="space-y-2" id="studio-inventory-list">
-          <button onclick="createFromVehicle('demo_v1')" class="w-full text-left p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-xs font-black text-indigo-400">VEH</div>
-            <div class="min-w-0 flex-1">
-              <div class="text-xs font-bold text-slate-900 dark:text-white">2024 Ford F-150 Lariat</div>
-              <div class="text-[11px] text-emerald-400 font-bold">$54,990 • STK #F9041</div>
-            </div>
-          </button>
+          <div class="p-3 text-xs text-slate-500">Loading connected inventory…</div>
         </div>
       </div>
     `;
@@ -824,6 +845,7 @@ function renderStudioToolPanelContent(tool) {
   } else if (tool === 'text') {
     return `
       <div class="p-4 space-y-5">
+        <!-- Font cards call studioPickFont(...) so selection applies to the active text or next insert. -->
         <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Text</h3><p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Generate copy with AI, then pick a font and add it to the canvas.</p></div>
 
         <div class="space-y-2 pb-4 border-b border-slate-200 dark:border-slate-800">
@@ -851,15 +873,18 @@ function renderStudioToolPanelContent(tool) {
       </div>
     `;
   } else if (tool === 'brand') {
-    const storeName = window.__dealerConfig?.store_name || 'MarketSync Motors';
+    const kit = window.__studioBrandKit || {}, storeName = kit.dealership_name || window.__dealerConfig?.store_name || 'Dealership';
+    const colors = [kit.primary_color, kit.secondary_color, kit.accent_color].filter(Boolean);
+    const logos = [kit.logo_url, kit.alternate_logo_url, kit.light_logo_url, kit.dark_logo_url, kit.logo_mark_url].filter(Boolean);
     return `
       <div class="p-4 space-y-3">
         <h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Dealership Brand Kit</h3>
         <div class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 space-y-2">
           <div class="text-xs font-bold text-slate-900 dark:text-white">${escS(storeName)}</div>
-          <button onclick="if(window.__studioAdapter) window.__studioAdapter.addImage('/assets/brand/marketsync-logo-primary.png', 'MarketSync Logo')" class="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold">
-            + Insert Dealership Logo
-          </button>
+          <div class="grid grid-cols-3 gap-2">${colors.map(color => `<button type="button" onclick="studioApplyBrandColor('${escS(color)}')" title="Apply ${escS(color)}" class="h-10 rounded-xl border border-white/30" style="background:${escS(color)}"></button>`).join('') || '<span class="col-span-3 text-[10px] text-slate-500">No approved colours saved.</span>'}</div>
+          <div class="grid grid-cols-2 gap-2">${logos.map((url, index) => `<button type="button" onclick="window.__studioAdapter?.addImage('${escS(url)}','Dealership logo')" class="p-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700"><img src="${escS(url)}" alt="Approved logo ${index + 1}" class="w-full h-12 object-contain"></button>`).join('') || '<span class="col-span-2 text-[10px] text-slate-500">No approved logo saved.</span>'}</div>
+          <div class="grid grid-cols-2 gap-2 text-[10px]"><button type="button" onclick="studioApplyBrandFont('heading')" class="p-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700">Heading · ${escS(kit.heading_font || 'Not set')}</button><button type="button" onclick="studioApplyBrandFont('body')" class="p-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700">Body · ${escS(kit.body_font || 'Not set')}</button></div>
+          <button type="button" onclick="openStudioBrandKitManager()" class="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold">Manage Brand Kit</button>
         </div>
       </div>
     `;
@@ -921,6 +946,7 @@ window.saveStudioStructure = saveStudioStructure;
 
 function renderStudioInspectorHtml(selected) {
   const object = Array.isArray(selected) ? selected[0] : selected;
+  const isText = ['textbox', 'text', 'i-text'].includes(object?.type);
   const color = typeof object?.fill === 'string' && object.fill.startsWith('#') ? object.fill : (typeof object?.stroke === 'string' && object.stroke.startsWith('#') ? object.stroke : '#2563eb');
   const opacity = Math.round((object?.opacity ?? 1) * 100);
   return `
@@ -933,7 +959,11 @@ function renderStudioInspectorHtml(selected) {
         <div><div class="flex justify-between"><label class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Transparency</label><span id="studio-opacity-value" class="text-[11px] text-sky-400">${100-opacity}%</span></div><input type="range" min="0" max="100" value="${opacity}" oninput="document.getElementById('studio-opacity-value').textContent=(100-Number(this.value))+'%'" onchange="studioSetObjectStyle('opacity', Number(this.value)/100)" class="w-full accent-blue-500"></div>
         <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Animation<select onchange="studioSetAnimation(this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"><option value="none">None</option><option value="float">Float</option><option value="pulse">Pulse</option><option value="spin">Spin</option><option value="bounce">Bounce</option><option value="fade">Fade</option></select></label>
       </div>
+      ${isText ? `<div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2"><div class="text-[10px] font-black uppercase text-slate-500">Typography</div><label class="block text-[10px] text-slate-500">Font family<input value="${escS(object?.fontFamily || 'Manrope')}" onchange="studioSetTextStyle('fontFamily', this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label><div class="grid grid-cols-3 gap-2"><label class="text-[10px] text-slate-500">Size<input type="number" min="6" value="${Math.round(object?.fontSize || 36)}" onchange="studioSetTextStyle('fontSize', Number(this.value))" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label><label class="text-[10px] text-slate-500">Line height<input type="number" min="0.5" max="3" step="0.05" value="${Number(object?.lineHeight || 1.08).toFixed(2)}" onchange="studioSetTextStyle('lineHeight', Number(this.value))" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label><label class="text-[10px] text-slate-500">Spacing<input type="number" min="-200" max="800" value="${Math.round(object?.charSpacing || 0)}" onchange="studioSetTextStyle('charSpacing', Number(this.value))" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label></div><div class="grid grid-cols-3 gap-1">${['left','center','right'].map(value => `<button type="button" onclick="studioSetTextStyle('textAlign','${value}')" class="py-1.5 rounded-lg ${object?.textAlign === value ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800'} text-[10px] font-bold">${value[0].toUpperCase() + value.slice(1)}</button>`).join('')}</div><div class="grid grid-cols-2 gap-2"><button type="button" onclick="studioTransformText('uppercase')" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">UPPERCASE</button><button type="button" onclick="studioTransformText('lowercase')" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">lowercase</button></div></div>` : ''}
       <button onclick="studioToggleNodes()" class="w-full py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black">Edit vector nodes</button>
+      <div class="grid grid-cols-2 gap-2"><button onclick="window.__studioAdapter?.toggleSelectedLock()" class="py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-black">${object?.lockMovementX ? 'Unlock' : 'Lock'}</button><button onclick="window.__studioAdapter?.toggleSelectedVisibility()" class="py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-black">Hide</button></div>
+      <div class="grid grid-cols-3 gap-1"><button onclick="window.__studioAdapter?.alignSelected('left')" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">Left</button><button onclick="window.__studioAdapter?.alignSelected('center')" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">Center</button><button onclick="window.__studioAdapter?.alignSelected('right')" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">Right</button><button onclick="window.__studioAdapter?.alignSelected('top')" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">Top</button><button onclick="window.__studioAdapter?.alignSelected('middle')" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">Middle</button><button onclick="window.__studioAdapter?.alignSelected('bottom')" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">Bottom</button></div>
+      ${object?.type === 'image' ? `<div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2"><div class="text-[10px] font-black uppercase text-slate-500">Image adjustments</div>${[['brightness','Brightness'],['contrast','Contrast'],['saturation','Saturation'],['blur','Blur']].map(([key,label]) => `<label class="block text-[10px] text-slate-500">${label}<input type="range" min="${key === 'blur' ? 0 : -1}" max="1" step="0.05" value="${object?.msData?.adjustments?.[key] || 0}" oninput="window.__studioAdapter?.adjustSelectedImage({${key}:Number(this.value)})" class="w-full"></label>`).join('')}<div class="grid grid-cols-2 gap-2"><button onclick="window.__studioAdapter?.updateSelected({flipX:!window.__studioAdapter.fabricCanvas.getActiveObject().flipX})" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">Flip horizontal</button><button onclick="window.__studioAdapter?.updateSelected({flipY:!window.__studioAdapter.fabricCanvas.getActiveObject().flipY})" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">Flip vertical</button></div></div>` : ''}
       <div class="space-y-1">
         <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Layer Order:</label>
         <div class="flex gap-2">
@@ -1050,10 +1080,38 @@ function setStudioTool(tool) {
   if (panel) panel.innerHTML = renderStudioToolPanelContent(tool);
   if (tool === 'photos') setTimeout(() => searchStudioLibrary('car dealership'), 0);
   if (tool === 'videos') setTimeout(() => searchStudioVideos('car dealership'), 0);
+  if (tool === 'inventory') setTimeout(() => searchStudioInventory(''), 0);
   if (tool === 'uploads') setTimeout(loadStudioUploadedVideos, 0);
   if (tool === 'media') setTimeout(loadStudioMediaLibrary, 0);
   if (tool === 'text') setTimeout(loadStudioGoogleFonts, 0);
+  if (tool === 'brand') setTimeout(loadStudioBrandKit, 0);
 }
+
+async function loadStudioBrandKit(force = false) {
+  if (!force && window.__studioBrandKit) return window.__studioBrandKit;
+  try { window.__studioBrandKit = (await apiGetJson('/marketing/studio/brand-kit'))?.brand_kit || {}; }
+  catch (_) { window.__studioBrandKit = {}; }
+  if (window.__studioActiveTool === 'brand') { const panel = document.getElementById('studio-tool-panel'); if (panel) panel.innerHTML = renderStudioToolPanelContent('brand'); }
+  return window.__studioBrandKit;
+}
+window.loadStudioBrandKit = loadStudioBrandKit;
+function studioApplyBrandColor(color) { const active = window.__studioAdapter?.fabricCanvas?.getActiveObject(); if (!active) { if (typeof showToast === 'function') showToast('Select an element first.', 'info'); return; } window.__studioAdapter.updateSelected({ fill: color }); }
+window.studioApplyBrandColor = studioApplyBrandColor;
+function studioApplyBrandFont(kind) { const font = window.__studioBrandKit?.[kind === 'heading' ? 'heading_font' : 'body_font']; if (font) window.__studioAdapter?.updateSelectedText({ fontFamily: font }); }
+window.studioApplyBrandFont = studioApplyBrandFont;
+async function openStudioBrandKitManager() {
+  const kit = await loadStudioBrandKit();
+  openStudioSheet('Dealership Brand Kit', `<form onsubmit="event.preventDefault();saveStudioBrandKit()" class="grid sm:grid-cols-2 gap-4">${[['primary_color','Primary colour','color'],['secondary_color','Secondary colour','color'],['accent_color','Accent colour','color'],['heading_font','Heading font','text'],['body_font','Body font','text'],['phone','Dealer phone','text'],['website','Website','url'],['logo_url','Primary logo URL','url'],['alternate_logo_url','Alternate logo URL','url'],['light_logo_url','Light logo URL','url'],['dark_logo_url','Dark logo URL','url'],['logo_mark_url','Logo mark URL','url']].map(([key,label,type]) => `<label class="text-sm font-bold">${label}<input id="studio-brand-${key}" type="${type}" value="${escS(kit[key] || (type === 'color' ? '#2563eb' : ''))}" class="mt-1 w-full h-11 px-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700"></label>`).join('')}<label class="sm:col-span-2 text-sm font-bold">Legal disclaimer templates<textarea id="studio-brand-legal_disclaimers" rows="4" class="mt-1 w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700">${escS(Array.isArray(kit.legal_disclaimers) ? kit.legal_disclaimers.join('\n') : kit.legal_disclaimers || '')}</textarea></label><button class="sm:col-span-2 py-3 rounded-2xl bg-indigo-600 text-white font-black">Save managed Brand Kit</button></form>`);
+}
+window.openStudioBrandKitManager = openStudioBrandKitManager;
+async function saveStudioBrandKit() {
+  const keys = ['primary_color','secondary_color','accent_color','heading_font','body_font','phone','website','logo_url','alternate_logo_url','light_logo_url','dark_logo_url','logo_mark_url'];
+  const payload = Object.fromEntries(keys.map(key => [key, document.getElementById(`studio-brand-${key}`)?.value || '']));
+  payload.legal_disclaimers = (document.getElementById('studio-brand-legal_disclaimers')?.value || '').split('\n').map(value => value.trim()).filter(Boolean);
+  try { window.__studioBrandKit = (await apiSendJson('/marketing/studio/brand-kit', 'PUT', payload))?.brand_kit || payload; document.getElementById('studio-action-sheet')?.remove(); setStudioTool('brand'); if (typeof showToast === 'function') showToast('Brand Kit saved.', 'success'); }
+  catch (error) { if (typeof showToast === 'function') showToast(error.message || 'Brand Kit could not be saved.', 'error'); }
+}
+window.saveStudioBrandKit = saveStudioBrandKit;
 
 let __studioMediaAssets = [];
 async function loadStudioMediaLibrary() {
@@ -1167,15 +1225,18 @@ async function loadStudioTemplate(tmplKey) {
       scene.elements.forEach(el => { if (el.type === 'vehicle-image') el.src = photo; });
     }
   }
+  const boundScene = window.msDesignStudioSchema?.refreshBindings
+    ? window.msDesignStudioSchema.refreshBindings(scene, studioDesignContext(veh))
+    : scene;
 
   if (window.__studioAdapter) {
-    await window.__studioAdapter.renderScene(scene);
+    await window.__studioAdapter.renderScene(boundScene);
   }
   const container = document.getElementById('studio-artboard-container');
-  if (container) { container.style.width = `${scene.width}px`; container.style.height = `${scene.height}px`; }
+  if (container) { container.style.width = `${boundScene.width}px`; container.style.height = `${boundScene.height}px`; }
   const picker = document.getElementById('studio-format-picker');
-  if (picker && STUDIO_SOCIAL_FORMATS[scene.format_key]) picker.value = scene.format_key;
-  updateStudioSafeGuides(scene.format_key || 'square');
+  if (picker && STUDIO_SOCIAL_FORMATS[boundScene.format_key]) picker.value = boundScene.format_key;
+  updateStudioSafeGuides(boundScene.format_key || 'square');
   zoomStudioFit();
   if (typeof showToast === 'function') showToast(`Loaded ${tmpl.name}`, 'success');
 }
@@ -1185,9 +1246,9 @@ async function loadStudioTemplate(tmplKey) {
 // then the social scheduler). Reuses loadStudioTemplate — no separate editor. Defaults to
 // the square vehicle spotlight when no template is specified.
 async function createFromVehicle(vehicleId, tmplKey) {
-  const inv = (ENGINE_DATA && ENGINE_DATA['marketing-overview']?.inventory) || [];
-  const v = inv.find(x => x.id === vehicleId) || window.__studioCurrentVehicle
-    || { id: vehicleId || 'demo_v1', year: 2024, make: 'Ford', model: 'F-150 Lariat', price: 54990, stock_number: 'F9041' };
+  const inv = await loadStudioInventory();
+  const v = inv.find(x => String(x.id) === String(vehicleId));
+  if (!v) { if (typeof showToast === 'function') showToast('That vehicle is no longer available in connected inventory.', 'error'); return; }
   window.__studioCurrentVehicle = v;
   if (window.__studioAdapter) window.__studioAdapter.currentVehicle = v;
   if (typeof setStudioTool === 'function') setStudioTool('templates');   // show the template rail
@@ -1197,39 +1258,48 @@ async function createFromVehicle(vehicleId, tmplKey) {
 }
 window.createFromVehicle = createFromVehicle;
 
-function searchStudioInventory(query) {
+async function loadStudioInventory(force = false) {
+  if (!force && Array.isArray(window.__studioInventoryCache)) return window.__studioInventoryCache;
+  try {
+    const data = await apiGetJson('/inventory');
+    window.__studioInventoryCache = Array.isArray(data) ? data : (data?.vehicles || data?.inventory || []);
+  } catch (_) { window.__studioInventoryCache = []; }
+  return window.__studioInventoryCache;
+}
+
+function studioDesignContext(vehicle) {
+  const dealer = window.__dealerConfig || {};
+  return { vehicle, dealership: { ...dealer, name: dealer.store_name || dealer.name || '', logo_url: dealer.logo_url || dealer.logo || '', legal_disclaimer: dealer.legal_disclaimer || '' }, salesperson: window.__currentUserProfile || {}, cta: 'Shop now' };
+}
+
+async function searchStudioInventory(query) {
   const listEl = document.getElementById('studio-inventory-list');
   if (!listEl) return;
   const q = (query || '').toLowerCase().trim();
-  const inv = (ENGINE_DATA && ENGINE_DATA['marketing-overview']?.inventory || [
-    { id: 'demo_v1', year: 2024, make: 'Ford', model: 'F-150 Lariat', price: 54990, stocknumber: 'F9041' },
-    { id: 'demo_v2', year: 2024, make: 'Honda', model: 'Civic Touring', price: 29850, stocknumber: 'H1022' }
-  ]).filter(v => !q || `${v.year} ${v.make} ${v.model} ${v.stocknumber} ${v.vin || ''}`.toLowerCase().includes(q));
+  const inv = (await loadStudioInventory()).filter(v => !q || `${v.year} ${v.make} ${v.model} ${v.trim || ''} ${v.stock_number || v.stocknumber || ''} ${v.vin || ''}`.toLowerCase().includes(q));
 
   listEl.innerHTML = inv.map(v => `
     <button onclick="createFromVehicle('${v.id}')" class="w-full text-left p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition flex items-center gap-3">
       <div class="w-10 h-10 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-xs font-black text-indigo-400">VEH</div>
       <div class="min-w-0 flex-1">
         <div class="text-xs font-bold text-slate-900 dark:text-white truncate">${escS(`${v.year || ''} ${v.make || ''} ${v.model || ''}`.trim() || 'Vehicle')}</div>
-        <div class="text-[11px] text-emerald-400 font-bold">$${Number(v.price || 0).toLocaleString()} • STK #${escS(v.stocknumber || '—')}</div>
+        <div class="text-[11px] text-emerald-400 font-bold">${v.sale_price || v.price || v.msrp ? `$${Number(v.sale_price || v.price || v.msrp).toLocaleString()}` : 'Price not supplied'} • STK #${escS(v.stock_number || v.stocknumber || '—')}</div>
       </div>
     </button>
   `).join('') || `<div class="text-xs text-slate-500 dark:text-slate-400 italic p-3">No matching inventory.</div>`;
 }
 
 async function bindVehicleToStudio(vehicleId) {
-  const inv = (ENGINE_DATA && ENGINE_DATA['marketing-overview']?.inventory) || [];
-  const v = inv.find(x => x.id === vehicleId) || { year: 2024, make: 'Ford', model: 'F-150 Lariat', price: 54990, stocknumber: 'F9041' };
+  const inv = await loadStudioInventory();
+  const v = inv.find(x => String(x.id) === String(vehicleId));
+  if (!v) { if (typeof showToast === 'function') showToast('Vehicle not found in connected inventory.', 'error'); return; }
   window.__studioCurrentVehicle = v;
   if (window.__studioAdapter) {
-    if (v.primary_photo_url || v.photo_url || v.image_url) {
-      window.__studioAdapter.addImage(v.primary_photo_url || v.photo_url || v.image_url, `${v.year} ${v.make} ${v.model}`);
-    }
-    window.__studioAdapter.addShape('badge', '#10B981');
-    window.__studioAdapter.addText(`${v.year || ''} ${v.make || ''} ${v.model || ''}`.trim(), { fontSize: 40, fontWeight: '900', fill: '#FFFFFF', y: 120 });
-    window.__studioAdapter.addText(`$${Number(v.price || 0).toLocaleString()}`, { fontSize: 48, fontWeight: '900', fill: '#10B981', y: 180 });
+    window.__studioAdapter.currentVehicle = v;
+    const refreshed = window.msDesignStudioSchema?.refreshBindings(window.__studioAdapter.exportScene(), studioDesignContext(v));
+    if (refreshed) await window.__studioAdapter.renderScene(refreshed);
   }
-  if (typeof showToast === 'function') showToast(`Bound ${v.year || ''} ${v.make || ''} ${v.model || ''} to design!`, 'success');
+  if (typeof showToast === 'function') showToast(`Refreshed this design from the canonical ${v.year || ''} ${v.make || ''} ${v.model || ''} inventory record.`, 'success');
 }
 
 // Search state — a fresh search resets to page 1 and replaces results; "Load More"
@@ -1402,6 +1472,13 @@ function studioSetTextStyle(property, value) {
     if (typeof showToast === 'function') showToast('Select a text box first', 'info');
   }
 }
+function studioTransformText(mode) {
+  const object = window.__studioAdapter?.fabricCanvas?.getActiveObject();
+  if (!object || !['textbox', 'text', 'i-text'].includes(object.type)) return;
+  const text = String(object.text || '');
+  window.__studioAdapter.updateSelectedText({ text: mode === 'lowercase' ? text.toLowerCase() : text.toUpperCase() });
+}
+window.studioTransformText = studioTransformText;
 
 async function generateStudioAiCopy() {
   const prompt = document.getElementById('studio-ai-prompt')?.value?.trim();
@@ -1490,15 +1567,112 @@ function addLibraryImageToCanvas(url, name = 'Photo Asset') {
   }
 }
 
-function changeStudioFormat(formatKey) {
+function openStudioSheet(title, body) {
+  document.getElementById('studio-action-sheet')?.remove();
+  const sheet = document.createElement('div');
+  sheet.id = 'studio-action-sheet';
+  sheet.className = 'fixed inset-0 z-[100001] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4';
+  sheet.innerHTML = `<section role="dialog" aria-modal="true" aria-labelledby="studio-sheet-title" class="w-full max-w-3xl max-h-[88vh] overflow-y-auto rounded-[28px] bg-white dark:bg-slate-900 border border-white/40 dark:border-white/10 shadow-2xl text-slate-900 dark:text-white"><header class="sticky top-0 z-10 flex items-center justify-between gap-4 px-6 py-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800"><h2 id="studio-sheet-title" class="text-xl font-black">${escS(title)}</h2><button type="button" onclick="document.getElementById('studio-action-sheet')?.remove()" class="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-xl">×</button></header><div class="p-6">${body}</div></section>`;
+  sheet.addEventListener('click', event => { if (event.target === sheet) sheet.remove(); });
+  document.body.appendChild(sheet); return sheet;
+}
+
+function openStudioMagicResize() {
+  const current = window.__studioAdapter?.exportScene(); if (!current) return;
+  const formats = window.msDesignStudioFormats || {};
+  openStudioSheet('Magic Resize · Create variations', `<p class="text-sm text-slate-600 dark:text-slate-300 mb-4">MarketSync will create editable pages and reflow vehicle imagery, headlines, offers, CTA buttons, logos, and disclaimers. Your current page stays unchanged.</p><form onsubmit="event.preventDefault();generateStudioVariations()"><div class="grid sm:grid-cols-2 gap-3">${Object.entries(formats).map(([key, format]) => `<label class="flex items-center gap-3 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-violet-500"><input type="checkbox" name="studio-variation" value="${key}" ${key === current.format_key ? '' : 'checked'}><span><b class="block text-sm">${escS(format.label)}</b><span class="text-xs text-slate-500">${format.width}×${format.height}</span></span></label>`).join('')}</div><button class="mt-5 w-full py-3 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-black">Create editable variations</button></form>`);
+}
+window.openStudioMagicResize = openStudioMagicResize;
+
+async function generateStudioVariations() {
+  const adapter = window.__studioAdapter, schema = window.msDesignStudioSchema; if (!adapter || !schema) return;
+  const selected = [...document.querySelectorAll('input[name="studio-variation"]:checked')].map(input => input.value);
+  if (!selected.length) { if (typeof showToast === 'function') showToast('Choose at least one output size.', 'info'); return; }
+  const source = adapter.exportScene(), doc = window.msStudioSceneToDocument(source);
+  const variations = schema.createVariations({ ...source, id: adapter.activePageId || source.id }, selected);
+  doc.pages.push(...variations); doc.version = 3; doc.metadata = { ...(doc.metadata || {}), variation_set_updated_at: new Date().toISOString() };
+  window.__studioDocument = doc; adapter.currentScene = window.msStudioDocumentToScene(doc); adapter.activePageId = variations[0].id;
+  await adapter.renderScene(adapter.currentScene); window.__msStudioStore?.update(doc); window.msStudioScheduleAutosave?.(adapter.currentScene); syncStudioPageUi();
+  document.getElementById('studio-action-sheet')?.remove(); zoomStudioFit();
+  if (typeof showToast === 'function') showToast(`${variations.length} editable variations created.`, 'success');
+}
+window.generateStudioVariations = generateStudioVariations;
+
+async function openStudioAiDesign() {
+  const inventory = await loadStudioInventory();
+  const options = inventory.map(vehicle => `<option value="${escS(vehicle.id)}">${escS(`${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''} ${vehicle.trim || ''}`.trim())} · ${escS(vehicle.stock_number || vehicle.stocknumber || 'No stock #')}</option>`).join('');
+  openStudioSheet('AI Design · Editable dealership creative', `<p class="text-sm text-slate-600 dark:text-slate-300">Describe the campaign. AI creates layout structures with protected placeholders; MarketSync then fills them locally from your connected inventory and Brand Kit.</p><form onsubmit="event.preventDefault();generateStudioAiDesignOptions()" class="mt-5 space-y-4"><label class="block text-sm font-bold">Campaign request<textarea id="studio-ai-design-prompt" rows="3" required placeholder="Create a weekend sale for a 2027 GMC Sierra AT4" class="mt-2 w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700"></textarea></label><label class="block text-sm font-bold">Connected vehicle<select id="studio-ai-design-vehicle" ${inventory.length ? '' : 'disabled'} class="mt-2 w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700"><option value="">No vehicle selected</option>${options}</select></label>${inventory.length ? '' : '<p class="text-sm text-amber-600">No available inventory records are connected. The layout can still be generated, but MarketSync will not invent vehicle facts.</p>'}<button id="studio-ai-design-submit" class="w-full py-3 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-black">Generate three editable options</button><div id="studio-ai-design-results" class="grid sm:grid-cols-3 gap-3"></div></form>`);
+}
+window.openStudioAiDesign = openStudioAiDesign;
+
+async function generateStudioAiDesignOptions() {
+  const prompt = document.getElementById('studio-ai-design-prompt')?.value?.trim(); if (!prompt) return;
+  const button = document.getElementById('studio-ai-design-submit'), results = document.getElementById('studio-ai-design-results');
+  const vehicleId = document.getElementById('studio-ai-design-vehicle')?.value;
+  const vehicle = (await loadStudioInventory()).find(item => String(item.id) === String(vehicleId)) || null;
+  const current = window.__studioAdapter?.exportScene(), formatKey = current?.format_key || 'square', size = STUDIO_SOCIAL_FORMATS[formatKey] || { w: 1080, h: 1080 };
+  if (button) { button.disabled = true; button.textContent = 'Creating editable layouts…'; }
+  try {
+    const styles = ['minimal premium editorial', 'bold automotive retail', 'clean high-contrast modern'];
+    const responses = await Promise.all(styles.map(style => apiSendJson('/ai/studio-template', 'POST', { prompt: `${prompt}. Visual direction: ${style}. Use factual placeholders for every vehicle, dealership, price, payment, incentive, rate, and legal claim.`, format_key: formatKey, width: size.w, height: size.h })));
+    window.__studioAiDesignOptions = responses.map((response, index) => ({ name: response.name || `Option ${index + 1}`, scene: window.msDesignStudioSchema?.refreshBindings(response.scene, studioDesignContext(vehicle)) || response.scene }));
+    if (results) results.innerHTML = window.__studioAiDesignOptions.map((option, index) => `<button type="button" onclick="applyStudioAiDesign(${index})" class="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-violet-500 text-left"><span class="block text-[10px] uppercase font-black text-violet-500">Editable option ${index + 1}</span><b class="block mt-1">${escS(option.name)}</b><span class="block mt-2 text-xs text-slate-500">${option.scene.elements?.length || 0} editable layers</span></button>`).join('');
+  } catch (error) { if (typeof showToast === 'function') showToast(error.message || 'AI designs could not be generated', 'error'); }
+  finally { if (button) { button.disabled = false; button.textContent = 'Generate three editable options'; } }
+}
+window.generateStudioAiDesignOptions = generateStudioAiDesignOptions;
+
+async function applyStudioAiDesign(index) {
+  const option = window.__studioAiDesignOptions?.[index]; if (!option?.scene || !window.__studioAdapter) return;
+  await window.__studioAdapter.renderScene(option.scene); window.__studioDocument = window.msStudioSceneToDocument(option.scene, { title: option.name });
+  window.__msStudioStore?.update(window.__studioDocument); window.msStudioScheduleAutosave?.(option.scene); document.getElementById('studio-action-sheet')?.remove(); zoomStudioFit();
+  if (typeof showToast === 'function') showToast(`${option.name} is ready to edit.`, 'success');
+}
+window.applyStudioAiDesign = applyStudioAiDesign;
+
+function openStudioExport() {
+  openStudioSheet('Export design', `<p class="text-sm text-slate-600 dark:text-slate-300 mb-4">Export the active page at its full dimensions. Transparent PNG removes the page background only.</p><div class="grid sm:grid-cols-2 gap-3"><button onclick="exportStudioFile('png')" class="p-4 rounded-2xl bg-indigo-600 text-white font-black">PNG · full quality</button><button onclick="exportStudioFile('jpeg')" class="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 font-black">JPG · optimized</button><button onclick="exportStudioFile('transparent')" class="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 font-black">Transparent PNG</button><button onclick="renderStudioDesignAndPublish()" class="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 font-black">Render for MarketSync handoff</button></div>`);
+}
+window.openStudioExport = openStudioExport;
+
+function exportStudioFile(format = 'png') {
+  const canvas = window.__studioAdapter?.fabricCanvas; if (!canvas) return;
+  const transparent = format === 'transparent', previous = canvas.backgroundColor;
+  if (transparent) canvas.setBackgroundColor('rgba(0,0,0,0)', canvas.renderAll.bind(canvas));
+  const mimeFormat = format === 'jpeg' ? 'jpeg' : 'png';
+  const url = canvas.toDataURL({ format: mimeFormat, quality: format === 'jpeg' ? .92 : 1, multiplier: 1 });
+  if (transparent) canvas.setBackgroundColor(previous, canvas.renderAll.bind(canvas));
+  const link = document.createElement('a'); link.href = url; link.download = `${(document.getElementById('studio-design-name')?.value || 'marketsync-design').replace(/[^a-z0-9_-]+/gi, '-')}.${mimeFormat === 'jpeg' ? 'jpg' : 'png'}`; link.click();
+}
+window.exportStudioFile = exportStudioFile;
+
+async function openStudioCollaboration() {
+  const design = window.__studioCurrentDesign;
+  if (!design?.id) { if (typeof showToast === 'function') showToast('Save the design before starting review.', 'info'); return; }
+  let collaboration = { comments: [], approvals: [] };
+  try { collaboration = await apiGetJson(`/marketing/studio/designs/${design.id}/collaboration`); } catch (_) {}
+  openStudioSheet('Comments & approvals', `<div class="grid md:grid-cols-2 gap-6"><section><h3 class="font-black">Comments</h3><div class="mt-3 space-y-2 max-h-72 overflow-y-auto">${(collaboration.comments || []).map(comment => `<article class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950"><p class="text-sm">${escS(comment.body)}</p><time class="text-[10px] text-slate-500">${escS(new Date(comment.created_at).toLocaleString())}</time></article>`).join('') || '<p class="text-sm text-slate-500">No comments yet.</p>'}</div><form onsubmit="event.preventDefault();addStudioComment()" class="mt-3"><textarea id="studio-comment-body" rows="3" required placeholder="Leave feedback or @mention a teammate…" class="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700"></textarea><button class="mt-2 w-full py-2 rounded-xl bg-slate-800 dark:bg-slate-700 text-white font-bold">Add comment</button></form></section><section><h3 class="font-black">Approval workflow</h3><div class="mt-3 space-y-2">${(collaboration.approvals || []).map(approval => `<article class="p-3 rounded-2xl border border-slate-200 dark:border-slate-700"><b class="text-sm capitalize">${escS(String(approval.status).replace('_',' '))}</b><p class="text-xs text-slate-500">Revision ${approval.revision_number || 'current'} · ${escS(approval.note || '')}</p>${approval.status === 'requested' ? `<div class="grid grid-cols-3 gap-1 mt-2"><button onclick="decideStudioApproval('${approval.id}','approved')" class="py-1 rounded-lg bg-emerald-600 text-white text-[10px] font-black">Approve</button><button onclick="decideStudioApproval('${approval.id}','revision_requested')" class="py-1 rounded-lg bg-amber-500 text-white text-[10px] font-black">Revise</button><button onclick="decideStudioApproval('${approval.id}','rejected')" class="py-1 rounded-lg bg-rose-600 text-white text-[10px] font-black">Reject</button></div>` : ''}</article>`).join('') || '<p class="text-sm text-slate-500">No approval request yet.</p>'}</div><form onsubmit="event.preventDefault();requestStudioApproval()" class="mt-3"><textarea id="studio-approval-note" rows="2" placeholder="Note for the reviewer" class="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700"></textarea><button class="mt-2 w-full py-2 rounded-xl bg-indigo-600 text-white font-black">Request approval</button></form></section></div>`);
+}
+window.openStudioCollaboration = openStudioCollaboration;
+async function addStudioComment() { const body = document.getElementById('studio-comment-body')?.value?.trim(); if (!body) return; await apiSendJson(`/marketing/studio/designs/${window.__studioCurrentDesign.id}/comments`, 'POST', { body }); openStudioCollaboration(); }
+window.addStudioComment = addStudioComment;
+async function requestStudioApproval() { const note = document.getElementById('studio-approval-note')?.value?.trim(); await saveStudioDesign(); await apiSendJson(`/marketing/studio/designs/${window.__studioCurrentDesign.id}/approval-requests`, 'POST', { note }); openStudioCollaboration(); }
+window.requestStudioApproval = requestStudioApproval;
+async function decideStudioApproval(id, status) { await apiSendJson(`/marketing/studio/designs/${window.__studioCurrentDesign.id}/approvals/${id}/decision`, 'POST', { status }); openStudioCollaboration(); }
+window.decideStudioApproval = decideStudioApproval;
+
+async function changeStudioFormat(formatKey) {
   const sz = STUDIO_SOCIAL_FORMATS[formatKey] || STUDIO_SOCIAL_FORMATS.square;
   const container = document.getElementById('studio-artboard-container');
   if (container) {
     container.style.width = `${sz.w}px`;
     container.style.height = `${sz.h}px`;
   }
-  if (window.__studioAdapter) window.__studioAdapter.resizeCanvas(sz.w, sz.h);
-  if (window.__studioAdapter?.currentScene) window.__studioAdapter.currentScene.format_key = formatKey;
+  if (window.__studioAdapter) {
+    const current = window.__studioAdapter.exportScene();
+    const reflowed = window.msDesignStudioSchema?.reflowScene(current, formatKey);
+    if (reflowed) await window.__studioAdapter.renderScene(reflowed); else window.__studioAdapter.resizeCanvas(sz.w, sz.h);
+  }
   updateStudioSafeGuides(formatKey);
   zoomStudioFit();
   if (typeof showToast === 'function') showToast(`Format set to ${formatKey.toUpperCase()}`, 'info');
@@ -1517,9 +1691,13 @@ function setStudioBreakpoint(breakpoint) {
 window.setStudioBreakpoint = setStudioBreakpoint;
 
 function filterStudioTemplates(formatKey) {
+  window.__studioTemplateFormat = formatKey; window.__studioTemplateLimit = 24;
   const cards = document.getElementById('studio-template-cards');
   if (cards) cards.innerHTML = renderStudioTemplateCards(formatKey);
 }
+function filterStudioTemplateCategory(category) { window.__studioTemplateCategory = category; window.__studioTemplateLimit = 24; const cards = document.getElementById('studio-template-cards'); if (cards) cards.innerHTML = renderStudioTemplateCards(); }
+function loadMoreStudioTemplates() { window.__studioTemplateLimit = (window.__studioTemplateLimit || 24) + 24; const cards = document.getElementById('studio-template-cards'); if (cards) cards.innerHTML = renderStudioTemplateCards(); }
+window.filterStudioTemplateCategory = filterStudioTemplateCategory; window.loadMoreStudioTemplates = loadMoreStudioTemplates;
 
 function updateStudioSafeGuides(formatKey) {
   const old = document.getElementById('studio-safe-guides');
@@ -1664,12 +1842,12 @@ function showSocialSchedulerUpgradeModal() {
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5"/></svg>
           </div>
           <div>
-            <h3 class="text-base font-black text-slate-900 dark:text-white">Social Scheduler Required</h3>
-            <p class="text-xs text-slate-500">Upgrade to schedule and distribute your designs directly to social channels.</p>
+            <h3 class="text-base font-black text-slate-900 dark:text-white">Social publishing is not enabled</h3>
+            <p class="text-xs text-slate-500">Review this account's subscription to schedule and distribute designs.</p>
           </div>
         </div>
         <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-          Design Studio allows you to create high-converting graphics and canvas artwork. To publish or schedule your designs across Facebook, Instagram, LinkedIn, TikTok, and YouTube, add the standalone <strong>Social Scheduler ($99/mo)</strong> or upgrade to any <strong>Marketing Suite</strong>.
+          Your design remains saved and editable. Direct publishing and scheduling become available when Social Scheduler or an eligible MarketSync suite is active for this account.
         </p>
         <div class="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
           <a href="upgrade.html" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md transition">View Upgrade Options</a>

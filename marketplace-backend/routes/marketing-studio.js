@@ -230,6 +230,9 @@ export function registerMarketingStudio(app) {
   const canEdit = requirePermission('marketing.edit')
   const guard = (req, res) => { if (!req.dealershipId) { res.status(403).json({ error: 'no dealership' }); return false } return true }
 
+  const BRAND_KIT_FIELDS = new Set(['logo_url','alternate_logo_url','light_logo_url','dark_logo_url','logo_mark_url','primary_color','secondary_color','accent_color','approved_gradients','heading_font','body_font','heading_style','body_style','cta_style','address','phone','website','legal_disclaimers','locked_fields'])
+  const cleanBrandKit = input => Object.fromEntries(Object.entries(input || {}).filter(([key]) => BRAND_KIT_FIELDS.has(key)).map(([key, value]) => [key, typeof value === 'string' ? value.slice(0, 2000) : value]))
+
   const requireMediaUploadAccess = async (req, res, next) => {
     if (req.user?.is_platform_staff) return next()
     try {
@@ -243,6 +246,25 @@ export function registerMarketingStudio(app) {
       return res.status(500).json({ error: e.message })
     }
   }
+
+  app.get('/marketing/studio/brand-kit', requireAuth, requireMfa, canView, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data, error } = await supabaseAdmin.from('dealerships').select('name, website_url, branding').eq('id', req.dealershipId).single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ brand_kit: { dealership_name: data.name, website: data.website_url, ...(data.branding || {}) } })
+  })
+
+  app.put('/marketing/studio/brand-kit', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    if (!(await hasPermission(req, 'settings.manage').catch(() => false))) return res.status(403).json({ error: 'Only dealership management can change or lock the Brand Kit.' })
+    const { data: current, error: readError } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
+    if (readError) return res.status(500).json({ error: readError.message })
+    const branding = { ...(current?.branding || {}), ...cleanBrandKit(req.body) }
+    const { error } = await supabaseAdmin.from('dealerships').update({ branding }).eq('id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'marketing.studio_brand_kit_updated', { after_state: { fields: Object.keys(cleanBrandKit(req.body)), locked_fields: branding.locked_fields || [] } })
+    res.json({ ok: true, brand_kit: branding })
+  })
 
   // ── Asset Management ──────────────────────────────────────────────────────
   app.get('/marketing/assets', requireAuth, requireMfa, canView, async (req, res) => {
@@ -440,6 +462,68 @@ export function registerMarketingStudio(app) {
       }
       res.json({ revisions: data || [] })
     } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.get('/marketing/studio/designs/:id/collaboration', requireAuth, requireMfa, canView, async (req, res) => {
+    if (!guard(req, res)) return
+    const [commentsResult, approvalsResult] = await Promise.all([
+      supabaseAdmin.from('studio_design_comments').select('*').eq('design_id', req.params.id).eq('dealership_id', req.dealershipId).order('created_at', { ascending: true }),
+      supabaseAdmin.from('studio_design_approvals').select('*').eq('design_id', req.params.id).eq('dealership_id', req.dealershipId).order('requested_at', { ascending: false }),
+    ])
+    if (commentsResult.error && !isMissingTableError(commentsResult.error)) return res.status(500).json({ error: commentsResult.error.message })
+    if (approvalsResult.error && !isMissingTableError(approvalsResult.error)) return res.status(500).json({ error: approvalsResult.error.message })
+    res.json({ comments: commentsResult.data || [], approvals: approvalsResult.data || [] })
+  })
+
+  app.post('/marketing/studio/designs/:id/comments', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data: design } = await supabaseAdmin.from('studio_designs').select('id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!design) return res.status(404).json({ error: 'Design not found' })
+    const body = String(req.body?.body || '').trim().slice(0, 2000)
+    if (!body) return res.status(400).json({ error: 'Comment text is required.' })
+    const mentioned = Array.isArray(req.body?.mentioned_user_ids) ? req.body.mentioned_user_ids.slice(0, 25) : []
+    const { data, error } = await supabaseAdmin.from('studio_design_comments').insert({ design_id: req.params.id, dealership_id: req.dealershipId, body, mentioned_user_ids: mentioned, created_by: req.user?.id || null }).select('*').single()
+    if (error) return res.status(isMissingTableError(error) ? 503 : 500).json({ error: isMissingTableError(error) ? 'Studio collaboration migration has not been applied.' : error.message })
+    audit(req, 'marketing.studio_comment_added', { after_state: { design_id: req.params.id, comment_id: data.id } })
+    res.json({ ok: true, comment: data })
+  })
+
+  app.post('/marketing/studio/designs/:id/approval-requests', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data: design } = await supabaseAdmin.from('studio_designs').select('id, revision_number').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!design) return res.status(404).json({ error: 'Design not found' })
+    const { data, error } = await supabaseAdmin.from('studio_design_approvals').insert({ design_id: design.id, dealership_id: req.dealershipId, revision_number: design.revision_number || null, status: 'requested', note: String(req.body?.note || '').slice(0, 2000) || null, requested_by: req.user?.id || null }).select('*').single()
+    if (error) return res.status(isMissingTableError(error) ? 503 : 500).json({ error: isMissingTableError(error) ? 'Studio collaboration migration has not been applied.' : error.message })
+    audit(req, 'marketing.studio_approval_requested', { after_state: { design_id: design.id, approval_id: data.id, revision_number: data.revision_number } })
+    res.json({ ok: true, approval: data })
+  })
+
+  app.post('/marketing/studio/designs/:id/approvals/:approvalId/decision', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    if (!(await hasPermission(req, 'marketing.approve').catch(() => false))) return res.status(403).json({ error: 'Marketing approval permission required.' })
+    const status = String(req.body?.status || '')
+    if (!['approved','rejected','revision_requested'].includes(status)) return res.status(400).json({ error: 'Decision must be approved, rejected, or revision_requested.' })
+    const { data, error } = await supabaseAdmin.from('studio_design_approvals').update({ status, note: String(req.body?.note || '').slice(0, 2000) || null, decided_by: req.user?.id || null, decided_at: new Date().toISOString() }).eq('id', req.params.approvalId).eq('design_id', req.params.id).eq('dealership_id', req.dealershipId).select('*').single()
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, `marketing.studio_${status}`, { after_state: { design_id: req.params.id, approval_id: data.id } })
+    res.json({ ok: true, approval: data })
+  })
+
+  app.get('/marketing/studio/template-governance', requireAuth, requireMfa, canView, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data, error } = await supabaseAdmin.from('studio_template_governance').select('*').eq('dealership_id', req.dealershipId).order('updated_at', { ascending: false })
+    if (error && !isMissingTableError(error)) return res.status(500).json({ error: error.message })
+    res.json({ rules: data || [] })
+  })
+
+  app.put('/marketing/studio/template-governance/:templateKey', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    if (!(await hasPermission(req, 'settings.manage').catch(() => false))) return res.status(403).json({ error: 'Dealership management permission required.' })
+    const payload = { dealership_id: req.dealershipId, template_key: String(req.params.templateKey).slice(0, 180), approved: req.body?.approved === true, locked_element_ids: Array.isArray(req.body?.locked_element_ids) ? req.body.locked_element_ids.slice(0, 100) : [], required_fields: Array.isArray(req.body?.required_fields) ? req.body.required_fields.slice(0, 50) : [], allowed_color_values: Array.isArray(req.body?.allowed_color_values) ? req.body.allowed_color_values.slice(0, 30) : [], allowed_font_values: Array.isArray(req.body?.allowed_font_values) ? req.body.allowed_font_values.slice(0, 30) : [], expires_at: req.body?.expires_at || null, configured_by: req.user?.id || null, updated_at: new Date().toISOString() }
+    const { data, error } = await supabaseAdmin.from('studio_template_governance').upsert(payload, { onConflict: 'dealership_id,template_key' }).select('*').single()
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'marketing.studio_template_governance_updated', { after_state: { id: data.id, template_key: data.template_key, approved: data.approved } })
+    res.json({ ok: true, rule: data })
   })
 
   app.post('/marketing/studio/designs/:id/status', requireAuth, requireMfa, canEdit, async (req, res) => {
