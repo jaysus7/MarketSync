@@ -38,7 +38,7 @@ Counted from source, not from memory. Refresh with the commands in
 |---|---|
 | Pulse engines | 9 |
 | Registered engines (all tabs) | 19 |
-| Dashboard page containers | 82 |
+| Dashboard page containers | 86 |
 | Public HTML pages | 59 |
 | Roles with distinct navigation | 8 |
 | Dashboard modes | 3 |
@@ -82,7 +82,7 @@ away from the Tailwind Play CDN, and is worth folding into the same phase.
 | Primitive | Uses in markup |
 |---|---|
 | `.ms-board` | 3 |
-| `.ms-c--*` (card variants) | 73 |
+| `.ms-c--*` (card variants) | 74 |
 | `.ms-span-*` | 0 |
 | `.ms-surface--*` | 0 |
 | `.ms-touch` | 0 |
