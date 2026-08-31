@@ -459,59 +459,94 @@ export function registerSitePublicRoutes(app) {
     return JSON.stringify(obj).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')
   }
 
+  function escapeHtml(str) {
+    if (!str) return ''
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+  }
+
+  function escapeUrlAttribute(url) {
+    if (!url) return ''
+    const str = String(url)
+    if (!/^https?:\/\/|^\/|^data:/.test(str)) return ''
+    return escapeHtml(str)
+  }
+
   function generateHtmlPage({ site, inventory, team, title, description, imageUrl, canonical, dealer }) {
     const siteUrl = site.custom_domain ? `https://${site.custom_domain}` : `https://marketsync.link/site/${site.slug}`
     const ogImage = imageUrl || site.seo_image || site.hero_banner_url || `${siteUrl}/og-image.png`
     const escapedSiteData = escapeJson({ site, inventory, team })
+
+    const safeSiteUrl = escapeHtml(siteUrl)
+    const safeCanonical = escapeHtml(canonical || siteUrl)
+    const safeTitle = escapeHtml(title || site.name || 'Dealer')
+    const safeDescription = escapeHtml(description || site.seo_description || site.about || site.tagline || 'Welcome to our dealership')
+    const safeImage = escapeUrlAttribute(ogImage)
+    const safeKeywords = escapeHtml(site.seo_keywords ? site.seo_keywords.split(',').join(', ') : (site.discovery_terms || []).join(', '))
+    const safeSiteName = escapeHtml(site.name)
+    const safeSitePhone = escapeHtml(site.phone || '')
+    const safeSiteEmail = escapeHtml(site.email || '')
+    const safeSiteAddress = escapeHtml(site.address || '')
+    const safeSiteCity = escapeHtml(site.city || '')
+    const safeSiteProvince = escapeHtml(site.province || '')
+    const safeSitePostalCode = escapeHtml(dealer?.postal_code || '')
+    const safeSiteLogo = escapeUrlAttribute(site.logo_url || ogImage)
+    const safePrimaryColor = escapeHtml(site.primary_color || '#1e3a8a')
+    const safeFacebookUrl = escapeUrlAttribute(site.facebook_url || '')
+    const safeInstagramUrl = escapeUrlAttribute(site.instagram_url || '')
 
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title || site.name || 'Dealer'}</title>
-  <meta name="description" content="${description || site.seo_description || site.about || site.tagline || 'Welcome to our dealership'}">
-  <meta name="keywords" content="${site.seo_keywords ? site.seo_keywords.split(',').join(', ') : (site.discovery_terms || []).join(', ')}">
+  <title>${safeTitle}</title>
+  <meta name="description" content="${safeDescription}">
+  <meta name="keywords" content="${safeKeywords}">
 
   <!-- Open Graph / Social Sharing -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="${canonical || siteUrl}">
-  <meta property="og:title" content="${title || site.name || 'Dealer'}">
-  <meta property="og:description" content="${description || site.seo_description || site.about || site.tagline || 'Welcome to our dealership'}">
-  <meta property="og:image" content="${ogImage}">
+  <meta property="og:url" content="${safeCanonical}">
+  <meta property="og:title" content="${safeTitle}">
+  <meta property="og:description" content="${safeDescription}">
+  <meta property="og:image" content="${safeImage}">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:url" content="${canonical || siteUrl}">
-  <meta name="twitter:title" content="${title || site.name || 'Dealer'}">
-  <meta name="twitter:description" content="${description || site.seo_description || site.about || site.tagline || 'Welcome to our dealership'}">
-  <meta name="twitter:image" content="${ogImage}">
+  <meta name="twitter:url" content="${safeCanonical}">
+  <meta name="twitter:title" content="${safeTitle}">
+  <meta name="twitter:description" content="${safeDescription}">
+  <meta name="twitter:image" content="${safeImage}">
 
   <!-- Canonical URL -->
-  <link rel="canonical" href="${canonical || siteUrl}">
+  <link rel="canonical" href="${safeCanonical}">
 
   <!-- Structured Data (JSON-LD) -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
-    "name": "${site.name}",
-    "image": "${site.logo_url || ogImage}",
-    "url": "${siteUrl}",
-    ${site.phone ? `"telephone": "${site.phone}",` : ''}
-    ${site.email ? `"email": "${site.email}",` : ''}
-    ${site.address ? `"address": {
+    "name": "${escapedSiteData.includes(safeSiteName) ? safeSiteName : escapedSiteData.split('"name":"')[1]?.split('"')[0] || safeSiteName}",
+    "image": "${safeSiteLogo}",
+    "url": "${safeSiteUrl}",
+    ${safeSitePhone ? `"telephone": "${safeSitePhone}",` : ''}
+    ${safeSiteEmail ? `"email": "${safeSiteEmail}",` : ''}
+    ${safeSiteAddress ? `"address": {
       "@type": "PostalAddress",
-      "streetAddress": "${site.address}",
-      "addressLocality": "${site.city || ''}",
-      "addressRegion": "${site.province || ''}",
-      "postalCode": "${dealer?.postal_code || ''}"
+      "streetAddress": "${safeSiteAddress}",
+      "addressLocality": "${safeSiteCity}",
+      "addressRegion": "${safeSiteProvince}",
+      "postalCode": "${safeSitePostalCode}"
     },` : ''}
     "priceRange": "$",
-    "@type": ["LocalBusiness", "AutoDealer"],
-    "sameAs": [${[site.facebook_url && `"${site.facebook_url}"`, site.instagram_url && `"${site.instagram_url}"`].filter(Boolean).join(', ')}]
+    "@type": ["LocalBusiness", "AutoDealer"]${safeFacebookUrl || safeInstagramUrl ? `,
+    "sameAs": [${[safeFacebookUrl && `"${safeFacebookUrl}"`, safeInstagramUrl && `"${safeInstagramUrl}"`].filter(Boolean).join(', ')}]` : ''}
   }
   </script>
 
@@ -521,8 +556,8 @@ export function registerSitePublicRoutes(app) {
   </script>
 
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
-  <meta name="theme-color" content="${site.primary_color || '#1e3a8a'}">
-  <link rel="icon" href="${site.logo_url || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚗</text></svg>'}">
+  <meta name="theme-color" content="${safePrimaryColor}">
+  <link rel="icon" href="${safeSiteLogo || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚗</text></svg>'}">
 
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
