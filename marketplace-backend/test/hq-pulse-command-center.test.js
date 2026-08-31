@@ -302,19 +302,24 @@ test('Header + sidebar chrome is ALWAYS light, regardless of OS dark mode', asyn
   // Night Shift — the exact "should not be dark" bug the screenshot showed.
   // The design intent is a light chrome always; content can go dark
   // independently. This rule pins #ffffff for chrome under both modes.
+  // The chrome selector must use DOUBLED IDs so its specificity (2,0,0)
+  // beats marketsync-theme.css's `.dark #dept-sidebar` (1,1,0). A plain
+  // `html body #dept-sidebar` (1,0,2) loses on class count and the sidebar
+  // turned dark on any OS with dark-mode preference — the exact regression
+  // the last screenshot showed.
   assert.match(html,
-    /html body header\.ms-chrome-glass,[\s\S]{0,120}#dashboard-nav,[\s\S]{0,80}#dept-nav,[\s\S]{0,80}#dept-sidebar\{[\s\S]{0,200}background:#ffffff!important/,
-    'chrome must be pinned solid #ffffff without an .dark branch — chrome is always light')
+    /header\.ms-chrome-glass\.ms-chrome-glass,[\s\S]{0,120}#dashboard-nav#dashboard-nav,[\s\S]{0,80}#dept-nav#dept-nav,[\s\S]{0,80}#dept-sidebar#dept-sidebar\{[\s\S]{0,300}background:#ffffff!important/,
+    'chrome must use doubled-ID selectors to beat .dark #dept-sidebar specificity')
   // A regression that puts .dark back into the chrome selector would
   // reintroduce the OS-dark-mode bug. The test explicitly forbids it.
-  const chromeBlock = html.match(/html body header\.ms-chrome-glass,[\s\S]{0,600}background:#ffffff!important/)
+  const chromeBlock = html.match(/header\.ms-chrome-glass\.ms-chrome-glass,[\s\S]{0,900}background:#ffffff!important/)
   assert.ok(chromeBlock, 'chrome block must exist')
   assert.doesNotMatch(chromeBlock[0], /\.dark/,
     'chrome selector must NOT branch on .dark — the OS dark auto-toggle would darken it')
   // backdrop-filter must be disabled — the translucent surface mixing with
   // the body colour is the whole source of the "too dark in light" complaint.
   assert.match(html,
-    /html body header\.ms-chrome-glass,[\s\S]{0,400}backdrop-filter:none!important/,
+    /header\.ms-chrome-glass\.ms-chrome-glass,[\s\S]{0,900}backdrop-filter:none!important/,
     'chrome fix must disable backdrop-filter to prevent Liquid-Glass mixing')
 })
 
