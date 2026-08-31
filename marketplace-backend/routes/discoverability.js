@@ -40,9 +40,41 @@ import {
  * - Automation Settings & Weekly Email Reporting
  */
 
-// Global in-memory cache of recommendations per dealership
-const DEALERSHIP_RECOMMENDATIONS_STORE = new Map()
-const DEALERSHIP_CRAWL_STORE = new Map()
+// Removed in-memory Maps — use Supabase as durable source of truth
+// Helper: fetch recommendations from database
+async function fetchRecommendations(dealershipId) {
+  const { data, error } = await supabaseAdmin
+    .from('discoverability_recommendations')
+    .select('*')
+    .eq('dealership_id', dealershipId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+// Helper: persist recommendation to database
+async function persistRecommendation(dealershipId, recommendation) {
+  const { data, error } = await supabaseAdmin
+    .from('discoverability_recommendations')
+    .upsert({
+      id: recommendation.id,
+      dealership_id: dealershipId,
+      ...recommendation
+    }, { onConflict: 'id' })
+  if (error) throw error
+  return data?.[0] || recommendation
+}
+
+// Helper: fetch crawl runs from database
+async function fetchCrawlRuns(dealershipId) {
+  const { data, error } = await supabaseAdmin
+    .from('discoverability_crawl_runs')
+    .select('*')
+    .eq('dealership_id', dealershipId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
 
 // Default Automation Settings
 const DEFAULT_AUTOMATION_SETTINGS = {
@@ -86,11 +118,17 @@ export default function registerDiscoverabilityRoutes(app) {
       })
     }
 
-    const previousRecs = DEALERSHIP_RECOMMENDATIONS_STORE.get(req.dealershipId) || []
-    const audit = await runComprehensiveDiscoverabilityAudit(req.dealershipId, { previousRecommendations: previousRecs }).catch(() => null)
-    
-    if (audit?.recommendations) {
-      DEALERSHIP_RECOMMENDATIONS_STORE.set(req.dealershipId, audit.recommendations)
+    try {
+      const previousRecs = await fetchRecommendations(req.dealershipId).catch(() => [])
+      const audit = await runComprehensiveDiscoverabilityAudit(req.dealershipId, { previousRecommendations: previousRecs }).catch(() => null)
+
+      if (audit?.recommendations) {
+        for (const rec of audit.recommendations) {
+          await persistRecommendation(req.dealershipId, rec).catch(() => {})
+        }
+      }
+    } catch (err) {
+      console.error('[discoverability/overview] persistence error:', err.message)
     }
 
     res.json({
@@ -273,79 +311,104 @@ export default function registerDiscoverabilityRoutes(app) {
   app.get('/discoverability/recommendations', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
     if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
 
-    let list = DEALERSHIP_RECOMMENDATIONS_STORE.get(req.dealershipId)
-    if (!list || list.length === 0) {
-      const audit = await runComprehensiveDiscoverabilityAudit(req.dealershipId).catch(() => null)
-      list = audit?.recommendations || []
-      DEALERSHIP_RECOMMENDATIONS_STORE.set(req.dealershipId, list)
-    }
+    try {
+      let list = await fetchRecommendations(req.dealershipId)
+      if (!list || list.length === 0) {
+        const audit = await runComprehensiveDiscoverabilityAudit(req.dealershipId).catch(() => null)
+        list = audit?.recommendations || []
+        for (const rec of list) {
+          await persistRecommendation(req.dealershipId, rec).catch(() => {})
+        }
+      }
 
-    const { status, pillar, execution_class, category, search } = req.query
-    let filtered = [...list]
+      const { status, pillar, execution_class, category, search } = req.query
+      let filtered = [...list]
 
-    if (status && status !== 'all') {
-      filtered = filtered.filter(r => r.status === status)
-    }
-    if (pillar && pillar !== 'all') {
-      filtered = filtered.filter(r => r.pillar === pillar)
-    }
-    if (execution_class && execution_class !== 'all') {
-      filtered = filtered.filter(r => r.execution_class === execution_class)
-    }
-    if (category && category !== 'all') {
-      filtered = filtered.filter(r => r.category === category)
-    }
-    if (search) {
-      const q = String(search).toLowerCase()
-      filtered = filtered.filter(r => r.title.toLowerCase().includes(q) || r.summary.toLowerCase().includes(q))
-    }
+      if (status && status !== 'all') {
+        filtered = filtered.filter(r => r.status === status)
+      }
+      if (pillar && pillar !== 'all') {
+        filtered = filtered.filter(r => r.pillar === pillar)
+      }
+      if (execution_class && execution_class !== 'all') {
+        filtered = filtered.filter(r => r.execution_class === execution_class)
+      }
+      if (category && category !== 'all') {
+        filtered = filtered.filter(r => r.category === category)
+      }
+      if (search) {
+        const q = String(search).toLowerCase()
+        filtered = filtered.filter(r => r.title.toLowerCase().includes(q) || r.summary.toLowerCase().includes(q))
+      }
 
-    const summary = {
-      total: list.length,
-      auto_fixable: list.filter(r => r.execution_class === 'auto_fixable' && r.status === 'open').length,
-      approval_required: list.filter(r => r.execution_class === 'approval_required' && r.status === 'open').length,
-      manual: list.filter(r => r.execution_class === 'manual' && r.status === 'open').length,
-      open: list.filter(r => r.status === 'open').length,
-      validated: list.filter(r => r.status === 'validated').length,
-      reverted: list.filter(r => r.status === 'reverted').length
-    }
+      const summary = {
+        total: list.length,
+        auto_fixable: list.filter(r => r.execution_class === 'auto_fixable' && r.status === 'open').length,
+        approval_required: list.filter(r => r.execution_class === 'approval_required' && r.status === 'open').length,
+        manual: list.filter(r => r.execution_class === 'manual' && r.status === 'open').length,
+        open: list.filter(r => r.status === 'open').length,
+        validated: list.filter(r => r.status === 'validated').length,
+        reverted: list.filter(r => r.status === 'reverted').length
+      }
 
-    res.json({
-      success: true,
-      summary,
-      recommendations: filtered
-    })
+      res.json({
+        success: true,
+        summary,
+        recommendations: filtered
+      })
+    } catch (err) {
+      console.error('[discoverability/recommendations] error:', err.message)
+      res.status(500).json({ error: 'Failed to fetch recommendations', detail: err.message })
+    }
   })
 
   // ── 9. Single Recommendation Detail & Preview ──────────────────────────────
   app.get('/discoverability/recommendations/:id', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
     if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
 
-    const list = DEALERSHIP_RECOMMENDATIONS_STORE.get(req.dealershipId) || []
-    const rec = list.find(r => r.id === req.params.id)
-    if (!rec) return res.status(404).json({ error: 'Recommendation not found' })
+    try {
+      const { data: recs, error } = await supabaseAdmin
+        .from('discoverability_recommendations')
+        .select('*')
+        .eq('dealership_id', req.dealershipId)
+        .eq('id', req.params.id)
+        .limit(1)
+      if (error) throw error
 
-    const safety = canAutoApplyRecommendation(rec)
-    const snapshot = rec.rollback_snapshot_id ? getRollbackSnapshot(rec.rollback_snapshot_id) : null
+      const rec = recs?.[0]
+      if (!rec) return res.status(404).json({ error: 'Recommendation not found' })
 
-    res.json({
-      success: true,
-      recommendation: rec,
-      safety,
-      snapshot
-    })
+      const safety = canAutoApplyRecommendation(rec)
+      const snapshot = rec.rollback_snapshot_id ? getRollbackSnapshot(rec.rollback_snapshot_id) : null
+
+      res.json({
+        success: true,
+        recommendation: rec,
+        safety,
+        snapshot
+      })
+    } catch (err) {
+      console.error('[discoverability/recommendations/:id] error:', err.message)
+      res.status(500).json({ error: 'Failed to fetch recommendation', detail: err.message })
+    }
   })
 
   // ── 10. Apply Single Recommendation ────────────────────────────────────────
   app.post('/discoverability/recommendations/:id/apply', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
     if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
 
-    const list = DEALERSHIP_RECOMMENDATIONS_STORE.get(req.dealershipId) || []
-    const recIndex = list.findIndex(r => r.id === req.params.id)
-    if (recIndex === -1) return res.status(404).json({ error: 'Recommendation not found' })
-
-    const rec = list[recIndex]
     try {
+      const { data: recs, error: fetchErr } = await supabaseAdmin
+        .from('discoverability_recommendations')
+        .select('*')
+        .eq('dealership_id', req.dealershipId)
+        .eq('id', req.params.id)
+        .limit(1)
+      if (fetchErr) throw fetchErr
+
+      const rec = recs?.[0]
+      if (!rec) return res.status(404).json({ error: 'Recommendation not found' })
+
       const result = await applySingleRecommendation(rec, {
         dealershipId: req.dealershipId,
         actorId: req.user?.id || 'admin',
@@ -353,9 +416,7 @@ export default function registerDiscoverabilityRoutes(app) {
         req
       })
 
-      list[recIndex] = result.recommendation
-      DEALERSHIP_RECOMMENDATIONS_STORE.set(req.dealershipId, list)
-
+      await persistRecommendation(req.dealershipId, result.recommendation)
       res.json(result)
     } catch (err) {
       res.status(400).json({ error: err.message })
