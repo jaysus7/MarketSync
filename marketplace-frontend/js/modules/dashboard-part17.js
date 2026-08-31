@@ -3449,6 +3449,234 @@ const WS_FONTS = ['Inter', 'Poppins', 'Montserrat', 'Oswald', 'Bebas Neue', 'Ant
 function wsApplyPalette(p, s, a) { const g = id => document.getElementById(id); if (g('ws-c1')) g('ws-c1').value = p; if (g('ws-c2')) g('ws-c2').value = s; if (g('ws-c3')) g('ws-c3').value = a; showToast('Palette applied — Save to publish', 'info'); }
 function wsSetTheme(id) { __siteCfg.content = __siteCfg.content || {}; __siteCfg.content.theme = id; renderWsBody(); showToast('Theme selected — Save to publish', 'info'); }
 window.wsSetTheme = wsSetTheme;
+
+// BATCH 2: Site Kits + Themes (separated architecture)
+// THEME: colors, fonts, spacing, material — applied independently
+// SITE KIT: navigation, structure, sections, responsive defaults
+const SITE_THEMES = [
+  { id: 'classic', name: 'Classic', primary: '#1e3a8a', secondary: '#0f172a', accent: '#3b82f6', heading_font: 'Inter', body_font: 'Inter' },
+  { id: 'prestige', name: 'Prestige', primary: '#0f172a', secondary: '#1e293b', accent: '#d97706', heading_font: 'Playfair Display', body_font: 'Inter' },
+  { id: 'modern', name: 'Modern', primary: '#4f46e5', secondary: '#0b1020', accent: '#06b6d4', heading_font: 'Outfit', body_font: 'Inter' },
+  { id: 'bold', name: 'Bold', primary: '#dc2626', secondary: '#09090b', accent: '#f59e0b', heading_font: 'Oswald', body_font: 'Montserrat' },
+  { id: 'minimal', name: 'Minimal', primary: '#18181b', secondary: '#27272a', accent: '#2563eb', heading_font: 'Outfit', body_font: 'Space Grotesk' },
+  { id: 'performance', name: 'Performance', primary: '#0284c7', secondary: '#020617', accent: '#06b6d4', heading_font: 'Syne', body_font: 'Space Grotesk' },
+  { id: 'truck', name: 'Truck', primary: '#1c1917', secondary: '#292524', accent: '#d97706', heading_font: 'Oswald', body_font: 'Inter' },
+  { id: 'family', name: 'Family', primary: '#1e293b', secondary: '#0f172a', accent: '#0d9488', heading_font: 'Poppins', body_font: 'Nunito' },
+  { id: 'used', name: 'Used', primary: '#1e3a8a', secondary: '#0f172a', accent: '#f59e0b', heading_font: 'Barlow', body_font: 'Rubik' },
+  { id: 'ev', name: 'EV', primary: '#030712', secondary: '#0b1329', accent: '#22d3ee', heading_font: 'Plus Jakarta Sans', body_font: 'Inter' }
+];
+
+function getSiteKitSections(kitId, dealershipData) {
+  const { name, city, phone, address } = dealershipData;
+  const cityTxt = city ? (' in ' + city) : '';
+  const heroClassic = 'https://images.pexels.com/photos/164634/pexels-photo-164634.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2';
+  const heroLuxury = 'https://images.pexels.com/photos/3764984/pexels-photo-3764984.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2';
+  const heroModern = 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2';
+  const heroPerf = 'https://images.pexels.com/photos/1149831/pexels-photo-1149831.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2';
+  const heroTruck = 'https://images.pexels.com/photos/1638459/pexels-photo-1638459.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2';
+  const heroFamily = 'https://images.pexels.com/photos/1592384/pexels-photo-1592384.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2';
+  const heroMinimal = 'https://images.pexels.com/photos/909907/pexels-photo-909907.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&dpr=2';
+
+  if (kitId === 'modern-retail') {
+    return [
+      psHero(`The Modern Way to Buy Your Next Car${cityTxt}`, `${name} brings modern digital car buying to life. Search real-time inventory, calculate personalized lease & finance terms, and get approved online in minutes.`, 'Explore Live Inventory →', 'inventory', 'g1', heroModern),
+      __psec('feature_cards', { title: 'Digital Retailing Built Around You' }),
+      __psec('trade_cta', { title: 'Instant Online Trade-In Appraisal', subtitle: 'Unlock guaranteed market equity in your vehicle with our AI-powered valuation engine.', button_label: 'Get My Instant Offer →' }),
+      __psec('featured_inventory', { title: 'Trending Vehicles & Fresh Arrivals', condition: 'all', count: 6 }),
+      __psec('text_image', { headline: '100% Online or In-Store — Your Choice', body: `Say goodbye to dealership friction. At ${name}${cityTxt}, you can complete 100% of your vehicle purchase from your phone, tablet, or laptop — or visit our interactive physical showroom whenever you like.\n\nEnjoy dynamic payment customization, instant digital trade offers, electronic e-signing, and direct-to-door delivery within 24 hours.`, image: heroModern, button_label: 'How Digital Buying Works', button_target: 'inquiry' }),
+      __psec('reviews', { title: 'Over 1,500+ Five-Star Verified Reviews', google_rating: '4.9' }),
+      __psec('contact', { title: 'Connect With Our Concierge Team' }),
+      psCta('Start Your Seamless Purchase Today', 'Lock in your pricing and finance pre-approval in under 2 minutes.', 'Get Pre-Approved Online', 'finance')
+    ];
+  } else if (kitId === 'luxury') {
+    return [
+      psHero('Excellence in Motion', `Experience bespoke automotive acquisition at ${name}. Curated executive sedans, high-performance grand tourers, and rare collector vehicles tailored to your lifestyle.`, 'Explore Collection →', 'inventory', 'g1', heroLuxury),
+      __psec('feature_cards', { title: `The White-Glove Standard at ${name}` }),
+      __psec('trade_cta', { title: 'Private Portfolio Appraisal', subtitle: 'Receive an uncompromised, market-validated valuation for your current luxury vehicle.', button_label: 'Request Private Valuation →' }),
+      __psec('featured_inventory', { title: 'Private Reserve Spotlight', condition: 'all', count: 6 }),
+      __psec('text_image', { headline: 'Crafted Around Your Driving Life', body: `At ${name}${cityTxt}, acquiring an exceptional motorcar is an effortless private journey. Each vehicle in our reserve passes a rigorous 180-point mechanical and provenance certification.\n\nFrom customized bespoke financing arrangements and discreet trade valuations to enclosed nationwide home delivery, our dedicated private client advisors provide an unmatched standard of service.`, image: heroLuxury, button_label: 'Speak to a Private Advisor', button_target: 'team' }),
+      __psec('reviews', { title: 'Client Testimonials & Praise', google_rating: '5.0' }),
+      __psec('contact', { title: 'Schedule a Private Showroom Consultation' }),
+      psCta('Elevate Your Driving Experience', 'Inquire privately today to reserve your next vehicle or schedule an exclusive showroom viewing.', 'Inquire with Private Client Services', 'inquiry')
+    ];
+  } else if (kitId === 'performance') {
+    return [
+      psHero('MAXIMIZE PERFORMANCE & POWER', `Welcome to ${name}. We are clearing out inventory with aggressive dealer discounts, competitive trade allowances, and 0% down financing options on approved credit!`, 'VIEW FLASH DEALS NOW →', 'inventory', 'g1', heroPerf),
+      __psec('feature_cards', { title: `THE ${name.toUpperCase()} POWER PROMISE` }),
+      __psec('trade_cta', { title: 'WE WILL BUY YOUR VEHICLE TODAY', subtitle: 'Get top market dollar on the spot — even if you do not buy a car from us. Fast cash or trade credit!', button_label: 'CLAIM HIGHEST TRADE VALUE →' }),
+      __psec('featured_inventory', { title: 'HOTTEST WEEKLY SPECIALS & ARRIVALS', condition: 'all', count: 6 }),
+      __psec('text_image', { headline: 'MAXIMUM VALUE. ZERO EXCUSES.', body: `At ${name}${cityTxt}, we move volume so you save money. We partner with over 30 top tier lenders to guarantee aggressive financing rates, flexible down payments, and approval options for all credit backgrounds.\n\nEvery vehicle is backed by a comprehensive powertrain warranty and full vehicle history report. When you are ready to upgrade, we guarantee the best deal in town.`, image: heroPerf, button_label: 'SPEAK TO A SALES MANAGER', button_target: 'contact' }),
+      __psec('reviews', { title: 'WHAT OUR DRIVERS ARE SAYING', google_rating: '4.8' }),
+      __psec('contact', { title: 'CONTACT OUR EXPRESS SALES DESK' }),
+      psCta("DON'T WAIT — LIMITED TIME CLEARANCE", 'Lock in promotional financing rates and exclusive incentives before allocations sell out.', 'LOCK IN MY BEST PRICE', 'inquiry')
+    ];
+  } else if (kitId === 'family-value') {
+    return [
+      psHero(`Experience Automotive Excellence${cityTxt}`, `Welcome to ${name}. Explore our premium inventory of certified pre-owned and new vehicles with upfront pricing, flexible financing options, and top-dollar trade-in valuations.`, 'Browse Inventory →', 'inventory', 'g1', heroFamily),
+      __psec('feature_cards', { title: `Why Families Choose ${name}` }),
+      __psec('trade_cta', { title: "What's Your Car Worth Today?", subtitle: 'Get a competitive, real-time market value for your trade-in in under 60 seconds with no obligation.', button_label: 'Value Your Trade →' }),
+      __psec('featured_inventory', { title: 'Featured Family Vehicles & Crossovers', condition: 'all', count: 6 }),
+      __psec('text_image', { headline: `The ${name} Difference`, body: `At ${name}${cityTxt}, we have re-engineered the car buying experience to be transparent, straightforward, and pressure-free. Every vehicle in our showroom is hand-selected, comprehensively reconditioned by certified technicians, and backed by our complete satisfaction guarantee.\n\nWhether you are shopping for a dependable daily commuter, an all-weather family SUV, or a heavy-duty truck, our experienced advisors are dedicated to finding your ideal match.`, image: heroFamily, button_label: 'Meet Our Team', button_target: 'team' }),
+      __psec('reviews', { title: 'What Our Families Say', google_rating: '4.9' }),
+      __psec('contact', { title: 'Visit Our Showroom & Get In Touch' }),
+      psCta('Ready to Find Your Next Vehicle?', 'Get pre-approved online in 2 minutes or request your instant trade appraisal today.', 'Get Pre-Approved Now', 'finance')
+    ];
+  } else if (kitId === 'minimal') {
+    return [
+      psHero('Pure, Distraction-Free Vehicle Shopping', `At ${name}${cityTxt}, we focus on what matters: great vehicles, honest pricing, and your time. No unnecessary noise, no pressure, just straightforward automotive expertise.`, 'Browse Our Selection', 'inventory', 'g1', heroMinimal),
+      __psec('feature_cards', { title: 'Straightforward, Honest Service' }),
+      __psec('trade_cta', { title: 'Get a Fair Trade Appraisal', subtitle: 'Simple, transparent valuation with no hidden agenda.', button_label: 'Value Your Trade →' }),
+      __psec('featured_inventory', { title: 'Featured Vehicles', condition: 'all', count: 6 }),
+      __psec('text_image', { headline: 'Why We Keep It Simple', body: `At ${name}${cityTxt}, we believe car buying should be straightforward. No confusing numbers, no pressure tactics, no unnecessary add-ons. Just honest conversations about honest vehicles.\n\nOur team is here to answer your questions, help you find the right fit, and make the whole process fast and easy.`, image: heroMinimal, button_label: 'Get Started', button_target: 'inquiry' }),
+      __psec('reviews', { title: 'See What Customers Say', google_rating: '4.8' }),
+      __psec('contact', { title: 'Get In Touch' }),
+      psCta('Ready to Find Your Next Vehicle?', 'Browse our current inventory or schedule a visit.', 'Start Shopping', 'inventory')
+    ];
+  }
+  return [];
+}
+
+const SITE_KITS = [
+  {
+    id: 'modern-retail',
+    name: 'Modern Retail',
+    desc: 'Digital-first, instant approvals, dynamic payments, online retailing workflows.',
+    recommendedThemes: ['modern', 'minimal', 'classic'],
+    heroImg: 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
+  },
+  {
+    id: 'luxury',
+    name: 'Luxury',
+    desc: 'Refined, white-glove concierge, private reserve presentation, high-end experience.',
+    recommendedThemes: ['prestige', 'classic', 'minimal'],
+    heroImg: 'https://images.pexels.com/photos/3764984/pexels-photo-3764984.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
+  },
+  {
+    id: 'performance',
+    name: 'Performance & Value',
+    desc: 'High-velocity, aggressive pricing, volume-focused, maximum savings.',
+    recommendedThemes: ['bold', 'truck', 'performance'],
+    heroImg: 'https://images.pexels.com/photos/1149831/pexels-photo-1149831.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
+  },
+  {
+    id: 'family-value',
+    name: 'Family & Value',
+    desc: 'Family-focused, safety features, affordability, community-oriented messaging.',
+    recommendedThemes: ['family', 'classic', 'modern'],
+    heroImg: 'https://images.pexels.com/photos/1592384/pexels-photo-1592384.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
+  },
+  {
+    id: 'minimal',
+    name: 'Minimal',
+    desc: 'Clean, airy, distraction-free, straightforward, transparency-focused.',
+    recommendedThemes: ['minimal', 'modern', 'classic'],
+    heroImg: 'https://images.pexels.com/photos/909907/pexels-photo-909907.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
+  }
+];
+
+function openSiteKitPicker() {
+  const modalHtml = `
+    <div class="p-6 space-y-4 max-w-5xl">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div>
+          <h2 class="text-xl font-black text-slate-900 dark:text-white">Choose Your Site Kit</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Select a pre-designed website structure tailored to your dealership type. You'll customize colors and fonts next.</p>
+        </div>
+        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+        ${SITE_KITS.map(kit => `
+          <button onclick="openThemePicker('${kit.id}')" class="group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-200 flex flex-col cursor-pointer">
+            <div class="h-28 relative overflow-hidden bg-slate-950 shrink-0">
+              <img src="${kit.heroImg}" class="w-full h-full object-cover object-center group-hover:scale-105 transition duration-500">
+              <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent"></div>
+            </div>
+            <div class="p-4 flex-1 flex flex-col justify-between space-y-2">
+              <div>
+                <h3 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${kit.name}</h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-1">${kit.desc}</p>
+              </div>
+              <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Complete Suite</span>
+                <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition">Select →</span>
+              </div>
+            </div>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  crmOverlay(modalHtml, 'max-w-5xl');
+}
+
+function openThemePicker(siteKitId) {
+  const kit = SITE_KITS.find(k => k.id === siteKitId);
+  const themes = SITE_THEMES.filter(t => kit.recommendedThemes.includes(t.id));
+
+  const modalHtml = `
+    <div class="p-6 space-y-4 max-w-4xl">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div>
+          <h2 class="text-xl font-black text-slate-900 dark:text-white">Choose Theme for ${kit.name}</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Pick your preferred colors, typography, and design aesthetic. You can customize further after applying.</p>
+        </div>
+        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+        ${themes.map(t => `
+          <button onclick="applySiteKit('${siteKitId}', '${t.id}')" class="group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-lg hover:shadow-2xl transition duration-200 cursor-pointer">
+            <div class="flex items-start justify-between mb-3">
+              <div>
+                <h3 class="text-sm font-black text-slate-900 dark:text-white">${t.name}</h3>
+                <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">${t.heading_font} + ${t.body_font}</p>
+              </div>
+              <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition">Apply →</span>
+            </div>
+            <div class="flex gap-2 items-center">
+              <span class="w-5 h-5 rounded-full border border-white/40" style="background:${t.primary}"></span>
+              <span class="w-5 h-5 rounded-full border border-white/40" style="background:${t.secondary}"></span>
+              <span class="w-5 h-5 rounded-full border border-white/40" style="background:${t.accent}"></span>
+            </div>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  crmOverlay(modalHtml, 'max-w-4xl');
+}
+
+function applySiteKit(siteKitId, themeId) {
+  const kit = SITE_KITS.find(k => k.id === siteKitId);
+  const theme = SITE_THEMES.find(t => t.id === themeId);
+  if (!kit || !theme) return;
+
+  const c = __siteCfg.content = __siteCfg.content || {};
+  const name = c.name || ctxName() || 'Our Dealership';
+  const city = c.city || '';
+  const phone = c.phone || '905-555-0100';
+  const address = c.address || '123 Main St';
+
+  c.primary_color = theme.primary;
+  c.secondary_color = theme.secondary;
+  c.accent_color = theme.accent;
+  c.heading_font = theme.heading_font;
+  c.body_font = theme.body_font;
+  c.theme = theme.id;
+  c.design_theme = theme.id;
+  c.preset = theme.id;
+  c.typography = theme.id;
+
+  c.sections = getSiteKitSections(siteKitId, { name, city, phone, address });
+
+  renderWsBody();
+  showToast(`${kit.name} with ${theme.name} theme applied! Customize and Save when ready.`, 'success');
+  crmOverlay('', 'hidden');
+}
+
 function openTemplatePicker() {
   const templates = [
     {
@@ -3785,6 +4013,9 @@ function applyCompleteTemplate(templateId) {
 window.openTemplatePicker = openTemplatePicker;
 window.applyCompleteTemplate = applyCompleteTemplate;
 window.applyTemplate = applyCompleteTemplate;
+window.openSiteKitPicker = openSiteKitPicker;
+window.openThemePicker = openThemePicker;
+window.applySiteKit = applySiteKit;
 
 function wsFontOpts(sel) { return `<option value="">— Use preset —</option>` + WS_FONTS.map(f => `<option value="${f}" ${sel === f ? 'selected' : ''}>${f}</option>`).join(''); }
 function wsDesign() {
@@ -3809,8 +4040,8 @@ function wsDesign() {
         </div>
         <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Explore 5 full working layouts with Pexels photos &amp; pre-filled copy.</div>
       </div>
-      <button type="button" onclick="openTemplatePicker()" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition shrink-0 cursor-pointer">
-        Browse Templates →
+      <button type="button" onclick="openSiteKitPicker()" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition shrink-0 cursor-pointer">
+        Browse Site Kits →
       </button>
     </div>
     <div>
@@ -4206,7 +4437,7 @@ async function wsRunScan(btn) {
 }
 window.wsRunScan = wsRunScan;
 
-Object.assign(window, { loadWebsitePage, openPhotoBackgroundUploader, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto, collectMenu, renderMenuList, menuMove, menuIndent, wsCustomizeById, removeSitePageById, addSitePagePreset, wsApplyPalette, openWebsiteScannerModal, wsRunScan, toggleWsLeftDock, toggleWsRightDock, makeWsPanelDraggable });
+Object.assign(window, { loadWebsitePage, openPhotoBackgroundUploader, wsTab, wsSetTarget, addSection, moveSection, dupSection, delSection, setSec, setSecFaq, delSecImg, uploadToSec, uploadToSecMulti, saveWebsite, aiMenu, aiRun, openTemplatePicker, applyTemplate, addSiteStaff, removeSiteStaff, uploadStaffPhoto, collectMenu, renderMenuList, menuMove, menuIndent, wsCustomizeById, removeSitePageById, addSitePagePreset, wsApplyPalette, openWebsiteScannerModal, wsRunScan, toggleWsLeftDock, toggleWsRightDock, makeWsPanelDraggable, openSiteKitPicker, openThemePicker, applySiteKit });
 
 // ══ Website builder — Blog / News (per-dealer, RLS-scoped) ═════════════════════
 let __dealerBlog = [];
