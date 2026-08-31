@@ -2104,6 +2104,27 @@ async function renderSaasCustomer(id) {
         <div class="flex items-center gap-2 mt-1">${d.status ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${statusTone}">${esc(d.status)}</span>` : ''}<span class="text-[12px] text-slate-400">${d.tenure_months != null ? d.tenure_months + ' mo customer' : ''}</span></div></div>
       <button data-x class="text-2xl leading-none text-slate-400 hover:text-slate-600">×</button>
     </div>
+    ${(() => {
+      const h = d.health || null; if (!h) return '';
+      const tone = h.band === 'good' ? 'text-emerald-600 dark:text-emerald-400' : h.band === 'watch' ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400';
+      const bar = h.band === 'good' ? 'bg-emerald-500' : h.band === 'watch' ? 'bg-amber-500' : 'bg-rose-500';
+      const factors = (h.factors || []).map(f => `
+        <div class="flex items-center gap-2 py-1.5">
+          <div class="w-28 text-[11px] font-black uppercase tracking-wide text-slate-500">${esc(f.label)}</div>
+          <div class="flex-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+            <div class="h-full ${bar}" style="width:${Math.round(f.points / f.max * 100)}%"></div>
+          </div>
+          <div class="w-14 text-right text-[11px] font-bold text-slate-700 dark:text-slate-200">${f.points}/${f.max}</div>
+          <div class="w-40 text-[11px] text-slate-500 truncate hidden lg:block">${esc(f.detail)}</div>
+        </div>`).join('');
+      return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4">
+        <div class="flex items-center justify-between gap-3 mb-2">
+          <div class="text-[13px] font-black text-slate-800 dark:text-slate-100">Health</div>
+          <div class="text-2xl font-black ${tone}">${h.score}<span class="text-sm text-slate-400 font-bold ml-1">/ 100</span></div>
+        </div>
+        ${factors}
+      </div>`;
+    })()}
     <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
       ${kpi('Monthly payment', money(d.mrr), 'text-violet-600 dark:text-violet-400')}
       ${kpi('Expected yearly value', money(d.arr))}
@@ -2317,6 +2338,16 @@ async function loadSaasAutomation() {
     __automation.campaigns = camp.campaigns || [];
   } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message || 'Could not load')}</div>`; return; }
   renderAutomation();
+  // After the base UI paints, drop the diagnostics panel underneath. Fire-and-
+  // forget: a diagnostics failure never blocks the main automation page.
+  const host = document.getElementById('saas-automation-root');
+  if (host && !document.getElementById('hq-automation-diagnostics')) {
+    const wrap = document.createElement('div');
+    wrap.className = 'mt-6 space-y-3';
+    wrap.innerHTML = '<div class="text-[11px] uppercase font-black tracking-wider text-slate-500">Automation health</div><div id="hq-automation-diagnostics"></div>';
+    host.appendChild(wrap);
+  }
+  if (typeof loadSaasAutomationDiagnostics === 'function') loadSaasAutomationDiagnostics();
 }
 window.loadSaasAutomation = loadSaasAutomation;
 function renderAutomation() {

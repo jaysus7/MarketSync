@@ -329,12 +329,35 @@ export function registerSaasAdmin(app) {
     }
     if (ltv == null) ltv = tenureMonths != null ? mrr * tenureMonths : mrr
 
+    // Customer health — same formula the pipeline endpoint uses so the score
+    // matches everywhere. `factors` explains the score so an HQ user can act
+    // on it instead of trusting a number they can't reason about.
+    const adoptionPoints = Math.round(Math.min(engines.size, 5) / 5 * 45)
+    const recencyPoints = lastDays == null ? 0 : lastDays <= 3 ? 35 : lastDays <= 7 ? 28 : lastDays <= 14 ? 18 : lastDays <= 30 ? 8 : 0
+    const billingPoints = activeStatus(status) ? 20 : (trialingStatus(status) || (trialEnds && new Date(trialEnds) > new Date())) ? 12 : 0
+    const healthScore = Math.min(100, adoptionPoints + recencyPoints + billingPoints)
+    const health = {
+      score: healthScore,
+      band: healthScore >= 70 ? 'good' : healthScore >= 40 ? 'watch' : 'at_risk',
+      factors: [
+        { key: 'adoption', label: 'Product adoption', points: adoptionPoints, max: 45,
+          detail: `${engines.size} engine${engines.size === 1 ? '' : 's'} touched in 90d` },
+        { key: 'recency', label: 'Recent activity', points: recencyPoints, max: 35,
+          detail: lastDays == null ? 'No activity captured yet' : lastDays === 0 ? 'Active today' : `Last active ${lastDays}d ago` },
+        { key: 'billing', label: 'Billing standing', points: billingPoints, max: 20,
+          detail: activeStatus(status) ? 'Paying, in good standing'
+            : dunningStatus(status) ? 'Past due — recover payment'
+            : (trialingStatus(status) || (trialEnds && new Date(trialEnds) > new Date())) ? 'On trial' : 'Not billing' },
+      ],
+    }
+
     res.json({
       id: dealer.id, name: dealer.name, website_url: dealer.website_url || null,
       is_personal: !!dealer.is_personal, status: (status || '').toUpperCase() || null,
       created_at: dealer.created_at, trial_ends_at: trialEnds,
       products, product_keys: productKeys, plan: dealer.plan || null,
       mrr, arr: mrr * 12, ltv, ltv_source: ltvSource, tenure_months: tenureMonths,
+      health,
       engines_used: [...engines], activity_90d: recent.length, last_activity_days: lastDays,
       team: (team || []).map(t => ({ id: t.id, name: t.full_name, role: t.role, saas_role: t.saas_role })),
       timeline: (events || []).map(e => ({ name: e.event_name, at: e.created_at })),
@@ -1003,5 +1026,220 @@ export function registerSaasAdmin(app) {
       },
       env: process.env.NODE_ENV || 'unknown',
     })
+  })
+
+  // ══ HQ Trials pipeline ═══════════════════════════════════════════════════
+  // Classifies every trial into an explicit stage (new / onboarding / active /
+  // engaged / low_engagement / expiring / converted / expired), with the last
+  // activity and days-remaining that decide the stage. Basis for the Trials
+  // engine page. Only reads tables that already exist.
+  app.get('/saas/trials', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const since = new Date(Date.now() - 30 * 86400000).toISOString()
+    const [{ data: dealers }, { data: profiles }, evtRes] = await Promise.all([
+      supabaseAdmin.from('dealerships').select('id, name, is_personal, billing_status, trial_ends_at, products, created_at').limit(3000),
+      supabaseAdmin.from('profiles').select('dealership_id, billing_status, trial_ends_at').limit(20000),
+      supabaseAdmin.from('events').select('dealership_id, event_name, created_at').gte('created_at', since)
+        .order('created_at', { ascending: false }).limit(50000)
+        .then(r => r, () => ({ data: null })),
+    ])
+    const profByDealer = {}
+    for (const p of profiles || []) { (profByDealer[p.dealership_id] = profByDealer[p.dealership_id] || []).push(p) }
+    const activityByAcct = new Map()
+    for (const e of (evtRes?.data || [])) {
+      const a = activityByAcct.get(e.dealership_id) || { count: 0, last: null, engines: new Set() }
+      a.count++
+      if (!a.last) a.last = e.created_at
+      const ns = String(e.event_name || '').split('.')[0]
+      if (ns) a.engines.add(ns)
+      activityByAcct.set(e.dealership_id, a)
+    }
+    const now = Date.now()
+    const trials = []
+    for (const d of (dealers || [])) {
+      let status = d.billing_status, trialEnds = d.trial_ends_at
+      if (d.is_personal) { const u = (profByDealer[d.id] || [])[0]; if (u) { status = u.billing_status; trialEnds = u.trial_ends_at } }
+      const inTrialWindow = trialEnds && new Date(trialEnds).getTime() > now
+      const trialingByStatus = String(status || '').toUpperCase() === 'TRIALING'
+      if (!inTrialWindow && !trialingByStatus) continue
+      if (activeStatus(status)) continue   // already converted → not in pipeline
+      const days = trialEnds ? Math.round((new Date(trialEnds).getTime() - now) / 86400000) : null
+      const a = activityByAcct.get(d.id) || { count: 0, last: null, engines: new Set() }
+      const daysSinceStart = d.created_at ? Math.round((now - new Date(d.created_at).getTime()) / 86400000) : null
+      let stage
+      if (!inTrialWindow) stage = 'expired'
+      else if (days != null && days <= 5) stage = 'expiring'
+      else if (a.engines.size >= 3 && a.count >= 10) stage = 'engaged'
+      else if (a.engines.size >= 1 && a.count >= 3) stage = 'active'
+      else if (daysSinceStart != null && daysSinceStart <= 2) stage = 'new'
+      else if (a.count > 0) stage = 'onboarding'
+      else stage = 'low_engagement'
+      const nextAction =
+        stage === 'expiring' ? 'Convert — book demo now' :
+        stage === 'expired' ? 'Re-engage — trial lapsed' :
+        stage === 'engaged' ? 'Convert to paid' :
+        stage === 'active' ? 'Nudge to next feature' :
+        stage === 'onboarding' ? 'Coach through first outcome' :
+        stage === 'new' ? 'Welcome outreach' :
+        'Activation outreach'
+      trials.push({
+        id: d.id, name: d.name || 'Account',
+        stage, days_left: days, days_since_start: daysSinceStart,
+        activity_30d: a.count, engines_used: a.engines.size,
+        last_activity: a.last, next_action: nextAction,
+        products: resolveProducts(d),
+      })
+    }
+    const STAGES = ['new', 'onboarding', 'active', 'engaged', 'low_engagement', 'expiring', 'expired']
+    const counts = Object.fromEntries(STAGES.map(s => [s, 0]))
+    for (const t of trials) counts[t.stage] = (counts[t.stage] || 0) + 1
+    // Trial conversion rate over 30 days: paid_new / (paid_new + trialing).
+    // "paid_new" = dealers created in the last 30 days that are now ACTIVE.
+    let paidNew30d = 0, allNew30d = 0
+    const cutoff = now - 30 * 86400000
+    for (const d of (dealers || [])) {
+      if (!d.created_at) continue
+      if (new Date(d.created_at).getTime() < cutoff) continue
+      allNew30d++
+      let effStatus = d.billing_status
+      if (d.is_personal) { const u = (profByDealer[d.id] || [])[0]; if (u) effStatus = u.billing_status }
+      if (activeStatus(effStatus)) paidNew30d++
+    }
+    const conversionRate = allNew30d > 0 ? Math.round(paidNew30d / allNew30d * 100) : null
+    trials.sort((a, b) => (a.days_left ?? 9999) - (b.days_left ?? 9999))
+    res.json({
+      stages: STAGES, counts,
+      conversion_rate_30d: conversionRate,   // null when we can't compute
+      trials,
+    })
+  })
+
+  // ══ Automation diagnostics ═══════════════════════════════════════════════
+  // Roll-up of sequence health for the HQ Automations page. Surfaces stalled
+  // enrollments (paused > 7 days), failed step sends, and the top offending
+  // sequences. Reads only existing tables.
+  app.get('/saas/automation/diagnostics', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const since = new Date(Date.now() - 30 * 86400000).toISOString()
+    const [{ data: seqs }, { data: enrollments }, sendRes] = await Promise.all([
+      supabaseAdmin.from('saas_sequences').select('id, key, name, enabled'),
+      supabaseAdmin.from('saas_sequence_enrollments').select('id, sequence_key, dealership_id, status, current_step, updated_at, started_at')
+        .gte('started_at', since).limit(20000)
+        .then(r => r, () => ({ data: null })),
+      supabaseAdmin.from('saas_sequence_step_runs').select('sequence_key, dealership_id, status, error, ran_at')
+        .gte('ran_at', since).limit(50000)
+        .then(r => r, () => ({ data: null })),
+    ])
+    const enr = enrollments?.data ?? enrollments
+    const runs = sendRes?.data ?? sendRes
+    // Support both callable safe() shape and direct data.
+    const enrRows = Array.isArray(enr) ? enr : (enr?.data || [])
+    const runRows = Array.isArray(runs) ? runs : (runs?.data || [])
+    const stalledCutoff = Date.now() - 7 * 86400000
+    let active = 0, paused = 0, stopped = 0, stalled = 0
+    const byKey = {}
+    for (const e of enrRows) {
+      const b = byKey[e.sequence_key] || (byKey[e.sequence_key] = { active: 0, paused: 0, stopped: 0, failed: 0 })
+      if (e.status === 'active') { active++; b.active++ }
+      else if (e.status === 'paused') {
+        paused++; b.paused++
+        if (e.updated_at && new Date(e.updated_at).getTime() < stalledCutoff) stalled++
+      }
+      else if (e.status === 'stopped') { stopped++; b.stopped++ }
+    }
+    const failedRuns = runRows.filter(r => r.status === 'error' || r.status === 'failed')
+    for (const r of failedRuns) {
+      const b = byKey[r.sequence_key] || (byKey[r.sequence_key] = { active: 0, paused: 0, stopped: 0, failed: 0 })
+      b.failed++
+    }
+    const sequences = (seqs || []).map(s => ({
+      key: s.key, name: s.name, enabled: s.enabled !== false, ...(byKey[s.key] || { active: 0, paused: 0, stopped: 0, failed: 0 }),
+    })).sort((a, b) => (b.failed - a.failed) || (b.active - a.active))
+    res.json({
+      // Runs table is optional (older environments) — surface that honestly.
+      runs_connected: runRows !== null,
+      totals: { active, paused, stopped, stalled_over_7d: stalled, failed_runs_30d: failedRuns.length },
+      sequences,
+      recent_failures: failedRuns.slice(0, 15).map(r => ({
+        sequence_key: r.sequence_key, dealership_id: r.dealership_id, error: r.error, ran_at: r.ran_at,
+      })),
+    })
+  })
+
+  // ══ Staff onboarding checklist ═══════════════════════════════════════════
+  // A per-staff checklist (JSON on profiles.hq_onboarding). Owner-only.
+  const STAFF_ONBOARDING = [
+    { key: 'profile',       label: 'Profile complete (name, business email, department)' },
+    { key: 'mfa',           label: 'MFA enrolled' },
+    { key: 'training',      label: 'Product training complete' },
+    { key: 'first_account', label: 'First customer account assigned' },
+    { key: 'first_action',  label: 'First follow-up logged' },
+  ]
+  app.get('/saas/staff/onboarding', requireAuth, async (req, res) => {
+    if (saasRoleOf(req) !== 'owner') { res.status(403).json({ error: 'Owner access required' }); return }
+    const { data: staff } = await supabaseAdmin.from('profiles')
+      .select('id, full_name, department, saas_role, hq_onboarding, business_email')
+      .not('saas_role', 'is', null).order('full_name').limit(500)
+    res.json({
+      checklist: STAFF_ONBOARDING,
+      staff: (staff || []).map(p => {
+        const state = (p.hq_onboarding && typeof p.hq_onboarding === 'object') ? p.hq_onboarding : {}
+        const done = STAFF_ONBOARDING.filter(item => !!state[item.key]).length
+        return {
+          id: p.id, name: p.full_name || p.business_email || '—',
+          department: p.department || null, saas_role: p.saas_role,
+          checklist_state: STAFF_ONBOARDING.reduce((acc, item) => (acc[item.key] = !!state[item.key], acc), {}),
+          progress_pct: Math.round(done / STAFF_ONBOARDING.length * 100),
+        }
+      }),
+    })
+  })
+  app.patch('/saas/staff/:id/onboarding', requireAuth, async (req, res) => {
+    if (saasRoleOf(req) !== 'owner') { res.status(403).json({ error: 'Owner access required' }); return }
+    const key = String(req.body?.key || '')
+    if (!STAFF_ONBOARDING.find(i => i.key === key)) return res.status(400).json({ error: 'Unknown checklist key' })
+    const done = !!req.body?.done
+    const { data: current } = await supabaseAdmin.from('profiles').select('hq_onboarding').eq('id', req.params.id).maybeSingle()
+    const next = { ...((current && current.hq_onboarding && typeof current.hq_onboarding === 'object') ? current.hq_onboarding : {}), [key]: done }
+    const { error } = await supabaseAdmin.from('profiles').update({ hq_onboarding: next }).eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true, key, done })
+  })
+
+  // ══ HQ announcements (customer + staff) ══════════════════════════════════
+  // Composer-style broadcasts. Server-side sending stays out of scope for this
+  // slice — this is the durable inbox record HQ authors decide on.
+  app.get('/saas/announcements', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const audience = req.query.audience === 'staff' ? 'staff' : req.query.audience === 'customer' ? 'customer' : null
+    let q = supabaseAdmin.from('hq_announcements').select('*').order('created_at', { ascending: false }).limit(100)
+    if (audience) q = q.eq('audience', audience)
+    const { data, error } = await q
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ announcements: data || [] })
+  })
+  app.post('/saas/announcements', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const b = req.body || {}
+    const audience = b.audience === 'staff' ? 'staff' : 'customer'
+    const title = String(b.title || '').trim().slice(0, 240)
+    const body = String(b.body || '').trim().slice(0, 8000)
+    if (!title || !body) return res.status(400).json({ error: 'Title and body required' })
+    const publishAt = b.publish_at ? new Date(b.publish_at) : new Date()
+    if (Number.isNaN(publishAt.getTime())) return res.status(400).json({ error: 'Invalid publish_at' })
+    const row = {
+      audience, title, body, publish_at: publishAt.toISOString(),
+      severity: ['info', 'warning', 'success'].includes(b.severity) ? b.severity : 'info',
+      created_by: req.user?.id || null,
+    }
+    const { data, error } = await supabaseAdmin.from('hq_announcements').insert(row).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+  app.delete('/saas/announcements/:id', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const { error } = await supabaseAdmin.from('hq_announcements').delete().eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true })
   })
 }

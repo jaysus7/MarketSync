@@ -2326,6 +2326,10 @@ function switchPage(pageId) {
   if (pageId === 'saas-affiliates' && typeof loadSaasAffiliates === 'function') loadSaasAffiliates();
   if (pageId === 'saas-product-usage' && typeof loadSaasProductUsage === 'function') loadSaasProductUsage();
   if (pageId === 'saas-health' && typeof loadSaasHealth === 'function') loadSaasHealth();
+  if (pageId === 'saas-trials' && typeof loadSaasTrials === 'function') loadSaasTrials();
+  if (pageId === 'saas-onboarding' && typeof loadSaasOnboarding === 'function') loadSaasOnboarding();
+  if (pageId === 'saas-announcements' && typeof loadSaasAnnouncements === 'function') loadSaasAnnouncements();
+  if (pageId === 'saas-intelligence' && typeof loadSaasIntelligence === 'function') loadSaasIntelligence();
   if (pageId === 'saas-agents' && typeof loadHqAgents === 'function') loadHqAgents();
   if (pageId === 'saas-entitlements' && typeof loadHqEntitlements === 'function') loadHqEntitlements();
   if (pageId === 'saas-products' && typeof loadHqProducts === 'function') loadHqProducts();

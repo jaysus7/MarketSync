@@ -115,6 +115,86 @@ test('/saas/platform-health emits null (not 0) for job + webhook counts when tab
     'failed_webhooks_24h must be null until the hq_webhook_events table has data')
 })
 
+// ── Slice 5: Trials, health score, automation diagnostics, staff onboarding,
+//    announcements, HQ Intelligence surface ─────────────────────────────────
+test('/saas/customers/:id emits a health score with factors', async () => {
+  const s = await src()
+  assert.match(s, /const\s+healthScore\s*=/, 'health score must be computed on customer 360')
+  assert.match(s, /factors:\s*\[/, 'health.factors array must accompany the score')
+  // The formula must be the same one /saas/customers uses, or the number
+  // shown on the drawer will disagree with the pipeline.
+  for (const point of ['adoptionPoints', 'recencyPoints', 'billingPoints']) {
+    assert.match(s, new RegExp('\\b' + point + '\\b'),
+      `health formula missing "${point}" — customer 360 must reuse the pipeline formula`)
+  }
+})
+
+test('/saas/trials returns explicit stages and honest conversion rate', async () => {
+  const s = await src()
+  assert.match(s, /app\.get\('\/saas\/trials'/, 'trials pipeline route must be registered')
+  // Stages must not silently drop; missing an expected value would collapse
+  // rows into a bucket that looked empty and healthy.
+  for (const stage of ['new', 'onboarding', 'active', 'engaged', 'low_engagement', 'expiring', 'expired']) {
+    assert.match(s, new RegExp(`'${stage}'`), `stage "${stage}" must be classified`)
+  }
+  // Conversion rate must fall to null when we can't compute — never a fake 0%.
+  assert.match(s, /conversionRate\s*=\s*allNew30d\s*>\s*0\s*\?[\s\S]{0,80}:\s*null/,
+    'conversion_rate_30d must be null when no accounts qualified')
+})
+
+test('/saas/automation/diagnostics gates on view_customers and reports runs_connected honestly', async () => {
+  const s = await src()
+  assert.match(s, /app\.get\('\/saas\/automation\/diagnostics'[\s\S]{0,200}need\('view_customers'\)/,
+    'diagnostics must gate on view_customers')
+  assert.match(s, /runs_connected:\s*runRows\s*!==\s*null/,
+    'runs_connected must be false when the step-runs table is unreadable')
+})
+
+test('/saas/staff/onboarding is owner-only (both read + write)', async () => {
+  const s = await src()
+  for (const path of [/app\.get\('\/saas\/staff\/onboarding'/, /app\.patch\('\/saas\/staff\/:id\/onboarding'/]) {
+    assert.match(s, path, `route missing: ${path}`)
+  }
+  // Both must go through the ownerOnly-style saasRoleOf check. A view_customers
+  // gate would let any HQ staff view every teammate's checklist.
+  const readMatch = s.match(/app\.get\('\/saas\/staff\/onboarding'[\s\S]{0,400}/)
+  const writeMatch = s.match(/app\.patch\('\/saas\/staff\/:id\/onboarding'[\s\S]{0,400}/)
+  assert.match(readMatch[0], /saasRoleOf\(req\)\s*!==\s*'owner'/,
+    'staff onboarding read must be owner-only')
+  assert.match(writeMatch[0], /saasRoleOf\(req\)\s*!==\s*'owner'/,
+    'staff onboarding write must be owner-only')
+})
+
+test('/saas/announcements: read gated on view, write gated on manage_followups', async () => {
+  const s = await src()
+  assert.match(s, /app\.get\('\/saas\/announcements'[\s\S]{0,300}need\('view_customers'\)/,
+    'GET /saas/announcements must gate on view_customers')
+  assert.match(s, /app\.post\('\/saas\/announcements'[\s\S]{0,300}need\('manage_followups'\)/,
+    'POST /saas/announcements must gate on manage_followups')
+  assert.match(s, /app\.delete\('\/saas\/announcements\/:id'[\s\S]{0,300}need\('manage_followups'\)/,
+    'DELETE /saas/announcements/:id must gate on manage_followups')
+  // The audience whitelist must reject arbitrary values — otherwise a caller
+  // could post a "staff" announcement while asking for customer audience.
+  assert.match(s, /audience\s*=\s*b\.audience\s*===\s*'staff'\s*\?\s*'staff'\s*:\s*'customer'/,
+    'audience must be forcibly normalised to staff|customer')
+})
+
+test('hq_announcements migration exists and restricts staff announcements to platform staff', async () => {
+  const migSrc = await readFile(
+    new URL('../../supabase/migrations/20260831181500_hq_announcements_and_onboarding.sql', import.meta.url),
+    'utf8'
+  )
+  assert.match(migSrc, /create table if not exists public\.hq_announcements/)
+  assert.match(migSrc, /alter table public\.hq_announcements enable row level security/)
+  // The read policy must let customers see customer announcements but restrict
+  // staff ones to platform_owner/platform_admin. Removing the audience check
+  // would let any signed-in user read internal staff broadcasts.
+  assert.match(migSrc, /audience\s*=\s*'customer'\s*or\s*exists[\s\S]{0,300}platform_owner['", ]+['", ]*platform_admin/,
+    'hq_announcements SELECT policy must gate staff audience on platform role')
+  assert.match(migSrc, /alter table public\.profiles[\s\S]{0,120}hq_onboarding jsonb/,
+    'profiles.hq_onboarding jsonb column must be added')
+})
+
 test('HQ command-center migration exists with RLS and HQ-only policies', async () => {
   const migSrc = await readFile(
     new URL('../../supabase/migrations/20260831180000_hq_command_center_tables.sql', import.meta.url),

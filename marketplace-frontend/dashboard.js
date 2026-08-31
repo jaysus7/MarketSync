@@ -556,7 +556,7 @@ let profileContext = null;
 // html[data-dash-mode] attribute). Persisted per-browser.
 let __dashMode = localStorage.getItem('ms_dash_mode') === 'marketsync' ? 'marketsync' : 'demo';
 // The pages that remain in MarketSync mode (everything else is vehicle-only).
-const MS_ALLOWED_PAGES = new Set(['saas-command', 'saas-customers', 'saas-followups', 'saas-funnel', 'saas-automation', 'saas-email-marketing', 'saas-employees', 'saas-accounting', 'saas-billing', 'saas-affiliates', 'saas-product-usage', 'saas-health', 'saas-studio', 'saas-website', 'profile', 'owner-users']);
+const MS_ALLOWED_PAGES = new Set(['saas-command', 'saas-customers', 'saas-followups', 'saas-funnel', 'saas-automation', 'saas-email-marketing', 'saas-employees', 'saas-accounting', 'saas-billing', 'saas-affiliates', 'saas-product-usage', 'saas-health', 'saas-trials', 'saas-onboarding', 'saas-announcements', 'saas-intelligence', 'saas-studio', 'saas-website', 'profile', 'owner-users']);
 
 // ── Specialized dealership sub-roles ─────────────────────────────────────────
 // Beyond DEALER_ADMIN / OWNER / MANAGER / SALES_REP, a store can give a login one
@@ -1858,6 +1858,10 @@ function initDashModeForOwner() {
   document.getElementById('nav-saas-affiliates')?.classList.remove('hidden'); // Affiliate program
   document.getElementById('nav-saas-product-usage')?.classList.remove('hidden'); // Product adoption
   document.getElementById('nav-saas-health')?.classList.remove('hidden'); // Platform health
+  document.getElementById('nav-saas-trials')?.classList.remove('hidden'); // Trials pipeline
+  document.getElementById('nav-saas-onboarding')?.classList.remove('hidden'); // Staff onboarding checklist
+  document.getElementById('nav-saas-announcements')?.classList.remove('hidden'); // Announcements
+  document.getElementById('nav-saas-intelligence')?.classList.remove('hidden'); // HQ Intelligence
   // The demo dealership workspace has been retired — the owner runs the MarketSync
   // SaaS business only, so force the SaaS back office and land on the HQ.
   __dashMode = 'marketsync';
