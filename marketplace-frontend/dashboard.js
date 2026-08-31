@@ -556,7 +556,7 @@ let profileContext = null;
 // html[data-dash-mode] attribute). Persisted per-browser.
 let __dashMode = localStorage.getItem('ms_dash_mode') === 'marketsync' ? 'marketsync' : 'demo';
 // The pages that remain in MarketSync mode (everything else is vehicle-only).
-const MS_ALLOWED_PAGES = new Set(['saas-command', 'saas-customers', 'saas-followups', 'saas-funnel', 'saas-automation', 'saas-email-marketing', 'saas-employees', 'saas-accounting', 'saas-affiliates', 'saas-product-usage', 'saas-health', 'saas-studio', 'saas-website', 'profile', 'owner-users']);
+const MS_ALLOWED_PAGES = new Set(['saas-command', 'saas-customers', 'saas-followups', 'saas-funnel', 'saas-automation', 'saas-email-marketing', 'saas-employees', 'saas-accounting', 'saas-billing', 'saas-affiliates', 'saas-product-usage', 'saas-health', 'saas-studio', 'saas-website', 'profile', 'owner-users']);
 
 // ── Specialized dealership sub-roles ─────────────────────────────────────────
 // Beyond DEALER_ADMIN / OWNER / MANAGER / SALES_REP, a store can give a login one
@@ -1854,6 +1854,7 @@ function initDashModeForOwner() {
   document.getElementById('nav-saas-automation')?.classList.remove('hidden');// Automation & email (editable drips)
   document.getElementById('nav-saas-employees')?.classList.remove('hidden'); // Employees + permissions
   document.getElementById('nav-saas-accounting')?.classList.remove('hidden'); // Money
+  document.getElementById('nav-saas-billing')?.classList.remove('hidden'); // Billing summary
   document.getElementById('nav-saas-affiliates')?.classList.remove('hidden'); // Affiliate program
   document.getElementById('nav-saas-product-usage')?.classList.remove('hidden'); // Product adoption
   document.getElementById('nav-saas-health')?.classList.remove('hidden'); // Platform health

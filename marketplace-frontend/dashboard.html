@@ -1239,6 +1239,12 @@
             <span>Automation</span>
           </button>
 
+          <!-- ─── Billing (owner) — subscriptions + receivables ─── -->
+          <button type="button" id="nav-saas-billing" data-page="saas-billing" title="Billing" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M5 6h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z"/></svg>
+            <span>Billing</span>
+          </button>
+
           <!-- ─── Affiliates (owner) — program overview + top performers ─── -->
           <button type="button" id="nav-saas-affiliates" data-page="saas-affiliates" title="Affiliates" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
             <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 5.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
@@ -1823,6 +1829,10 @@
       <div data-page-content="saas-billing" class="page-content hidden space-y-6"><div id="saas-billing-root"></div></div>
       <div data-page-content="saas-accounting" class="page-content hidden space-y-6">
         <div id="saas-accounting-root"></div>
+      </div>
+
+      <div data-page-content="saas-billing" class="page-content hidden space-y-6">
+        <div id="saas-billing-root"></div>
       </div>
 
       <div data-page-content="saas-affiliates" class="page-content hidden space-y-6">

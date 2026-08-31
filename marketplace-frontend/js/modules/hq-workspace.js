@@ -1252,6 +1252,42 @@ async function loadSaasAffiliates() {
 }
 window.loadSaasAffiliates = loadSaasAffiliates;
 
+// ══ HQ Billing (summary) ═══════════════════════════════════════════════════
+async function loadSaasBillingSummary() {
+  const root = document.getElementById('saas-billing-root'); if (!root) return;
+  const money = (v) => '$' + Math.round(Number(v) || 0).toLocaleString();
+  const NC = '<span class="text-slate-400 text-base font-bold">Not connected</span>';
+  root.innerHTML = '<div class="text-sm text-slate-400 p-6">Loading billing…</div>';
+  try {
+    const d = await apiGetJson('/saas/billing-summary');
+    const s = d.subscriptions;
+    const r = d.receivables || {};
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Billing','Subscriptions + receivables'):'<h1 class="text-2xl font-black">Billing</h1>'}
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        ${typeof engKpi === 'function' ? engKpi('Active subscriptions', s ? s.active.toLocaleString() : NC, s ? 'text-emerald-600 dark:text-emerald-400' : '') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Trialing', s ? s.trialing.toLocaleString() : NC, s ? 'text-blue-600 dark:text-blue-400' : '') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Past due (Stripe)', s ? s.past_due.toLocaleString() : NC, (s && s.past_due > 0) ? 'text-rose-600 dark:text-rose-400' : '') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Cancelling', s ? s.cancel_at_period_end.toLocaleString() : NC, (s && s.cancel_at_period_end > 0) ? 'text-amber-600 dark:text-amber-400' : '') : ''}
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        ${typeof engCard === 'function' ? engCard('Receivables', `
+          <div class="grid grid-cols-2 gap-3">
+            ${engKpi('Past-due accounts', (r.past_due_accounts || 0).toLocaleString(), (r.past_due_accounts || 0) > 0 ? 'text-rose-600 dark:text-rose-400' : '')}
+            ${engKpi('Estimated owed (MRR)', money(r.estimated_owed_mrr || 0), (r.estimated_owed_mrr || 0) > 0 ? 'text-rose-600 dark:text-rose-400' : '')}
+          </div>
+          <p class="text-[11px] text-slate-500 mt-2">${esc(r.note || '')}</p>`) : ''}
+        ${typeof engCard === 'function' ? engCard('Deep dives', `
+          <div class="flex flex-col gap-2">
+            <button onclick="switchPage('owner-users')" class="ms-btn ms-btn--primary !text-[13px] justify-start">Open all customers (billing drill-down per account)</button>
+            <button onclick="switchPage('saas-accounting')" class="ms-btn !text-[13px] justify-start">Open Accounting (P&L, affiliate cost)</button>
+          </div>`) : ''}
+      </div>`;
+  } catch (e) {
+    root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message || 'Could not load billing summary')}</div>`;
+  }
+}
+window.loadSaasBillingSummary = loadSaasBillingSummary;
+
 // ══ HQ Product Usage ═══════════════════════════════════════════════════════
 async function loadSaasProductUsage() {
   const root = document.getElementById('saas-product-usage-root'); if (!root) return;

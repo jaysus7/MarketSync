@@ -49,18 +49,25 @@ test('/saas/overview keeps permission gate (view_customers) — no HQ data leak'
 })
 
 // ── Slice 2 endpoints: Affiliates, Product Usage, Platform Health ────────────
-test('Slice 2 endpoints are registered and gated', async () => {
+test('Slice 2+3 endpoints are registered and gated', async () => {
   const s = await src()
-  for (const path of ['/saas/affiliates', '/saas/product-usage', '/saas/platform-health']) {
+  const routes = ['/saas/affiliates', '/saas/product-usage', '/saas/platform-health', '/saas/billing-summary']
+  for (const path of routes) {
     assert.match(s, new RegExp(`app\\.get\\('${path.replace(/\//g, '\\/')}'`),
       `route missing: ${path}`)
-  }
-  // All three must sit behind the same permission gate as Pulse.
-  for (const path of ['/saas/affiliates', '/saas/product-usage', '/saas/platform-health']) {
     assert.match(s, new RegExp(
       `app\\.get\\('${path.replace(/\//g, '\\/')}'[\\s\\S]{0,300}need\\('view_customers'\\)`),
       `${path} must gate on view_customers`)
   }
+})
+
+test('/saas/billing-summary marks stripe_connected=false when subscriptions unreadable', async () => {
+  const s = await src()
+  // Same rule as everywhere else: unreadable → "Not connected", never a fake 0.
+  assert.match(s, /stripe_connected:\s*subs\s*!==\s*null/,
+    'stripe_connected must be false when the subscriptions table cannot be read')
+  assert.match(s, /subscriptions:\s*subs\s*===\s*null\s*\?\s*null/,
+    'subscriptions field must be null (not empty counts) when unreadable')
 })
 
 test('/saas/affiliates returns {connected:false} when the affiliates table is missing', async () => {

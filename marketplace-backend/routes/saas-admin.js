@@ -708,6 +708,55 @@ export function registerSaasAdmin(app) {
     })
   })
 
+  // ══ HQ Billing Summary ════════════════════════════════════════════════════
+  // Rolls up subscription state across every dealership: active / trialing /
+  // past-due / cancel-at-period-end counts, plus a receivables approximation
+  // from dunning accounts × their inferred MRR. Reads only tables that are
+  // already the billing truth (dealerships + subscriptions); Stripe drill-down
+  // stays in the existing /owner/billing/:id endpoint.
+  app.get('/saas/billing-summary', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const [{ data: dealers }, subsRes] = await Promise.all([
+      supabaseAdmin.from('dealerships').select('id, name, billing_status, products, plan').limit(2000),
+      supabaseAdmin.from('subscriptions').select('dealership_id, status, cancel_at_period_end, current_period_end').limit(8000)
+        .then(r => r, () => ({ data: null, error: true })),
+    ])
+    const subs = subsRes.data
+    // Subscription-driven counts (Stripe-backed) if we can read the table.
+    let activeSubs = null, trialingSubs = null, pastDueSubs = null, cancelling = null
+    if (subs) {
+      activeSubs = 0; trialingSubs = 0; pastDueSubs = 0; cancelling = 0
+      for (const s of subs) {
+        const st = String(s.status || '').toLowerCase()
+        if (st === 'active') activeSubs++
+        else if (st === 'trialing') trialingSubs++
+        else if (st === 'past_due' || st === 'unpaid') pastDueSubs++
+        if (s.cancel_at_period_end) cancelling++
+      }
+    }
+    // Receivables: sum inferred MRR of dunning dealers (best-effort until an
+    // invoice-history table exists). Emit null if the concept can't be computed.
+    let receivables = 0, pastDueAccounts = 0
+    for (const d of (dealers || [])) {
+      if (!dunningStatus(d.billing_status)) continue
+      pastDueAccounts++
+      const products = resolveProducts(d)
+      receivables += Object.keys(PRODUCT_MRR).reduce((s, k) => s + (products[k] ? PRODUCT_MRR[k] : 0), 0)
+    }
+    res.json({
+      stripe_connected: subs !== null,
+      subscriptions: subs === null ? null : {
+        active: activeSubs, trialing: trialingSubs, past_due: pastDueSubs,
+        cancel_at_period_end: cancelling,
+      },
+      receivables: {
+        past_due_accounts: pastDueAccounts,
+        estimated_owed_mrr: receivables,     // conservative MRR-based approximation
+        note: 'Approximated from active entitlements — real invoice totals require the invoice-history table.',
+      },
+    })
+  })
+
   // ══ HQ Platform Health ════════════════════════════════════════════════════
   // Aggregates the observable health signals: dunning + trials-expiring +
   // integration failure rate. No secrets emitted. Same permission as Pulse.
