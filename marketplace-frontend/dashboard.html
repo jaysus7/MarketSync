@@ -187,6 +187,61 @@
     /* The mode switch sits on a stronger blue in MarketSync mode. */
     html[data-dash-mode="marketsync"] #ms-mode-switch{background:#dbeafe}
     html[data-dash-mode="marketsync"].dark #ms-mode-switch{background:#172554}
+    /* ─── HQ command-center page CSS ───────────────────────────────────────
+       Pin the theme tokens for the new HQ pages (Trials, Billing, Affiliates,
+       Product Usage, Platform Health, Staff Onboarding, Announcements, HQ
+       Intelligence). Their bodies render dynamically from JS, so we can't
+       rely on Tailwind's dark:* utilities always winning against the
+       MarketSync-mode `!important` overrides declared further down.
+
+       Rules:
+       - Every HQ page's outermost content div gets vertical rhythm.
+       - Card surfaces stay solid (never transparent) so text stays readable
+         against the tinted MarketSync body background.
+       - Text tones always win against the mode override for the same reason.
+       - Table headers keep their contrast in dark mode.
+
+       Scoped by `[data-page-content^="saas-"]` so no dealer-side page can
+       accidentally get MarketSync HQ styling. */
+    [data-page-content^="saas-"]:not(.hidden){display:block}
+    [data-page-content^="saas-"] > *:not(:last-child){margin-bottom:1.5rem}
+    /* Solid card + border tokens — light. */
+    [data-page-content^="saas-"] .ms-hq-card,
+    [data-page-content^="saas-"] .rounded-2xl.bg-white,
+    [data-page-content^="saas-"] .rounded-xl.bg-white{background-color:#ffffff;border-color:#e2e8f0;color:#0f172a}
+    /* Solid card + border tokens — dark. `.dark` wins because it targets the
+       html element that has both `.dark` and the descendant tree. */
+    .dark [data-page-content^="saas-"] .ms-hq-card,
+    .dark [data-page-content^="saas-"] .rounded-2xl.dark\:bg-slate-900,
+    .dark [data-page-content^="saas-"] .rounded-xl.dark\:bg-slate-900{background-color:#0f172a;border-color:#1e293b;color:#f1f5f9}
+    /* Table zebra + hover. */
+    [data-page-content^="saas-"] table thead tr{background-color:#f8fafc}
+    .dark [data-page-content^="saas-"] table thead tr{background-color:#0b1220}
+    [data-page-content^="saas-"] table tbody tr:hover{background-color:#f1f5f9}
+    .dark [data-page-content^="saas-"] table tbody tr:hover{background-color:#111827}
+    /* KPI card border stays crisp in both themes. */
+    [data-page-content^="saas-"] .ms-c{border:1px solid #e2e8f0}
+    .dark [data-page-content^="saas-"] .ms-c{border-color:#1e293b}
+    /* Sub-links inside the Operate MarketSync command groups — keep contrast
+       in MarketSync mode where the mode override tries to pull bg-slate-100
+       toward blue. */
+    html[data-dash-mode="marketsync"] [data-page-content="saas-command"] .bg-slate-100{background-color:#eff6ff}
+    html[data-dash-mode="marketsync"].dark [data-page-content="saas-command"] .dark\:bg-slate-800{background-color:#0f2445}
+    /* The sidebar HQ nav items must not read as disabled in either mode. */
+    #dashboard-nav [id^="nav-saas-"]{color:#0f172a}
+    .dark #dashboard-nav [id^="nav-saas-"]{color:#e2e8f0}
+    #dashboard-nav [id^="nav-saas-"][aria-current="page"],
+    #dashboard-nav [id^="nav-saas-"].is-active{background-color:#eef2ff;color:#3730a3}
+    .dark #dashboard-nav [id^="nav-saas-"][aria-current="page"],
+    .dark #dashboard-nav [id^="nav-saas-"].is-active{background-color:#1e1b4b;color:#c7d2fe}
+    /* Mobile bottom-nav on HQ pages: pin a solid surface so it never inherits
+       the tinted blue body and lose contrast against the icons. */
+    @media (max-width: 767px){
+      #mobile-quickrow-dyn,#mobile-bottom-nav{background-color:#ffffff;border-top:1px solid #e2e8f0}
+      .dark #mobile-quickrow-dyn,.dark #mobile-bottom-nav{background-color:#0b1220;border-top-color:#1e293b}
+    }
+    /* End HQ command-center CSS ──────────────────────────────────────────── */
+
     /* Both logo PNGs contain substantial transparent canvas. Crop that canvas in every
        dashboard mode so the visible MarketSync mark—not its empty image box—is large. */
     #dashboard-brand{width:15rem;height:4rem;overflow:hidden;position:relative}

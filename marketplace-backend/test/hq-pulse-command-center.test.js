@@ -195,6 +195,38 @@ test('hq_announcements migration exists and restricts staff announcements to pla
     'profiles.hq_onboarding jsonb column must be added')
 })
 
+test('HQ mobile nav includes every Slice-2..5 destination', async () => {
+  const dashJs = await readFile(
+    new URL('../../marketplace-frontend/dashboard.js', import.meta.url), 'utf8'
+  )
+  const mobileBlock = dashJs.match(/function marketsyncInternalNavPages\(\)[\s\S]*?^\}/m)
+  assert.ok(mobileBlock, 'marketsyncInternalNavPages must exist')
+  // Every operating destination the sidebar exposes must also be reachable
+  // from the mobile bottom nav / "More" sheet. A missing entry means the
+  // phone silently loses the page.
+  for (const page of ['saas-billing', 'saas-trials', 'saas-affiliates',
+                       'saas-product-usage', 'saas-health', 'saas-onboarding',
+                       'saas-announcements', 'saas-intelligence']) {
+    assert.match(mobileBlock[0], new RegExp(`'${page}'`),
+      `mobile HQ nav is missing "${page}"`)
+  }
+})
+
+test('HQ page CSS block pins solid card + border tokens in both themes', async () => {
+  const html = await readFile(
+    new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8'
+  )
+  // The block must scope to `[data-page-content^="saas-"]` so it does not
+  // leak into dealer pages. And both a light and a dark rule must exist —
+  // shipping only one would leave the other theme broken.
+  assert.match(html, /\[data-page-content\^="saas-"\][\s\S]{0,300}background-color:#ffffff/,
+    'HQ pages need a light card background rule')
+  assert.match(html, /\.dark\s+\[data-page-content\^="saas-"\][\s\S]{0,300}background-color:#0f172a/,
+    'HQ pages need a dark card background rule')
+  assert.match(html, /#dashboard-nav \[id\^="nav-saas-"\]/,
+    'HQ nav items need explicit contrast rules for both themes')
+})
+
 test('HQ command-center migration exists with RLS and HQ-only policies', async () => {
   const migSrc = await readFile(
     new URL('../../supabase/migrations/20260831180000_hq_command_center_tables.sql', import.meta.url),
