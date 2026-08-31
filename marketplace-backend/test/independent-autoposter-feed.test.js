@@ -35,7 +35,9 @@ test('Independent Facebook AutoPoster feed panel visibility & gating in dashboar
   assert.match(part2, /const isSolo = role === 'SALES_REP' && \(isPersonal \|\| !inDealership\);/, 'dashboard-part2.js must define isSolo')
   assert.match(part2, /canManageFeeds = isAdmin \|\| isSolo/, 'canManageFeeds must include isSolo')
   assert.match(part2, /document\.getElementById\('feeds-panel'\)\?\.classList\.remove\('hidden'\)/, 'feeds-panel must be unhidden for AutoPoster')
-  assert.match(part2, /fbOnlyForSync && el\.id === 'sync-now-btn'/, 'sync-now-btn must be accessible for AutoPoster')
+  // Sync Now is exempt from the admin-only hide for every sales role now, not just
+  // Facebook-only workspaces — which still covers the AutoPoster rep this test guards.
+  assert.match(part2, /if \(el\.id === 'sync-now-btn'\) return;/, 'sync-now-btn must be accessible for AutoPoster')
 })
 
 test('First-time setup and Connected Source rendering in dashboard-part15.js', () => {

@@ -28,5 +28,10 @@ test('Templates fits the rail and the Heading action remains legible', () => {
 test('the deployed dashboard requests the corrected Studio assets', () => {
   assert.match(loader, /studio-shell\.js\?v=20260830_light_rail_v1/g);
   assert.match(dashboard, /marketsync-theme\.css\?v=20260830_light_rail_v1/);
-  assert.match(dashboard, /dashboard-part2\.js\?v=20260830_light_rail_v1/);
+  // dashboard-part2.js carries the light-rail fix AND the later rep-sync gating
+  // change (Sync Now exempt from the admin-only hide for every sales role), so its
+  // bust names both. studio-shell.js and the theme CSS were untouched by that change
+  // and stay on the light-rail bust — bumping them too would evict caches for files
+  // that did not change.
+  assert.match(dashboard, /dashboard-part2\.js\?v=20260830_light_rail_rep_sync_v1/);
 });

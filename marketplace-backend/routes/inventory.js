@@ -5,7 +5,7 @@ import { requireAuth, requireMfa } from '../middleware.js'
 import { createNotifications } from '../notifications.js'
 import { runInventorySync, syncProgress } from '../sync/engine.js'
 import { audit, AuditAction, exportReason } from '../audit.js'
-import { requirePermission } from '../authorization.js'
+import { requirePermission, requireAnyPermission } from '../authorization.js'
 import multer from 'multer'
 import sharp from 'sharp'
 
@@ -669,7 +669,12 @@ export function registerRoutes(app) {
     res.json(syncProgress.get(req.dealershipId) || { phase: 'idle', pct: 0 })
   })
 
-  app.post('/inventory/sync', requireAuth, requirePermission('inventory.edit'), async (req, res) => {
+  // Sales reps sync their own dealership's feed, so this takes the narrow
+  // `inventory.sync` grant rather than `inventory.edit` (which also gates AI
+  // appraisal, pricing, syndication, photo upload and inventory mutations).
+  // `inventory.edit` is still accepted so admins and managers keep working
+  // whether or not the permission migration has been applied yet.
+  app.post('/inventory/sync', requireAuth, requireAnyPermission('inventory.sync', 'inventory.edit'), async (req, res) => {
     const isDemo = req.user?.email === 'sales@marketsync.link' || req.dealershipId === 'demo-dealership'
     if (isDemo) {
       return res.json({

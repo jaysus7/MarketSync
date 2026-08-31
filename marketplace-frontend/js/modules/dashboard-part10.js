@@ -1690,10 +1690,64 @@ function hqTrialRow(t) {
     <span class="text-[12px] ${warn ? 'text-rose-500 font-bold' : 'text-slate-400'} whitespace-nowrap">${t.days_left == null ? 'trial' : t.days_left + 'd left'} · ${prods} product${prods === 1 ? '' : 's'}</span>
   </button>`;
 }
+// HQ time-series helpers. Sparkline is a small inline SVG that renders in both
+// themes and does NOT invent points — if the server returns connected:false
+// the caller prints "Not measured" instead of building a fake line at 0.
+function hqSpark(points, opts) {
+  const w = (opts && opts.w) || 320, h = (opts && opts.h) || 48;
+  const stroke = (opts && opts.stroke) || 'currentColor';
+  const nums = (points || []).map(p => Number(p) || 0);
+  if (nums.length < 2) return '';
+  const min = Math.min.apply(null, nums), max = Math.max.apply(null, nums);
+  const range = max - min || 1, step = w / (nums.length - 1);
+  const d = nums.map((v, i) => (i ? 'L' : 'M') + (i * step).toFixed(1) + ',' + (h - ((v - min) / range) * (h - 4) - 2).toFixed(1)).join(' ');
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" preserveAspectRatio="none" aria-hidden="true">
+    <path d="${d}" fill="none" stroke="${stroke}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+function hqTrendCard(t) {
+  if (!t || !t.connected || !Array.isArray(t.series) || t.series.length < 2) {
+    return engCard('Trends (30 days)', `
+      <div class="py-6 text-center">
+        <div class="font-black text-slate-500 dark:text-slate-400">Not measured yet</div>
+        <div class="text-xs text-slate-500 mt-1">Historical charts populate once the nightly HQ snapshot has run for at least two days.</div>
+      </div>`);
+  }
+  const first = t.series[0], last = t.series[t.series.length - 1];
+  const pct = (a, b) => a ? Math.round((b - a) / a * 100) : null;
+  const tone = (delta) => delta == null ? '' : (delta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400');
+  const row = (label, key, valFmt, cls) => {
+    const seq = t.series.map(p => p[key]);
+    const delta = pct(first[key], last[key]);
+    return `<div class="grid grid-cols-12 items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-800 first:border-0">
+      <div class="col-span-3 text-[12px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">${esc(label)}</div>
+      <div class="col-span-2 text-sm font-black text-slate-800 dark:text-slate-100">${valFmt(last[key])}</div>
+      <div class="col-span-1 text-xs font-bold ${tone(delta)}">${delta == null ? '' : (delta >= 0 ? '+' : '') + delta + '%'}</div>
+      <div class="col-span-6 ${cls || 'text-indigo-500'}">${hqSpark(seq, { stroke: 'currentColor' })}</div>
+    </div>`;
+  };
+  return engCard('Trends (30 days)', `
+    ${row('MRR', 'mrr', engMoney0, 'text-emerald-500')}
+    ${row('Active accounts', 'active_customers', v => (v || 0).toLocaleString(), 'text-indigo-500')}
+    ${row('Trials', 'trial_accounts', v => (v || 0).toLocaleString(), 'text-blue-500')}
+    ${row('Churn risk', 'churn_risk', v => (v || 0).toLocaleString(), 'text-rose-500')}
+    ${row('Past due', 'past_due', v => (v || 0).toLocaleString(), 'text-amber-500')}
+    <div class="text-[11px] text-slate-500 mt-2">Every row is a real snapshot from hq_daily_snapshots — no line is drawn on invented data.</div>`);
+}
+
 ENGINES['saas-command'] = {
   rootId: 'saas-command-root', title: 'MarketSync Pulse', subtitle: 'Run customers, sales, team, communications, revenue, and platform operations from one place.',
   icon: 'chart', accent: 'indigo', hideRail: true, hideTabBar: true, tabOrder: ['overview'],
-  fetch: () => apiGetJson('/saas/overview'),
+  fetch: async () => {
+    // Trends come from the nightly snapshot job — unavailable in a fresh
+    // environment. Failing here would blank the whole Pulse, so a caught
+    // rejection resolves to null and the Trends card renders "Not measured".
+    const [overview, trends] = await Promise.all([
+      apiGetJson('/saas/overview'),
+      apiGetJson('/saas/trends?days=30').catch(() => ({ connected: false, series: null })),
+    ]);
+    return { ...overview, _trends: trends };
+  },
   quickActions: [
     { label: 'Dealerships', icon: 'chart', onclick: "switchPage('saas-customers')" },
     { label: 'Billing', icon: 'currency', onclick: "switchPage('saas-billing')" },
@@ -1712,38 +1766,99 @@ ENGINES['saas-command'] = {
       const activePct = d.total_accounts ? Math.round((d.active_customers || 0) / d.total_accounts * 100) : 0;
       const trials = (d.trials || []).slice(0, 5);
       const expiring = trials.filter(t => t.days_left != null && t.days_left <= 5);
+      // A KPI that we cannot compute (no data source, or the source is unreachable)
+      // must show "Not connected" — never a fabricated zero. Rule #25.
+      const NC = '<span class="text-slate-400 text-base font-bold">Not connected</span>';
+      // MRR history is not yet captured, so trend + comparison are hidden until they
+      // can be derived from real invoice/entitlement snapshots.
+      const affiliateDue = d.affiliate && Number.isFinite(d.affiliate.payouts_due)
+        ? '$' + Math.round(d.affiliate.payouts_due).toLocaleString() : NC;
+      const healthLabel = d.health && d.health.status
+        ? (d.health.status === 'ok' ? 'Healthy' : 'Degraded')
+        : NC;
+      const healthTone = d.health && d.health.status === 'ok'
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : d.health && d.health.status ? 'text-amber-600 dark:text-amber-400' : '';
       const attention = [];
+      if (d.past_due) attention.push(`<button onclick="switchPage('saas-billing')" class="w-full flex items-center justify-between gap-3 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/20 px-4 py-3 text-left"><span><b class="block text-sm text-slate-900 dark:text-white">${d.past_due} account${d.past_due === 1 ? '' : 's'} past due</b><span class="text-xs text-slate-500 dark:text-slate-400">Recover payment before service is suspended.</span></span><span class="text-rose-500">${svgIcon('chevronRight','w-4 h-4')}</span></button>`);
       if (d.churn_risk) attention.push(`<button onclick="switchPage('saas-customers')" class="w-full flex items-center justify-between gap-3 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/20 px-4 py-3 text-left"><span><b class="block text-sm text-slate-900 dark:text-white">${d.churn_risk} customer${d.churn_risk === 1 ? '' : 's'} may leave</b><span class="text-xs text-slate-500 dark:text-slate-400">Review health and choose the next follow-up.</span></span><span class="text-rose-500">${svgIcon('chevronRight','w-4 h-4')}</span></button>`);
       if (expiring.length) attention.push(`<button onclick="switchPage('owner-users')" class="w-full flex items-center justify-between gap-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 px-4 py-3 text-left"><span><b class="block text-sm text-slate-900 dark:text-white">${expiring.length} trial${expiring.length === 1 ? '' : 's'} end within five days</b><span class="text-xs text-slate-500 dark:text-slate-400">Contact these accounts before access ends.</span></span><span class="text-amber-500">${svgIcon('chevronRight','w-4 h-4')}</span></button>`);
+      if (d.affiliate && d.affiliate.payouts_due > 0) attention.push(`<button onclick="switchPage('saas-accounting')" class="w-full flex items-center justify-between gap-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 px-4 py-3 text-left"><span><b class="block text-sm text-slate-900 dark:text-white">$${Math.round(d.affiliate.payouts_due).toLocaleString()} in affiliate payouts due</b><span class="text-xs text-slate-500 dark:text-slate-400">Approve or schedule payouts in Accounting.</span></span><span class="text-amber-500">${svgIcon('chevronRight','w-4 h-4')}</span></button>`);
       const trialRows = trials.map(hqTrialRow).join('') || engEmpty('No active trials right now.');
       const customerRows = (d.top_accounts || []).slice(0, 5).map(a => `<button onclick="switchPage('saas-customers')" class="w-full flex items-center justify-between gap-3 py-2 border-t border-slate-100 dark:border-slate-800/60 first:border-0 text-left"><span class="font-semibold text-sm text-slate-700 dark:text-slate-200 truncate">${esc(a.name || 'Customer')}</span><span class="font-black text-sm text-slate-900 dark:text-white">${engMoney0(a.mrr)}/month</span></button>`).join('') || engEmpty('No paying customers yet.');
+      // Five command groups (Customers / Revenue / Team / Growth / Platform) — each
+      // groups two-to-four real routes so HQ reads as an operating system, not a
+      // flat list. Sub-links only appear if their target page is a real page.
+      const groups = [
+        { label: 'Customers', copy: 'Accounts, trials, onboarding, support', icon: 'building', primary: "switchPage('saas-customers')", links: [
+          ['All accounts', "switchPage('saas-customers')"],
+          ['Trials', "switchPage('owner-users')"],
+          ['Follow-ups', "switchPage('saas-followups')"],
+        ]},
+        { label: 'Revenue', copy: 'Billing, invoices, accounting, budgets', icon: 'currency', primary: "switchPage('saas-accounting')", links: [
+          ['Accounting', "switchPage('saas-accounting')"],
+          ['Billing', "switchPage('saas-billing')"],
+          ['Funnel', "switchPage('saas-funnel')"],
+        ]},
+        { label: 'Team', copy: 'Staff, roles, permissions, commissions', icon: 'users', primary: "switchPage('saas-employees')", links: [
+          ['Employees', "switchPage('saas-employees')"],
+          ['Roles', "switchPage('saas-roles')"],
+        ]},
+        { label: 'Growth', copy: 'Leads, campaigns, automations, affiliates', icon: 'funnel', primary: "switchPage('saas-automation')", links: [
+          ['Automation', "switchPage('saas-automation')"],
+          ['Email marketing', "switchPage('saas-email-marketing')"],
+        ]},
+        { label: 'Platform', copy: 'Integrations, jobs, system health', icon: 'bolt', primary: "switchPage('saas-health')", links: [
+          ['System health', "switchPage('saas-health')"],
+          ['Integrations', "switchPage('saas-integrations')"],
+          ['Audit log', "switchPage('saas-audit')"],
+        ]},
+      ];
       body.innerHTML = `
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
           ${engKpi('Monthly recurring revenue', engMoney0(d.mrr), 'text-emerald-600 dark:text-emerald-400')}
-          ${engKpi('Active accounts', (d.customers ?? ((d.active_customers || 0) + (d.trial_accounts || 0))).toLocaleString(), 'text-indigo-600 dark:text-indigo-400')}
+          ${engKpi('Annual recurring revenue', engMoney0(d.arr), 'text-emerald-600 dark:text-emerald-400')}
+          ${engKpi('Active accounts', (d.active_customers || 0).toLocaleString(), 'text-indigo-600 dark:text-indigo-400')}
           ${engKpi('Trials', (d.trial_accounts || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
-          ${engKpi('New accounts this month', (d.new_this_month || 0).toLocaleString())}
+          ${engKpi('New this month', (d.new_this_month || 0).toLocaleString())}
+          ${engKpi('New MRR this month', engMoney0(d.revenue_this_month || 0), (d.revenue_this_month || 0) > 0 ? 'text-emerald-600 dark:text-emerald-400' : '')}
+          ${engKpi('Past due', (d.past_due || 0).toLocaleString(), (d.past_due || 0) > 0 ? 'text-rose-600 dark:text-rose-400' : '')}
+          ${engKpi('Affiliate payouts due', affiliateDue, (d.affiliate && d.affiliate.payouts_due > 0) ? 'text-amber-600 dark:text-amber-400' : '')}
         </div>
-        ${engCard('Operate MarketSync', `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
-          ${[
-            ['Accounts', 'Customer records, trials and onboarding', 'building', "switchPage('saas-customers')"],
-            ['Leads', 'New interest and conversion work', 'funnel', "switchPage('saas-funnel')"],
-            ['Work', 'Owned follow-ups and due dates', 'check', "switchPage('saas-followups')"],
-            ['People', 'HQ staff, roles and access', 'users', "switchPage('saas-employees')"],
-            ['Communications', 'Email, SMS, templates and automations', 'chat', "switchPage('saas-automation')"],
-            ['Money', 'Revenue, billing and company spending', 'currency', "switchPage('saas-accounting')"],
-          ].map(([label, copy, icon, action]) => `<button onclick="${action}" class="ms-hq-launch"><span class="ms-hq-launch__icon">${svgIcon(icon, 'w-5 h-5')}</span><span><b>${label}</b><small>${copy}</small></span>${svgIcon('chevronRight', 'w-4 h-4 ms-hq-launch__chevron')}</button>`).join('')}
+        ${engCard('Operate MarketSync', `<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+          ${groups.map(g => `
+            <div class="ms-c ms-c--compact rounded-xl p-3 flex flex-col gap-2 border border-slate-200 dark:border-slate-800">
+              <button onclick="${g.primary}" class="flex items-center gap-2 text-left group">
+                <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300">${svgIcon(g.icon, 'w-4 h-4')}</span>
+                <span class="min-w-0">
+                  <b class="block text-sm font-black text-slate-900 dark:text-white truncate">${esc(g.label)}</b>
+                  <small class="block text-[11px] text-slate-500 dark:text-slate-400 truncate">${esc(g.copy)}</small>
+                </span>
+              </button>
+              <div class="flex flex-wrap gap-1.5 mt-1">
+                ${g.links.map(([l, a]) => `<button onclick="${a}" class="text-[11px] font-bold px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition">${esc(l)}</button>`).join('')}
+              </div>
+            </div>`).join('')}
         </div>`)}
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
           ${engCard('Needs attention', attention.join('<div class="h-2"></div>') || '<div class="py-8 text-center"><div class="font-black text-emerald-600 dark:text-emerald-400">Everything looks good</div><div class="text-xs text-slate-500 mt-1">Nothing urgent needs your attention.</div></div>')}
           ${engCard('Trials to contact', `<div class="space-y-1.5">${trialRows}</div><button onclick="switchPage('owner-users')" class="mt-3 w-full rounded-lg bg-blue-600 hover:bg-blue-500 px-3 py-2 text-sm font-black text-white">Review all trials</button>`)}
           ${engCard('Top customers', `${customerRows}<button onclick="switchPage('saas-customers')" class="mt-3 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-black text-slate-700 dark:text-slate-200">View all customers</button>`)}
         </div>
-        ${engCard('Customer status', engBar([
-          { pct: activePct, cls: 'bg-emerald-500', label: `Paying (${d.active_customers || 0})` },
-          { pct: d.total_accounts ? Math.round((d.trial_accounts || 0) / d.total_accounts * 100) : 0, cls: 'bg-blue-500', label: `Trial (${d.trial_accounts || 0})` },
-          { pct: d.total_accounts ? Math.round((d.churn_risk || 0) / d.total_accounts * 100) : 0, cls: 'bg-rose-500', label: `May leave (${d.churn_risk || 0})` },
-        ]))}`;
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div class="lg:col-span-2">${engCard('Customer status', engBar([
+            { pct: activePct, cls: 'bg-emerald-500', label: `Paying (${d.active_customers || 0})` },
+            { pct: d.total_accounts ? Math.round((d.trial_accounts || 0) / d.total_accounts * 100) : 0, cls: 'bg-blue-500', label: `Trial (${d.trial_accounts || 0})` },
+            { pct: d.total_accounts ? Math.round((d.churn_risk || 0) / d.total_accounts * 100) : 0, cls: 'bg-rose-500', label: `May leave (${d.churn_risk || 0})` },
+          ]))}</div>
+          ${engCard('Platform', `
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-[11px] uppercase tracking-wider text-slate-800 dark:text-slate-200 font-black">Status</span>
+              <span class="text-sm font-black ${healthTone || 'text-slate-700 dark:text-slate-200'}">${healthLabel}</span>
+            </div>
+            <button onclick="switchPage('saas-health')" class="mt-3 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-black text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800">Open System Health</button>`)}
+        </div>
+        ${hqTrendCard(d._trends)}`;
     },
     work(body, d) {
       const trials = (d.trials || []).map(hqTrialRow).join('') || engEmpty('No active trials.');
@@ -1989,6 +2104,27 @@ async function renderSaasCustomer(id) {
         <div class="flex items-center gap-2 mt-1">${d.status ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${statusTone}">${esc(d.status)}</span>` : ''}<span class="text-[12px] text-slate-400">${d.tenure_months != null ? d.tenure_months + ' mo customer' : ''}</span></div></div>
       <button data-x class="text-2xl leading-none text-slate-400 hover:text-slate-600">×</button>
     </div>
+    ${(() => {
+      const h = d.health || null; if (!h) return '';
+      const tone = h.band === 'good' ? 'text-emerald-600 dark:text-emerald-400' : h.band === 'watch' ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400';
+      const bar = h.band === 'good' ? 'bg-emerald-500' : h.band === 'watch' ? 'bg-amber-500' : 'bg-rose-500';
+      const factors = (h.factors || []).map(f => `
+        <div class="flex items-center gap-2 py-1.5">
+          <div class="w-28 text-[11px] font-black uppercase tracking-wide text-slate-500">${esc(f.label)}</div>
+          <div class="flex-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+            <div class="h-full ${bar}" style="width:${Math.round(f.points / f.max * 100)}%"></div>
+          </div>
+          <div class="w-14 text-right text-[11px] font-bold text-slate-700 dark:text-slate-200">${f.points}/${f.max}</div>
+          <div class="w-40 text-[11px] text-slate-500 truncate hidden lg:block">${esc(f.detail)}</div>
+        </div>`).join('');
+      return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-4">
+        <div class="flex items-center justify-between gap-3 mb-2">
+          <div class="text-[13px] font-black text-slate-800 dark:text-slate-100">Health</div>
+          <div class="text-2xl font-black ${tone}">${h.score}<span class="text-sm text-slate-400 font-bold ml-1">/ 100</span></div>
+        </div>
+        ${factors}
+      </div>`;
+    })()}
     <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
       ${kpi('Monthly payment', money(d.mrr), 'text-violet-600 dark:text-violet-400')}
       ${kpi('Expected yearly value', money(d.arr))}
@@ -2202,6 +2338,16 @@ async function loadSaasAutomation() {
     __automation.campaigns = camp.campaigns || [];
   } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 py-10 text-center">${esc(e.message || 'Could not load')}</div>`; return; }
   renderAutomation();
+  // After the base UI paints, drop the diagnostics panel underneath. Fire-and-
+  // forget: a diagnostics failure never blocks the main automation page.
+  const host = document.getElementById('saas-automation-root');
+  if (host && !document.getElementById('hq-automation-diagnostics')) {
+    const wrap = document.createElement('div');
+    wrap.className = 'mt-6 space-y-3';
+    wrap.innerHTML = '<div class="text-[11px] uppercase font-black tracking-wider text-slate-500">Automation health</div><div id="hq-automation-diagnostics"></div>';
+    host.appendChild(wrap);
+  }
+  if (typeof loadSaasAutomationDiagnostics === 'function') loadSaasAutomationDiagnostics();
 }
 window.loadSaasAutomation = loadSaasAutomation;
 function renderAutomation() {

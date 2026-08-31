@@ -11,6 +11,7 @@ import { requireAuth, requireMfa } from '../middleware.js'
 import { requirePermission } from '../authorization.js'
 import { audit } from '../audit.js'
 import { emitEvent } from './events.js'
+import { notifyDealDelivered } from '../notifications.js'
 
 const CHECKLIST = [
   { key: 'pdi', label: 'PDI complete' },
@@ -72,7 +73,7 @@ export function registerDelivery(app) {
   // Complete delivery → the kernel event drives accounting + commission + sync.
   app.post('/delivery/:id/deliver', requireAuth, requireMfa, requirePermission('deal.finalize'), async (req, res) => {
     if (!req.dealershipId) return res.status(403).json({ error: 'no dealership' })
-    const { data: deal } = await supabaseAdmin.from('deals').select('id, deal_status, contact_id, inventory_id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    const { data: deal } = await supabaseAdmin.from('deals').select('id, deal_number, deal_status, contact_id, inventory_id, created_by').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!deal) return res.status(404).json({ error: 'not found' })
     if (deal.deal_status === 'delivered') return res.json({ ok: true, already: true })
     const now = new Date().toISOString()
@@ -84,6 +85,11 @@ export function registerDelivery(app) {
       summary: 'Deal delivered', toState: 'delivered', department: 'Delivery', createdBy: req.user?.id || null,
       payload: { contact_id: deal.contact_id || null, inventory_id: deal.inventory_id || null, action: 'delivery_queue' },
     })
+    // Tell the people who own this car that it is sold AND delivered. The browser
+    // extension polls these (GET /listings/fb-alerts) and raises a desktop
+    // notification, so a rep hears about it without watching the dashboard.
+    await notifyDealDelivered({ dealershipId: req.dealershipId, deal })
+
     audit(req, 'deal.delivered', {
       deal_id: deal.id,
       before_state: { deal_status: deal.deal_status },

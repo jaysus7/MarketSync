@@ -762,14 +762,14 @@ async function initializeDashboardEcosystem() {
     }
 
     if (!canManageFeeds) {
-      // Dealer reps see feeds read-only — hide add/sync controls. Facebook is the
-      // one exception: every rep posts and syncs their own assigned inventory to
-      // their own Facebook profile there, so Sync Now stays available for a
-      // Facebook dealer rep too (Add Feed — connecting a new data source — stays
-      // admin-only everywhere, Facebook included).
-      const fbOnlyForSync = typeof isFacebookOnlyWorkspace === 'function' && isFacebookOnlyWorkspace();
+      // Dealer reps see feeds read-only — hide add/sync controls, with one
+      // exception: Sync Now. Every sales role refreshes its own dealership's
+      // inventory, so sync stays reachable for a rep at ANY store, not just a
+      // Facebook-only workspace (it used to be scoped to those). Sync only
+      // re-reads the dealer's existing feed; it creates no new data source.
+      // Add Feed — connecting a new source — stays admin-only everywhere.
       document.querySelectorAll('[data-admin-only]').forEach(el => {
-        if (fbOnlyForSync && el.id === 'sync-now-btn') return;
+        if (el.id === 'sync-now-btn') return;
         el.classList.add('hidden');
       });
     }
@@ -2324,6 +2324,14 @@ function switchPage(pageId) {
   if (pageId === 'saas-automation') loadSaasAutomation();
   if (pageId === 'saas-employees') loadSaasEmployees();
   if (pageId === 'saas-accounting') loadSaasAccounting();
+  if (pageId === 'saas-billing' && typeof loadSaasBillingSummary === 'function') loadSaasBillingSummary();
+  if (pageId === 'saas-affiliates' && typeof loadSaasAffiliates === 'function') loadSaasAffiliates();
+  if (pageId === 'saas-product-usage' && typeof loadSaasProductUsage === 'function') loadSaasProductUsage();
+  if (pageId === 'saas-health' && typeof loadSaasHealth === 'function') loadSaasHealth();
+  if (pageId === 'saas-trials' && typeof loadSaasTrials === 'function') loadSaasTrials();
+  if (pageId === 'saas-onboarding' && typeof loadSaasOnboarding === 'function') loadSaasOnboarding();
+  if (pageId === 'saas-announcements' && typeof loadSaasAnnouncements === 'function') loadSaasAnnouncements();
+  if (pageId === 'saas-intelligence' && typeof loadSaasIntelligence === 'function') loadSaasIntelligence();
   if (pageId === 'saas-agents' && typeof loadHqAgents === 'function') loadHqAgents();
   if (pageId === 'saas-entitlements' && typeof loadHqEntitlements === 'function') loadHqEntitlements();
   if (pageId === 'saas-products' && typeof loadHqProducts === 'function') loadHqProducts();

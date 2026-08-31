@@ -1,11 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MarketSync",
-<<<<<<< HEAD
-  "version": "2",
-=======
-  "version": "1.5",
->>>>>>> staging
+  "version": "2.0.1",
   "description": "Post dealership inventory to Facebook Marketplace in seconds. Auto-sync, auto-fill, auto-track.",
   "permissions": [
     "storage",
@@ -19,6 +15,8 @@
   ],
   "host_permissions": [
     "https://www.facebook.com/*",
+    "https://marketsync.link/*",
+    "https://www.marketsync.link/*",
     "https://vehicle-marketplace-s0e4.onrender.com/*",
     "https://marketsync-staging-backend.onrender.com/*",
     "https://*.onrender.com/*",

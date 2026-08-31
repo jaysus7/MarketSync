@@ -473,7 +473,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
           <span class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Inspector</span>
           <button type="button" onclick="toggleStudioInspectorPanel()" class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-xs font-bold px-1.5 py-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800" title="Collapse Inspector">&gt;</button>
         </div>
-        ${renderStudioInspectorHtml(null)}
+        ${renderStudioProfessionalInspectorHtml(null)}
       </aside>
     </div>
     <footer data-studio-region="footer" class="h-16 flex-shrink-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-3 flex items-center gap-2 overflow-x-auto z-30">
@@ -978,13 +978,64 @@ function renderStudioInspectorHtml(selected) {
   `;
 }
 
+function renderStudioProfessionalInspectorHtml(selected) {
+  const object = Array.isArray(selected) ? selected[0] : selected;
+  if (!object) return `<div class="studio-inspector-empty"><span class="studio-inspector-empty-icon">◇</span><strong>Select an element</strong><p>Move, resize and rotate directly on the canvas. Style, position and motion controls will appear here.</p></div>`;
+  const isText = ['textbox', 'text', 'i-text'].includes(object.type);
+  const isImage = object.type === 'image';
+  const tab = window.__studioInspectorTab || 'style';
+  const opacity = Math.round((object.opacity ?? 1) * 100);
+  const color = typeof object.fill === 'string' && object.fill.startsWith('#') ? object.fill : '#2563eb';
+  const stroke = typeof object.stroke === 'string' && object.stroke.startsWith('#') ? object.stroke : '#0f172a';
+  const animation = object.msData?.animation || {};
+  const input = 'studio-control-input';
+  const action = 'studio-control-action';
+  const tabButton = (key, label) => `<button type="button" onclick="setStudioInspectorTab('${key}')" aria-current="${tab === key ? 'page' : 'false'}">${label}</button>`;
+  const stylePanel = `
+    <section class="studio-inspector-section"><h4>Appearance</h4>
+      <div class="studio-control-grid studio-control-grid-2"><label>Fill<input type="color" value="${color}" onchange="studioSetObjectStyle('color',this.value)"></label><label>Stroke<input type="color" value="${stroke}" onchange="studioSetObjectStyle('stroke',this.value)"></label></div>
+      <label>Stroke width<input class="${input}" type="number" min="0" max="40" value="${Number(object.strokeWidth || 0)}" onchange="studioSetObjectStyle('strokeWidth',Math.max(0,Number(this.value)))"></label>
+      ${object.type === 'rect' ? `<label>Corner radius<input class="${input}" type="range" min="0" max="160" value="${Number(object.rx || 0)}" oninput="studioSetObjectStyle('rx',Number(this.value));studioSetObjectStyle('ry',Number(this.value))"></label>` : ''}
+      <label><span class="studio-control-label-row"><span>Opacity</span><output id="studio-opacity-value">${opacity}%</output></span><input type="range" min="0" max="100" value="${opacity}" oninput="document.getElementById('studio-opacity-value').value=this.value+'%'" onchange="studioSetObjectStyle('opacity',Number(this.value)/100)"></label>
+    </section>
+    <section class="studio-inspector-section"><h4>Depth &amp; effects</h4><div class="studio-style-presets">${[['none','None'],['soft','Soft'],['lift','Lift'],['glow','Glow']].map(([key,label]) => `<button class="${action}" onclick="window.__studioAdapter?.setSelectedShadow('${key}')">${label}</button>`).join('')}</div></section>
+    ${isText ? `<section class="studio-inspector-section"><h4>Typography</h4><label>Font<input class="${input}" value="${escS(object.fontFamily || 'Manrope')}" onchange="studioSetTextStyle('fontFamily',this.value)"></label><div class="studio-control-grid studio-control-grid-3"><label>Size<input class="${input}" type="number" min="6" value="${Math.round(object.fontSize || 36)}" onchange="studioSetTextStyle('fontSize',Number(this.value))"></label><label>Line<input class="${input}" type="number" min=".5" max="3" step=".05" value="${Number(object.lineHeight || 1.08).toFixed(2)}" onchange="studioSetTextStyle('lineHeight',Number(this.value))"></label><label>Spacing<input class="${input}" type="number" min="-200" max="800" value="${Math.round(object.charSpacing || 0)}" onchange="studioSetTextStyle('charSpacing',Number(this.value))"></label></div><div class="studio-segmented">${['left','center','right','justify'].map(value => `<button aria-current="${object.textAlign === value ? 'page' : 'false'}" onclick="studioSetTextStyle('textAlign','${value}')">${value}</button>`).join('')}</div><div class="studio-control-grid studio-control-grid-2"><button class="${action}" onclick="studioTransformText('uppercase')">UPPERCASE</button><button class="${action}" onclick="studioTransformText('lowercase')">lowercase</button></div></section>` : ''}
+    ${isImage ? `<section class="studio-inspector-section"><h4>Image adjustments</h4>${[['brightness','Brightness'],['contrast','Contrast'],['saturation','Saturation'],['blur','Blur']].map(([key,label]) => `<label>${label}<input type="range" min="${key === 'blur' ? 0 : -1}" max="1" step=".05" value="${object.msData?.adjustments?.[key] || 0}" oninput="window.__studioAdapter?.adjustSelectedImage({${key}:Number(this.value)})"></label>`).join('')}</section>` : ''}`;
+  const positionPanel = `
+    <section class="studio-inspector-section"><h4>Transform</h4><div class="studio-control-grid studio-control-grid-2"><label>X<input class="${input}" type="number" value="${Math.round(object.left || 0)}" onchange="studioSetObjectGeometry('left',this.value)"></label><label>Y<input class="${input}" type="number" value="${Math.round(object.top || 0)}" onchange="studioSetObjectGeometry('top',this.value)"></label><label>Width<input class="${input}" type="number" min="1" value="${Math.round(object.getScaledWidth?.() || object.width || 0)}" onchange="studioSetObjectGeometry('width',this.value)"></label><label>Height<input class="${input}" type="number" min="1" value="${Math.round(object.getScaledHeight?.() || object.height || 0)}" onchange="studioSetObjectGeometry('height',this.value)"></label></div><label>Rotation<input class="${input}" type="number" min="-360" max="360" value="${Math.round(object.angle || 0)}" onchange="studioSetObjectGeometry('rotation',this.value)"></label><div class="studio-control-grid studio-control-grid-2"><button class="${action}" onclick="studioFlipSelected('x')">↔ Flip horizontal</button><button class="${action}" onclick="studioFlipSelected('y')">↕ Flip vertical</button></div></section>
+    <section class="studio-inspector-section"><h4>Align to page</h4><div class="studio-align-grid">${[['left','Left'],['center','Center'],['right','Right'],['top','Top'],['middle','Middle'],['bottom','Bottom']].map(([key,label]) => `<button onclick="window.__studioAdapter?.alignSelected('${key}')">${label}</button>`).join('')}</div><div class="studio-control-grid studio-control-grid-2"><button class="${action}" onclick="window.__studioAdapter?.distributeSelected('horizontal')">Distribute ↔</button><button class="${action}" onclick="window.__studioAdapter?.distributeSelected('vertical')">Distribute ↕</button></div></section>
+    <section class="studio-inspector-section"><h4>Layer order</h4><div class="studio-control-grid studio-control-grid-2"><button class="${action}" onclick="window.__studioAdapter?.bringToFront()">To front</button><button class="${action}" onclick="window.__studioAdapter?.bringForward()">Forward</button><button class="${action}" onclick="window.__studioAdapter?.sendBackwards()">Backward</button><button class="${action}" onclick="window.__studioAdapter?.sendToBack()">To back</button></div></section>`;
+  const animatePanel = `<section class="studio-inspector-section"><h4>Element animation</h4><p class="studio-control-help">Motion remains editable and is included in animated exports.</p><div class="studio-animation-grid">${[['none','—','None'],['float','↟','Float'],['pulse','◉','Pulse'],['spin','↻','Spin'],['bounce','↥','Bounce'],['fade','◐','Fade']].map(([key,icon,label]) => `<button aria-current="${(animation.type || 'none') === key ? 'page' : 'false'}" onclick="studioSetAnimation('${key}')"><span>${icon}</span>${label}</button>`).join('')}</div><label>Duration <span class="studio-control-unit">ms</span><input class="${input}" type="number" min="300" max="12000" step="100" value="${Number(animation.duration || 1600)}" onchange="studioSetAnimationDuration(this.value)"></label></section>`;
+  return `<div class="studio-inspector-heading"><div><span>${escS(object.msData?.type || object.type || 'Element')}</span><input value="${escS(object.msData?.name || '')}" placeholder="Untitled element" onchange="renameStudioLayer(this.value)"></div><button title="Close selection" onclick="window.__studioAdapter?.fabricCanvas?.discardActiveObject();window.__studioAdapter?.fabricCanvas?.requestRenderAll();window.__studioAdapter?.onSelectionChange([])">×</button></div><div class="studio-inspector-tabs">${tabButton('style','Style')}${tabButton('position','Position')}${tabButton('animate','Animate')}</div><div class="studio-inspector-body">${tab === 'position' ? positionPanel : tab === 'animate' ? animatePanel : stylePanel}<section class="studio-inspector-section studio-inspector-actions"><div class="studio-control-grid studio-control-grid-2"><button class="${action}" onclick="window.__studioAdapter?.toggleSelectedLock()">${object.lockMovementX ? 'Unlock' : 'Lock'}</button><button class="${action}" onclick="window.__studioAdapter?.toggleSelectedVisibility()">Hide</button></div><button class="studio-delete-action" onclick="window.__studioAdapter?.deleteSelected()">Delete element</button></section></div>`;
+}
+
+function setStudioInspectorTab(tab) {
+  window.__studioInspectorTab = ['style','position','animate'].includes(tab) ? tab : 'style';
+  const panel = document.getElementById('studio-inspector-panel');
+  const active = window.__studioAdapter?.fabricCanvas?.getActiveObject();
+  if (panel) panel.innerHTML = renderStudioProfessionalInspectorHtml(active ? [active] : []);
+}
+window.setStudioInspectorTab = setStudioInspectorTab;
+function studioFlipSelected(axis) {
+  const active = window.__studioAdapter?.fabricCanvas?.getActiveObject();
+  if (!active) return;
+  window.__studioAdapter.updateSelected(axis === 'y' ? { flipY: !active.flipY } : { flipX: !active.flipX });
+}
+window.studioFlipSelected = studioFlipSelected;
+function studioSetAnimationDuration(value) {
+  const active = window.__studioAdapter?.fabricCanvas?.getActiveObject();
+  if (!active) return;
+  window.__studioAdapter.setSelectedAnimation(active.msData?.animation?.type || 'float', Math.max(300, Number(value) || 1600));
+}
+window.studioSetAnimationDuration = studioSetAnimationDuration;
+
 async function initStudioAdapter(scene) {
   const canvasEl = document.getElementById('studio-main-canvas');
   if (!canvasEl) return;
   window.__studioAdapter = new StudioFabricAdapter(canvasEl, {
     onSelection: (selected) => {
       const panel = document.getElementById('studio-inspector-panel');
-      if (panel) panel.innerHTML = renderStudioInspectorHtml(selected);
+      if (panel) panel.innerHTML = renderStudioProfessionalInspectorHtml(selected);
       const hint = document.getElementById('studio-text-hint');
       const active = Array.isArray(selected) ? selected[0] : selected;
       if (hint) hint.textContent = active && ['textbox', 'text', 'i-text'].includes(active.type) ? 'Text selected — use the controls' : 'Select text to format it';

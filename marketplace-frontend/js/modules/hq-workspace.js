@@ -1200,4 +1200,752 @@ window.hqRotateSingleKeyPrompt = async function(agentId) {
 
 window.loadHqAgents = loadHqAgents;
 
+// ══ HQ Affiliates ═══════════════════════════════════════════════════════════
+// Company view of the affiliate program. Reads /saas/affiliates (see backend).
+// Any missing table renders as "Not connected" — no fabricated zeros.
+async function loadSaasAffiliates() {
+  const root = document.getElementById('saas-affiliates-root'); if (!root) return;
+  const money = (v) => '$' + Math.round(Number(v) || 0).toLocaleString();
+  root.innerHTML = '<div class="text-sm text-slate-400 p-6">Loading affiliates…</div>';
+  try {
+    const d = await apiGetJson('/saas/affiliates');
+    if (!d.connected) {
+      root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Affiliates','Program overview + top performers'):'<h1 class="text-2xl font-black">Affiliates</h1>'}
+        <div class="rounded-2xl border border-amber-300/60 bg-amber-50/40 dark:border-amber-900/60 dark:bg-amber-950/20 p-6 text-sm text-amber-800 dark:text-amber-200">
+          <b class="block text-base mb-1">Not connected</b>
+          The affiliates table is not present in this environment. Enable the affiliate program to populate this page.
+        </div>`;
+      return;
+    }
+    const p = d.program || {};
+    const rows = (d.affiliates || []).map(a => `
+      <tr class="border-t border-slate-100 dark:border-slate-800">
+        <td class="p-3 font-bold text-slate-800 dark:text-slate-100">${esc(a.code || a.email || a.id)}</td>
+        <td class="p-3 text-slate-600 dark:text-slate-300 text-xs">${esc((a.status || '—').toLowerCase())}</td>
+        <td class="p-3 text-right font-bold">${a.referrals}</td>
+        <td class="p-3 text-right text-emerald-600 dark:text-emerald-400 font-bold">${a.active_referrals}</td>
+        <td class="p-3 text-right font-black">${money(a.earned)}</td>
+        <td class="p-3 text-right ${a.pending_payout > 0 ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-slate-500'}">${money(a.pending_payout)}</td>
+        <td class="p-3 text-right text-slate-500">${a.conversion_rate}%</td>
+      </tr>`).join('') || '<tr><td colspan="7" class="p-6 text-center text-sm text-slate-500">No affiliates yet.</td></tr>';
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Affiliates','Program overview + top performers'):'<h1 class="text-2xl font-black">Affiliates</h1>'}
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        ${typeof engKpi === 'function' ? engKpi('Total affiliates', (p.affiliate_count || 0).toLocaleString()) : ''}
+        ${typeof engKpi === 'function' ? engKpi('Active', (p.active_affiliates || 0).toLocaleString(), 'text-emerald-600 dark:text-emerald-400') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Referrals (active)', `${p.active_referrals || 0}/${p.referral_count || 0}`) : ''}
+        ${typeof engKpi === 'function' ? engKpi('Pending payouts', money(p.pending_payouts || 0), (p.pending_payouts || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : '') : ''}
+      </div>
+      <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <table class="w-full text-left text-xs">
+          <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-500">
+            <th class="p-3">Affiliate</th><th class="p-3">Status</th>
+            <th class="p-3 text-right">Referrals</th><th class="p-3 text-right">Active</th>
+            <th class="p-3 text-right">Earned</th><th class="p-3 text-right">Owed</th>
+            <th class="p-3 text-right">Conversion</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message || 'Could not load affiliates')}</div>`;
+  }
+}
+window.loadSaasAffiliates = loadSaasAffiliates;
+
+// ══ HQ Billing (summary) ═══════════════════════════════════════════════════
+async function loadSaasBillingSummary() {
+  const root = document.getElementById('saas-billing-root'); if (!root) return;
+  const money = (v) => '$' + Math.round(Number(v) || 0).toLocaleString();
+  const NC = '<span class="text-slate-400 text-base font-bold">Not connected</span>';
+  root.innerHTML = '<div class="text-sm text-slate-400 p-6">Loading billing…</div>';
+  try {
+    const d = await apiGetJson('/saas/billing-summary');
+    const s = d.subscriptions;
+    const r = d.receivables || {};
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Billing','Subscriptions + receivables'):'<h1 class="text-2xl font-black">Billing</h1>'}
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        ${typeof engKpi === 'function' ? engKpi('Active subscriptions', s ? s.active.toLocaleString() : NC, s ? 'text-emerald-600 dark:text-emerald-400' : '') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Trialing', s ? s.trialing.toLocaleString() : NC, s ? 'text-blue-600 dark:text-blue-400' : '') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Past due (Stripe)', s ? s.past_due.toLocaleString() : NC, (s && s.past_due > 0) ? 'text-rose-600 dark:text-rose-400' : '') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Cancelling', s ? s.cancel_at_period_end.toLocaleString() : NC, (s && s.cancel_at_period_end > 0) ? 'text-amber-600 dark:text-amber-400' : '') : ''}
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        ${typeof engCard === 'function' ? engCard('Receivables', `
+          <div class="grid grid-cols-2 gap-3">
+            ${engKpi('Past-due accounts', (r.past_due_accounts || 0).toLocaleString(), (r.past_due_accounts || 0) > 0 ? 'text-rose-600 dark:text-rose-400' : '')}
+            ${engKpi('Estimated owed (MRR)', money(r.estimated_owed_mrr || 0), (r.estimated_owed_mrr || 0) > 0 ? 'text-rose-600 dark:text-rose-400' : '')}
+          </div>
+          <p class="text-[11px] text-slate-500 mt-2">${esc(r.note || '')}</p>`) : ''}
+        ${typeof engCard === 'function' ? engCard('Deep dives', `
+          <div class="flex flex-col gap-2">
+            <button onclick="switchPage('owner-users')" class="ms-btn ms-btn--primary !text-[13px] justify-start">Open all customers (billing drill-down per account)</button>
+            <button onclick="switchPage('saas-accounting')" class="ms-btn !text-[13px] justify-start">Open Accounting (P&L, affiliate cost)</button>
+          </div>`) : ''}
+      </div>`;
+  } catch (e) {
+    root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message || 'Could not load billing summary')}</div>`;
+  }
+}
+window.loadSaasBillingSummary = loadSaasBillingSummary;
+
+// ══ HQ Product Usage ═══════════════════════════════════════════════════════
+async function loadSaasProductUsage() {
+  const root = document.getElementById('saas-product-usage-root'); if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400 p-6">Loading usage…</div>';
+  try {
+    const d = await apiGetJson('/saas/product-usage?days=30');
+    if (!d.connected) {
+      root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Product Usage','Adoption per product (30 days)'):'<h1 class="text-2xl font-black">Product Usage</h1>'}
+        <div class="rounded-2xl border border-amber-300/60 bg-amber-50/40 dark:border-amber-900/60 dark:bg-amber-950/20 p-6 text-sm text-amber-800 dark:text-amber-200">
+          <b class="block text-base mb-1">Not connected</b>
+          The events spine is unreadable, so per-product adoption cannot be shown.
+        </div>`;
+      return;
+    }
+    const label = (window.SAAS_PRODUCT_LABEL || {});
+    const rows = (d.products || []).map(p => `
+      <tr class="border-t border-slate-100 dark:border-slate-800">
+        <td class="p-3 font-bold text-slate-800 dark:text-slate-100">${esc(label[p.key] || p.key)}</td>
+        <td class="p-3 text-right font-black">${(p.accounts || 0).toLocaleString()}</td>
+        <td class="p-3 text-right">${(p.events || 0).toLocaleString()}</td>
+        <td class="p-3 text-right text-xs text-slate-500">${p.last_at ? new Date(p.last_at).toLocaleString() : '—'}</td>
+      </tr>`).join('') || '<tr><td colspan="4" class="p-6 text-center text-sm text-slate-500">No events in this window.</td></tr>';
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Product Usage','Adoption per product (last '+d.window_days+' days)'):'<h1 class="text-2xl font-black">Product Usage</h1>'}
+      <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        ${typeof engKpi === 'function' ? engKpi('Products in use', (d.products || []).length.toLocaleString()) : ''}
+        ${typeof engKpi === 'function' ? engKpi('Total events', (d.total_events || 0).toLocaleString()) : ''}
+        ${typeof engKpi === 'function' ? engKpi('Window (days)', String(d.window_days || 30)) : ''}
+      </div>
+      <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <table class="w-full text-left text-xs">
+          <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-500">
+            <th class="p-3">Product</th><th class="p-3 text-right">Accounts</th><th class="p-3 text-right">Events</th><th class="p-3 text-right">Last</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message || 'Could not load product usage')}</div>`;
+  }
+}
+window.loadSaasProductUsage = loadSaasProductUsage;
+
+// ══ HQ Platform Health ═════════════════════════════════════════════════════
+async function loadSaasHealth() {
+  const root = document.getElementById('saas-health-root'); if (!root) return;
+  const NC = '<span class="text-slate-400 text-base font-bold">Not measured</span>';
+  const fmt = (v) => v == null ? NC : Number(v).toLocaleString();
+  root.innerHTML = '<div class="text-sm text-slate-400 p-6">Checking platform…</div>';
+  try {
+    const d = await apiGetJson('/saas/platform-health');
+    const s = d.signals || {};
+    const rf = d.recent_failures || { jobs: [], webhooks: [] };
+    const statusTone = d.status === 'ok' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400';
+    const failedJobsRows = (rf.jobs || []).map(j => `
+      <tr class="border-t border-slate-100 dark:border-slate-800">
+        <td class="p-3 font-bold text-slate-800 dark:text-slate-100">${esc(j.job_key)}</td>
+        <td class="p-3 text-xs text-rose-600 dark:text-rose-400 truncate max-w-md">${esc(j.error || '—')}</td>
+        <td class="p-3 text-xs text-slate-500 whitespace-nowrap">${j.started_at ? new Date(j.started_at).toLocaleString() : '—'}</td>
+        <td class="p-3 text-xs text-slate-500 text-right">${j.duration_ms != null ? j.duration_ms + 'ms' : ''}</td>
+      </tr>`).join('') || `<tr><td colspan="4" class="p-4 text-center text-sm text-slate-500">${s.failed_jobs_24h == null ? 'Not measured — enable the hq_job_runs log to populate this table.' : 'No failed jobs in the last 24h.'}</td></tr>`;
+    const failedWebhookRows = (rf.webhooks || []).map(w => `
+      <tr class="border-t border-slate-100 dark:border-slate-800">
+        <td class="p-3 font-bold text-slate-800 dark:text-slate-100">${esc(w.provider)}</td>
+        <td class="p-3 text-xs text-rose-600 dark:text-rose-400 truncate max-w-md">${esc(w.error || '—')}</td>
+        <td class="p-3 text-xs text-slate-500 whitespace-nowrap">${w.received_at ? new Date(w.received_at).toLocaleString() : '—'}</td>
+      </tr>`).join('') || `<tr><td colspan="3" class="p-4 text-center text-sm text-slate-500">${s.failed_webhooks_24h == null ? 'Not measured — enable the hq_webhook_events log to populate this table.' : 'No failed webhooks in the last 24h.'}</td></tr>`;
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Platform Health','Dunning, expiring trials, integrations, jobs, webhooks'):'<h1 class="text-2xl font-black">Platform Health</h1>'}
+      <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        ${typeof engKpi === 'function' ? engKpi('Overall', d.status === 'ok' ? 'Healthy' : 'Degraded', statusTone) : ''}
+        ${typeof engKpi === 'function' ? engKpi('Past due', (s.past_due || 0).toLocaleString(), (s.past_due || 0) > 0 ? 'text-rose-600 dark:text-rose-400' : '') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Trials ≤5d', (s.trials_expiring_5d || 0).toLocaleString(), (s.trials_expiring_5d || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : '') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Failed integrations', fmt(s.failed_integrations), (s.failed_integrations > 0) ? 'text-rose-600 dark:text-rose-400' : '') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Failed jobs 24h', fmt(s.failed_jobs_24h), (s.failed_jobs_24h > 0) ? 'text-rose-600 dark:text-rose-400' : '') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Failed webhooks 24h', fmt(s.failed_webhooks_24h), (s.failed_webhooks_24h > 0) ? 'text-rose-600 dark:text-rose-400' : '') : ''}
+      </div>
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <div class="px-4 pt-4 pb-2 text-[11px] uppercase tracking-wider font-black text-slate-500">Recent failed jobs</div>
+        <table class="w-full text-left text-xs">
+          <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-500">
+            <th class="p-3">Job</th><th class="p-3">Error</th><th class="p-3">When</th><th class="p-3 text-right">Duration</th>
+          </tr></thead>
+          <tbody>${failedJobsRows}</tbody>
+        </table>
+      </div>
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <div class="px-4 pt-4 pb-2 text-[11px] uppercase tracking-wider font-black text-slate-500">Recent failed webhooks</div>
+        <table class="w-full text-left text-xs">
+          <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-500">
+            <th class="p-3">Provider</th><th class="p-3">Error</th><th class="p-3">When</th>
+          </tr></thead>
+          <tbody>${failedWebhookRows}</tbody>
+        </table>
+      </div>
+      <div class="text-[11px] text-slate-500">Environment: <b>${esc(d.env || 'unknown')}</b>.</div>`;
+  } catch (e) {
+    root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message || 'Could not load platform health')}</div>`;
+  }
+}
+window.loadSaasHealth = loadSaasHealth;
+
+// ══ HQ Expense modal (Accounting → Expenses tab uses this) ═════════════════
+// Simple prompt-style entry. Feeds POST /saas/accounting/expenses. Numeric
+// validation lives on the server (positive amount required); the UI only
+// guards against obvious empty input.
+// ══ HQ Trials pipeline ═════════════════════════════════════════════════════
+const HQ_TRIAL_STAGE_LABEL = {
+  new: 'New', onboarding: 'Onboarding', active: 'Active', engaged: 'Engaged',
+  low_engagement: 'Low engagement', expiring: 'Expiring soon', expired: 'Expired',
+};
+const HQ_TRIAL_STAGE_TONE = {
+  new: 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
+  onboarding: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300',
+  active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+  engaged: 'bg-emerald-200 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200',
+  low_engagement: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+  expiring: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+  expired: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
+};
+async function loadSaasTrials() {
+  const root = document.getElementById('saas-trials-root'); if (!root) return;
+  const NC = '<span class="text-slate-400 text-base font-bold">Not measured</span>';
+  root.innerHTML = '<div class="text-sm text-slate-400 p-6">Loading trials…</div>';
+  try {
+    const d = await apiGetJson('/saas/trials');
+    const stageCards = (d.stages || []).map(s => `
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3">
+        <div class="text-[10px] uppercase font-black tracking-wider text-slate-500">${esc(HQ_TRIAL_STAGE_LABEL[s] || s)}</div>
+        <div class="text-2xl font-black mt-1">${d.counts[s] || 0}</div>
+      </div>`).join('');
+    const rows = (d.trials || []).map(t => `
+      <tr class="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer" onclick="openSaasCustomer('${t.id}')">
+        <td class="p-3 font-bold text-slate-800 dark:text-slate-100">${esc(t.name)}</td>
+        <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${HQ_TRIAL_STAGE_TONE[t.stage] || ''}">${esc(HQ_TRIAL_STAGE_LABEL[t.stage] || t.stage)}</span></td>
+        <td class="p-3 text-right text-sm ${t.days_left != null && t.days_left <= 5 ? 'text-rose-600 dark:text-rose-400 font-bold' : ''}">${t.days_left == null ? '—' : t.days_left + 'd'}</td>
+        <td class="p-3 text-right">${t.activity_30d}</td>
+        <td class="p-3 text-right">${t.engines_used}</td>
+        <td class="p-3 text-xs text-slate-600 dark:text-slate-300">${esc(t.next_action)}</td>
+      </tr>`).join('') || '<tr><td colspan="6" class="p-6 text-center text-sm text-slate-500">No trials in flight.</td></tr>';
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Trials','Every trial, staged by real activity + days remaining'):'<h1 class="text-2xl font-black">Trials</h1>'}
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${typeof engKpi === 'function' ? engKpi('Trials in flight', (d.trials || []).length.toLocaleString()) : ''}
+        ${typeof engKpi === 'function' ? engKpi('Expiring ≤5 days', (d.counts.expiring || 0).toLocaleString(), (d.counts.expiring || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : '') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Engaged', (d.counts.engaged || 0).toLocaleString(), 'text-emerald-600 dark:text-emerald-400') : ''}
+        ${typeof engKpi === 'function' ? engKpi('30-day conversion', d.conversion_rate_30d == null ? NC : d.conversion_rate_30d + '%') : ''}
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2">${stageCards}</div>
+      <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <table class="w-full text-left text-xs">
+          <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-500">
+            <th class="p-3">Account</th><th class="p-3">Stage</th>
+            <th class="p-3 text-right">Days left</th><th class="p-3 text-right">Events (30d)</th>
+            <th class="p-3 text-right">Engines</th><th class="p-3">Next action</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message || 'Could not load trials')}</div>`;
+  }
+}
+window.loadSaasTrials = loadSaasTrials;
+
+// ══ HQ Staff Onboarding ════════════════════════════════════════════════════
+async function loadSaasOnboarding() {
+  const root = document.getElementById('saas-onboarding-root'); if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400 p-6">Loading staff onboarding…</div>';
+  try {
+    const d = await apiGetJson('/saas/staff/onboarding');
+    const cards = (d.staff || []).map(s => {
+      const items = (d.checklist || []).map(item => `
+        <label class="flex items-start gap-2 py-1.5 cursor-pointer">
+          <input type="checkbox" ${s.checklist_state[item.key] ? 'checked' : ''} onchange="hqToggleOnboarding('${s.id}','${item.key}', this.checked)" class="mt-1">
+          <span class="text-[13px] text-slate-700 dark:text-slate-200">${esc(item.label)}</span>
+        </label>`).join('');
+      const tone = s.progress_pct >= 100 ? 'bg-emerald-500' : s.progress_pct >= 60 ? 'bg-amber-500' : 'bg-rose-500';
+      return `<div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+        <div class="flex items-center justify-between gap-3 mb-1">
+          <div>
+            <div class="text-sm font-black text-slate-800 dark:text-slate-100">${esc(s.name)}</div>
+            <div class="text-[11px] text-slate-500">${esc(s.department || '—')} · ${esc(s.saas_role || '')}</div>
+          </div>
+          <div class="text-lg font-black text-slate-700 dark:text-slate-200">${s.progress_pct}%</div>
+        </div>
+        <div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden mb-3"><div class="h-full ${tone}" style="width:${s.progress_pct}%"></div></div>
+        ${items}
+      </div>`;
+    }).join('') || '<div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-6 text-sm text-slate-500 text-center">No staff yet.</div>';
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Staff Onboarding','Per-staff checklist — owner-only'):'<h1 class="text-2xl font-black">Staff Onboarding</h1>'}
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">${cards}</div>`;
+  } catch (e) {
+    root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message || 'Could not load staff onboarding')}</div>`;
+  }
+}
+window.loadSaasOnboarding = loadSaasOnboarding;
+window.hqToggleOnboarding = async (staffId, key, done) => {
+  try { await apiSendJson('/saas/staff/' + staffId + '/onboarding', 'PATCH', { key, done: !!done });
+    if (typeof showToast === 'function') showToast('Checklist updated', 'success');
+  } catch (e) { if (typeof showToast === 'function') showToast(e.message || 'Could not update', 'error'); }
+};
+
+// ══ HQ Announcements ═══════════════════════════════════════════════════════
+async function loadSaasAnnouncements() {
+  const root = document.getElementById('saas-announcements-root'); if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400 p-6">Loading announcements…</div>';
+  try {
+    const d = await apiGetJson('/saas/announcements');
+    const tone = (s) => s === 'warning' ? 'border-amber-200 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20'
+      : s === 'success' ? 'border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/40 dark:bg-emerald-950/20'
+      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900';
+    const rows = (d.announcements || []).map(a => `
+      <div class="rounded-2xl border ${tone(a.severity)} p-4">
+        <div class="flex items-center justify-between gap-3 mb-1">
+          <div>
+            <span class="text-[10px] uppercase font-black tracking-wider text-slate-500">${esc(a.audience)}</span>
+            <div class="text-sm font-black text-slate-800 dark:text-slate-100">${esc(a.title)}</div>
+          </div>
+          <button onclick="hqDeleteAnnouncement('${a.id}')" class="text-xs font-bold text-rose-500 hover:underline">Delete</button>
+        </div>
+        <div class="text-[12px] text-slate-500 mb-2">${new Date(a.publish_at).toLocaleString()}</div>
+        <div class="text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line">${esc(a.body)}</div>
+      </div>`).join('') || '<div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-6 text-sm text-slate-500 text-center">No announcements yet.</div>';
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Announcements','Customer + staff broadcasts'):'<h1 class="text-2xl font-black">Announcements</h1>'}
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+        <div class="text-[11px] uppercase font-black tracking-wider text-slate-500 mb-2">Compose</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <select id="hq-ann-audience" class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">
+            <option value="customer">Customers</option>
+            <option value="staff">Staff (HQ only)</option>
+          </select>
+          <select id="hq-ann-severity" class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">
+            <option value="info">Info</option>
+            <option value="warning">Warning</option>
+            <option value="success">Success</option>
+          </select>
+        </div>
+        <input id="hq-ann-title" class="mt-2 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" placeholder="Title">
+        <textarea id="hq-ann-body" rows="4" class="mt-2 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" placeholder="Body — plain text"></textarea>
+        <button onclick="hqPostAnnouncement()" class="mt-2 ms-btn ms-btn--primary !text-[13px]">Publish</button>
+      </div>
+      <div class="grid grid-cols-1 gap-3">${rows}</div>`;
+  } catch (e) {
+    root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message || 'Could not load announcements')}</div>`;
+  }
+}
+window.loadSaasAnnouncements = loadSaasAnnouncements;
+window.hqPostAnnouncement = async () => {
+  const audience = document.getElementById('hq-ann-audience')?.value || 'customer';
+  const severity = document.getElementById('hq-ann-severity')?.value || 'info';
+  const title = (document.getElementById('hq-ann-title')?.value || '').trim();
+  const body = (document.getElementById('hq-ann-body')?.value || '').trim();
+  if (!title || !body) { if (typeof showToast === 'function') showToast('Title and body required', 'error'); return; }
+  try {
+    await apiSendJson('/saas/announcements', 'POST', { audience, severity, title, body });
+    if (typeof showToast === 'function') showToast('Announcement published', 'success');
+    loadSaasAnnouncements();
+  } catch (e) { if (typeof showToast === 'function') showToast(e.message || 'Could not publish', 'error'); }
+};
+window.hqDeleteAnnouncement = async (id) => {
+  if (!confirm('Delete this announcement?')) return;
+  try { await apiSendJson('/saas/announcements/' + id, 'DELETE'); loadSaasAnnouncements(); }
+  catch (e) { if (typeof showToast === 'function') showToast(e.message || 'Could not delete', 'error'); }
+};
+
+// ══ HQ Intelligence ════════════════════════════════════════════════════════
+// A persistent question surface over HQ data. Uses the existing /saas/assistant
+// endpoint (Anthropic-backed). Answers are shown alongside the question so the
+// user can act — never spoken, never surfaced without their prompt.
+const HQ_INTEL_SUGGESTIONS = [
+  'Which trials are most likely to convert?',
+  'Which customers have failed payments?',
+  'What caused MRR to change this month?',
+  'Which accounts are not using Discoverability?',
+  'Which affiliates drove the most revenue?',
+  'What platform errors need attention?',
+];
+async function loadSaasIntelligence() {
+  const root = document.getElementById('saas-intelligence-root'); if (!root) return;
+  const chips = HQ_INTEL_SUGGESTIONS.map(q =>
+    `<button onclick="hqIntelAsk(${JSON.stringify(q).replace(/"/g, '&quot;')})" class="text-[12px] font-bold px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800">${esc(q)}</button>`
+  ).join('');
+  root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('HQ Intelligence','Ask about your MarketSync data — powered by /saas/assistant'):'<h1 class="text-2xl font-black">HQ Intelligence</h1>'}
+    <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+      <div class="text-[11px] uppercase font-black tracking-wider text-slate-500 mb-2">Suggested questions</div>
+      <div class="flex flex-wrap gap-2 mb-3">${chips}</div>
+      <textarea id="hq-intel-input" rows="3" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm" placeholder="Ask a question about revenue, trials, churn, customers, or platform state…"></textarea>
+      <button onclick="hqIntelAsk()" class="mt-2 ms-btn ms-btn--primary !text-[13px]">Ask</button>
+    </div>
+    <div id="hq-intel-thread" class="space-y-3"></div>`;
+}
+window.loadSaasIntelligence = loadSaasIntelligence;
+window.hqIntelAsk = async (preset) => {
+  const input = document.getElementById('hq-intel-input');
+  const q = (preset || input?.value || '').trim();
+  if (!q) return;
+  if (input) input.value = '';
+  const thread = document.getElementById('hq-intel-thread'); if (!thread) return;
+  const askedAt = new Date().toLocaleTimeString();
+  const holder = document.createElement('div');
+  holder.className = 'rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4';
+  holder.innerHTML = `
+    <div class="text-[11px] uppercase font-black tracking-wider text-slate-500">${esc(askedAt)}</div>
+    <div class="text-sm font-black text-slate-800 dark:text-slate-100 mb-2">${esc(q)}</div>
+    <div class="text-sm text-slate-500">Thinking…</div>`;
+  thread.prepend(holder);
+  try {
+    const r = await apiSendJson('/saas/assistant', 'POST', { message: q });
+    const answer = r.answer || r.reply || r.text || 'No answer returned.';
+    holder.lastElementChild.className = 'text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line';
+    holder.lastElementChild.textContent = answer;
+  } catch (e) {
+    holder.lastElementChild.className = 'text-sm text-rose-500';
+    holder.lastElementChild.textContent = e.message || 'Assistant unavailable';
+  }
+};
+
+// ══ HQ Automation diagnostics injection ════════════════════════════════════
+// Overlays a "Health" section on top of the existing saas-automation page.
+// Called by dashboard-part2's route hook every time the page opens, so it
+// never duplicates and always reflects the freshest data.
+async function loadSaasAutomationDiagnostics() {
+  const host = document.getElementById('hq-automation-diagnostics');
+  if (!host) return;
+  host.innerHTML = '<div class="text-sm text-slate-400">Loading automation health…</div>';
+  try {
+    const d = await apiGetJson('/saas/automation/diagnostics');
+    const t = d.totals || {};
+    const NC = '<span class="text-slate-400 text-base font-bold">Not measured</span>';
+    const rows = (d.sequences || []).map(s => `
+      <tr class="border-t border-slate-100 dark:border-slate-800">
+        <td class="p-3 font-bold text-slate-800 dark:text-slate-100">${esc(s.name || s.key)}</td>
+        <td class="p-3 text-right">${s.active}</td>
+        <td class="p-3 text-right">${s.paused}</td>
+        <td class="p-3 text-right">${s.stopped}</td>
+        <td class="p-3 text-right ${s.failed > 0 ? 'text-rose-600 dark:text-rose-400 font-bold' : ''}">${s.failed}</td>
+        <td class="p-3 text-right">${s.enabled ? '<span class="text-emerald-500 font-bold">on</span>' : '<span class="text-slate-500">off</span>'}</td>
+      </tr>`).join('') || '<tr><td colspan="6" class="p-4 text-center text-sm text-slate-500">No sequences yet.</td></tr>';
+    const failures = (d.recent_failures || []).map(f => `
+      <div class="text-[12px] py-1.5 border-t border-slate-100 dark:border-slate-800 first:border-0">
+        <div class="font-bold text-rose-600 dark:text-rose-400">${esc(f.sequence_key)}</div>
+        <div class="text-slate-500 truncate">${esc(f.error || '—')} · ${f.ran_at ? new Date(f.ran_at).toLocaleString() : ''}</div>
+      </div>`).join('') || '<div class="text-xs text-slate-500 italic">No failed runs.</div>';
+    host.innerHTML = `
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+        ${typeof engKpi === 'function' ? engKpi('Active enrollments', String(t.active || 0), 'text-emerald-600 dark:text-emerald-400') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Paused', String(t.paused || 0)) : ''}
+        ${typeof engKpi === 'function' ? engKpi('Stalled >7d', String(t.stalled_over_7d || 0), (t.stalled_over_7d || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : '') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Stopped', String(t.stopped || 0)) : ''}
+        ${typeof engKpi === 'function' ? engKpi('Failed runs 30d', d.runs_connected ? String(t.failed_runs_30d || 0) : NC, (t.failed_runs_30d || 0) > 0 ? 'text-rose-600 dark:text-rose-400' : '') : ''}
+      </div>
+      <div class="mt-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-500">
+            <th class="p-3">Sequence</th><th class="p-3 text-right">Active</th><th class="p-3 text-right">Paused</th>
+            <th class="p-3 text-right">Stopped</th><th class="p-3 text-right">Failed</th><th class="p-3 text-right">Enabled</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div class="mt-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+        <div class="text-[11px] uppercase font-black tracking-wider text-slate-500 mb-2">Recent failed runs</div>
+        ${failures}
+      </div>`;
+  } catch (e) {
+    host.innerHTML = `<div class="text-sm text-rose-500">${esc(e.message || 'Could not load diagnostics')}</div>`;
+  }
+}
+window.loadSaasAutomationDiagnostics = loadSaasAutomationDiagnostics;
+
+// ── HQ operating-ledger UI ─────────────────────────────────────────────────
+// A single-modal pattern reused for both directions (expense / income) and
+// both entry paths (manual, or AI-decoded from a photo).
+//
+// Rules:
+// - Field validation lives on the server; the modal only checks obvious
+//   emptiness so it doesn't shadow the real error text.
+// - The photo path calls /saas/accounting/expenses/scan (or /income/scan),
+//   pre-fills the form, and always lets the user confirm before saving.
+//   The raw photo bytes are never persisted — only the parsed fields land
+//   in Postgres.
+// - Category options are pulled live from the HQ ledger so the UI never
+//   invents a bucket that doesn't exist server-side.
+
+function hqAcctModal(title, innerHtml) {
+  document.getElementById('hq-acct-modal')?.remove();
+  const el = document.createElement('div');
+  el.id = 'hq-acct-modal';
+  el.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm';
+  el.innerHTML = `
+    <div class="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+        <h3 class="text-base font-black text-slate-900 dark:text-white">${esc(title)}</h3>
+        <button onclick="document.getElementById('hq-acct-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">\u{2715}</button>
+      </div>
+      ${innerHtml}
+    </div>`;
+  document.body.appendChild(el);
+  return el;
+}
+
+async function hqLoadCategoryOptions() {
+  try {
+    const d = await apiGetJson('/saas/accounting/expenses?days=30');
+    return d.categories || [];
+  } catch { return []; }
+}
+
+window.hqOpenExpenseModal = async function (prefill) {
+  const cats = await hqLoadCategoryOptions();
+  const opts = ['<option value="">— Uncategorized —</option>']
+    .concat(cats.map(c => `<option value="${esc(c.key)}" ${prefill && prefill.category_key === c.key ? 'selected' : ''}>${esc(c.label || c.key)}</option>`))
+    .join('');
+  const today = new Date().toISOString().slice(0, 10);
+  hqAcctModal('Add expense', `
+    <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500">Vendor</label>
+    <input id="hq-e-vendor" value="${esc((prefill && prefill.vendor) || '')}" class="w-full mt-1 mb-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="e.g. Vercel, AWS, agency name">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500">Amount</label>
+        <input id="hq-e-amount" type="number" min="0" step="0.01" value="${prefill && prefill.total != null ? prefill.total : ''}" class="w-full mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500">Date</label>
+        <input id="hq-e-date" type="date" value="${(prefill && prefill.date) || today}" class="w-full mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm">
+      </div>
+    </div>
+    <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500 mt-3">Category</label>
+    <select id="hq-e-category" class="w-full mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm">${opts}</select>
+    <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500 mt-3">Memo</label>
+    <textarea id="hq-e-memo" rows="2" class="w-full mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="Optional"></textarea>
+    <label class="flex items-center gap-2 mt-3 text-sm text-slate-700 dark:text-slate-200">
+      <input id="hq-e-recurring" type="checkbox"> Recurring subscription
+    </label>
+    <div class="flex justify-end gap-2 mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+      <button onclick="document.getElementById('hq-acct-modal')?.remove()" class="px-4 py-2 rounded-xl text-sm font-bold border border-slate-200 dark:border-slate-700">Cancel</button>
+      <button onclick="hqSubmitExpense()" class="px-4 py-2 rounded-xl text-sm font-bold bg-rose-600 hover:bg-rose-500 text-white">Save expense</button>
+    </div>`);
+};
+
+window.hqSubmitExpense = async () => {
+  const vendor = (document.getElementById('hq-e-vendor')?.value || '').trim();
+  const amount = Number(document.getElementById('hq-e-amount')?.value);
+  const date = document.getElementById('hq-e-date')?.value;
+  const category = document.getElementById('hq-e-category')?.value || null;
+  const memo = document.getElementById('hq-e-memo')?.value || null;
+  const recurring = !!document.getElementById('hq-e-recurring')?.checked;
+  if (!vendor) { if (typeof showToast === 'function') showToast('Vendor required', 'error'); return; }
+  if (!Number.isFinite(amount) || amount <= 0) { if (typeof showToast === 'function') showToast('Amount must be a positive number', 'error'); return; }
+  try {
+    await apiSendJson('/saas/accounting/expenses', 'POST', {
+      vendor, amount, incurred_on: date, category_key: category, memo, recurring,
+    });
+    document.getElementById('hq-acct-modal')?.remove();
+    if (typeof showToast === 'function') showToast('Expense recorded', 'success');
+    if (typeof loadSaasAccounting === 'function') loadSaasAccounting();
+  } catch (e) { if (typeof showToast === 'function') showToast(e.message || 'Could not save expense', 'error'); }
+};
+
+window.hqOpenIncomeModal = async function (prefill) {
+  const cats = await hqLoadCategoryOptions();
+  const opts = ['<option value="">— Uncategorized —</option>']
+    .concat(cats.map(c => `<option value="${esc(c.key)}">${esc(c.label || c.key)}</option>`))
+    .join('');
+  const today = new Date().toISOString().slice(0, 10);
+  hqAcctModal('Add income', `
+    <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500">Source (payer)</label>
+    <input id="hq-i-source" value="${esc((prefill && prefill.source) || '')}" class="w-full mt-1 mb-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="e.g. Consulting — Acme Auto">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500">Amount</label>
+        <input id="hq-i-amount" type="number" min="0" step="0.01" value="${prefill && prefill.amount != null ? prefill.amount : ''}" class="w-full mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500">Received</label>
+        <input id="hq-i-date" type="date" value="${(prefill && prefill.date) || today}" class="w-full mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm">
+      </div>
+    </div>
+    <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500 mt-3">Category</label>
+    <select id="hq-i-category" class="w-full mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm">${opts}</select>
+    <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500 mt-3">Memo</label>
+    <textarea id="hq-i-memo" rows="2" class="w-full mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="Optional"></textarea>
+    <div class="flex justify-end gap-2 mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+      <button onclick="document.getElementById('hq-acct-modal')?.remove()" class="px-4 py-2 rounded-xl text-sm font-bold border border-slate-200 dark:border-slate-700">Cancel</button>
+      <button onclick="hqSubmitIncome()" class="px-4 py-2 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white">Save income</button>
+    </div>`);
+};
+
+window.hqSubmitIncome = async () => {
+  const source = (document.getElementById('hq-i-source')?.value || '').trim();
+  const amount = Number(document.getElementById('hq-i-amount')?.value);
+  const date = document.getElementById('hq-i-date')?.value;
+  const category = document.getElementById('hq-i-category')?.value || null;
+  const memo = document.getElementById('hq-i-memo')?.value || null;
+  if (!source) { if (typeof showToast === 'function') showToast('Source required', 'error'); return; }
+  if (!Number.isFinite(amount) || amount <= 0) { if (typeof showToast === 'function') showToast('Amount must be a positive number', 'error'); return; }
+  try {
+    await apiSendJson('/saas/accounting/income', 'POST', {
+      source, amount, received_on: date, category_key: category, memo,
+    });
+    document.getElementById('hq-acct-modal')?.remove();
+    if (typeof showToast === 'function') showToast('Income recorded', 'success');
+    if (typeof loadSaasAccounting === 'function') loadSaasAccounting();
+  } catch (e) { if (typeof showToast === 'function') showToast(e.message || 'Could not save income', 'error'); }
+};
+
+window.hqDeleteExpense = async (id) => {
+  if (!confirm('Delete this expense?')) return;
+  try { await apiSendJson('/saas/accounting/expenses/' + id, 'DELETE'); if (typeof loadSaasAccounting === 'function') loadSaasAccounting(); }
+  catch (e) { if (typeof showToast === 'function') showToast(e.message || 'Could not delete', 'error'); }
+};
+window.hqDeleteIncome = async (id) => {
+  if (!confirm('Delete this income entry?')) return;
+  try { await apiSendJson('/saas/accounting/income/' + id, 'DELETE'); if (typeof loadSaasAccounting === 'function') loadSaasAccounting(); }
+  catch (e) { if (typeof showToast === 'function') showToast(e.message || 'Could not delete', 'error'); }
+};
+
+// ── Capture pipelines. One shape, two surfaces.
+//
+// Phone (<=767px): skip the modal, open the OS camera/file picker directly
+//   via `<input type=file capture=environment>`.
+// Desktop: open a drop-zone modal that accepts a dragged file, a pasted
+//   screenshot (Cmd+V / Ctrl+V), or a click-to-choose fallback. Drag-drop
+//   and paste are the natural desktop UX; the phone-only file picker was
+//   awkward there.
+//
+// Both paths POST to the /scan endpoint which decodes the image and returns
+// { fields } to pre-fill the confirm modal. Raw bytes are not persisted.
+function hqIsMobile() {
+  return typeof window !== 'undefined'
+    && window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+}
+async function hqSendCaptureImage(endpoint, dataUrl, onFields, label) {
+  const err = document.getElementById('hq-capture-err');
+  const progress = document.getElementById('hq-capture-progress');
+  const drop = document.getElementById('hq-capture-drop');
+  if (progress) progress.classList.remove('hidden');
+  if (drop) drop.classList.add('opacity-40', 'pointer-events-none');
+  if (err) err.classList.add('hidden');
+  if (typeof showToast === 'function' && !progress) showToast('Reading ' + label + '…', 'info');
+  try {
+    const r = await apiSendJson(endpoint, 'POST', { image: dataUrl });
+    document.getElementById('hq-capture-modal')?.remove();
+    onFields(r.fields || {});
+  } catch (e) {
+    if (err) { err.textContent = e.message || ('Could not read ' + label); err.classList.remove('hidden'); }
+    else if (typeof showToast === 'function') showToast(e.message || 'Could not read ' + label, 'error');
+    if (progress) progress.classList.add('hidden');
+    if (drop) drop.classList.remove('opacity-40', 'pointer-events-none');
+  }
+}
+function hqOpenCapture(endpoint, onFields, label) {
+  if (hqIsMobile()) {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*';
+    input.setAttribute('capture', 'environment');
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.onchange = () => {
+      const file = input.files && input.files[0]; input.remove();
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => hqSendCaptureImage(endpoint, evt.target.result, onFields, label);
+      reader.readAsDataURL(file);
+    };
+    input.click();
+    return;
+  }
+  document.getElementById('hq-capture-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'hq-capture-modal';
+  modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm';
+  modal.innerHTML = `
+    <div class="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+        <h3 class="text-base font-black text-slate-900 dark:text-white">Capture ${esc(label)}</h3>
+        <button onclick="document.getElementById('hq-capture-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">\u{2715}</button>
+      </div>
+      <div id="hq-capture-drop" tabindex="0" class="border-2 border-dashed border-indigo-400/60 dark:border-indigo-600/60 hover:border-indigo-600 dark:hover:border-indigo-400 bg-indigo-50/40 dark:bg-indigo-950/20 rounded-2xl p-8 text-center cursor-pointer transition space-y-2 focus:outline-none">
+        <div class="text-sm font-black text-slate-900 dark:text-white">Drop a photo here, paste from clipboard, or click to choose</div>
+        <div class="text-xs text-slate-500 dark:text-slate-400">JPG, PNG or WEBP · Anthropic Vision reads the ${esc(label)}, you confirm the numbers.</div>
+        <div class="text-[11px] text-slate-400">Tip: on Mac ⌘⇧⁴ to screenshot, then ⌘V here. On Windows use ⊞+⇧+S, then Ctrl+V.</div>
+      </div>
+      <input id="hq-capture-file" type="file" accept="image/*" class="hidden">
+      <div id="hq-capture-err" class="hidden mt-3 text-sm text-rose-600 dark:text-rose-400"></div>
+      <div id="hq-capture-progress" class="hidden mt-3 flex items-center justify-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-xs">
+        <span class="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-ping"></span>
+        <span>Decoding with AI…</span>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  const drop = modal.querySelector('#hq-capture-drop');
+  const file = modal.querySelector('#hq-capture-file');
+  const err = modal.querySelector('#hq-capture-err');
+  const handle = (blob) => {
+    if (!blob) return;
+    if (!/^image\//.test(blob.type)) {
+      err.textContent = 'That does not look like an image.'; err.classList.remove('hidden'); return;
+    }
+    const reader = new FileReader();
+    reader.onload = (evt) => hqSendCaptureImage(endpoint, evt.target.result, onFields, label);
+    reader.readAsDataURL(blob);
+  };
+  drop.onclick = () => file.click();
+  file.onchange = () => handle(file.files && file.files[0]);
+  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('ring-2','ring-indigo-400'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('ring-2','ring-indigo-400'));
+  drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('ring-2','ring-indigo-400'); handle(e.dataTransfer?.files?.[0]); });
+  // Global paste (Cmd/Ctrl+V) — the modal is the visual anchor, so any paste
+  // while it is open is meant for it. Focus the drop so the browser prefers
+  // this element for keyboard events over anything underneath.
+  drop.focus();
+  const onPaste = (e) => {
+    const items = (e.clipboardData?.items) || [];
+    for (const it of items) {
+      if (it.kind === 'file' && /^image\//.test(it.type)) {
+        e.preventDefault();
+        return handle(it.getAsFile());
+      }
+    }
+  };
+  const onEsc = (e) => { if (e.key === 'Escape') document.getElementById('hq-capture-modal')?.remove(); };
+  document.addEventListener('paste', onPaste);
+  document.addEventListener('keydown', onEsc);
+  // Detach the global listeners as soon as the modal is torn down.
+  const cleanup = new MutationObserver(() => {
+    if (!document.body.contains(modal)) {
+      document.removeEventListener('paste', onPaste);
+      document.removeEventListener('keydown', onEsc);
+      cleanup.disconnect();
+    }
+  });
+  cleanup.observe(document.body, { childList: true });
+}
+window.hqOpenReceiptCapture = () => hqOpenCapture('/saas/accounting/expenses/scan', (f) => hqOpenExpenseModal(f), 'receipt');
+window.hqOpenInvoiceCapture = () => hqOpenCapture('/saas/accounting/income/scan', (f) => hqOpenIncomeModal(f), 'invoice');
+
+// ── Budget save: batch every non-empty input into one PATCH burst.
+window.hqSaveHqBudgets = async () => {
+  const inputs = document.querySelectorAll('[data-hq-budget-key]');
+  const patches = [];
+  inputs.forEach(el => {
+    const key = el.dataset.hqBudgetKey;
+    const raw = String(el.value || '').trim();
+    // Blank OR 0 = "no budget" (null on the server).
+    const value = raw === '' || Number(raw) === 0 ? null : Number(raw);
+    if (value != null && (!Number.isFinite(value) || value < 0)) return;
+    patches.push({ key, value });
+  });
+  if (!patches.length) { if (typeof showToast === 'function') showToast('Nothing to save', 'error'); return; }
+  try {
+    await Promise.all(patches.map(p =>
+      apiSendJson('/saas/accounting/categories/' + encodeURIComponent(p.key), 'PATCH', { monthly_budget: p.value })
+    ));
+    if (typeof showToast === 'function') showToast('Budgets saved', 'success');
+    if (typeof loadSaasAccounting === 'function') loadSaasAccounting();
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message || 'Could not save budgets', 'error');
+  }
+};
+
+
 
