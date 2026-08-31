@@ -195,6 +195,23 @@ test('hq_announcements migration exists and restricts staff announcements to pla
     'profiles.hq_onboarding jsonb column must be added')
 })
 
+test('HQ desktop nav (SAAS_DEPARTMENTS) includes every Slice 2..5 page', async () => {
+  const part2 = await readFile(
+    new URL('../../marketplace-frontend/js/modules/dashboard-part2.js', import.meta.url), 'utf8'
+  )
+  const block = part2.match(/const SAAS_DEPARTMENTS = \{[\s\S]*?^\};/m)
+  assert.ok(block, 'SAAS_DEPARTMENTS block must exist')
+  // The desktop sidebar renders from SAAS_DEPARTMENTS. A page missing here is
+  // silently invisible on desktop even though it exists as a page-content
+  // container — the exact "I can't see the nav" bug from the last screenshot.
+  for (const page of ['saas-billing', 'saas-trials', 'saas-affiliates',
+                       'saas-product-usage', 'saas-health', 'saas-onboarding',
+                       'saas-announcements', 'saas-intelligence']) {
+    assert.match(block[0], new RegExp(`'${page}'`),
+      `HQ desktop nav (SAAS_DEPARTMENTS) is missing "${page}"`)
+  }
+})
+
 test('HQ mobile nav includes every Slice-2..5 destination', async () => {
   const dashJs = await readFile(
     new URL('../../marketplace-frontend/dashboard.js', import.meta.url), 'utf8'

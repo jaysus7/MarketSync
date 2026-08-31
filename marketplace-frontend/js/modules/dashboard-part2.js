@@ -1636,12 +1636,20 @@ window.deptGo = deptGo;
 // MarketSync owner mode keep the legacy nav untouched — zero regression.
 // The MarketSync owner's SaaS back office is its own flat department list —
 // the company operating system, not a dealership.
+// HQ owner desktop nav. Every Slice 2..5 page MUST appear here — the desktop
+// sidebar is built from THIS registry (renderDeptNav → #dept-nav), not from
+// the legacy #nav-desktop HTML tree. A page missing from SAAS_DEPARTMENTS is
+// silently invisible on desktop even if it exists in MS_ALLOWED_PAGES and has
+// its own page-content container.
 const SAAS_DEPARTMENTS = {
-  pulse:          { label: 'Pulse',          icon: 'chart',    accent: 'market', always: true, pages: [{ page: 'saas-command', label: 'Pulse' }] },
+  pulse:          { label: 'Pulse',          icon: 'chart',    accent: 'market', always: true, pages: [
+    { page: 'saas-command', label: 'Pulse' },
+    { page: 'saas-intelligence', label: 'HQ Intelligence' },
+  ] },
   accounts:       { label: 'Accounts',       icon: 'building', accent: 'market', always: true, pages: [
     { page: 'saas-customers', label: 'Accounts' },
     { page: 'saas-trials', label: 'Trials' },
-    { page: 'saas-onboarding', label: 'Onboarding' },
+    { page: 'saas-onboarding', label: 'Staff Onboarding' },
   ] },
   leads:          { label: 'Leads',          icon: 'funnel',   accent: 'market', always: true, pages: [
     { page: 'saas-funnel', label: 'Leads' },
@@ -1652,10 +1660,11 @@ const SAAS_DEPARTMENTS = {
     { page: 'saas-entitlements', label: 'Entitlements' },
     { page: 'saas-flags', label: 'Feature flags' },
     { page: 'saas-usage', label: 'Usage' },
+    { page: 'saas-product-usage', label: 'Product Usage' },
     { page: 'saas-integrations', label: 'Integrations' },
     { page: 'saas-audit', label: 'Audit log' },
     { page: 'saas-security', label: 'Security' },
-    { page: 'saas-health', label: 'System health' },
+    { page: 'saas-health', label: 'Platform Health' },
     { page: 'config', label: 'Configuration' },
   ] },
   people:         { label: 'People',         icon: 'users',    accent: 'market', always: true, pages: [
@@ -1667,12 +1676,14 @@ const SAAS_DEPARTMENTS = {
   communications: { label: 'Communications', icon: 'chat',    accent: 'market', always: true, pages: [
     { page: 'saas-automation', label: 'Email, SMS & Automations' },
     { page: 'saas-email-marketing', label: 'Campaigns' },
+    { page: 'saas-announcements', label: 'Announcements' },
     { page: 'saas-studio', label: 'Design Studio' },
     { page: 'saas-website', label: 'Website' },
   ] },
   money:          { label: 'Money',          icon: 'currency', accent: 'market', always: true, pages: [
     { page: 'saas-accounting', label: 'Company money' },
     { page: 'saas-billing', label: 'Billing' },
+    { page: 'saas-affiliates', label: 'Affiliates' },
     { page: 'saas-products', label: 'Product Catalog' },
   ] },
 };
