@@ -1333,26 +1333,86 @@ window.loadSaasProductUsage = loadSaasProductUsage;
 // ══ HQ Platform Health ═════════════════════════════════════════════════════
 async function loadSaasHealth() {
   const root = document.getElementById('saas-health-root'); if (!root) return;
+  const NC = '<span class="text-slate-400 text-base font-bold">Not measured</span>';
+  const fmt = (v) => v == null ? NC : Number(v).toLocaleString();
   root.innerHTML = '<div class="text-sm text-slate-400 p-6">Checking platform…</div>';
   try {
     const d = await apiGetJson('/saas/platform-health');
     const s = d.signals || {};
-    const failedInt = s.failed_integrations == null ? '<span class="text-slate-400 text-base font-bold">Not connected</span>' : (s.failed_integrations).toLocaleString();
+    const rf = d.recent_failures || { jobs: [], webhooks: [] };
     const statusTone = d.status === 'ok' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400';
-    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Platform Health','Dunning, expiring trials, integration failures'):'<h1 class="text-2xl font-black">Platform Health</h1>'}
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    const failedJobsRows = (rf.jobs || []).map(j => `
+      <tr class="border-t border-slate-100 dark:border-slate-800">
+        <td class="p-3 font-bold text-slate-800 dark:text-slate-100">${esc(j.job_key)}</td>
+        <td class="p-3 text-xs text-rose-600 dark:text-rose-400 truncate max-w-md">${esc(j.error || '—')}</td>
+        <td class="p-3 text-xs text-slate-500 whitespace-nowrap">${j.started_at ? new Date(j.started_at).toLocaleString() : '—'}</td>
+        <td class="p-3 text-xs text-slate-500 text-right">${j.duration_ms != null ? j.duration_ms + 'ms' : ''}</td>
+      </tr>`).join('') || `<tr><td colspan="4" class="p-4 text-center text-sm text-slate-500">${s.failed_jobs_24h == null ? 'Not measured — enable the hq_job_runs log to populate this table.' : 'No failed jobs in the last 24h.'}</td></tr>`;
+    const failedWebhookRows = (rf.webhooks || []).map(w => `
+      <tr class="border-t border-slate-100 dark:border-slate-800">
+        <td class="p-3 font-bold text-slate-800 dark:text-slate-100">${esc(w.provider)}</td>
+        <td class="p-3 text-xs text-rose-600 dark:text-rose-400 truncate max-w-md">${esc(w.error || '—')}</td>
+        <td class="p-3 text-xs text-slate-500 whitespace-nowrap">${w.received_at ? new Date(w.received_at).toLocaleString() : '—'}</td>
+      </tr>`).join('') || `<tr><td colspan="3" class="p-4 text-center text-sm text-slate-500">${s.failed_webhooks_24h == null ? 'Not measured — enable the hq_webhook_events log to populate this table.' : 'No failed webhooks in the last 24h.'}</td></tr>`;
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Platform Health','Dunning, expiring trials, integrations, jobs, webhooks'):'<h1 class="text-2xl font-black">Platform Health</h1>'}
+      <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         ${typeof engKpi === 'function' ? engKpi('Overall', d.status === 'ok' ? 'Healthy' : 'Degraded', statusTone) : ''}
         ${typeof engKpi === 'function' ? engKpi('Past due', (s.past_due || 0).toLocaleString(), (s.past_due || 0) > 0 ? 'text-rose-600 dark:text-rose-400' : '') : ''}
-        ${typeof engKpi === 'function' ? engKpi('Trials expiring ≤5d', (s.trials_expiring_5d || 0).toLocaleString(), (s.trials_expiring_5d || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : '') : ''}
-        ${typeof engKpi === 'function' ? engKpi('Failed integrations', failedInt, (s.failed_integrations > 0) ? 'text-rose-600 dark:text-rose-400' : '') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Trials ≤5d', (s.trials_expiring_5d || 0).toLocaleString(), (s.trials_expiring_5d || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : '') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Failed integrations', fmt(s.failed_integrations), (s.failed_integrations > 0) ? 'text-rose-600 dark:text-rose-400' : '') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Failed jobs 24h', fmt(s.failed_jobs_24h), (s.failed_jobs_24h > 0) ? 'text-rose-600 dark:text-rose-400' : '') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Failed webhooks 24h', fmt(s.failed_webhooks_24h), (s.failed_webhooks_24h > 0) ? 'text-rose-600 dark:text-rose-400' : '') : ''}
       </div>
-      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 text-sm text-slate-600 dark:text-slate-300">
-        Signals are read live from dealerships + dealer_integrations. Environment: <b>${esc(d.env || 'unknown')}</b>.
-      </div>`;
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <div class="px-4 pt-4 pb-2 text-[11px] uppercase tracking-wider font-black text-slate-500">Recent failed jobs</div>
+        <table class="w-full text-left text-xs">
+          <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-500">
+            <th class="p-3">Job</th><th class="p-3">Error</th><th class="p-3">When</th><th class="p-3 text-right">Duration</th>
+          </tr></thead>
+          <tbody>${failedJobsRows}</tbody>
+        </table>
+      </div>
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <div class="px-4 pt-4 pb-2 text-[11px] uppercase tracking-wider font-black text-slate-500">Recent failed webhooks</div>
+        <table class="w-full text-left text-xs">
+          <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-500">
+            <th class="p-3">Provider</th><th class="p-3">Error</th><th class="p-3">When</th>
+          </tr></thead>
+          <tbody>${failedWebhookRows}</tbody>
+        </table>
+      </div>
+      <div class="text-[11px] text-slate-500">Environment: <b>${esc(d.env || 'unknown')}</b>.</div>`;
   } catch (e) {
     root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message || 'Could not load platform health')}</div>`;
   }
 }
 window.loadSaasHealth = loadSaasHealth;
+
+// ══ HQ Expense modal (Accounting → Expenses tab uses this) ═════════════════
+// Simple prompt-style entry. Feeds POST /saas/accounting/expenses. Numeric
+// validation lives on the server (positive amount required); the UI only
+// guards against obvious empty input.
+window.hqOpenExpenseModal = async function () {
+  const vendor = (prompt('Vendor name') || '').trim();
+  if (!vendor) return;
+  const amountStr = (prompt('Amount (USD)') || '').trim();
+  const amount = Number(amountStr);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    if (typeof showToast === 'function') showToast('Amount must be a positive number', 'error');
+    return;
+  }
+  const category = (prompt('Category key (infrastructure, software, marketing, contractors, operations, or leave blank)') || '').trim();
+  const memo = (prompt('Memo (optional)') || '').trim();
+  try {
+    await apiSendJson('/saas/accounting/expenses', 'POST', {
+      vendor, amount, category_key: category || null, memo: memo || null,
+    });
+    if (typeof showToast === 'function') showToast('Expense recorded', 'success');
+    if (typeof loadSaasAccounting === 'function') loadSaasAccounting();
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message || 'Could not record expense', 'error');
+  }
+};
+
 
 

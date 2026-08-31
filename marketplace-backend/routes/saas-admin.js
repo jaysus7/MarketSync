@@ -9,6 +9,7 @@
  */
 import { supabaseAdmin, stripe } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { requestHasCronSecret } from '../cron-auth.js'
 import { resolveProducts, saasCan, saasRoleOf, SAAS_ROLES, SAAS_PERMISSIONS } from './profile.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { SMART_MODEL } from '../aiModels.js'
@@ -708,6 +709,191 @@ export function registerSaasAdmin(app) {
     })
   })
 
+  // ══ HQ Trend Charts (time-series from daily snapshots) ═══════════════════
+  // Reads N days of the hq_daily_snapshots table. When the table is empty (no
+  // cron run yet) we return connected:false + an empty series — the chart then
+  // renders "Not measured" instead of a fake flat line at zero.
+  app.get('/saas/trends', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const days = Math.max(7, Math.min(365, Number(req.query.days) || 30))
+    const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
+    const { data, error } = await supabaseAdmin.from('hq_daily_snapshots')
+      .select('*').gte('snapshot_date', since).order('snapshot_date', { ascending: true })
+    if (error) return res.json({ connected: false, window_days: days, series: null, reason: error.message })
+    if (!data || data.length === 0) return res.json({ connected: false, window_days: days, series: null })
+    res.json({
+      connected: true, window_days: days,
+      series: data.map(r => ({
+        date: r.snapshot_date,
+        mrr: Number(r.mrr) || 0, arr: Number(r.arr) || 0,
+        active_customers: r.active_customers, trial_accounts: r.trial_accounts,
+        new_this_month: r.new_this_month, churn_risk: r.churn_risk,
+        past_due: r.past_due,
+        affiliate_payouts_due: r.affiliate_payouts_due == null ? null : Number(r.affiliate_payouts_due),
+      })),
+    })
+  })
+
+  // ── Nightly snapshot job (cron-secret gated). Idempotent per calendar day. ─
+  // POST /cron/hq-snapshot — same secret contract every /cron/* uses. Called
+  // once a day (Render cron), pulls the same numbers /saas/overview computes,
+  // and upserts a row keyed by today's UTC date.
+  app.post('/cron/hq-snapshot', async (req, res) => {
+    if (!requestHasCronSecret(req)) return res.status(403).json({ error: 'forbidden' })
+    const t0 = Date.now()
+    const runInsert = async (status, error, meta) => {
+      await supabaseAdmin.from('hq_job_runs').insert({
+        job_key: 'hq_snapshot', status, error, metadata: meta || {},
+        duration_ms: Date.now() - t0, finished_at: new Date().toISOString(),
+      })
+    }
+    try {
+      const [{ data: dealers }, { data: profiles }, affRes] = await Promise.all([
+        supabaseAdmin.from('dealerships').select('id, is_personal, billing_status, trial_ends_at, products, created_at').limit(5000),
+        supabaseAdmin.from('profiles').select('dealership_id, billing_status, trial_ends_at').limit(20000),
+        supabaseAdmin.from('affiliate_commissions').select('amount, status').limit(50000).then(r => r, () => ({ data: null })),
+      ])
+      const profByDealer = {}
+      for (const p of profiles || []) { (profByDealer[p.dealership_id] = profByDealer[p.dealership_id] || []).push(p) }
+      const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0)
+      let mrr = 0, active = 0, trials = 0, churnRisk = 0, newThisMonth = 0, pastDue = 0
+      for (const d of (dealers || [])) {
+        let status = d.billing_status, trialEnds = d.trial_ends_at
+        if (d.is_personal) { const u = (profByDealer[d.id] || [])[0]; if (u) { status = u.billing_status; trialEnds = u.trial_ends_at } }
+        const products = resolveProducts(d)
+        const acctMrr = Object.keys(PRODUCT_MRR).reduce((s, k) => s + (products[k] ? PRODUCT_MRR[k] : 0), 0)
+        const futureTrial = trialEnds && new Date(trialEnds) > new Date()
+        if (activeStatus(status)) { active++; mrr += acctMrr }
+        else if (dunningStatus(status)) { churnRisk++; pastDue++ }
+        else if (trialingStatus(status) || futureTrial) { if (futureTrial) trials++; else churnRisk++ }
+        if (d.created_at && new Date(d.created_at) >= monthStart) newThisMonth++
+      }
+      let affPayoutsDue = null
+      if (affRes.data) {
+        affPayoutsDue = 0
+        for (const c of affRes.data) if (c.status !== 'paid') affPayoutsDue += Number(c.amount) || 0
+        affPayoutsDue = Math.round(affPayoutsDue * 100) / 100
+      }
+      const today = new Date().toISOString().slice(0, 10)
+      const { error: upErr } = await supabaseAdmin.from('hq_daily_snapshots').upsert({
+        snapshot_date: today, mrr, arr: mrr * 12,
+        active_customers: active, trial_accounts: trials, new_this_month: newThisMonth,
+        churn_risk: churnRisk, past_due: pastDue, affiliate_payouts_due: affPayoutsDue,
+        captured_at: new Date().toISOString(),
+      }, { onConflict: 'snapshot_date' })
+      if (upErr) throw upErr
+      await runInsert('success', null, { mrr, active, trials })
+      res.json({ ok: true, snapshot_date: today, mrr, active_customers: active })
+    } catch (e) {
+      await runInsert('error', e.message)
+      res.status(500).json({ error: e.message })
+    }
+  })
+
+  // ══ HQ Accounting — company expense ledger + budgets ═════════════════════
+  // These are MarketSync's OWN operating expenses, not a dealership ledger.
+  // Reads gated on view_customers (Pulse level); writes on manage_followups
+  // (same gate as other HQ mutations). Cross-day totals stay honest — if the
+  // table is empty the UI shows the empty state, never a placeholder number.
+  app.get('/saas/accounting/expenses', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const days = Math.max(1, Math.min(365, Number(req.query.days) || 90))
+    const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
+    const [{ data: cats }, { data: rows }] = await Promise.all([
+      supabaseAdmin.from('hq_expense_categories').select('*').order('label'),
+      supabaseAdmin.from('hq_vendor_expenses').select('*').gte('incurred_on', since).order('incurred_on', { ascending: false }).limit(2000),
+    ])
+    const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0)
+    const totals = { window: 0, this_month: 0, by_category: {} }
+    for (const c of (cats || [])) totals.by_category[c.key] = { label: c.label, monthly_budget: c.monthly_budget == null ? null : Number(c.monthly_budget), spent_this_month: 0, spent_window: 0 }
+    for (const r of (rows || [])) {
+      const amt = Number(r.amount) || 0
+      totals.window += amt
+      const thisMonth = new Date(r.incurred_on) >= monthStart
+      if (thisMonth) totals.this_month += amt
+      const bucket = totals.by_category[r.category_key] || (totals.by_category[r.category_key || 'uncategorized'] = { label: r.category_key || 'Uncategorized', monthly_budget: null, spent_this_month: 0, spent_window: 0 })
+      bucket.spent_window += amt
+      if (thisMonth) bucket.spent_this_month += amt
+    }
+    for (const k of Object.keys(totals.by_category)) {
+      const b = totals.by_category[k]
+      b.spent_this_month = Math.round(b.spent_this_month * 100) / 100
+      b.spent_window = Math.round(b.spent_window * 100) / 100
+      b.budget_utilization = b.monthly_budget ? Math.round(b.spent_this_month / b.monthly_budget * 100) : null
+    }
+    res.json({
+      window_days: days,
+      totals: {
+        window: Math.round(totals.window * 100) / 100,
+        this_month: Math.round(totals.this_month * 100) / 100,
+        by_category: totals.by_category,
+      },
+      categories: cats || [],
+      expenses: rows || [],
+    })
+  })
+
+  app.post('/saas/accounting/expenses', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const b = req.body || {}
+    const vendor = String(b.vendor || '').trim().slice(0, 240)
+    const amount = Number(b.amount)
+    const incurredOn = b.incurred_on ? new Date(b.incurred_on) : new Date()
+    if (!vendor) return res.status(400).json({ error: 'Vendor required' })
+    if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'Amount must be a positive number' })
+    if (Number.isNaN(incurredOn.getTime())) return res.status(400).json({ error: 'Invalid incurred_on date' })
+    const row = {
+      vendor,
+      category_key: b.category_key ? String(b.category_key).trim().slice(0, 60) : null,
+      amount, currency: (b.currency || 'USD').slice(0, 3).toUpperCase(),
+      incurred_on: incurredOn.toISOString().slice(0, 10),
+      memo: b.memo ? String(b.memo).slice(0, 1000) : null,
+      recurring: !!b.recurring,
+      created_by: req.user?.id || null,
+    }
+    const { data, error } = await supabaseAdmin.from('hq_vendor_expenses').insert(row).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+
+  app.patch('/saas/accounting/expenses/:id', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const patch = {}
+    const b = req.body || {}
+    for (const k of ['vendor', 'category_key', 'memo']) if (k in b) patch[k] = b[k] == null || b[k] === '' ? null : String(b[k]).slice(0, 1000)
+    if ('amount' in b) { const n = Number(b.amount); if (!Number.isFinite(n) || n <= 0) return res.status(400).json({ error: 'Bad amount' }); patch.amount = n }
+    if ('incurred_on' in b) patch.incurred_on = new Date(b.incurred_on).toISOString().slice(0, 10)
+    if ('recurring' in b) patch.recurring = !!b.recurring
+    if ('status' in b) {
+      if (!['recorded', 'pending', 'paid', 'cancelled'].includes(b.status)) return res.status(400).json({ error: 'Bad status' })
+      patch.status = b.status
+    }
+    const { data, error } = await supabaseAdmin.from('hq_vendor_expenses').update(patch).eq('id', req.params.id).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+
+  app.delete('/saas/accounting/expenses/:id', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const { error } = await supabaseAdmin.from('hq_vendor_expenses').delete().eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true })
+  })
+
+  app.patch('/saas/accounting/categories/:key', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const b = req.body || {}
+    const patch = {}
+    if ('label' in b) patch.label = String(b.label || '').trim().slice(0, 240)
+    if ('monthly_budget' in b) {
+      if (b.monthly_budget == null || b.monthly_budget === '') patch.monthly_budget = null
+      else { const n = Number(b.monthly_budget); if (!Number.isFinite(n) || n < 0) return res.status(400).json({ error: 'Bad budget' }); patch.monthly_budget = n }
+    }
+    const { data, error } = await supabaseAdmin.from('hq_expense_categories').update(patch).eq('key', req.params.key).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+
   // ══ HQ Billing Summary ════════════════════════════════════════════════════
   // Rolls up subscription state across every dealership: active / trialing /
   // past-due / cancel-at-period-end counts, plus a receivables approximation
@@ -763,9 +949,14 @@ export function registerSaasAdmin(app) {
   app.get('/saas/platform-health', requireAuth, async (req, res) => {
     if (!need('view_customers')(req, res)) return
     const safe = (p) => p.then(r => r, () => ({ data: null, error: true }))
-    const [dRes, iRes] = await Promise.all([
+    const since24h = new Date(Date.now() - 24 * 3600 * 1000).toISOString()
+    const [dRes, iRes, jRes, wRes] = await Promise.all([
       safe(supabaseAdmin.from('dealerships').select('billing_status, trial_ends_at, is_personal').limit(2000)),
       safe(supabaseAdmin.from('dealer_integrations').select('status, provider, updated_at').limit(5000)),
+      safe(supabaseAdmin.from('hq_job_runs').select('job_key, status, error, started_at, duration_ms')
+        .gte('started_at', since24h).order('started_at', { ascending: false }).limit(1000)),
+      safe(supabaseAdmin.from('hq_webhook_events').select('provider, status, error, received_at')
+        .gte('received_at', since24h).order('received_at', { ascending: false }).limit(1000)),
     ])
     let pastDue = 0, expiringTrials = 0
     for (const d of (dRes.data || [])) {
@@ -777,14 +968,38 @@ export function registerSaasAdmin(app) {
     const failedIntegrations = integrationsConnected
       ? (iRes.data || []).filter(i => ['error', 'failed', 'disconnected'].includes(String(i.status || '').toLowerCase())).length
       : null
-    const status = (pastDue > 0 || (failedIntegrations && failedIntegrations > 0))
-      ? 'degraded' : 'ok'
+    // Job + webhook health. Both null-when-empty so brand new environments
+    // render "Not measured" instead of a fake "0 failures".
+    let failedJobs = null, runningJobs = null, recentFailedJobs = null
+    if (jRes.data !== null) {
+      failedJobs = jRes.data.filter(r => r.status === 'error').length
+      runningJobs = jRes.data.filter(r => r.status === 'running').length
+      recentFailedJobs = jRes.data.filter(r => r.status === 'error').slice(0, 10).map(r => ({
+        job_key: r.job_key, error: r.error, started_at: r.started_at, duration_ms: r.duration_ms,
+      }))
+    }
+    let failedWebhooks = null, recentFailedWebhooks = null
+    if (wRes.data !== null) {
+      failedWebhooks = wRes.data.filter(r => r.status === 'failed').length
+      recentFailedWebhooks = wRes.data.filter(r => r.status === 'failed').slice(0, 10).map(r => ({
+        provider: r.provider, error: r.error, received_at: r.received_at,
+      }))
+    }
+    const anySignalBad = (pastDue > 0) || (failedIntegrations && failedIntegrations > 0)
+      || (failedJobs != null && failedJobs > 0) || (failedWebhooks != null && failedWebhooks > 0)
     res.json({
-      status,
+      status: anySignalBad ? 'degraded' : 'ok',
       signals: {
         past_due: pastDue,
         trials_expiring_5d: expiringTrials,
-        failed_integrations: failedIntegrations,           // null → "Not connected"
+        failed_integrations: failedIntegrations,
+        failed_jobs_24h: failedJobs,          // null → "Not measured"
+        running_jobs: runningJobs,
+        failed_webhooks_24h: failedWebhooks,   // null → "Not measured"
+      },
+      recent_failures: {
+        jobs: recentFailedJobs || [],
+        webhooks: recentFailedWebhooks || [],
       },
       env: process.env.NODE_ENV || 'unknown',
     })

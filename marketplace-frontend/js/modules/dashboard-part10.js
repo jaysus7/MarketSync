@@ -1690,10 +1690,64 @@ function hqTrialRow(t) {
     <span class="text-[12px] ${warn ? 'text-rose-500 font-bold' : 'text-slate-400'} whitespace-nowrap">${t.days_left == null ? 'trial' : t.days_left + 'd left'} · ${prods} product${prods === 1 ? '' : 's'}</span>
   </button>`;
 }
+// HQ time-series helpers. Sparkline is a small inline SVG that renders in both
+// themes and does NOT invent points — if the server returns connected:false
+// the caller prints "Not measured" instead of building a fake line at 0.
+function hqSpark(points, opts) {
+  const w = (opts && opts.w) || 320, h = (opts && opts.h) || 48;
+  const stroke = (opts && opts.stroke) || 'currentColor';
+  const nums = (points || []).map(p => Number(p) || 0);
+  if (nums.length < 2) return '';
+  const min = Math.min.apply(null, nums), max = Math.max.apply(null, nums);
+  const range = max - min || 1, step = w / (nums.length - 1);
+  const d = nums.map((v, i) => (i ? 'L' : 'M') + (i * step).toFixed(1) + ',' + (h - ((v - min) / range) * (h - 4) - 2).toFixed(1)).join(' ');
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" preserveAspectRatio="none" aria-hidden="true">
+    <path d="${d}" fill="none" stroke="${stroke}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+function hqTrendCard(t) {
+  if (!t || !t.connected || !Array.isArray(t.series) || t.series.length < 2) {
+    return engCard('Trends (30 days)', `
+      <div class="py-6 text-center">
+        <div class="font-black text-slate-500 dark:text-slate-400">Not measured yet</div>
+        <div class="text-xs text-slate-500 mt-1">Historical charts populate once the nightly HQ snapshot has run for at least two days.</div>
+      </div>`);
+  }
+  const first = t.series[0], last = t.series[t.series.length - 1];
+  const pct = (a, b) => a ? Math.round((b - a) / a * 100) : null;
+  const tone = (delta) => delta == null ? '' : (delta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400');
+  const row = (label, key, valFmt, cls) => {
+    const seq = t.series.map(p => p[key]);
+    const delta = pct(first[key], last[key]);
+    return `<div class="grid grid-cols-12 items-center gap-3 py-2 border-t border-slate-100 dark:border-slate-800 first:border-0">
+      <div class="col-span-3 text-[12px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">${esc(label)}</div>
+      <div class="col-span-2 text-sm font-black text-slate-800 dark:text-slate-100">${valFmt(last[key])}</div>
+      <div class="col-span-1 text-xs font-bold ${tone(delta)}">${delta == null ? '' : (delta >= 0 ? '+' : '') + delta + '%'}</div>
+      <div class="col-span-6 ${cls || 'text-indigo-500'}">${hqSpark(seq, { stroke: 'currentColor' })}</div>
+    </div>`;
+  };
+  return engCard('Trends (30 days)', `
+    ${row('MRR', 'mrr', engMoney0, 'text-emerald-500')}
+    ${row('Active accounts', 'active_customers', v => (v || 0).toLocaleString(), 'text-indigo-500')}
+    ${row('Trials', 'trial_accounts', v => (v || 0).toLocaleString(), 'text-blue-500')}
+    ${row('Churn risk', 'churn_risk', v => (v || 0).toLocaleString(), 'text-rose-500')}
+    ${row('Past due', 'past_due', v => (v || 0).toLocaleString(), 'text-amber-500')}
+    <div class="text-[11px] text-slate-500 mt-2">Every row is a real snapshot from hq_daily_snapshots — no line is drawn on invented data.</div>`);
+}
+
 ENGINES['saas-command'] = {
   rootId: 'saas-command-root', title: 'MarketSync Pulse', subtitle: 'Run customers, sales, team, communications, revenue, and platform operations from one place.',
   icon: 'chart', accent: 'indigo', hideRail: true, hideTabBar: true, tabOrder: ['overview'],
-  fetch: () => apiGetJson('/saas/overview'),
+  fetch: async () => {
+    // Trends come from the nightly snapshot job — unavailable in a fresh
+    // environment. Failing here would blank the whole Pulse, so a caught
+    // rejection resolves to null and the Trends card renders "Not measured".
+    const [overview, trends] = await Promise.all([
+      apiGetJson('/saas/overview'),
+      apiGetJson('/saas/trends?days=30').catch(() => ({ connected: false, series: null })),
+    ]);
+    return { ...overview, _trends: trends };
+  },
   quickActions: [
     { label: 'Dealerships', icon: 'chart', onclick: "switchPage('saas-customers')" },
     { label: 'Billing', icon: 'currency', onclick: "switchPage('saas-billing')" },
@@ -1803,7 +1857,8 @@ ENGINES['saas-command'] = {
               <span class="text-sm font-black ${healthTone || 'text-slate-700 dark:text-slate-200'}">${healthLabel}</span>
             </div>
             <button onclick="switchPage('saas-health')" class="mt-3 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm font-black text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800">Open System Health</button>`)}
-        </div>`;
+        </div>
+        ${hqTrendCard(d._trends)}`;
     },
     work(body, d) {
       const trials = (d.trials || []).map(hqTrialRow).join('') || engEmpty('No active trials.');

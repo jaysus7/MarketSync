@@ -809,8 +809,15 @@ ENGINES['saas-accounting'] = {
   icon: 'currency', accent: 'emerald',
   hideRail: true, hideTabBar: true, tabOrder: ['overview'],
   fetch: async () => {
-    const [money, budget, accounts] = await Promise.all([apiGetJson('/saas/accounting'), apiGetJson('/accounting/budget').catch(() => null), apiGetJson('/accounting/accounts').catch(() => ({accounts:[]}))]);
-    return {...money, budget, accounts: accounts.accounts || accounts || []};
+    const [money, budget, accounts, hqExpenses] = await Promise.all([
+      apiGetJson('/saas/accounting'),
+      apiGetJson('/accounting/budget').catch(() => null),
+      apiGetJson('/accounting/accounts').catch(() => ({accounts:[]})),
+      // HQ operating-expense ledger. Falls to null on 404 (fresh env before
+      // migration) so the tab shows "Not connected" instead of empty totals.
+      apiGetJson('/saas/accounting/expenses?days=90').catch(() => null),
+    ]);
+    return {...money, budget, accounts: accounts.accounts || accounts || [], _hqExpenses: hqExpenses};
   },
   quickActions: [
     { label: 'MarketSync HQ', icon: 'chart', onclick: "switchPage('saas-command')" },
@@ -857,20 +864,64 @@ ENGINES['saas-accounting'] = {
           ${engKpi('Trials', (d.trials || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
         </div>`)}`;
     },
-    insights(body, d) {   // Expenses — affiliate program
+    insights(body, d) {   // Expenses — HQ vendor ledger + affiliate program
       const a = d.affiliate || {};
+      const hq = d._hqExpenses;
+      const hqBlock = !hq
+        ? `<div class="rounded-2xl border border-amber-300/60 bg-amber-50/40 dark:border-amber-900/60 dark:bg-amber-950/20 p-4 text-sm text-amber-800 dark:text-amber-200"><b>Not connected</b> — apply the HQ command-center migration to enable the vendor expense ledger.</div>`
+        : (() => {
+            const t = hq.totals || {};
+            const bcRows = Object.entries(t.by_category || {}).map(([k, b]) => {
+              const budget = b.monthly_budget;
+              const pct = b.budget_utilization;
+              const bar = budget == null ? '<span class="text-[11px] text-slate-400">No budget set</span>' : `
+                <div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                  <div class="h-full ${pct > 100 ? 'bg-rose-500' : pct > 80 ? 'bg-amber-500' : 'bg-emerald-500'}" style="width:${Math.min(100, pct || 0)}%"></div>
+                </div>`;
+              return `<div class="grid grid-cols-12 items-center gap-2 py-2 border-t border-slate-100 dark:border-slate-800 first:border-0 text-[12px]">
+                <div class="col-span-4 font-bold text-slate-800 dark:text-slate-100 truncate">${esc(b.label || k)}</div>
+                <div class="col-span-2 text-right font-bold">${engMoney0(b.spent_this_month)}</div>
+                <div class="col-span-2 text-right text-slate-500">${budget == null ? '—' : engMoney0(budget)}</div>
+                <div class="col-span-1 text-right ${pct > 100 ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-slate-500'}">${pct == null ? '' : pct + '%'}</div>
+                <div class="col-span-3">${bar}</div>
+              </div>`;
+            }).join('');
+            const rows = (hq.expenses || []).slice(0, 40).map(e => `
+              <tr class="border-t border-slate-100 dark:border-slate-800 text-[12px]">
+                <td class="p-2 whitespace-nowrap text-slate-500">${e.incurred_on}</td>
+                <td class="p-2 font-bold">${esc(e.vendor)}</td>
+                <td class="p-2 text-slate-500">${esc(e.category_key || '—')}</td>
+                <td class="p-2 text-right font-black">${engMoney0(e.amount)}</td>
+                <td class="p-2 text-xs">${e.recurring ? '<span class="text-indigo-500 font-bold">recurring</span>' : ''}</td>
+              </tr>`).join('') || '<tr><td colspan="5" class="p-4 text-center text-sm text-slate-500">No expenses recorded in the last 90 days.</td></tr>';
+            return `
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                ${engKpi('Spent this month', engMoney0(t.this_month), 'text-rose-600 dark:text-rose-400')}
+                ${engKpi('Spent (90d)', engMoney0(t.window))}
+                ${engKpi('Categories', String(Object.keys(t.by_category || {}).length))}
+              </div>
+              ${engCard('Budget vs actual (this month)', bcRows || '<div class="py-4 text-center text-sm text-slate-500">No categories yet.</div>')}
+              ${engCard('Recent vendor expenses', `
+                <div class="mb-3"><button onclick="hqOpenExpenseModal()" class="ms-btn ms-btn--primary !text-[13px]">Add expense</button></div>
+                <div class="overflow-x-auto"><table class="w-full text-left">
+                  <thead><tr class="text-[10px] font-black uppercase text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                    <th class="p-2">Date</th><th class="p-2">Vendor</th><th class="p-2">Category</th><th class="p-2 text-right">Amount</th><th class="p-2"></th>
+                  </tr></thead>
+                  <tbody>${rows}</tbody>
+                </table></div>`)}`;
+          })();
       body.innerHTML = `
+        ${hqBlock}
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          ${engKpi('Owed now', engMoney0(a.pending), a.pending ? 'text-amber-600 dark:text-amber-400' : '')}
-          ${engKpi('Paid this month', engMoney0(a.paid_this_month), 'text-rose-600 dark:text-rose-400')}
-          ${engKpi('Accrued this month', engMoney0(a.accrued_this_month))}
-          ${engKpi('Paid all-time', engMoney0(a.paid))}
+          ${engKpi('Affiliate owed now', engMoney0(a.pending), a.pending ? 'text-amber-600 dark:text-amber-400' : '')}
+          ${engKpi('Affiliate paid this month', engMoney0(a.paid_this_month), 'text-rose-600 dark:text-rose-400')}
+          ${engKpi('Affiliate accrued this month', engMoney0(a.accrued_this_month))}
+          ${engKpi('Affiliate paid all-time', engMoney0(a.paid))}
         </div>
         ${engCard('Affiliate program', `<div class="text-[13px] text-slate-600 dark:text-slate-300 space-y-2">
-          <p>Affiliate commissions are MarketSync's recurring cost of acquisition — a share of the subscription revenue referred accounts generate. Paying out posts the amount as a MarketSync expense.</p>
-          <button onclick="switchPage('affiliates-admin')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Manage affiliates &amp; payouts →</button>
-        </div>`)}
-        <div class="text-[12px] text-slate-400">Other operating expenses (infrastructure, payroll, Stripe fees) aren't itemised here yet — they'd come from a connected expense feed or Stripe.</div>`;
+          <p>Affiliate commissions are MarketSync's recurring cost of acquisition. Paying out posts the amount as a MarketSync expense.</p>
+          <button onclick="switchPage('saas-affiliates')" class="text-[13px] font-bold px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Manage affiliates &amp; payouts →</button>
+        </div>`)}`;
     },
     automation(body) {
       body.innerHTML = engCard('Revenue &amp; cost automation', `<ul class="text-[13px] text-slate-600 dark:text-slate-300 space-y-2">

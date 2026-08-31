@@ -70,6 +70,70 @@ test('/saas/billing-summary marks stripe_connected=false when subscriptions unre
     'subscriptions field must be null (not empty counts) when unreadable')
 })
 
+// ── Slice 4: Trends, Expenses, Job-health signals ──────────────────────────
+test('/saas/trends returns connected:false when hq_daily_snapshots is empty', async () => {
+  const s = await src()
+  assert.match(s, /app\.get\('\/saas\/trends'/, '/saas/trends must be registered')
+  assert.match(s, /hq_daily_snapshots/, 'trends endpoint must read hq_daily_snapshots')
+  assert.match(s, /!data\s*\|\|\s*data\.length\s*===\s*0[\s\S]{0,80}connected:\s*false/,
+    'empty snapshot set must render as "not measured", never fake data points')
+})
+
+test('/cron/hq-snapshot is protected by the shared cron secret', async () => {
+  const s = await src()
+  assert.match(s, /app\.post\('\/cron\/hq-snapshot'/, 'hq-snapshot cron must be registered')
+  // Same authenticator every /cron/* route already uses. Without the guard, the
+  // cron endpoint would let any anonymous request write a snapshot row.
+  assert.match(s, /\/cron\/hq-snapshot'[\s\S]{0,200}requestHasCronSecret\(req\)/,
+    'hq-snapshot cron must check requestHasCronSecret before touching the DB')
+})
+
+test('HQ expense endpoints are registered and gate writes on manage_followups', async () => {
+  const s = await src()
+  for (const path of [
+    /app\.get\('\/saas\/accounting\/expenses'/,
+    /app\.post\('\/saas\/accounting\/expenses'/,
+    /app\.patch\('\/saas\/accounting\/expenses\/:id'/,
+    /app\.delete\('\/saas\/accounting\/expenses\/:id'/,
+    /app\.patch\('\/saas\/accounting\/categories\/:key'/,
+  ]) assert.match(s, path, `expense route missing: ${path}`)
+  // All three write endpoints must gate on manage_followups so a viewer role
+  // can read but cannot record, edit, or delete expenses.
+  assert.match(s, /app\.post\('\/saas\/accounting\/expenses'[\s\S]{0,300}need\('manage_followups'\)/,
+    'POST /saas/accounting/expenses must gate on manage_followups')
+  assert.match(s, /app\.patch\('\/saas\/accounting\/expenses\/:id'[\s\S]{0,300}need\('manage_followups'\)/,
+    'PATCH expense must gate on manage_followups')
+  assert.match(s, /app\.delete\('\/saas\/accounting\/expenses\/:id'[\s\S]{0,300}need\('manage_followups'\)/,
+    'DELETE expense must gate on manage_followups')
+})
+
+test('/saas/platform-health emits null (not 0) for job + webhook counts when tables are empty', async () => {
+  const s = await src()
+  assert.match(s, /failedJobs\s*=\s*null[\s\S]*jRes\.data\s*!==\s*null/,
+    'failed_jobs_24h must be null until the hq_job_runs table has data')
+  assert.match(s, /failedWebhooks\s*=\s*null[\s\S]*wRes\.data\s*!==\s*null/,
+    'failed_webhooks_24h must be null until the hq_webhook_events table has data')
+})
+
+test('HQ command-center migration exists with RLS and HQ-only policies', async () => {
+  const migSrc = await readFile(
+    new URL('../../supabase/migrations/20260831180000_hq_command_center_tables.sql', import.meta.url),
+    'utf8'
+  )
+  for (const table of ['hq_daily_snapshots', 'hq_expense_categories', 'hq_vendor_expenses',
+                       'hq_job_runs', 'hq_webhook_events']) {
+    assert.match(migSrc, new RegExp(`create table if not exists public\\.${table}\\b`),
+      `migration must create ${table}`)
+    assert.match(migSrc, new RegExp(`alter table public\\.${table} enable row level security`),
+      `RLS must be enabled on ${table}`)
+  }
+  // The policy loop must restrict SELECT to platform_owner/platform_admin. A
+  // policy that used auth.role() = 'authenticated' would let any signed-in
+  // dealer read HQ metrics.
+  assert.match(migSrc, /system_role in \('platform_owner','platform_admin'\)/,
+    'HQ tables must be readable only by platform_owner or platform_admin')
+})
+
 test('/saas/affiliates returns {connected:false} when the affiliates table is missing', async () => {
   const s = await src()
   // The endpoint must resolve to connected:false rather than empty arrays when
