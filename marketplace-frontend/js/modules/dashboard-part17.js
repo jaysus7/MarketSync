@@ -1833,41 +1833,9 @@ function renderWebsitePage() {
 
   root.innerHTML = `
     <div class="flex flex-col ${isBuilder ? 'h-full' : 'min-h-0'} w-full ${isBuilder ? 'bg-[var(--ws-bg)] text-[var(--ws-text)]' : 'bg-transparent'}">
-      <!-- TOP APPLICATION HEADER (Dedicated Website Workspace Header). Uses the
-           same --ws-* variables the rest of the builder chrome follows (set by
-           applyBuilderTheme()/[data-ws-theme]) rather than hardcoded dark-only
-           colors, so it never goes half-dark against a light body or vice versa. -->
-      <div class="ws-builder-header flex items-center justify-between px-4 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex-shrink-0 flex-wrap gap-2 text-slate-900 dark:text-white z-20">
-        <div class="flex items-center gap-3">
-          <button onclick="closeWebsiteBuilder()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[var(--ws-panel-raised)] hover:bg-[var(--ws-hover-bg)] text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-black transition cursor-pointer shadow-xs" title="Exit Website Builder & Return to Website Workspace">
-            <svg class="w-3.5 h-3.5 text-[var(--ws-text-muted)]" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
-            <span>Exit Builder</span>
-          </button>
-          <div class="h-5 w-px bg-[var(--ws-border)]"></div>
-          <div class="w-7 h-7 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-black border border-indigo-500/40">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zM2.25 12h19.5M12 2.25a15.3 15.3 0 014.5 9.75 15.3 15.3 0 01-4.5 9.75 15.3 15.3 0 01-4.5-9.75A15.3 15.3 0 0112 2.25z"/></svg>
-          </div>
-          <div>
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-black tracking-tight text-[var(--ws-text)]">MarketSync Website Builder</span>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${__siteCfg.site_published ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40'}">
-                ${__siteCfg.site_published ? 'Live' : 'Draft'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- TOP RIGHT ACTION CONTROLS -->
-        <div class="flex items-center gap-2">
-          ${url ? `<a href="${url}" target="_blank" class="text-xs font-black bg-[var(--ws-panel-raised)] text-[var(--ws-text-muted)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl transition">View Site ↗</a>` : ''}
-          <button onclick="wsOpenRevisions()" class="text-xs font-black bg-[var(--ws-panel-raised)] hover:bg-[var(--ws-hover-bg)] text-[var(--ws-text)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl transition">History</button>
-          <button onclick="saveWebsite(this,'draft')" class="text-xs font-black bg-[var(--ws-panel-raised)] hover:bg-[var(--ws-hover-bg)] text-[var(--ws-text)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl transition">Save Draft</button>
-          <button onclick="saveWebsite(this,'publish')" class="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-xl transition shadow-md cursor-pointer">Publish</button>
-        </div>
-      </div>
-
-      <!-- WORKSPACE CONTENT BODY (Sub-Layout dynamically mounted based on active tab) -->
-      <div id="ws-body" class="${isBuilder ? 'flex-1 min-h-0 overflow-hidden' : 'w-full'}"></div>
+      <!-- WORKSPACE CONTENT BODY: For builder mode, the top bar is rendered by renderLiveBuilder().
+           For other tabs (setup, settings, etc.), render the tab content directly. -->
+      <div id="ws-body" class="${isBuilder ? 'flex-1 min-h-0 overflow-hidden flex flex-col' : 'w-full'}"></div>
     </div>`;
   renderWsBody();
 }
@@ -3132,10 +3100,14 @@ function renderLiveBuilder(body) {
 
   body.innerHTML = `
     <div class="ws-studio-container flex flex-col flex-1 h-full w-full bg-[var(--ws-bg)] text-[var(--ws-text)] overflow-hidden">
-      <!-- Top Visual Workspace Action Bar -->
+      <!-- Top Visual Workspace Action Bar: Single unified header with navigation and controls -->
       <div class="ws-top-action-bar flex items-center justify-between gap-3 py-1.5 px-4 bg-[var(--ws-panel)] border-b border-[var(--ws-border)] flex-shrink-0 z-20 flex-wrap">
+        <!-- Left: Exit button + Page selector -->
         <div class="flex items-center gap-2">
-          <span class="text-xs font-bold text-[var(--ws-text-muted)]">Editing Page:</span>
+          <button onclick="closeWebsiteBuilder()" class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[var(--ws-panel-raised)] hover:bg-[var(--ws-hover-bg)] text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-bold transition cursor-pointer" title="Exit Builder (Esc)">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+          </button>
+          <span class="text-xs font-bold text-[var(--ws-text-muted)]">Page:</span>
           <select onchange="wsSetTarget(this.value)" class="text-xs font-bold bg-[var(--ws-input-bg)] text-[var(--ws-input-text)] border border-[var(--ws-input-border)] rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer">
             <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>Home Page</option>
             ${(__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}>${esc(p.title || 'Untitled Page')}</option>`).join('')}
@@ -3149,13 +3121,14 @@ function renderLiveBuilder(body) {
           <button onclick="setWsDeviceView('mobile')" data-view="mobile" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'mobile' ? 'bg-indigo-600 text-white shadow-sm' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer">Mobile</button>
         </div>
 
-        <div class="flex items-center gap-2">
-          <button onclick="wsUndo()" class="px-2.5 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] border border-[var(--ws-border)] text-xs font-bold transition cursor-pointer" title="Undo (⌘/Ctrl+Z)">↶</button>
-          <button onclick="wsRedo()" class="px-2.5 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] border border-[var(--ws-border)] text-xs font-bold transition cursor-pointer" title="Redo (⌘/Ctrl+Shift+Z)">↷</button>
-          <button onclick="wsRunAudit()" class="px-2.5 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] border border-[var(--ws-border)] text-xs font-bold transition cursor-pointer" title="Run SEO and accessibility audit">Audit</button>
-          <span class="ws-saved-badge px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40">SAVED</span>
-          <a href="${SITE_BASE}?d=${encodeURIComponent(slug)}" target="_blank" class="px-3 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-bold transition">Preview ↗</a>
-          <button onclick="saveWebsite(this)" class="px-4 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md transition cursor-pointer">Publish Site</button>
+        <!-- Center/Right: Edit controls + Save/Publish -->
+        <div class="flex items-center gap-1.5">
+          <button onclick="wsUndo()" class="px-2 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] border border-[var(--ws-border)] text-xs font-bold hover:text-[var(--ws-text)] transition cursor-pointer" title="Undo (Ctrl+Z)">↶</button>
+          <button onclick="wsRedo()" class="px-2 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] border border-[var(--ws-border)] text-xs font-bold hover:text-[var(--ws-text)] transition cursor-pointer" title="Redo (Ctrl+Shift+Z)">↷</button>
+          <span class="ws-saved-badge px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40">Saved</span>
+          <a href="${SITE_BASE}?d=${encodeURIComponent(slug)}" target="_blank" class="px-3 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-bold transition">Preview</a>
+          <button onclick="saveWebsite(this,'draft')" class="px-3 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-bold transition">Save</button>
+          <button onclick="saveWebsite(this,'publish')" class="px-4 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md transition cursor-pointer">Publish</button>
         </div>
       </div>
 
