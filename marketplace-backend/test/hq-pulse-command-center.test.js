@@ -287,25 +287,29 @@ test('Money ring uses a themeable CSS token for the unfilled arc', async () => {
   assert.match(html, /\.dark\{--ms-ring-track:#1e293b\}/, 'dark theme must override ring track')
 })
 
-test('Header + sidebar chrome is pure white in light mode, opaque slate in dark', async () => {
+test('Header + sidebar chrome is ALWAYS light, regardless of OS dark mode', async () => {
   const html = await readFile(
     new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8'
   )
-  // The translucent rgba(255,255,255,0.72) surface in ms-phase3-global.css
-  // was mixing with the body colour and reading muddy in light mode. This
-  // rule overrides it with a solid #ffffff, gated by html:not(.dark) body so
-  // the specificity beats the phase3 rule and it never leaks into dark mode.
+  // Line-19 auto-adds .dark from prefers-color-scheme, so a split "light vs
+  // dark chrome" rule made the sidebar go slate-900 for anyone on macOS/iOS
+  // Night Shift — the exact "should not be dark" bug the screenshot showed.
+  // The design intent is a light chrome always; content can go dark
+  // independently. This rule pins #ffffff for chrome under both modes.
   assert.match(html,
-    /html:not\(\.dark\) body header\.ms-chrome-glass,[\s\S]{0,80}#dashboard-nav\{[\s\S]{0,120}background:#ffffff!important/,
-    'light-mode chrome must be pinned to solid #ffffff over the translucent phase3 default')
+    /html body header\.ms-chrome-glass,[\s\S]{0,120}#dashboard-nav,[\s\S]{0,80}#dept-nav,[\s\S]{0,80}#dept-sidebar\{[\s\S]{0,200}background:#ffffff!important/,
+    'chrome must be pinned solid #ffffff without an .dark branch — chrome is always light')
+  // A regression that puts .dark back into the chrome selector would
+  // reintroduce the OS-dark-mode bug. The test explicitly forbids it.
+  const chromeBlock = html.match(/html body header\.ms-chrome-glass,[\s\S]{0,600}background:#ffffff!important/)
+  assert.ok(chromeBlock, 'chrome block must exist')
+  assert.doesNotMatch(chromeBlock[0], /\.dark/,
+    'chrome selector must NOT branch on .dark — the OS dark auto-toggle would darken it')
+  // backdrop-filter must be disabled — the translucent surface mixing with
+  // the body colour is the whole source of the "too dark in light" complaint.
   assert.match(html,
-    /html\.dark body header\.ms-chrome-glass,[\s\S]{0,80}#dashboard-nav\{[\s\S]{0,120}background:#0f172a!important/,
-    'dark-mode chrome must stay solid slate-900')
-  // backdrop-filter is the source of the muddy mixing — the fix must
-  // explicitly disable it in both themes for the chrome elements.
-  assert.match(html,
-    /html:not\(\.dark\) body header\.ms-chrome-glass,[\s\S]{0,300}backdrop-filter:none!important/,
-    'chrome fix must disable backdrop-filter to prevent surface mixing')
+    /html body header\.ms-chrome-glass,[\s\S]{0,400}backdrop-filter:none!important/,
+    'chrome fix must disable backdrop-filter to prevent Liquid-Glass mixing')
 })
 
 test('HQ page CSS block pins solid card + border tokens in both themes', async () => {
