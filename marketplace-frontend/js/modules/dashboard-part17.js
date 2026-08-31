@@ -1594,7 +1594,7 @@ let __siteCfg = null, __siteSections = [], __homeSections = [], __wsTarget = 'ho
 const SEC_META = {
   hero:               { label: 'Hero', fields: [['bg','Background style','herobg'],['image','Or upload a photo','image'],['headline','Headline','text'],['subheadline','Subheadline','text'],['badge_text','Top Badge Pill','text'],['button_label','Primary Button Label','text'],['button_target','Primary Button Target','target'],['button_link','Primary Button Custom Link','text'],['button2_label','Secondary Button Label','text'],['button2_target','Secondary Button Target','target'],['button2_link','Secondary Button Custom Link','text'],['overlay','Image Darkness (%)','range'],['height','Section Height','height'],['show_trust_strip','Display Trust Badges','bool'],['trust_1_title','Trust Badge 1 Title','text'],['trust_1_sub','Trust Badge 1 Subtitle','text'],['trust_2_title','Trust Badge 2 Title','text'],['trust_2_sub','Trust Badge 2 Subtitle','text'],['trust_3_title','Trust Badge 3 Title','text'],['trust_3_sub','Trust Badge 3 Subtitle','text'],['trust_4_title','Trust Badge 4 Title','text'],['trust_4_sub','Trust Badge 4 Subtitle','text']] },
   feature_cards:      { label: 'Feature cards (Inventory / Finance / Contact)', fields: [['title','Heading (optional)','text']] },
-  featured_inventory: { label: 'Featured inventory', fields: [['title','Title','text'],['condition','Show','cond'],['count','How many','number']] },
+  featured_inventory: { label: 'Featured inventory', fields: [['title','Title','text'],['condition','Show','cond'],['count','Items per page (6-50)','number'],['pagination','Show pagination','toggle']] },
   inventory_grid:     { label: 'Inventory grid', fields: [['title','Title','text']] },
   text_image:         { label: 'Text + image split', fields: [['image','Image','image'],['headline','Headline','text'],['body','Paragraph','textarea'],['button_label','Button label','text'],['button_target','Button goes to','target']] },
   two_col:            { label: 'Two columns', fields: [['left_title','Left heading','text'],['left_body','Left text','textarea'],['left_image','Left image (optional)','image'],['right_title','Right heading','text'],['right_body','Right text','textarea'],['right_image','Right image (optional)','image'],['full','Full-width (edge to edge)','bool']] },
@@ -2306,6 +2306,48 @@ async function saveWebsite(btn, action = 'draft') {
   }
 }
 window.saveWebsite = saveWebsite;
+
+// BATCH 3: Autosave with debounce (5s inactivity)
+let __autosaveTimer = null;
+let __autosaveInProgress = false;
+function wsAutosaveDraft() {
+  if (__autosaveInProgress || !__siteCfg) return;
+  clearTimeout(__autosaveTimer);
+  __autosaveTimer = setTimeout(async () => {
+    if (__autosaveInProgress) return;
+    __autosaveInProgress = true;
+    try {
+      const c = __siteCfg.content || {};
+      const payload = {
+        site_slug: __siteCfg.site_slug || '',
+        site_published: __siteCfg.site_published || false,
+        content: {
+          ...c,
+          sections: __homeSections,
+          pages: __sitePages,
+          builtins: __siteBuiltins,
+          staff: __siteStaff,
+          design_theme: c.design_theme || 'modern',
+          quick_palette: c.quick_palette || 'chevy_blue',
+          primary_color: c.primary_color || '#1e3a8a',
+          secondary_color: c.secondary_color || '#3b82f6',
+          accent_color: c.accent_color || '#f59e0b',
+          heading_font: c.heading_font || 'Inter',
+          body_font: c.body_font || 'Inter',
+        }
+      };
+      const res = await apiSendJson('/dealership/site', 'PUT', payload);
+      if (res && res.content) __siteCfg.content = res.content;
+      markWsSaved();
+    } catch (e) {
+      console.warn('Autosave failed:', e.message);
+    } finally {
+      __autosaveInProgress = false;
+    }
+  }, 5000);
+}
+window.wsAutosaveDraft = wsAutosaveDraft;
+
 function cancelInsert() { __pendingInsertAt = null; const h = document.getElementById('ws-insert-hint'); if (h) h.classList.add('hidden'); }
 window.cancelInsert = cancelInsert;
 function wireLiveMessages() {
@@ -3251,14 +3293,17 @@ function renderWsBody() {
 // or swap a section image). Repaint the three surfaces that show that structure: the
 // canvas, the Layers tree and the Inspector. Deliberately NOT called while typing —
 // setSec() pushes to the canvas only, so re-rendering never steals focus mid-word.
+function renderWsRightInspector() {
+  const panel = document.getElementById('ws-inspector-panel');
+  if (panel) panel.innerHTML = renderWsRightInspectorHtml();
+}
 function renderWsSections() {
   livePreviewPush();
   if (__wsSelectedSecIdx != null && __wsSelectedSecIdx >= 0 && !__siteSections[__wsSelectedSecIdx]) {
     // The selected section was just deleted — fall back to the one that took its place.
     __wsSelectedSecIdx = __siteSections.length ? Math.min(__wsSelectedSecIdx, __siteSections.length - 1) : null;
   }
-  const panel = document.getElementById('ws-inspector-panel');
-  if (panel) panel.innerHTML = renderWsRightInspectorHtml();
+  renderWsRightInspector();
   renderWsLayersTree();
   const box = document.getElementById('ws-sections'); if (!box) return;
   if (!__siteSections.length) { box.innerHTML = '<div class="text-sm text-slate-400 italic border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-8 text-center">No sections yet. Add one from the right →<br><span class="text-xs">(If you leave this empty, your site uses the default layout.)</span></div>'; return; }
@@ -3364,7 +3409,7 @@ function wsField(i, sec, [key, label, type]) {
 }
 function getSecResponsive(i, key) { const s = __siteSections?.[i]; return s?.responsive?.[__wsActiveDeviceView]?.[key] ?? s?.responsive?.desktop?.[key] ?? ''; }
 function setSecResponsive(i, key, val) { const s = __siteSections?.[i]; if (!s) return; s.responsive = s.responsive || { desktop: {}, tablet: {}, mobile: {} }; s.responsive[__wsActiveDeviceView] = s.responsive[__wsActiveDeviceView] || {}; s.responsive[__wsActiveDeviceView][key] = val; refreshWebsitePreview(); refreshWsRightInspector(); }
-function setSec(i, key, val) { if (__siteSections[i]) { __siteSections[i].settings = __siteSections[i].settings || {}; __siteSections[i].settings[key] = val; refreshWebsitePreview(); } }
+function setSec(i, key, val) { if (__siteSections[i]) { __siteSections[i].settings = __siteSections[i].settings || {}; __siteSections[i].settings[key] = val; refreshWebsitePreview(); wsAutosaveDraft(); } }
 function setSecFaq(i, key, text) { const items = text.split('\n').map(l => { const [q, ...a] = l.split('::'); return { q: (q || '').trim(), a: a.join('::').trim() }; }).filter(x => x.q); setSec(i, key, items); }
 function setSecReviews(i, key, text) { const items = text.split('\n').map(l => { const p = l.split('::'); const author = (p[0] || '').trim(); const rating = Math.max(1, Math.min(5, parseInt(p[1]) || 5)); const body = p.slice(2).join('::').trim(); return { author, rating, text: body }; }).filter(x => x.author || x.text); setSec(i, key, items); }
 function setSecCards(i, key, text) { const items = text.split('\n').map(l => { const [t, ...d] = l.split('::'); return { title: (t || '').trim(), text: d.join('::').trim() }; }).filter(x => x.title || x.text); setSec(i, key, items); }
@@ -3430,11 +3475,12 @@ function addSection(type) {
     __siteSections.push(sec);
   }
   renderWsSections();
+  wsAutosaveDraft();
 }
-function moveSection(i, dir) { const j = i + dir; if (j < 0 || j >= __siteSections.length) return; const [s] = __siteSections.splice(i, 1); __siteSections.splice(j, 0, s); renderWsSections(); }
-function dupSection(i) { __siteSections.splice(i + 1, 0, JSON.parse(JSON.stringify(__siteSections[i]))); renderWsSections(); }
-function addChildSection(i) { const parent = __siteSections?.[i]; if (!parent) return; parent.children = Array.isArray(parent.children) ? parent.children : []; parent.children.push(normalizeWsSection({ id: `child_${Date.now()}`, type: 'text_image', settings: { title: 'Nested component', body: 'Add supporting content here.' } }, parent.id)); renderWsSections(); }
-function delSection(i) { __siteSections.splice(i, 1); renderWsSections(); }
+function moveSection(i, dir) { const j = i + dir; if (j < 0 || j >= __siteSections.length) return; const [s] = __siteSections.splice(i, 1); __siteSections.splice(j, 0, s); renderWsSections(); wsAutosaveDraft(); }
+function dupSection(i) { __siteSections.splice(i + 1, 0, JSON.parse(JSON.stringify(__siteSections[i]))); renderWsSections(); wsAutosaveDraft(); }
+function addChildSection(i) { const parent = __siteSections?.[i]; if (!parent) return; parent.children = Array.isArray(parent.children) ? parent.children : []; parent.children.push(normalizeWsSection({ id: `child_${Date.now()}`, type: 'text_image', settings: { title: 'Nested component', body: 'Add supporting content here.' } }, parent.id)); renderWsSections(); wsAutosaveDraft(); }
+function delSection(i) { __siteSections.splice(i, 1); renderWsSections(); wsAutosaveDraft(); }
 const WS_PALETTES = [
   ['Chevy Blue', '#0b2a5b', '#0a1a33', '#d4af37'],
   ['GMC Red', '#c8102e', '#1a1a1a', '#9ea2a2'],
