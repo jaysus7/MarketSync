@@ -287,6 +287,27 @@ test('Money ring uses a themeable CSS token for the unfilled arc', async () => {
   assert.match(html, /\.dark\{--ms-ring-track:#1e293b\}/, 'dark theme must override ring track')
 })
 
+test('Header + sidebar chrome is pure white in light mode, opaque slate in dark', async () => {
+  const html = await readFile(
+    new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8'
+  )
+  // The translucent rgba(255,255,255,0.72) surface in ms-phase3-global.css
+  // was mixing with the body colour and reading muddy in light mode. This
+  // rule overrides it with a solid #ffffff, gated by html:not(.dark) body so
+  // the specificity beats the phase3 rule and it never leaks into dark mode.
+  assert.match(html,
+    /html:not\(\.dark\) body header\.ms-chrome-glass,[\s\S]{0,80}#dashboard-nav\{[\s\S]{0,120}background:#ffffff!important/,
+    'light-mode chrome must be pinned to solid #ffffff over the translucent phase3 default')
+  assert.match(html,
+    /html\.dark body header\.ms-chrome-glass,[\s\S]{0,80}#dashboard-nav\{[\s\S]{0,120}background:#0f172a!important/,
+    'dark-mode chrome must stay solid slate-900')
+  // backdrop-filter is the source of the muddy mixing — the fix must
+  // explicitly disable it in both themes for the chrome elements.
+  assert.match(html,
+    /html:not\(\.dark\) body header\.ms-chrome-glass,[\s\S]{0,300}backdrop-filter:none!important/,
+    'chrome fix must disable backdrop-filter to prevent surface mixing')
+})
+
 test('HQ page CSS block pins solid card + border tokens in both themes', async () => {
   const html = await readFile(
     new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8'

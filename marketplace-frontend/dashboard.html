@@ -238,6 +238,32 @@
        to slate-200 if the token is missing (older glass builds without it). */
     :root{--ms-ring-track:#e2e8f0}
     .dark{--ms-ring-track:#1e293b}
+    /* Chrome contrast fix. ms-phase3-global.css sets the header + sidebar to
+       `background: rgba(255,255,255,0.72)` so whatever body colour lives under
+       them bleeds through and the whole chrome reads dim in light mode. Pin
+       pure white in light and pure slate-900 in dark, at every viewport, with
+       stronger specificity than the phase3 rule (`html:not(.dark)` + `body`).
+       Removed backdrop-filter here because the translucency is the entire
+       source of the muddiness the user reported. */
+    html:not(.dark) body header.ms-chrome-glass,
+    html:not(.dark) body #dashboard-nav{
+      background:#ffffff!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+      border-color:#e2e8f0!important;
+    }
+    html.dark body header.ms-chrome-glass,
+    html.dark body #dashboard-nav{
+      background:#0f172a!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+      border-color:#1e293b!important;
+    }
+    /* Dept nav (built by renderDeptNav into #dept-nav) — same treatment. */
+    html:not(.dark) body #dept-nav,
+    html:not(.dark) body #dept-sidebar{background:#ffffff}
+    html.dark body #dept-nav,
+    html.dark body #dept-sidebar{background:#0f172a}
     /* Mobile nav on HQ: `#dashboard-nav` uses `bg-white dark:bg-slate-900`
        Tailwind utilities but on tenants with `data-ms-glass="global"` the
        .ms-glass surface token (rgba .85) can bleed through and read as a
