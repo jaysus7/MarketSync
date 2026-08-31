@@ -871,8 +871,9 @@ Sitemap: ${base}/sitemap.xml`)
       const siteData = siteContent(d)
       const title = `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''}${vehicle.trim ? ' ' + vehicle.trim : ''} - ${siteData.name}`
       const description = vehicle.description || `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''} with ${(vehicle.mileage || 0).toLocaleString()} miles. Contact ${siteData.name} for more details.`
-      const canonical = d.custom_domain
-        ? `https://${d.custom_domain}/inventory/${vehicle.id}`
+      const canonicalDomain = d.custom_domain ? escapeHtml(d.custom_domain) : null
+      const canonical = canonicalDomain
+        ? `https://${canonicalDomain}/inventory/${vehicle.id}`
         : `https://marketsync.link/site/${slug}/inventory/${vehicle.id}`
 
       res.set('Content-Type', 'text/html; charset=utf-8')
@@ -1049,8 +1050,9 @@ Sitemap: ${base}/sitemap.xml`)
 
       const siteData = siteContent(d)
       const totalPages = Math.ceil((count || 0) / pageSize)
-      const canonical = d.custom_domain
-        ? `https://${d.custom_domain}/inventory/${pageNum > 1 ? '?page=' + pageNum : ''}`
+      const canonicalDomain = d.custom_domain ? escapeHtml(d.custom_domain) : null
+      const canonical = canonicalDomain
+        ? `https://${canonicalDomain}/inventory/${pageNum > 1 ? '?page=' + pageNum : ''}`
         : `https://marketsync.link/site/${slug}/inventory/${pageNum > 1 ? '?page=' + pageNum : ''}`
 
       res.set('Content-Type', 'text/html; charset=utf-8')
