@@ -705,9 +705,368 @@ ${urls}
       res.send(`User-agent: *
 Allow: /
 
+Disallow: /admin
+Disallow: /api
+Disallow: /internal
+
 Sitemap: ${base}/sitemap.xml`)
     } catch (e) {
       res.status(404).send('Not found')
+    }
+  })
+
+  // ── BATCH 5: Vehicle Detail Page (VDP) ────────────────────────────────────
+  function generateVehicleDetailPage({ vehicle, site, title, description, imageUrl, canonical, dealer }) {
+    const siteUrl = site.custom_domain ? `https://${site.custom_domain}` : `https://marketsync.link/site/${site.slug}`
+    const ogImage = imageUrl || (vehicle.photos && vehicle.photos[0]) || site.seo_image || `${siteUrl}/og-image.png`
+
+    const safeCanonical = escapeHtml(canonical)
+    const safeTitle = escapeHtml(title)
+    const safeDescription = escapeHtml(description)
+    const safeImage = escapeUrlAttribute(ogImage)
+    const safeKeywords = escapeHtml(`${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''}, ${site.name || 'Dealer'}`)
+
+    const safeSiteName = escapeHtml(site.name)
+    const safeSitePhone = escapeHtml(site.phone || '')
+    const safeVehicleYear = escapeHtml(String(vehicle.year || ''))
+    const safeVehicleMake = escapeHtml(vehicle.make || '')
+    const safeVehicleModel = escapeHtml(vehicle.model || '')
+    const safeVehicleTrim = escapeHtml(vehicle.trim || '')
+    const safeVehicleColor = escapeHtml(vehicle.color || '')
+    const safeVehicleMileage = escapeHtml(String(vehicle.mileage || ''))
+    const safeVehiclePrice = escapeHtml(String(vehicle.price || ''))
+    const safeVehicleVin = escapeHtml(vehicle.vin || '')
+    const safeVehicleBody = escapeHtml(vehicle.body_type || '')
+    const safeVehicleTransmission = escapeHtml(vehicle.transmission || '')
+    const safeVehicleEngineSize = escapeHtml(vehicle.engine_size || '')
+    const safeSiteLogo = escapeUrlAttribute(site.logo_url)
+    const safePrimaryColor = escapeHtml(site.primary_color || '#1e3a8a')
+
+    const vehicleSchema = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      "name": `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''}${vehicle.trim ? ' ' + vehicle.trim : ''}`,
+      "description": description,
+      "image": ogImage,
+      "sku": vehicle.vin || vehicle.id,
+      ...(vehicle.price ? {
+        "offers": {
+          "@type": "Offer",
+          "url": canonical,
+          "priceCurrency": "CAD",
+          "price": String(vehicle.price),
+          "availability": "https://schema.org/InStock"
+        }
+      } : {}),
+      ...(vehicle.mileage ? { "mileageFromOdometer": vehicle.mileage } : {}),
+      ...(vehicle.year ? { "productionDate": `${vehicle.year}-01-01` } : {}),
+    }
+
+    const breadcrumbSchema = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": siteUrl
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Inventory",
+          "item": `${siteUrl}/inventory/`
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''}`,
+          "item": canonical
+        }
+      ]
+    }
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${safeTitle}</title>
+  <meta name="description" content="${safeDescription}">
+  <meta name="keywords" content="${safeKeywords}">
+
+  <!-- Open Graph / Social Sharing -->
+  <meta property="og:type" content="product">
+  <meta property="og:url" content="${safeCanonical}">
+  <meta property="og:title" content="${safeTitle}">
+  <meta property="og:description" content="${safeDescription}">
+  <meta property="og:image" content="${safeImage}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="${safeCanonical}">
+  <meta name="twitter:title" content="${safeTitle}">
+  <meta name="twitter:description" content="${safeDescription}">
+  <meta name="twitter:image" content="${safeImage}">
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="${safeCanonical}">
+
+  <!-- Structured Data (JSON-LD) -->
+  <script type="application/ld+json">
+  ${JSON.stringify(vehicleSchema).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')}
+  </script>
+
+  <script type="application/ld+json">
+  ${JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')}
+  </script>
+
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="theme-color" content="${safePrimaryColor}">
+  <link rel="icon" href="${safeSiteLogo || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚗</text></svg>'}">
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; background: #fff; }
+    html { scroll-behavior: smooth; }
+    noscript { display: block; padding: 20px; background: #fee2e2; color: #991b1b; text-align: center; }
+  </style>
+  <link rel="stylesheet" href="/assets/public-shell.css">
+</head>
+<body>
+  <noscript>This website requires JavaScript to be enabled. Please enable JavaScript in your browser settings.</noscript>
+  <div id="root"></div>
+
+  <script src="/assets/public-shell.js"></script>
+  <script>
+    if (window.PublicSiteRenderer) {
+      window.PublicSiteRenderer.initVehicleDetail({
+        site: ${escapeJson({ name: site.name, slug: site.slug, custom_domain: site.custom_domain })},
+        vehicle: ${escapeJson(vehicle)}
+      });
+    }
+  </script>
+</body>
+</html>`
+  }
+
+  // Vehicle Detail Page route
+  app.get('/site/:slug/inventory/:vehicleId', rateLimit('pub-site-vehicle', 120, 60000), async (req, res) => {
+    const slug = String(req.params.slug || '').toLowerCase().trim()
+    const vehicleId = String(req.params.vehicleId || '').toLowerCase().trim()
+    if (!slug || !vehicleId) return res.status(404).send('Not found')
+
+    try {
+      const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS).ilike('site_slug', slug).maybeSingle()
+      if (!d || !d.site_published) return res.status(404).send('Site not found')
+
+      const { data: vehicle } = await supabaseAdmin.from('vehicles').select('*').eq('dealership_id', d.id).ilike('id', vehicleId).maybeSingle()
+      if (!vehicle || vehicle.status !== 'active') return res.status(404).send('Vehicle not found')
+
+      const siteData = siteContent(d)
+      const title = `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''}${vehicle.trim ? ' ' + vehicle.trim : ''} - ${siteData.name}`
+      const description = vehicle.description || `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''} with ${(vehicle.mileage || 0).toLocaleString()} miles. Contact ${siteData.name} for more details.`
+      const canonical = d.custom_domain
+        ? `https://${d.custom_domain}/inventory/${vehicle.id}`
+        : `https://marketsync.link/site/${slug}/inventory/${vehicle.id}`
+
+      res.set('Content-Type', 'text/html; charset=utf-8')
+      res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600')
+      res.send(generateVehicleDetailPage({
+        vehicle,
+        site: siteData,
+        title,
+        description,
+        imageUrl: (vehicle.photos && vehicle.photos[0]) || siteData.seo_image,
+        canonical,
+        dealer: d,
+      }))
+    } catch (e) {
+      console.error('[vehicle-detail]', e.message)
+      res.status(500).send('Error loading vehicle')
+    }
+  })
+
+  // ── BATCH 5: Search Results Page (SRP) ────────────────────────────────────
+  function generateInventoryListPage({ site, vehicles, title, description, imageUrl, canonical, pageNumber = 1, totalPages = 1, dealer }) {
+    const siteUrl = site.custom_domain ? `https://${site.custom_domain}` : `https://marketsync.link/site/${site.slug}`
+    const ogImage = imageUrl || site.seo_image || site.hero_banner_url || `${siteUrl}/og-image.png`
+
+    const safeCanonical = escapeHtml(canonical)
+    const safeTitle = escapeHtml(title)
+    const safeDescription = escapeHtml(description)
+    const safeImage = escapeUrlAttribute(ogImage)
+    const safeKeywords = escapeHtml('used cars, vehicles for sale, inventory, ' + (site.discovery_terms || []).slice(0, 5).join(', '))
+    const safeSiteName = escapeHtml(site.name)
+    const safeSiteLogo = escapeUrlAttribute(site.logo_url)
+    const safePrimaryColor = escapeHtml(site.primary_color || '#1e3a8a')
+
+    const breadcrumbSchema = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": siteUrl
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Inventory",
+          "item": canonical
+        }
+      ]
+    }
+
+    const itemListSchema = {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "name": title,
+      "description": description,
+      "url": canonical,
+      "mainEntity": {
+        "@type": "ItemList",
+        "name": title,
+        "numberOfItems": vehicles.length,
+        "itemListElement": (vehicles || []).map((v, i) => ({
+          "@type": "ListItem",
+          "position": i + 1,
+          "name": `${v.year || ''} ${v.make || ''} ${v.model || ''}`,
+          "url": `${siteUrl}/inventory/${v.id}`,
+          "item": {
+            "@type": "Product",
+            "name": `${v.year || ''} ${v.make || ''} ${v.model || ''}${v.trim ? ' ' + v.trim : ''}`,
+            "image": (v.photos && v.photos[0]) || site.seo_image,
+            ...(v.price ? { "offers": { "@type": "Offer", "price": String(v.price), "priceCurrency": "CAD" } } : {}),
+            ...(v.mileage ? { "mileageFromOdometer": v.mileage } : {})
+          }
+        }))
+      }
+    }
+
+    const paginationLinks = [
+      pageNumber > 1 ? `<link rel="prev" href="${escapeHtml(siteUrl)}/inventory/?page=${pageNumber - 1}">` : '',
+      pageNumber < totalPages ? `<link rel="next" href="${escapeHtml(siteUrl)}/inventory/?page=${pageNumber + 1}">` : ''
+    ].filter(Boolean).join('\n  ')
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${safeTitle}</title>
+  <meta name="description" content="${safeDescription}">
+  <meta name="keywords" content="${safeKeywords}">
+
+  <!-- Open Graph / Social Sharing -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="${safeCanonical}">
+  <meta property="og:title" content="${safeTitle}">
+  <meta property="og:description" content="${safeDescription}">
+  <meta property="og:image" content="${safeImage}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="${safeCanonical}">
+  <meta name="twitter:title" content="${safeTitle}">
+  <meta name="twitter:description" content="${safeDescription}">
+  <meta name="twitter:image" content="${safeImage}">
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="${safeCanonical}">
+
+  <!-- Pagination Links -->
+  ${paginationLinks}
+
+  <!-- Structured Data (JSON-LD) -->
+  <script type="application/ld+json">
+  ${JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')}
+  </script>
+
+  <script type="application/ld+json">
+  ${JSON.stringify(itemListSchema).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')}
+  </script>
+
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="theme-color" content="${safePrimaryColor}">
+  <link rel="icon" href="${safeSiteLogo || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚗</text></svg>'}">
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; background: #fff; }
+    html { scroll-behavior: smooth; }
+    noscript { display: block; padding: 20px; background: #fee2e2; color: #991b1b; text-align: center; }
+  </style>
+  <link rel="stylesheet" href="/assets/public-shell.css">
+</head>
+<body>
+  <noscript>This website requires JavaScript to be enabled. Please enable JavaScript in your browser settings.</noscript>
+  <div id="root"></div>
+
+  <script src="/assets/public-shell.js"></script>
+  <script>
+    if (window.PublicSiteRenderer) {
+      window.PublicSiteRenderer.initInventoryList({
+        site: ${escapeJson({ name: site.name, slug: site.slug, custom_domain: site.custom_domain })},
+        vehicles: ${escapeJson(vehicles || [])},
+        pageNumber: ${pageNumber},
+        totalPages: ${totalPages}
+      });
+    }
+  </script>
+</body>
+</html>`
+  }
+
+  // Enhanced inventory list route (Search Results Page)
+  app.get('/site/:slug/inventory/', rateLimit('pub-site-inventory', 120, 60000), async (req, res) => {
+    const slug = String(req.params.slug || '').toLowerCase().trim()
+    if (!slug) return res.status(404).send('Not found')
+
+    try {
+      const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS).ilike('site_slug', slug).maybeSingle()
+      if (!d || !d.site_published) return res.status(404).send('Site not found')
+
+      const pageNum = Math.max(1, parseInt(req.query.page) || 1)
+      const pageSize = 20
+      const offset = (pageNum - 1) * pageSize
+
+      const { data: vehicles, count } = await supabaseAdmin
+        .from('vehicles')
+        .select('*', { count: 'exact' })
+        .eq('dealership_id', d.id)
+        .eq('status', 'active')
+        .range(offset, offset + pageSize - 1)
+
+      const siteData = siteContent(d)
+      const totalPages = Math.ceil((count || 0) / pageSize)
+      const canonical = d.custom_domain
+        ? `https://${d.custom_domain}/inventory/${pageNum > 1 ? '?page=' + pageNum : ''}`
+        : `https://marketsync.link/site/${slug}/inventory/${pageNum > 1 ? '?page=' + pageNum : ''}`
+
+      res.set('Content-Type', 'text/html; charset=utf-8')
+      res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600')
+      res.send(generateInventoryListPage({
+        site: siteData,
+        vehicles: vehicles || [],
+        title: `${siteData.name} - Inventory (Page ${pageNum})`,
+        description: `Browse ${count || 0} vehicles in our inventory. Find your next car at ${siteData.name}.`,
+        imageUrl: siteData.seo_image,
+        canonical,
+        pageNumber: pageNum,
+        totalPages,
+        dealer: d,
+      }))
+    } catch (e) {
+      console.error('[inventory-list]', e.message)
+      res.status(500).send('Error loading inventory')
     }
   })
 }
