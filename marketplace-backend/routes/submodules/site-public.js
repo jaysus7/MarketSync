@@ -453,4 +453,217 @@ export function registerSitePublicRoutes(app) {
       res.status(500).json({ error: 'Could not book that time — please try again.' })
     }
   })
+
+  // ── SERVER-RENDERED HTML: Homepage with SEO metadata ────────────────────────
+  function escapeJson(obj) {
+    return JSON.stringify(obj).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')
+  }
+
+  function generateHtmlPage({ site, inventory, team, title, description, imageUrl, canonical, dealer }) {
+    const siteUrl = site.custom_domain ? `https://${site.custom_domain}` : `https://marketsync.link/site/${site.slug}`
+    const ogImage = imageUrl || site.seo_image || site.hero_banner_url || `${siteUrl}/og-image.png`
+    const escapedSiteData = escapeJson({ site, inventory, team })
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title || site.name || 'Dealer'}</title>
+  <meta name="description" content="${description || site.seo_description || site.about || site.tagline || 'Welcome to our dealership'}">
+  <meta name="keywords" content="${site.seo_keywords ? site.seo_keywords.split(',').join(', ') : (site.discovery_terms || []).join(', ')}">
+
+  <!-- Open Graph / Social Sharing -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="${canonical || siteUrl}">
+  <meta property="og:title" content="${title || site.name || 'Dealer'}">
+  <meta property="og:description" content="${description || site.seo_description || site.about || site.tagline || 'Welcome to our dealership'}">
+  <meta property="og:image" content="${ogImage}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="${canonical || siteUrl}">
+  <meta name="twitter:title" content="${title || site.name || 'Dealer'}">
+  <meta name="twitter:description" content="${description || site.seo_description || site.about || site.tagline || 'Welcome to our dealership'}">
+  <meta name="twitter:image" content="${ogImage}">
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="${canonical || siteUrl}">
+
+  <!-- Structured Data (JSON-LD) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": "${site.name}",
+    "image": "${site.logo_url || ogImage}",
+    "url": "${siteUrl}",
+    ${site.phone ? `"telephone": "${site.phone}",` : ''}
+    ${site.email ? `"email": "${site.email}",` : ''}
+    ${site.address ? `"address": {
+      "@type": "PostalAddress",
+      "streetAddress": "${site.address}",
+      "addressLocality": "${site.city || ''}",
+      "addressRegion": "${site.province || ''}",
+      "postalCode": "${dealer?.postal_code || ''}"
+    },` : ''}
+    "priceRange": "$",
+    "@type": ["LocalBusiness", "AutoDealer"],
+    "sameAs": [${[site.facebook_url && `"${site.facebook_url}"`, site.instagram_url && `"${site.instagram_url}"`].filter(Boolean).join(', ')}]
+  }
+  </script>
+
+  <!-- Site Configuration (used by client-side renderer) -->
+  <script id="site-config" type="application/json">
+  ${escapedSiteData}
+  </script>
+
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="theme-color" content="${site.primary_color || '#1e3a8a'}">
+  <link rel="icon" href="${site.logo_url || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚗</text></svg>'}">
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; background: #fff; }
+    html { scroll-behavior: smooth; }
+    noscript { display: block; padding: 20px; background: #fee2e2; color: #991b1b; text-align: center; }
+  </style>
+  <link rel="stylesheet" href="/assets/public-shell.css">
+</head>
+<body>
+  <noscript>This website requires JavaScript to be enabled. Please enable JavaScript in your browser settings.</noscript>
+  <div id="root"></div>
+
+  <script src="/assets/public-shell.js"></script>
+  <script>
+    // Boot the client-side renderer with the server-provided site config
+    if (window.PublicSiteRenderer) {
+      const config = document.getElementById('site-config');
+      const data = config ? JSON.parse(config.textContent) : {};
+      window.PublicSiteRenderer.init(data);
+    }
+  </script>
+</body>
+</html>`
+  }
+
+  // Server-rendered homepage with SEO metadata
+  app.get('/site/:slug/index.html', rateLimit('pub-site-html', 120, 60000), async (req, res) => {
+    const slug = String(req.params.slug || '').toLowerCase().trim()
+    if (!slug) return res.status(404).send('Not found')
+
+    try {
+      const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS).ilike('site_slug', slug).maybeSingle()
+      if (!d || !d.site_published) return res.status(404).send('Site not found')
+
+      const siteData = await buildSiteResponse(d)
+      const canonical = d.custom_domain ? `https://${d.custom_domain}/` : `https://marketsync.link/site/${slug}/`
+
+      res.set('Content-Type', 'text/html; charset=utf-8')
+      res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600')
+      res.send(generateHtmlPage({
+        site: siteData.site,
+        inventory: siteData.inventory,
+        team: siteData.team,
+        title: siteData.site.seo_title || `${siteData.site.name} - Cars for Sale`,
+        description: siteData.site.seo_description || `${siteData.site.name} - ${siteData.inventory.length} vehicles in stock`,
+        imageUrl: siteData.site.seo_image,
+        canonical,
+        dealer: d,
+      }))
+    } catch (e) {
+      console.error('[site-html]', e.message)
+      res.status(500).send('Error loading website')
+    }
+  })
+
+  // Alternate: serve at /site/:slug/ (redirect or direct render)
+  app.get('/site/:slug/', rateLimit('pub-site-html', 120, 60000), async (req, res) => {
+    const slug = String(req.params.slug || '').toLowerCase().trim()
+    if (!slug) return res.status(404).send('Not found')
+
+    try {
+      const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS).ilike('site_slug', slug).maybeSingle()
+      if (!d || !d.site_published) return res.status(404).send('Site not found')
+
+      const siteData = await buildSiteResponse(d)
+      const canonical = d.custom_domain ? `https://${d.custom_domain}/` : `https://marketsync.link/site/${slug}/`
+
+      res.set('Content-Type', 'text/html; charset=utf-8')
+      res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600')
+      res.send(generateHtmlPage({
+        site: siteData.site,
+        inventory: siteData.inventory,
+        team: siteData.team,
+        title: siteData.site.seo_title || `${siteData.site.name} - Cars for Sale`,
+        description: siteData.site.seo_description || `${siteData.site.name} - ${siteData.inventory.length} vehicles in stock`,
+        imageUrl: siteData.site.seo_image,
+        canonical,
+        dealer: d,
+      }))
+    } catch (e) {
+      console.error('[site-html]', e.message)
+      res.status(500).send('Error loading website')
+    }
+  })
+
+  // Sitemap endpoint for search engines
+  app.get('/site/:slug/sitemap.xml', rateLimit('pub-site-sitemap', 60, 60000), async (req, res) => {
+    const slug = String(req.params.slug || '').toLowerCase().trim()
+    if (!slug) return res.status(404).send('Not found')
+
+    try {
+      const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS).ilike('site_slug', slug).maybeSingle()
+      if (!d || !d.site_published) return res.status(404).send('Not found')
+
+      const base = d.custom_domain ? `https://${d.custom_domain}` : `https://marketsync.link/site/${slug}`
+      const siteData = await buildSiteResponse(d)
+      const now = new Date().toISOString().split('T')[0]
+
+      const urls = [
+        `<url><loc>${base}/</loc><lastmod>${now}</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>`,
+        `<url><loc>${base}/inventory/</loc><lastmod>${now}</lastmod><changefreq>daily</changefreq><priority>0.9</priority></url>`,
+        ...(siteData.inventory || []).slice(0, 10000).map(v =>
+          `<url><loc>${base}/inventory/${encodeURIComponent(v.id)}</loc><lastmod>${now}</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>`
+        ),
+      ].join('\n')
+
+      res.set('Content-Type', 'application/xml; charset=utf-8')
+      res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400')
+      res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls}
+</urlset>`)
+    } catch (e) {
+      console.error('[sitemap]', e.message)
+      res.status(500).send('Error generating sitemap')
+    }
+  })
+
+  // robots.txt for published sites
+  app.get('/site/:slug/robots.txt', rateLimit('pub-site-robots', 120, 60000), async (req, res) => {
+    const slug = String(req.params.slug || '').toLowerCase().trim()
+    if (!slug) return res.status(404).send('Not found')
+
+    try {
+      const { data: d } = await supabaseAdmin.from('dealerships').select('site_published').ilike('site_slug', slug).maybeSingle()
+      if (!d || !d.site_published) {
+        res.set('Content-Type', 'text/plain; charset=utf-8')
+        res.send('User-agent: *\nDisallow: /')
+        return
+      }
+
+      const base = `https://marketsync.link/site/${slug}`
+      res.set('Content-Type', 'text/plain; charset=utf-8')
+      res.set('Cache-Control', 'public, max-age=86400')
+      res.send(`User-agent: *
+Allow: /
+
+Sitemap: ${base}/sitemap.xml`)
+    } catch (e) {
+      res.status(404).send('Not found')
+    }
+  })
 }
