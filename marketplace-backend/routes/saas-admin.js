@@ -903,6 +903,138 @@ export function registerSaasAdmin(app) {
     res.json({ ok: true })
   })
 
+  // ── Receipt OCR for HQ operating expenses. Uses the same Anthropic vision
+  // path the dealership endpoint uses, but gated on HQ manage_followups
+  // (not MFA + dealership + ai_boost) so an HQ user can capture their
+  // MarketSync-side vendor spend. Returns the decoded fields; the client
+  // then confirms and POSTs to /saas/accounting/expenses. Never inserts on
+  // its own — the user always confirms the numbers first.
+  app.post('/saas/accounting/expenses/scan', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI features not configured' })
+    const img = String(req.body?.image || '')
+    const m = img.match(/^data:(image\/(png|jpe?g|webp));base64,(.+)$/)
+    if (!m) return res.status(400).json({ error: 'Send the receipt photo as a base64 data URL.' })
+    const media_type = m[1] === 'image/jpg' ? 'image/jpeg' : m[1]
+    const data = m[3]
+    if (data.length > 8_000_000) return res.status(400).json({ error: 'Image too large — retake at normal quality.' })
+    // Category keys the HQ ledger actually uses so the AI can pick one that
+    // matches an existing bucket instead of coining a new label.
+    const { data: cats } = await supabaseAdmin.from('hq_expense_categories').select('key, label')
+    const catList = (cats || []).map(c => `${c.key} (${c.label})`).slice(0, 20).join(', ')
+    const prompt = `You are reading a photo of a purchase RECEIPT for MarketSync's own operating expenses. Extract ONLY what is clearly legible. Return STRICT JSON with these keys (use null when not visible): vendor (the store/merchant name), date (YYYY-MM-DD), subtotal, tax, total. Also return category_key — pick the single best match from THIS list of MarketSync HQ categories (copy the key exactly), or null if none clearly fit: ${catList || 'infrastructure, software, marketing, contractors, operations'}. Numbers must be plain (no currency symbols or commas). Do not guess or invent. Return ONLY the JSON object, no prose.`
+    try {
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      const msg = await Promise.race([
+        anthropic.messages.create({ model: SMART_MODEL, max_tokens: 400, messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type, data } },
+          { type: 'text', text: prompt },
+        ] }] }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 30000)),
+      ])
+      let txt = (msg?.content?.[0]?.text || '').trim().replace(/^```json\s*|\s*```$/g, '')
+      let f
+      try { f = JSON.parse(txt) } catch { return res.status(422).json({ error: 'Could not read the receipt clearly — try a flatter, well-lit photo.' }) }
+      const num = (v) => { const n = parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, '')); return Number.isFinite(n) ? n : null }
+      res.json({ ok: true, fields: {
+        vendor: f.vendor ? String(f.vendor).slice(0, 120) : null,
+        date: /^\d{4}-\d{2}-\d{2}$/.test(f.date || '') ? f.date : null,
+        subtotal: num(f.subtotal), tax: num(f.tax), total: num(f.total),
+        category_key: f.category_key ? String(f.category_key).slice(0, 60) : null,
+      } })
+    } catch (e) {
+      res.status(500).json({ error: e.message === 'ai timeout' ? 'Reading the receipt took too long — try again.' : 'Could not read the receipt.' })
+    }
+  })
+
+  // ── HQ income entries (one-off invoices, side revenue). Kept separate from
+  // subscription MRR so /saas/accounting can reconcile without double-count.
+  app.get('/saas/accounting/income', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const days = Math.max(1, Math.min(365, Number(req.query.days) || 90))
+    const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
+    const { data, error } = await supabaseAdmin.from('hq_income_entries')
+      .select('*').gte('received_on', since).order('received_on', { ascending: false }).limit(2000)
+    if (error) return res.status(500).json({ error: error.message })
+    const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0)
+    let windowTotal = 0, monthTotal = 0
+    for (const r of data || []) {
+      const amt = Number(r.amount) || 0
+      windowTotal += amt
+      if (new Date(r.received_on) >= monthStart) monthTotal += amt
+    }
+    res.json({
+      window_days: days,
+      totals: { window: Math.round(windowTotal * 100) / 100, this_month: Math.round(monthTotal * 100) / 100 },
+      income: data || [],
+    })
+  })
+  app.post('/saas/accounting/income', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const b = req.body || {}
+    const source = String(b.source || '').trim().slice(0, 240)
+    const amount = Number(b.amount)
+    const receivedOn = b.received_on ? new Date(b.received_on) : new Date()
+    if (!source) return res.status(400).json({ error: 'Source (payer / invoice title) required' })
+    if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'Amount must be a positive number' })
+    if (Number.isNaN(receivedOn.getTime())) return res.status(400).json({ error: 'Invalid received_on date' })
+    const row = {
+      source,
+      category_key: b.category_key ? String(b.category_key).trim().slice(0, 60) : null,
+      amount, currency: (b.currency || 'USD').slice(0, 3).toUpperCase(),
+      received_on: receivedOn.toISOString().slice(0, 10),
+      memo: b.memo ? String(b.memo).slice(0, 1000) : null,
+      // invoice_url is optional — client passes a URL if it hosted the file
+      // itself. We do NOT persist raw base64 blobs in Postgres.
+      invoice_url: b.invoice_url ? String(b.invoice_url).slice(0, 2000) : null,
+      created_by: req.user?.id || null,
+    }
+    const { data, error } = await supabaseAdmin.from('hq_income_entries').insert(row).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+  app.delete('/saas/accounting/income/:id', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const { error } = await supabaseAdmin.from('hq_income_entries').delete().eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true })
+  })
+
+  // ── Same OCR path but for income invoices. Fields returned map to the
+  // shape POST /saas/accounting/income expects.
+  app.post('/saas/accounting/income/scan', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI features not configured' })
+    const img = String(req.body?.image || '')
+    const m = img.match(/^data:(image\/(png|jpe?g|webp));base64,(.+)$/)
+    if (!m) return res.status(400).json({ error: 'Send the invoice photo as a base64 data URL.' })
+    const media_type = m[1] === 'image/jpg' ? 'image/jpeg' : m[1]
+    const data = m[3]
+    if (data.length > 8_000_000) return res.status(400).json({ error: 'Image too large — retake at normal quality.' })
+    const prompt = `You are reading a photo of an INVOICE that MarketSync issued (or received payment for). Extract ONLY what is clearly legible. Return STRICT JSON with these keys (use null when not visible): source (the payer / client name), date (YYYY-MM-DD, the invoice or received date), amount (grand total, plain number, no currency symbols or commas). Do not guess or invent. Return ONLY the JSON object, no prose.`
+    try {
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      const msg = await Promise.race([
+        anthropic.messages.create({ model: SMART_MODEL, max_tokens: 300, messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type, data } },
+          { type: 'text', text: prompt },
+        ] }] }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 30000)),
+      ])
+      let txt = (msg?.content?.[0]?.text || '').trim().replace(/^```json\s*|\s*```$/g, '')
+      let f
+      try { f = JSON.parse(txt) } catch { return res.status(422).json({ error: 'Could not read the invoice clearly — try a flatter, well-lit photo.' }) }
+      const num = (v) => { const n = parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, '')); return Number.isFinite(n) ? n : null }
+      res.json({ ok: true, fields: {
+        source: f.source ? String(f.source).slice(0, 240) : null,
+        date: /^\d{4}-\d{2}-\d{2}$/.test(f.date || '') ? f.date : null,
+        amount: num(f.amount),
+      } })
+    } catch (e) {
+      res.status(500).json({ error: e.message === 'ai timeout' ? 'Reading the invoice took too long — try again.' : 'Could not read the invoice.' })
+    }
+  })
+
   app.patch('/saas/accounting/categories/:key', requireAuth, async (req, res) => {
     if (!need('manage_followups')(req, res)) return
     const b = req.body || {}

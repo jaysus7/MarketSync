@@ -234,12 +234,36 @@
     #dashboard-nav [id^="nav-saas-"].is-active{background-color:#eef2ff;color:#3730a3}
     .dark #dashboard-nav [id^="nav-saas-"][aria-current="page"],
     .dark #dashboard-nav [id^="nav-saas-"].is-active{background-color:#1e1b4b;color:#c7d2fe}
-    /* Mobile bottom-nav on HQ pages: pin a solid surface so it never inherits
-       the tinted blue body and lose contrast against the icons. */
+    /* Money-ring unfilled arc: light = slate-200, dark = slate-800. Falls back
+       to slate-200 if the token is missing (older glass builds without it). */
+    :root{--ms-ring-track:#e2e8f0}
+    .dark{--ms-ring-track:#1e293b}
+    /* Mobile nav on HQ: `#dashboard-nav` uses `bg-white dark:bg-slate-900`
+       Tailwind utilities but on tenants with `data-ms-glass="global"` the
+       .ms-glass surface token (rgba .85) can bleed through and read as a
+       translucent bar sitting on top of the header art. Force it opaque
+       below md so icons + labels stay crisp. `#mobile-quickrow-dyn` uses
+       `display:contents` and cannot paint a background — it should not have
+       one — so the rule targets the parent nav instead. */
     @media (max-width: 767px){
-      #mobile-quickrow-dyn,#mobile-bottom-nav{background-color:#ffffff;border-top:1px solid #e2e8f0}
-      .dark #mobile-quickrow-dyn,.dark #mobile-bottom-nav{background-color:#0b1220;border-top-color:#1e293b}
+      #dashboard-nav{background-color:#ffffff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border-color:#e2e8f0!important}
+      .dark #dashboard-nav{background-color:#0b1220!important;border-color:#1e293b!important}
     }
+    /* Customer 360 drawer + HQ modal windows: opaque backgrounds so the
+       Liquid-Glass semi-transparent surface token doesn't make the drawer
+       body read as dim/muddy over the page underneath (the screenshot bug
+       where labels went invisible in dark mode). */
+    #saas-cust-drawer > div,
+    #hq-acct-modal > div,
+    #acc-receipt-scan-modal > div{background-color:#ffffff!important;color:#0f172a}
+    .dark #saas-cust-drawer > div,
+    .dark #hq-acct-modal > div,
+    .dark #acc-receipt-scan-modal > div{background-color:#0f172a!important;color:#f1f5f9}
+    #saas-cust-drawer [class*="text-slate-8"],
+    #saas-cust-drawer [class*="text-slate-9"]{color:#0f172a}
+    .dark #saas-cust-drawer [class*="text-slate-8"],
+    .dark #saas-cust-drawer [class*="text-slate-9"],
+    .dark #saas-cust-drawer [class*="dark\\:text-white"]{color:#f1f5f9}
     /* End HQ command-center CSS ──────────────────────────────────────────── */
 
     /* Both logo PNGs contain substantial transparent canvas. Crop that canvas in every

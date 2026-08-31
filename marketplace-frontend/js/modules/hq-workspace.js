@@ -1656,25 +1656,207 @@ async function loadSaasAutomationDiagnostics() {
 }
 window.loadSaasAutomationDiagnostics = loadSaasAutomationDiagnostics;
 
-window.hqOpenExpenseModal = async function () {
-  const vendor = (prompt('Vendor name') || '').trim();
-  if (!vendor) return;
-  const amountStr = (prompt('Amount (USD)') || '').trim();
-  const amount = Number(amountStr);
-  if (!Number.isFinite(amount) || amount <= 0) {
-    if (typeof showToast === 'function') showToast('Amount must be a positive number', 'error');
-    return;
-  }
-  const category = (prompt('Category key (infrastructure, software, marketing, contractors, operations, or leave blank)') || '').trim();
-  const memo = (prompt('Memo (optional)') || '').trim();
+// ── HQ operating-ledger UI ─────────────────────────────────────────────────
+// A single-modal pattern reused for both directions (expense / income) and
+// both entry paths (manual, or AI-decoded from a photo).
+//
+// Rules:
+// - Field validation lives on the server; the modal only checks obvious
+//   emptiness so it doesn't shadow the real error text.
+// - The photo path calls /saas/accounting/expenses/scan (or /income/scan),
+//   pre-fills the form, and always lets the user confirm before saving.
+//   The raw photo bytes are never persisted — only the parsed fields land
+//   in Postgres.
+// - Category options are pulled live from the HQ ledger so the UI never
+//   invents a bucket that doesn't exist server-side.
+
+function hqAcctModal(title, innerHtml) {
+  document.getElementById('hq-acct-modal')?.remove();
+  const el = document.createElement('div');
+  el.id = 'hq-acct-modal';
+  el.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm';
+  el.innerHTML = `
+    <div class="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+        <h3 class="text-base font-black text-slate-900 dark:text-white">${esc(title)}</h3>
+        <button onclick="document.getElementById('hq-acct-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">\u{2715}</button>
+      </div>
+      ${innerHtml}
+    </div>`;
+  document.body.appendChild(el);
+  return el;
+}
+
+async function hqLoadCategoryOptions() {
+  try {
+    const d = await apiGetJson('/saas/accounting/expenses?days=30');
+    return d.categories || [];
+  } catch { return []; }
+}
+
+window.hqOpenExpenseModal = async function (prefill) {
+  const cats = await hqLoadCategoryOptions();
+  const opts = ['<option value="">— Uncategorized —</option>']
+    .concat(cats.map(c => `<option value="${esc(c.key)}" ${prefill && prefill.category_key === c.key ? 'selected' : ''}>${esc(c.label || c.key)}</option>`))
+    .join('');
+  const today = new Date().toISOString().slice(0, 10);
+  hqAcctModal('Add expense', `
+    <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500">Vendor</label>
+    <input id="hq-e-vendor" value="${esc((prefill && prefill.vendor) || '')}" class="w-full mt-1 mb-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="e.g. Vercel, AWS, agency name">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500">Amount</label>
+        <input id="hq-e-amount" type="number" min="0" step="0.01" value="${prefill && prefill.total != null ? prefill.total : ''}" class="w-full mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500">Date</label>
+        <input id="hq-e-date" type="date" value="${(prefill && prefill.date) || today}" class="w-full mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm">
+      </div>
+    </div>
+    <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500 mt-3">Category</label>
+    <select id="hq-e-category" class="w-full mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm">${opts}</select>
+    <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500 mt-3">Memo</label>
+    <textarea id="hq-e-memo" rows="2" class="w-full mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="Optional"></textarea>
+    <label class="flex items-center gap-2 mt-3 text-sm text-slate-700 dark:text-slate-200">
+      <input id="hq-e-recurring" type="checkbox"> Recurring subscription
+    </label>
+    <div class="flex justify-end gap-2 mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+      <button onclick="document.getElementById('hq-acct-modal')?.remove()" class="px-4 py-2 rounded-xl text-sm font-bold border border-slate-200 dark:border-slate-700">Cancel</button>
+      <button onclick="hqSubmitExpense()" class="px-4 py-2 rounded-xl text-sm font-bold bg-rose-600 hover:bg-rose-500 text-white">Save expense</button>
+    </div>`);
+};
+
+window.hqSubmitExpense = async () => {
+  const vendor = (document.getElementById('hq-e-vendor')?.value || '').trim();
+  const amount = Number(document.getElementById('hq-e-amount')?.value);
+  const date = document.getElementById('hq-e-date')?.value;
+  const category = document.getElementById('hq-e-category')?.value || null;
+  const memo = document.getElementById('hq-e-memo')?.value || null;
+  const recurring = !!document.getElementById('hq-e-recurring')?.checked;
+  if (!vendor) { if (typeof showToast === 'function') showToast('Vendor required', 'error'); return; }
+  if (!Number.isFinite(amount) || amount <= 0) { if (typeof showToast === 'function') showToast('Amount must be a positive number', 'error'); return; }
   try {
     await apiSendJson('/saas/accounting/expenses', 'POST', {
-      vendor, amount, category_key: category || null, memo: memo || null,
+      vendor, amount, incurred_on: date, category_key: category, memo, recurring,
     });
+    document.getElementById('hq-acct-modal')?.remove();
     if (typeof showToast === 'function') showToast('Expense recorded', 'success');
     if (typeof loadSaasAccounting === 'function') loadSaasAccounting();
+  } catch (e) { if (typeof showToast === 'function') showToast(e.message || 'Could not save expense', 'error'); }
+};
+
+window.hqOpenIncomeModal = async function (prefill) {
+  const cats = await hqLoadCategoryOptions();
+  const opts = ['<option value="">— Uncategorized —</option>']
+    .concat(cats.map(c => `<option value="${esc(c.key)}">${esc(c.label || c.key)}</option>`))
+    .join('');
+  const today = new Date().toISOString().slice(0, 10);
+  hqAcctModal('Add income', `
+    <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500">Source (payer)</label>
+    <input id="hq-i-source" value="${esc((prefill && prefill.source) || '')}" class="w-full mt-1 mb-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="e.g. Consulting — Acme Auto">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500">Amount</label>
+        <input id="hq-i-amount" type="number" min="0" step="0.01" value="${prefill && prefill.amount != null ? prefill.amount : ''}" class="w-full mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500">Received</label>
+        <input id="hq-i-date" type="date" value="${(prefill && prefill.date) || today}" class="w-full mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm">
+      </div>
+    </div>
+    <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500 mt-3">Category</label>
+    <select id="hq-i-category" class="w-full mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm">${opts}</select>
+    <label class="block text-[11px] font-black uppercase tracking-wider text-slate-500 mt-3">Memo</label>
+    <textarea id="hq-i-memo" rows="2" class="w-full mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="Optional"></textarea>
+    <div class="flex justify-end gap-2 mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+      <button onclick="document.getElementById('hq-acct-modal')?.remove()" class="px-4 py-2 rounded-xl text-sm font-bold border border-slate-200 dark:border-slate-700">Cancel</button>
+      <button onclick="hqSubmitIncome()" class="px-4 py-2 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white">Save income</button>
+    </div>`);
+};
+
+window.hqSubmitIncome = async () => {
+  const source = (document.getElementById('hq-i-source')?.value || '').trim();
+  const amount = Number(document.getElementById('hq-i-amount')?.value);
+  const date = document.getElementById('hq-i-date')?.value;
+  const category = document.getElementById('hq-i-category')?.value || null;
+  const memo = document.getElementById('hq-i-memo')?.value || null;
+  if (!source) { if (typeof showToast === 'function') showToast('Source required', 'error'); return; }
+  if (!Number.isFinite(amount) || amount <= 0) { if (typeof showToast === 'function') showToast('Amount must be a positive number', 'error'); return; }
+  try {
+    await apiSendJson('/saas/accounting/income', 'POST', {
+      source, amount, received_on: date, category_key: category, memo,
+    });
+    document.getElementById('hq-acct-modal')?.remove();
+    if (typeof showToast === 'function') showToast('Income recorded', 'success');
+    if (typeof loadSaasAccounting === 'function') loadSaasAccounting();
+  } catch (e) { if (typeof showToast === 'function') showToast(e.message || 'Could not save income', 'error'); }
+};
+
+window.hqDeleteExpense = async (id) => {
+  if (!confirm('Delete this expense?')) return;
+  try { await apiSendJson('/saas/accounting/expenses/' + id, 'DELETE'); if (typeof loadSaasAccounting === 'function') loadSaasAccounting(); }
+  catch (e) { if (typeof showToast === 'function') showToast(e.message || 'Could not delete', 'error'); }
+};
+window.hqDeleteIncome = async (id) => {
+  if (!confirm('Delete this income entry?')) return;
+  try { await apiSendJson('/saas/accounting/income/' + id, 'DELETE'); if (typeof loadSaasAccounting === 'function') loadSaasAccounting(); }
+  catch (e) { if (typeof showToast === 'function') showToast(e.message || 'Could not delete', 'error'); }
+};
+
+// ── Photo capture pipelines. Both open a native file picker and, on iOS +
+// Android, that picker offers the camera as an option because of capture=environment.
+function hqOpenCapture(endpoint, onFields, label) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.setAttribute('capture', 'environment');
+  input.style.display = 'none';
+  document.body.appendChild(input);
+  input.onchange = async () => {
+    const file = input.files && input.files[0]; input.remove();
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      if (typeof showToast === 'function') showToast('Reading ' + label + '…', 'info');
+      try {
+        const r = await apiSendJson(endpoint, 'POST', { image: evt.target.result });
+        onFields(r.fields || {});
+      } catch (e) {
+        if (typeof showToast === 'function') showToast(e.message || 'Could not read ' + label, 'error');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+window.hqOpenReceiptCapture = () => hqOpenCapture('/saas/accounting/expenses/scan', (f) => {
+  hqOpenExpenseModal(f);
+}, 'receipt');
+window.hqOpenInvoiceCapture = () => hqOpenCapture('/saas/accounting/income/scan', (f) => {
+  hqOpenIncomeModal(f);
+}, 'invoice');
+
+// ── Budget save: batch every non-empty input into one PATCH burst.
+window.hqSaveHqBudgets = async () => {
+  const inputs = document.querySelectorAll('[data-hq-budget-key]');
+  const patches = [];
+  inputs.forEach(el => {
+    const key = el.dataset.hqBudgetKey;
+    const raw = String(el.value || '').trim();
+    // Blank OR 0 = "no budget" (null on the server).
+    const value = raw === '' || Number(raw) === 0 ? null : Number(raw);
+    if (value != null && (!Number.isFinite(value) || value < 0)) return;
+    patches.push({ key, value });
+  });
+  if (!patches.length) { if (typeof showToast === 'function') showToast('Nothing to save', 'error'); return; }
+  try {
+    await Promise.all(patches.map(p =>
+      apiSendJson('/saas/accounting/categories/' + encodeURIComponent(p.key), 'PATCH', { monthly_budget: p.value })
+    ));
+    if (typeof showToast === 'function') showToast('Budgets saved', 'success');
+    if (typeof loadSaasAccounting === 'function') loadSaasAccounting();
   } catch (e) {
-    if (typeof showToast === 'function') showToast(e.message || 'Could not record expense', 'error');
+    if (typeof showToast === 'function') showToast(e.message || 'Could not save budgets', 'error');
   }
 };
 

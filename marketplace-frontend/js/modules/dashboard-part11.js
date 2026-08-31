@@ -792,7 +792,10 @@ function loadSaasEmployees() { renderEngine('saas-employees'); }
 // ══ SaaS Accounting — MarketSync's own P&L (recurring revenue + program cost) ══
 function saasMoneyRing(label, value, max, color, display) {
   const pct = Math.max(0, Math.min(100, max ? Math.round(Number(value || 0) / max * 100) : 0));
-  return `<div class="flex flex-col items-center text-center"><div class="w-28 h-28 rounded-full grid place-items-center" style="background:conic-gradient(${color} ${pct}%,#1e293b ${pct}% 100%)"><div class="w-20 h-20 rounded-full bg-white dark:bg-slate-900 grid place-items-center"><div><div class="text-lg font-black">${esc(display)}</div><div class="text-[10px] text-slate-400">${pct}%</div></div></div></div><div class="mt-2 text-xs font-black">${esc(label)}</div></div>`;
+  // The unfilled arc was hard-coded to a dark slate colour, which read as a
+  // solid black disc on light mode when pct=0 (Expenses ring on a $0 month).
+  // A CSS variable adapts per theme without any inline branching in the SVG.
+  return `<div class="flex flex-col items-center text-center"><div class="w-28 h-28 rounded-full grid place-items-center ms-money-ring" style="background:conic-gradient(${color} ${pct}%,var(--ms-ring-track) ${pct}% 100%)"><div class="w-20 h-20 rounded-full bg-white dark:bg-slate-900 grid place-items-center"><div><div class="text-lg font-black">${esc(display)}</div><div class="text-[10px] text-slate-400">${pct}%</div></div></div></div><div class="mt-2 text-xs font-black">${esc(label)}</div></div>`;
 }
 function saasMoneyBudgetEditor(d) {
   const b = d.budget || {}, budgets = b.budgets || {}, actuals = b.actuals || {};
@@ -809,15 +812,16 @@ ENGINES['saas-accounting'] = {
   icon: 'currency', accent: 'emerald',
   hideRail: true, hideTabBar: true, tabOrder: ['overview'],
   fetch: async () => {
-    const [money, budget, accounts, hqExpenses] = await Promise.all([
+    const [money, budget, accounts, hqExpenses, hqIncome] = await Promise.all([
       apiGetJson('/saas/accounting'),
       apiGetJson('/accounting/budget').catch(() => null),
       apiGetJson('/accounting/accounts').catch(() => ({accounts:[]})),
       // HQ operating-expense ledger. Falls to null on 404 (fresh env before
       // migration) so the tab shows "Not connected" instead of empty totals.
       apiGetJson('/saas/accounting/expenses?days=90').catch(() => null),
+      apiGetJson('/saas/accounting/income?days=90').catch(() => null),
     ]);
-    return {...money, budget, accounts: accounts.accounts || accounts || [], _hqExpenses: hqExpenses};
+    return {...money, budget, accounts: accounts.accounts || accounts || [], _hqExpenses: hqExpenses, _hqIncome: hqIncome};
   },
   quickActions: [
     { label: 'MarketSync HQ', icon: 'chart', onclick: "switchPage('saas-command')" },
@@ -838,7 +842,19 @@ ENGINES['saas-accounting'] = {
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
           ${engCard('This month', `<div class="flex justify-around gap-3">${saasMoneyRing('Income',income,Math.max(income,expenses,1),'#10b981',engMoney0(income))}${saasMoneyRing('Expenses',expenses,Math.max(income,target,expenses,1),'#f43f5e',engMoney0(expenses))}</div><div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between"><span class="text-sm font-bold">Money left</span><span class="font-black ${netTone}">${engMoney0(income-expenses)}</span></div>`)}
           ${engCard('Automatic income', `<button onclick="switchPage('saas-customers')" class="w-full flex justify-between gap-3 py-2 text-sm text-left"><span>Customer subscriptions</span><b class="text-emerald-500 whitespace-nowrap">${engMoney0(d.mrr)}/month</b></button><p class="text-[11px] text-slate-400 mt-3">Customer and affiliate sales are automatically counted as income.</p>`)}
-          ${engCard('Add an expense', `<p class="text-sm text-slate-500 mb-3">Take a receipt photo. AI fills in the form; you check it before saving.</p><button onclick="accOpenReceiptScanModal()" class="w-full px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black">Take or upload receipt photo</button><details class="mt-2"><summary class="cursor-pointer text-center text-xs font-bold text-slate-500 py-2">More options</summary><button onclick="accOpenCustomEntryModal('out')" class="w-full mt-1 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold">Enter an expense myself</button></details>`)}
+          ${engCard('Capture', `
+            <p class="text-sm text-slate-500 mb-3">Snap a photo — AI reads it, you confirm, then it lands in the HQ ledger.</p>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="hqOpenReceiptCapture()" class="px-3 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-sm">Receipt → expense</button>
+              <button onclick="hqOpenInvoiceCapture()" class="px-3 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm">Invoice → income</button>
+            </div>
+            <details class="mt-3">
+              <summary class="cursor-pointer text-center text-xs font-bold text-slate-500 py-2">Enter manually</summary>
+              <div class="grid grid-cols-2 gap-2 mt-1">
+                <button onclick="hqOpenExpenseModal()" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold">Expense</button>
+                <button onclick="hqOpenIncomeModal()" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold">Income</button>
+              </div>
+            </details>`)}
         </div>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
           ${engCard('My monthly budget', `${saasMoneyBudgetEditor(d)}<button onclick="saasSaveBudget()" class="mt-3 px-4 py-2 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-black">Save budget</button>`)}
@@ -864,28 +880,34 @@ ENGINES['saas-accounting'] = {
           ${engKpi('Trials', (d.trials || 0).toLocaleString(), 'text-blue-600 dark:text-blue-400')}
         </div>`)}`;
     },
-    insights(body, d) {   // Expenses — HQ vendor ledger + affiliate program
+    insights(body, d) {   // Expenses — HQ vendor ledger + income + budget + affiliate
       const a = d.affiliate || {};
       const hq = d._hqExpenses;
+      const inc = d._hqIncome;
       const hqBlock = !hq
         ? `<div class="rounded-2xl border border-amber-300/60 bg-amber-50/40 dark:border-amber-900/60 dark:bg-amber-950/20 p-4 text-sm text-amber-800 dark:text-amber-200"><b>Not connected</b> — apply the HQ command-center migration to enable the vendor expense ledger.</div>`
         : (() => {
             const t = hq.totals || {};
-            const bcRows = Object.entries(t.by_category || {}).map(([k, b]) => {
-              const budget = b.monthly_budget;
-              const pct = b.budget_utilization;
-              const bar = budget == null ? '<span class="text-[11px] text-slate-400">No budget set</span>' : `
-                <div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                  <div class="h-full ${pct > 100 ? 'bg-rose-500' : pct > 80 ? 'bg-amber-500' : 'bg-emerald-500'}" style="width:${Math.min(100, pct || 0)}%"></div>
-                </div>`;
+            const categories = hq.categories || [];
+            // Budget composer — one editable row per category. Save posts to
+            // PATCH /saas/accounting/categories/:key. Missing budget renders
+            // as an empty input, not "0", so no fake commitment gets shown.
+            const budgetRows = categories.map(c => {
+              const bucket = t.by_category[c.key] || { spent_this_month: 0, budget_utilization: null };
+              const pct = bucket.budget_utilization;
               return `<div class="grid grid-cols-12 items-center gap-2 py-2 border-t border-slate-100 dark:border-slate-800 first:border-0 text-[12px]">
-                <div class="col-span-4 font-bold text-slate-800 dark:text-slate-100 truncate">${esc(b.label || k)}</div>
-                <div class="col-span-2 text-right font-bold">${engMoney0(b.spent_this_month)}</div>
-                <div class="col-span-2 text-right text-slate-500">${budget == null ? '—' : engMoney0(budget)}</div>
-                <div class="col-span-1 text-right ${pct > 100 ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-slate-500'}">${pct == null ? '' : pct + '%'}</div>
-                <div class="col-span-3">${bar}</div>
+                <div class="col-span-4 font-bold text-slate-800 dark:text-slate-100 truncate" title="${esc(c.key)}">${esc(c.label || c.key)}</div>
+                <div class="col-span-2 text-right font-bold">${engMoney0(bucket.spent_this_month || 0)}</div>
+                <div class="col-span-3">
+                  <input type="number" min="0" step="1" value="${c.monthly_budget != null ? c.monthly_budget : ''}"
+                    data-hq-budget-key="${esc(c.key)}" placeholder="No budget"
+                    class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs text-right"/>
+                </div>
+                <div class="col-span-3">
+                  ${c.monthly_budget != null ? `<div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div class="h-full ${pct > 100 ? 'bg-rose-500' : pct > 80 ? 'bg-amber-500' : 'bg-emerald-500'}" style="width:${Math.min(100, pct || 0)}%"></div></div><div class="text-[10px] mt-1 ${pct > 100 ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-slate-500'}">${pct == null ? 'No budget' : pct + '% used'}</div>` : '<span class="text-[11px] text-slate-400">Set a monthly budget →</span>'}
+                </div>
               </div>`;
-            }).join('');
+            }).join('') || '<div class="py-4 text-center text-sm text-slate-500">No categories yet.</div>';
             const rows = (hq.expenses || []).slice(0, 40).map(e => `
               <tr class="border-t border-slate-100 dark:border-slate-800 text-[12px]">
                 <td class="p-2 whitespace-nowrap text-slate-500">${e.incurred_on}</td>
@@ -893,25 +915,73 @@ ENGINES['saas-accounting'] = {
                 <td class="p-2 text-slate-500">${esc(e.category_key || '—')}</td>
                 <td class="p-2 text-right font-black">${engMoney0(e.amount)}</td>
                 <td class="p-2 text-xs">${e.recurring ? '<span class="text-indigo-500 font-bold">recurring</span>' : ''}</td>
-              </tr>`).join('') || '<tr><td colspan="5" class="p-4 text-center text-sm text-slate-500">No expenses recorded in the last 90 days.</td></tr>';
+                <td class="p-2 text-right"><button onclick="hqDeleteExpense('${e.id}')" class="text-[11px] font-bold text-rose-500 hover:underline">Delete</button></td>
+              </tr>`).join('') || '<tr><td colspan="6" class="p-4 text-center text-sm text-slate-500">No expenses recorded in the last 90 days.</td></tr>';
             return `
               <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
                 ${engKpi('Spent this month', engMoney0(t.this_month), 'text-rose-600 dark:text-rose-400')}
                 ${engKpi('Spent (90d)', engMoney0(t.window))}
                 ${engKpi('Categories', String(Object.keys(t.by_category || {}).length))}
               </div>
-              ${engCard('Budget vs actual (this month)', bcRows || '<div class="py-4 text-center text-sm text-slate-500">No categories yet.</div>')}
+              ${engCard('Budget by category', `
+                <div class="grid grid-cols-12 gap-2 text-[10px] font-black uppercase tracking-wider text-slate-500 pb-1 border-b border-slate-100 dark:border-slate-800">
+                  <div class="col-span-4">Category</div>
+                  <div class="col-span-2 text-right">Spent (mo)</div>
+                  <div class="col-span-3 text-right pr-2">Monthly budget</div>
+                  <div class="col-span-3">Utilization</div>
+                </div>
+                ${budgetRows}
+                <div class="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <div class="text-[11px] text-slate-500">Set 0 (or leave blank) to remove a budget.</div>
+                  <button onclick="hqSaveHqBudgets()" class="ms-btn ms-btn--primary !text-[13px]">Save budgets</button>
+                </div>`)}
               ${engCard('Recent vendor expenses', `
-                <div class="mb-3"><button onclick="hqOpenExpenseModal()" class="ms-btn ms-btn--primary !text-[13px]">Add expense</button></div>
+                <div class="mb-3 flex gap-2">
+                  <button onclick="hqOpenReceiptCapture()" class="ms-btn !text-[13px] bg-rose-600 hover:bg-rose-500 text-white">Snap receipt</button>
+                  <button onclick="hqOpenExpenseModal()" class="ms-btn !text-[13px] border border-slate-200 dark:border-slate-700">Enter manually</button>
+                </div>
                 <div class="overflow-x-auto"><table class="w-full text-left">
                   <thead><tr class="text-[10px] font-black uppercase text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                    <th class="p-2">Date</th><th class="p-2">Vendor</th><th class="p-2">Category</th><th class="p-2 text-right">Amount</th><th class="p-2"></th>
+                    <th class="p-2">Date</th><th class="p-2">Vendor</th><th class="p-2">Category</th><th class="p-2 text-right">Amount</th><th class="p-2"></th><th class="p-2"></th>
+                  </tr></thead>
+                  <tbody>${rows}</tbody>
+                </table></div>`)}`;
+          })();
+      // Income block — mirrors the expenses table but off the income endpoint.
+      const incBlock = !inc
+        ? `<div class="rounded-2xl border border-amber-300/60 bg-amber-50/40 dark:border-amber-900/60 dark:bg-amber-950/20 p-4 text-sm text-amber-800 dark:text-amber-200"><b>Income ledger not connected</b> — apply migration 20260831183000 to enable one-off invoice tracking.</div>`
+        : (() => {
+            const t = inc.totals || {};
+            const rows = (inc.income || []).slice(0, 30).map(i => `
+              <tr class="border-t border-slate-100 dark:border-slate-800 text-[12px]">
+                <td class="p-2 whitespace-nowrap text-slate-500">${i.received_on}</td>
+                <td class="p-2 font-bold">${esc(i.source)}</td>
+                <td class="p-2 text-slate-500">${esc(i.category_key || '—')}</td>
+                <td class="p-2 text-right font-black text-emerald-600 dark:text-emerald-400">+${engMoney0(i.amount)}</td>
+                <td class="p-2 text-right"><button onclick="hqDeleteIncome('${i.id}')" class="text-[11px] font-bold text-rose-500 hover:underline">Delete</button></td>
+              </tr>`).join('') || '<tr><td colspan="5" class="p-4 text-center text-sm text-slate-500">No one-off income recorded in the last 90 days.</td></tr>';
+            return `
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                ${engKpi('One-off income this month', engMoney0(t.this_month), 'text-emerald-600 dark:text-emerald-400')}
+                ${engKpi('One-off income (90d)', engMoney0(t.window))}
+                ${engKpi('Entries', String((inc.income || []).length))}
+              </div>
+              ${engCard('One-off income (invoices, consulting, side revenue)', `
+                <p class="text-[12px] text-slate-500 mb-3">Subscription MRR is counted automatically above — this table is for everything else.</p>
+                <div class="mb-3 flex gap-2">
+                  <button onclick="hqOpenInvoiceCapture()" class="ms-btn !text-[13px] bg-emerald-600 hover:bg-emerald-500 text-white">Snap invoice</button>
+                  <button onclick="hqOpenIncomeModal()" class="ms-btn !text-[13px] border border-slate-200 dark:border-slate-700">Enter manually</button>
+                </div>
+                <div class="overflow-x-auto"><table class="w-full text-left">
+                  <thead><tr class="text-[10px] font-black uppercase text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                    <th class="p-2">Received</th><th class="p-2">Source</th><th class="p-2">Category</th><th class="p-2 text-right">Amount</th><th class="p-2"></th>
                   </tr></thead>
                   <tbody>${rows}</tbody>
                 </table></div>`)}`;
           })();
       body.innerHTML = `
         ${hqBlock}
+        ${incBlock}
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
           ${engKpi('Affiliate owed now', engMoney0(a.pending), a.pending ? 'text-amber-600 dark:text-amber-400' : '')}
           ${engKpi('Affiliate paid this month', engMoney0(a.paid_this_month), 'text-rose-600 dark:text-rose-400')}

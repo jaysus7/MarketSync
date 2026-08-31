@@ -212,6 +212,64 @@ test('HQ mobile nav includes every Slice-2..5 destination', async () => {
   }
 })
 
+test('Receipt + invoice OCR endpoints exist, gate on manage_followups, cap image size', async () => {
+  const s = await src()
+  for (const path of ['/saas/accounting/expenses/scan', '/saas/accounting/income/scan']) {
+    assert.match(s, new RegExp(`app\\.post\\('${path.replace(/\//g, '\\/')}'`),
+      `OCR route missing: ${path}`)
+    assert.match(s, new RegExp(
+      `app\\.post\\('${path.replace(/\//g, '\\/')}'[\\s\\S]{0,300}need\\('manage_followups'\\)`),
+      `${path} must gate on manage_followups`)
+  }
+  // Uploaded images must be capped so a rogue caller cannot burn Anthropic
+  // vision tokens by shipping a 50MB payload.
+  assert.match(s, /data\.length\s*>\s*8_000_000/,
+    'receipt/invoice OCR must reject images over ~8MB')
+})
+
+test('HQ income endpoints exist and gate write on manage_followups', async () => {
+  const s = await src()
+  for (const p of [
+    /app\.get\('\/saas\/accounting\/income'/,
+    /app\.post\('\/saas\/accounting\/income'/,
+    /app\.delete\('\/saas\/accounting\/income\/:id'/,
+  ]) assert.match(s, p, `income route missing: ${p}`)
+  assert.match(s, /app\.post\('\/saas\/accounting\/income'[\s\S]{0,300}need\('manage_followups'\)/,
+    'POST /saas/accounting/income must gate on manage_followups')
+  // Postgres text columns should not carry raw base64 image blobs — the
+  // route stores only user-provided invoice URLs. A regression here would
+  // put megabytes of image data into every ledger row.
+  assert.match(s, /invoice_url:\s*b\.invoice_url\s*\?\s*String\(b\.invoice_url\)\.slice\(0,\s*2000\)\s*:\s*null/,
+    'income row must persist invoice_url as a bounded string, never inline bytes')
+})
+
+test('hq_income_entries migration exists with RLS scoped to platform staff', async () => {
+  const migSrc = await readFile(
+    new URL('../../supabase/migrations/20260831183000_hq_income_and_receipts.sql', import.meta.url),
+    'utf8'
+  )
+  assert.match(migSrc, /create table if not exists public\.hq_income_entries/)
+  assert.match(migSrc, /alter table public\.hq_income_entries enable row level security/)
+  assert.match(migSrc, /platform_owner['", ]+['", ]*platform_admin/,
+    'income ledger SELECT policy must gate on platform staff only')
+})
+
+test('Money ring uses a themeable CSS token for the unfilled arc', async () => {
+  const part11 = await readFile(
+    new URL('../../marketplace-frontend/js/modules/dashboard-part11.js', import.meta.url),
+    'utf8'
+  )
+  const html = await readFile(
+    new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8'
+  )
+  // The old hard-coded #1e293b made a $0 arc render as a solid dark disc
+  // even in light mode. A CSS variable lets each theme override the track.
+  assert.match(part11, /conic-gradient\(\$\{color\}\s*\$\{pct\}%,var\(--ms-ring-track\)/,
+    'saasMoneyRing must reference --ms-ring-track for the unfilled arc')
+  assert.match(html, /--ms-ring-track:#e2e8f0/, 'light theme must define ring track')
+  assert.match(html, /\.dark\{--ms-ring-track:#1e293b\}/, 'dark theme must override ring track')
+})
+
 test('HQ page CSS block pins solid card + border tokens in both themes', async () => {
   const html = await readFile(
     new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8'
