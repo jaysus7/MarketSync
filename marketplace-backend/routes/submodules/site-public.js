@@ -841,12 +841,14 @@ Sitemap: ${base}/sitemap.xml`)
   <div id="root"></div>
 
   <script src="/assets/public-shell.js"></script>
+  <script id="vehicle-config" type="application/json">
+  ${JSON.stringify({ site: { name: site.name, slug: site.slug, custom_domain: site.custom_domain }, vehicle })}
+  </script>
   <script>
     if (window.PublicSiteRenderer) {
-      window.PublicSiteRenderer.initVehicleDetail({
-        site: ${escapeJson({ name: site.name, slug: site.slug, custom_domain: site.custom_domain })},
-        vehicle: ${escapeJson(vehicle)}
-      });
+      const config = document.getElementById('vehicle-config');
+      const data = config ? JSON.parse(config.textContent) : {};
+      window.PublicSiteRenderer.initVehicleDetail(data);
     }
   </script>
 </body>
@@ -1011,14 +1013,14 @@ Sitemap: ${base}/sitemap.xml`)
   <div id="root"></div>
 
   <script src="/assets/public-shell.js"></script>
+  <script id="inventory-config" type="application/json">
+  ${JSON.stringify({ site: { name: site.name, slug: site.slug, custom_domain: site.custom_domain }, vehicles: vehicles || [], pageNumber, totalPages })}
+  </script>
   <script>
     if (window.PublicSiteRenderer) {
-      window.PublicSiteRenderer.initInventoryList({
-        site: ${escapeJson({ name: site.name, slug: site.slug, custom_domain: site.custom_domain })},
-        vehicles: ${escapeJson(vehicles || [])},
-        pageNumber: ${pageNumber},
-        totalPages: ${totalPages}
-      });
+      const config = document.getElementById('inventory-config');
+      const data = config ? JSON.parse(config.textContent) : {};
+      window.PublicSiteRenderer.initInventoryList(data);
     }
   </script>
 </body>
