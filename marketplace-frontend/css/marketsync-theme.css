@@ -1530,6 +1530,274 @@ body.website-builder-mode {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
 }
 
+/* Website Builder canvas quality fixes. Keep production sections full-bleed;
+   their inner max-width wrappers still protect readable line lengths. The
+   editor docks float above the canvas and must never make the site preview look
+   like a narrow card on a desktop display. */
+.website-builder-mode #ws-frame-wrapper[data-ws-device="desktop"] {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.website-builder-mode #ws-frame-wrapper[data-ws-device="tablet"] {
+  width: min(768px, calc(100vw - 2rem)) !important;
+  height: 92% !important;
+  border-radius: 1rem !important;
+  border: 4px solid #475569 !important;
+}
+.website-builder-mode #ws-frame-wrapper[data-ws-device="mobile"] {
+  width: min(375px, calc(100vw - 2rem)) !important;
+  height: 92% !important;
+  border-radius: 1.5rem !important;
+  border: 4px solid #475569 !important;
+}
+.website-builder-mode #ws-preview-frame {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+}
+.website-builder-mode .ws-studio-container #ws-inspector-panel,
+.website-builder-mode .ws-studio-container #ws-left-drawer-content {
+  color: var(--ws-text) !important;
+  text-shadow: none !important;
+}
+.website-builder-mode .ws-studio-container #ws-inspector-panel .text-slate-900,
+.website-builder-mode .ws-studio-container #ws-inspector-panel .text-slate-800,
+.website-builder-mode .ws-studio-container #ws-left-drawer-content .text-slate-900,
+.website-builder-mode .ws-studio-container #ws-left-drawer-content .text-slate-800 {
+  color: var(--ws-text) !important;
+}
+.website-builder-mode .ws-studio-container #ws-inspector-panel .text-slate-500,
+.website-builder-mode .ws-studio-container #ws-inspector-panel .text-slate-400,
+.website-builder-mode .ws-studio-container #ws-left-drawer-content .text-slate-500,
+.website-builder-mode .ws-studio-container #ws-left-drawer-content .text-slate-400 {
+  color: var(--ws-text-muted) !important;
+}
+.website-builder-mode .ws-studio-container .liquid-glass-input,
+.website-builder-mode .ws-studio-container .liquid-glass-card,
+.website-builder-mode .ws-studio-container .liquid-glass-panel {
+  color: var(--ws-text) !important;
+}
+@media (max-width: 768px) {
+  .website-builder-mode .ws-top-action-bar {
+    align-items: stretch !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    min-height: 52px !important;
+  }
+  .website-builder-mode .ws-top-action-bar > * { flex-shrink: 0 !important; }
+  .website-builder-mode #ws-left-dock-wrapper,
+  .website-builder-mode #ws-right-dock-wrapper {
+    top: .5rem !important;
+    max-height: calc(100% - 1rem) !important;
+  }
+  .website-builder-mode #ws-left-drawer-content,
+  .website-builder-mode #ws-inspector-panel {
+    width: min(86vw, 330px) !important;
+    max-width: calc(100vw - 4rem) !important;
+  }
+  .website-builder-mode #ws-left-dock-wrapper { left: .5rem !important; }
+  .website-builder-mode #ws-right-dock-wrapper { right: .5rem !important; }
+  .website-builder-mode #ws-frame-wrapper[data-ws-device="desktop"] { width: 100% !important; max-width: 100% !important; border-radius: 0 !important; }
+  .website-builder-mode #ws-frame-wrapper[data-ws-device="tablet"] { width: calc(100vw - 1rem) !important; max-width: calc(100vw - 1rem) !important; }
+  .website-builder-mode #ws-frame-wrapper[data-ws-device="mobile"] { width: min(375px, calc(100vw - 1rem)) !important; max-width: calc(100vw - 1rem) !important; }
+}
+
+/* Website Builder editor chrome: keep the preview expressive, but make the
+ * controls calm, opaque, and readable. The editor is a work surface, not a
+ * translucent marketing card. This intentionally overrides the global glass
+ * treatment only inside builder mode. */
+.website-builder-mode {
+  --ws-panel: #101b31;
+  --ws-panel-raised: #182641;
+  --ws-border: #344766;
+  --ws-text: #f8fafc;
+  --ws-text-secondary: #dbe7f5;
+  --ws-text-muted: #a8b7cc;
+  --ws-input-bg: #0b1426;
+  --ws-input-border: #405577;
+  --ws-input-text: #f8fafc;
+}
+.website-builder-mode .ws-top-action-bar,
+.website-builder-mode #ws-left-dock-wrapper nav,
+.website-builder-mode #ws-left-drawer-content,
+.website-builder-mode #ws-right-dock-wrapper > div,
+.website-builder-mode #ws-inspector-panel {
+  background: var(--ws-panel) !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: var(--ws-border) !important;
+  color: var(--ws-text) !important;
+  box-shadow: 0 12px 28px rgba(2, 8, 23, .34) !important;
+}
+.website-builder-mode #ws-left-drawer-content,
+.website-builder-mode #ws-inspector-panel {
+  opacity: 1 !important;
+}
+.website-builder-mode .ws-top-action-bar button,
+.website-builder-mode .ws-top-action-bar select,
+.website-builder-mode #ws-right-collapse-btn,
+.website-builder-mode #ws-left-collapse-btn,
+.website-builder-mode .ws-device-btn,
+.website-builder-mode .ws-nav-rail-btn {
+  text-shadow: none !important;
+  filter: none !important;
+}
+.website-builder-mode .ws-top-action-bar button:not(.bg-indigo-600),
+.website-builder-mode .ws-top-action-bar select,
+.website-builder-mode #ws-right-collapse-btn,
+.website-builder-mode #ws-left-collapse-btn {
+  background: var(--ws-panel-raised) !important;
+  color: var(--ws-text-secondary) !important;
+  border-color: var(--ws-border) !important;
+}
+.website-builder-mode .ws-top-action-bar button:not(.bg-indigo-600):hover,
+.website-builder-mode #ws-right-collapse-btn:hover,
+.website-builder-mode #ws-left-collapse-btn:hover {
+  background: #223453 !important;
+  color: #fff !important;
+}
+.website-builder-mode .ws-top-action-bar .bg-indigo-600,
+.website-builder-mode .ws-device-btn.bg-indigo-600 {
+  background: #2563eb !important;
+  color: #fff !important;
+  border-color: #60a5fa !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, .28) !important;
+}
+.website-builder-mode #ws-left-drawer-content input,
+.website-builder-mode #ws-left-drawer-content select,
+.website-builder-mode #ws-left-drawer-content textarea,
+.website-builder-mode #ws-inspector-panel input,
+.website-builder-mode #ws-inspector-panel select,
+.website-builder-mode #ws-inspector-panel textarea {
+  background: var(--ws-input-bg) !important;
+  color: var(--ws-input-text) !important;
+  border-color: var(--ws-input-border) !important;
+}
+.website-builder-mode #ws-left-drawer-content input::placeholder,
+.website-builder-mode #ws-inspector-panel input::placeholder,
+.website-builder-mode #ws-inspector-panel textarea::placeholder {
+  color: #8fa2bd !important;
+  opacity: 1 !important;
+}
+.website-builder-mode #ws-left-drawer-content .liquid-glass-card,
+.website-builder-mode #ws-inspector-panel .liquid-glass-card,
+.website-builder-mode #ws-left-drawer-content .liquid-glass-panel,
+.website-builder-mode #ws-inspector-panel .liquid-glass-panel {
+  background: var(--ws-panel-raised) !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: var(--ws-border) !important;
+  box-shadow: none !important;
+}
+.website-builder-mode #ws-left-drawer-content .text-slate-500,
+.website-builder-mode #ws-left-drawer-content .text-slate-400,
+.website-builder-mode #ws-inspector-panel .text-slate-500,
+.website-builder-mode #ws-inspector-panel .text-slate-400 {
+  color: var(--ws-text-muted) !important;
+}
+@media (max-width: 900px) {
+  .website-builder-mode #ws-left-dock-wrapper,
+  .website-builder-mode #ws-right-dock-wrapper { max-width: calc(100vw - 1rem); }
+  .website-builder-mode #ws-left-drawer-content { width: min(290px, calc(100vw - 4.5rem)) !important; }
+  .website-builder-mode #ws-inspector-panel { width: min(320px, calc(100vw - 3rem)) !important; }
+  .website-builder-mode .ws-top-action-bar { padding-left: .65rem !important; padding-right: .65rem !important; gap: .4rem !important; }
+  .website-builder-mode .ws-top-action-bar > div { min-width: 0; }
+  .website-builder-mode .ws-top-action-bar button,
+  .website-builder-mode .ws-top-action-bar select { min-height: 34px; }
+}
+
+/* Builder contrast and glass regression guard.  The dashboard's generic
+   `.dark`/`.text-slate-*` utilities can win against the builder's design
+   tokens, leaving light mode with low-contrast navy panels and unreadable
+   glass controls. Keep this scoped to the editor so production sites retain
+   their own theme CSS. */
+[data-ws-theme="light"].website-builder-mode .ws-builder-header,
+[data-ws-theme="light"].website-builder-mode .ws-top-action-bar,
+[data-ws-theme="light"].website-builder-mode #ws-left-drawer-content,
+[data-ws-theme="light"].website-builder-mode #ws-inspector-panel,
+[data-ws-theme="light"].website-builder-mode #ws-left-dock-wrapper nav {
+  color: #0f172a !important;
+}
+[data-ws-theme="light"].website-builder-mode #ws-left-drawer-content,
+[data-ws-theme="light"].website-builder-mode #ws-inspector-panel,
+[data-ws-theme="light"].website-builder-mode #ws-left-dock-wrapper nav,
+[data-ws-theme="light"].website-builder-mode .liquid-glass-card,
+[data-ws-theme="light"].website-builder-mode .liquid-glass-panel {
+  background: rgba(255, 255, 255, .94) !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, .16), inset 0 1px 0 rgba(255,255,255,.9) !important;
+}
+[data-ws-theme="light"].website-builder-mode #ws-left-drawer-content .text-slate-900,
+[data-ws-theme="light"].website-builder-mode #ws-left-drawer-content .text-slate-800,
+[data-ws-theme="light"].website-builder-mode #ws-inspector-panel .text-slate-900,
+[data-ws-theme="light"].website-builder-mode #ws-inspector-panel .text-slate-800 { color: #0f172a !important; }
+[data-ws-theme="light"].website-builder-mode #ws-left-drawer-content .text-slate-500,
+[data-ws-theme="light"].website-builder-mode #ws-left-drawer-content .text-slate-400,
+[data-ws-theme="light"].website-builder-mode #ws-inspector-panel .text-slate-500,
+[data-ws-theme="light"].website-builder-mode #ws-inspector-panel .text-slate-400 { color: #475569 !important; }
+[data-ws-theme="light"].website-builder-mode #ws-left-drawer-content .bg-slate-950,
+[data-ws-theme="light"].website-builder-mode #ws-left-drawer-content .bg-slate-900,
+[data-ws-theme="light"].website-builder-mode #ws-inspector-panel .bg-slate-950,
+[data-ws-theme="light"].website-builder-mode #ws-inspector-panel .bg-slate-900 { background: #f8fafc !important; color: #0f172a !important; }
+[data-ws-theme="light"].website-builder-mode #ws-left-drawer-content button,
+[data-ws-theme="light"].website-builder-mode #ws-inspector-panel button { text-shadow: none !important; }
+
+/* Website Builder chrome sizing guard. The editor rails are overlays, so a
+   generic `w-64`/text-xs utility must not be allowed to collapse them into
+   unreadable strips or clip the inspector off the viewport. */
+.website-builder-mode #ws-left-dock-wrapper,
+.website-builder-mode #ws-right-dock-wrapper {
+  top: 1rem !important;
+  max-width: calc(100vw - 2rem) !important;
+}
+.website-builder-mode #ws-left-dock-wrapper { left: 1rem !important; }
+.website-builder-mode #ws-right-dock-wrapper { right: 1rem !important; }
+.website-builder-mode #ws-left-dock-wrapper > nav {
+  width: 3.5rem !important;
+  min-width: 3.5rem !important;
+  padding: .65rem .35rem !important;
+  gap: .4rem !important;
+}
+.website-builder-mode #ws-left-dock-wrapper > nav .ws-nav-rail-btn,
+.website-builder-mode #ws-left-dock-wrapper > nav #ws-left-collapse-btn {
+  width: 2.7rem !important;
+  min-width: 2.7rem !important;
+  height: 2.7rem !important;
+  min-height: 2.7rem !important;
+  font-size: .68rem !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+.website-builder-mode #ws-left-drawer-content {
+  width: min(20rem, calc(100vw - 7rem)) !important;
+  min-width: min(20rem, calc(100vw - 7rem)) !important;
+}
+.website-builder-mode #ws-inspector-panel {
+  width: min(22rem, calc(100vw - 3rem)) !important;
+  min-width: min(22rem, calc(100vw - 3rem)) !important;
+}
+.website-builder-mode .ws-top-action-bar button,
+.website-builder-mode .ws-top-action-bar select {
+  min-height: 2rem !important;
+  white-space: nowrap !important;
+}
+.website-builder-mode .ws-top-action-bar { min-height: 3.25rem !important; }
+@media (max-width: 768px) {
+  .website-builder-mode #ws-left-dock-wrapper { left: .5rem !important; }
+  .website-builder-mode #ws-right-dock-wrapper { right: .5rem !important; }
+  .website-builder-mode #ws-left-drawer-content,
+  .website-builder-mode #ws-inspector-panel { min-width: 0 !important; }
+  .website-builder-mode #ws-left-drawer-content { width: min(86vw, 21rem) !important; }
+  .website-builder-mode #ws-inspector-panel { width: min(86vw, 22rem) !important; }
+}
+
 /* Shared Liquid Glass dashboard chrome and bold Apple-style workspace headers.
    Re-declared (identically) in the "Liquid Glass workspace layer" block below —
    that duplication predates this merge; harmless in CSS (last write wins, same
@@ -3072,7 +3340,175 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 /* Design Studio phone workspace. The editor is intentionally a drawer-based
  * single-column layout below tablet width; desktop rails must never squeeze the
  * artboard into an unusable sliver. */
+#ms-studio-master-modal {
+  --studio-blue: #2563eb;
+  --studio-ink: #0b1220;
+  --studio-panel: rgba(15, 23, 42, .94);
+  background: #f7f8fa !important;
+  color: #0f172a;
+}
+#ms-studio-master-modal > .flex-shrink-0:first-child > header {
+  background: linear-gradient(100deg, #0ea5c9 0%, #2563eb 48%, #7c3aed 100%) !important;
+  color: #fff !important;
+  border-bottom-color: rgba(255,255,255,.2) !important;
+  min-height: 58px;
+}
+#ms-studio-master-modal > .flex-shrink-0:first-child > header input { color: #fff !important; }
+#ms-studio-master-modal > .flex-shrink-0:first-child > header input::placeholder { color: rgba(255,255,255,.72) !important; }
+#ms-studio-master-modal > .flex-shrink-0:first-child > div:nth-child(2) {
+  background: rgba(255,255,255,.88) !important;
+  border-bottom-color: #dbe3ef !important;
+}
+#ms-studio-master-modal [data-studio-region="rail"],
+#ms-studio-master-modal [data-studio-region="drawer"],
+#ms-studio-master-modal [data-studio-region="inspector"] {
+  background: rgba(255,255,255,.96) !important;
+  border-color: #dbe3ef !important;
+}
+#ms-studio-master-modal [data-studio-region="rail"] { width: 88px !important; padding-top: 12px; gap: 8px; }
+#ms-studio-master-modal .studio-tool-rail-button {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 82px; min-height: 58px; padding: 6px 3px; border: 0 !important;
+  border-radius: 0; background: transparent !important; color: #475569 !important;
+  font-size: 11px; line-height: 1.1; font-weight: 800; white-space: nowrap;
+  transition: color .16s ease;
+}
+#ms-studio-master-modal .studio-tool-rail-button:hover { background: transparent !important; color: #1e293b !important; }
+#ms-studio-master-modal .studio-tool-rail-button .studio-tool-icon { color: #64748b !important; transition: color .16s ease; }
+#ms-studio-master-modal .studio-tool-rail-button[aria-current="page"] { background: transparent !important; color: #1e293b !important; }
+#ms-studio-master-modal .studio-tool-rail-button[aria-current="page"] .studio-tool-icon { color: #2563eb !important; }
+#ms-studio-master-modal .studio-tool-rail-button:focus-visible { outline: 2px solid rgba(37,99,235,.45); outline-offset: -2px; }
+#ms-studio-master-modal [data-studio-region="drawer"] { width: 320px !important; }
+#ms-studio-master-modal [data-studio-region="inspector"] { width: 300px !important; }
+#ms-studio-master-modal [data-studio-region="canvas"] {
+  background: #f7f8fa !important;
+  background-image: radial-gradient(#d7dee8 1px, transparent 1px) !important;
+  background-size: 22px 22px !important;
+  overflow: auto !important;
+  padding: 38px 48px 70px;
+}
+#ms-studio-master-modal #studio-artboard-container {
+  border: 0 !important;
+  border-radius: 2px !important;
+  box-shadow: 0 18px 55px rgba(15,23,42,.22), 0 0 0 1px rgba(15,23,42,.12) !important;
+}
+#ms-studio-master-modal [data-studio-region="footer"] {
+  background: rgba(255,255,255,.97) !important;
+  border-top-color: #dbe3ef !important;
+  color: #334155 !important;
+}
+#ms-studio-master-modal [data-studio-region="footer"] button,
+#ms-studio-master-modal [data-studio-region="footer"] select { color: #334155 !important; }
+/* Studio drawer cards must remain readable in the light Canva-style workspace.
+ * The utility classes also carry dark-mode text utilities, which previously
+ * produced near-white cards with white labels and invisible SVG previews. */
+#ms-studio-master-modal #studio-tool-panel { color: #1e293b !important; }
+#ms-studio-master-modal #studio-tool-panel input,
+#ms-studio-master-modal #studio-tool-panel select,
+#ms-studio-master-modal #studio-tool-panel textarea { background: #fff !important; color: #0f172a !important; border-color: #cbd5e1 !important; }
+#ms-studio-master-modal #studio-tool-panel input::placeholder,
+#ms-studio-master-modal #studio-tool-panel textarea::placeholder { color: #64748b !important; }
+#ms-studio-master-modal #studio-tool-panel button[class*="bg-slate-100"],
+#ms-studio-master-modal #studio-tool-panel button[class*="bg-slate-50"] { background: #e8eef6 !important; color: #172033 !important; border-color: #cbd5e1 !important; }
+#ms-studio-master-modal #studio-tool-panel button[class*="bg-slate-800"] { background: #e8eef6 !important; color: #172033 !important; border-color: #cbd5e1 !important; }
+#ms-studio-master-modal #studio-tool-panel button[class*="bg-indigo-500/20"] { background: #e8efff !important; color: #1d4ed8 !important; }
+#ms-studio-master-modal #studio-tool-panel button[class*="bg-blue-600"],
+#ms-studio-master-modal #studio-tool-panel button[class*="bg-sky-600"],
+#ms-studio-master-modal #studio-tool-panel button[class*="bg-indigo-600"] { color: #fff !important; }
+#ms-studio-master-modal #studio-tool-panel button svg { color: currentColor !important; opacity: 1 !important; }
+#ms-studio-master-modal #studio-tool-panel .text-slate-900 { color: #172033 !important; }
+#ms-studio-master-modal #studio-tool-panel .text-slate-500,
+#ms-studio-master-modal #studio-tool-panel .text-slate-400 { color: #64748b !important; }
+#ms-studio-master-modal #studio-tool-panel .text-slate-300 { color: #334155 !important; }
+#ms-studio-master-modal #studio-tool-panel .text-white { color: #fff !important; }
+#ms-studio-master-modal .studio-upload-dropzone {
+  padding: 22px 14px 14px;
+  text-align: center;
+  border: 1px dashed #94a3b8;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #f8fbff, #eef4fb);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
+}
+#ms-studio-master-modal .studio-upload-dropzone:hover { border-color: #2563eb; background: #eef5ff; }
+#ms-studio-master-modal .studio-upload-dropzone-icon,
+#ms-studio-master-modal .studio-panel-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 11px;
+  background: #2563eb; color: #fff; font: 900 20px/1 ui-sans-serif, sans-serif;
+  box-shadow: 0 8px 18px rgba(37,99,235,.22);
+}
+#ms-studio-master-modal .studio-panel-icon { width: 24px; height: 24px; border-radius: 8px; font-size: 15px; }
+#ms-studio-master-modal .studio-upload-action {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 38px; border: 1px solid #cbd5e1; border-radius: 11px;
+  background: #fff; color: #1e3a8a; font: 800 11px/1 ui-sans-serif, sans-serif; cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+#ms-studio-master-modal .studio-upload-action:hover { border-color: #2563eb; background: #eff6ff; transform: translateY(-1px); }
+#ms-studio-master-modal .studio-upload-action-primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+#ms-studio-master-modal .studio-upload-action-primary:hover { background: #1d4ed8; color: #fff; }
+#ms-studio-master-modal .studio-shape-card { min-width: 0; }
+#ms-studio-master-modal .studio-shape-art { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px; color: #2563eb; }
+#ms-studio-master-modal .studio-shape-art svg { width: 40px; height: 40px; display: block; }
+#ms-studio-master-modal .studio-shape-card:hover .studio-shape-art { color: #1d4ed8; transform: scale(1.08); }
+#ms-studio-master-modal .studio-shape-card:focus-visible { outline: 3px solid rgba(37,99,235,.35); outline-offset: 2px; }
+#ms-studio-master-modal .studio-icon-card { min-width: 0; }
+#ms-studio-master-modal .studio-icon-art { width: 44px; height: 44px; display: block; }
+#ms-studio-master-modal .studio-icon-card:hover .studio-icon-art { transform: scale(1.08); }
+#ms-studio-master-modal .studio-icon-card:focus-visible { outline: 3px solid rgba(37,99,235,.35); outline-offset: 2px; }
+#ms-studio-master-modal .studio-template-preview { position: relative; width: 100%; overflow: hidden; background-position: center; }
+#ms-studio-master-modal .studio-template-preview img { display: block; max-width: none; }
+#ms-studio-master-modal .studio-template-preview > div { pointer-events: none; }
+#ms-studio-master-modal .studio-page-stack {
+  position: absolute; left: 18px; top: 54px; bottom: 28px; width: 124px; z-index: 24;
+  overflow-y: auto; padding: 4px; display: flex; flex-direction: column; gap: 12px;
+}
+#ms-studio-master-modal .studio-page-stack-item { position: relative; padding: 3px; border-radius: 10px; }
+#ms-studio-master-modal .studio-page-stack-item.is-active { background: rgba(37,99,235,.16); box-shadow: 0 0 0 2px rgba(37,99,235,.7); }
+#ms-studio-master-modal .studio-page-card { display: block; width: 100%; text-align: left; color: #334155; }
+#ms-studio-master-modal .studio-page-card-canvas { display: flex; aspect-ratio: 1 / 1; align-items: flex-end; justify-content: flex-end; padding: 5px; border-radius: 6px; box-shadow: 0 2px 8px rgba(15,23,42,.18); border: 1px solid rgba(148,163,184,.28); }
+#ms-studio-master-modal .studio-page-card-canvas span { font: 700 8px/1.1 ui-sans-serif, sans-serif; color: rgba(255,255,255,.8); background: rgba(15,23,42,.65); padding: 3px 4px; border-radius: 4px; }
+#ms-studio-master-modal .studio-page-card-label { display: block; padding: 5px 2px 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 10px/1.2 ui-sans-serif, sans-serif; }
+#ms-studio-master-modal .studio-page-card-actions { display: flex; justify-content: flex-end; gap: 3px; position: absolute; top: 5px; right: 5px; opacity: 0; transition: opacity .15s ease; }
+#ms-studio-master-modal .studio-page-stack-item:hover .studio-page-card-actions,
+#ms-studio-master-modal .studio-page-stack-item.is-active .studio-page-card-actions { opacity: 1; }
+#ms-studio-master-modal .studio-page-card-actions button,
+#ms-studio-master-modal .studio-page-stage-actions button { width: 20px; height: 20px; border-radius: 6px; background: rgba(15,23,42,.78); color: #fff; font: 700 12px/20px ui-sans-serif, sans-serif; text-align: center; }
+#ms-studio-master-modal .studio-page-stage-label { position: absolute; left: 162px; top: 16px; z-index: 25; display: flex; align-items: center; gap: 8px; color: #334155; font: 800 12px/1 ui-sans-serif, sans-serif; }
+#ms-studio-master-modal .studio-page-stage-actions { display: flex; gap: 4px; }
 .studio-mobile-panel-button { display: none; }
+.ms-studio-grid-on::before { content:""; position:absolute; inset:0; pointer-events:none; z-index:19; background-image:linear-gradient(rgba(96,165,250,.16) 1px, transparent 1px),linear-gradient(90deg, rgba(96,165,250,.16) 1px, transparent 1px); background-size:40px 40px; }
+#ms-studio-master-modal [class*="bg-blue-500"],
+#ms-studio-master-modal [class*="bg-blue-600"],
+#ms-studio-master-modal [class*="bg-indigo-500"],
+#ms-studio-master-modal [class*="bg-indigo-600"],
+#ms-studio-master-modal [class*="bg-sky-600"] { color: #fff !important; }
+#ms-studio-master-modal button[class*="bg-blue-"],
+#ms-studio-master-modal button[class*="bg-indigo-"],
+#ms-studio-master-modal button[class*="bg-sky-"] { text-shadow: 0 1px 1px rgba(0,0,0,.18); }
+#ms-studio-master-modal .studio-gif-panel { border-top: 1px solid #dbe3ef; padding-top: 14px; display: grid; gap: 10px; }
+#ms-studio-master-modal .studio-gif-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#ms-studio-master-modal .studio-gif-heading h4 { margin: 0; color: #0369a1; font: 900 11px/1.2 ui-sans-serif, sans-serif; text-transform: uppercase; letter-spacing: .08em; }
+#ms-studio-master-modal .studio-gif-heading span { color: #64748b; font: 700 9px/1 ui-sans-serif, sans-serif; }
+#ms-studio-master-modal .studio-gif-featured { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+#ms-studio-master-modal .studio-gif-card, #ms-studio-master-modal .studio-gif-result { min-width: 0; overflow: hidden; border: 1px solid #dbe3ef; border-radius: 12px; background: #fff; color: #334155; text-align: left; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
+#ms-studio-master-modal .studio-gif-card:hover, #ms-studio-master-modal .studio-gif-result:hover { border-color: #60a5fa; box-shadow: 0 5px 14px rgba(37,99,235,.14); transform: translateY(-1px); }
+#ms-studio-master-modal .studio-gif-card img, #ms-studio-master-modal .studio-gif-result-image { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #e8eef6; }
+#ms-studio-master-modal .studio-gif-card span, #ms-studio-master-modal .studio-gif-result-title { display: block; overflow: hidden; padding: 6px 7px; color: #334155; font: 800 9px/1.1 ui-sans-serif, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+#ms-studio-master-modal .studio-gif-search-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
+#ms-studio-master-modal .studio-gif-search-row input, #ms-studio-master-modal .studio-gif-search-row select, #ms-studio-master-modal .studio-gif-paste input { min-width: 0; height: 36px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: #0f172a; padding: 0 10px; font: 700 11px/1 ui-sans-serif, sans-serif; }
+#ms-studio-master-modal .studio-gif-search-row input::placeholder, #ms-studio-master-modal .studio-gif-paste input::placeholder { color: #94a3b8; }
+#ms-studio-master-modal .studio-gif-search-row button, #ms-studio-master-modal .studio-gif-paste button { min-height: 36px; border: 0; border-radius: 10px; background: #2563eb; color: #fff; padding: 0 13px; font: 900 11px/1 ui-sans-serif, sans-serif; cursor: pointer; }
+#ms-studio-master-modal .studio-gif-search-row button:hover, #ms-studio-master-modal .studio-gif-paste button:hover { background: #1d4ed8; }
+#ms-studio-master-modal .studio-gif-quick-label { color: #64748b; font: 900 9px/1 ui-sans-serif, sans-serif; text-transform: uppercase; letter-spacing: .08em; }
+#ms-studio-master-modal .studio-gif-filters { display: flex; flex-wrap: wrap; gap: 6px; max-height: 116px; overflow-y: auto; padding: 2px; }
+#ms-studio-master-modal .studio-gif-filter { border: 1px solid #cbd5e1; border-radius: 999px; background: #f8fafc; color: #334155; padding: 6px 9px; font: 800 9px/1 ui-sans-serif, sans-serif; cursor: pointer; transition: border-color .15s ease, color .15s ease, background .15s ease; }
+#ms-studio-master-modal .studio-gif-filter:hover { border-color: #60a5fa; background: #eff6ff; color: #1d4ed8; }
+#ms-studio-master-modal .studio-gif-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-height: 300px; overflow-y: auto; }
+#ms-studio-master-modal .studio-gif-paste { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+#ms-studio-master-modal .studio-gif-status { grid-column: 1 / -1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 10px; color: #64748b; background: #f8fafc; font: 700 10px/1.4 ui-sans-serif, sans-serif; }
+#ms-studio-master-modal .studio-gif-status-error { border-color: #fbbf24; color: #92400e; background: #fffbeb; }
+#ms-studio-master-modal .studio-gif-status-error span { color: #a16207; }
 @media (max-width: 768px) {
   #ms-studio-master-modal { overflow: hidden !important; }
   #ms-studio-master-modal > .flex-shrink-0:first-child { min-height: 0; }
@@ -3085,19 +3521,20 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
   #ms-studio-master-modal > .flex-shrink-0:first-child > div:nth-child(2) { height: auto !important; min-height: 54px; padding: 7px 10px !important; overflow-x: auto; }
   #ms-studio-master-modal > .flex-shrink-0:first-child > div:nth-child(2) > div:first-child { display: none; }
   #ms-studio-master-modal > .flex-shrink-0:first-child > div:nth-child(2) > div:last-child { width: 100%; overflow-x: auto; justify-content: flex-start; }
-  #ms-studio-master-modal > .flex-1 { display: block !important; position: relative; overflow: hidden !important; min-height: 0; }
-  #ms-studio-master-modal #studio-canvas-viewport { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; overflow: auto; padding: 16px; }
+  #ms-studio-master-modal > .flex-1 { display: flex !important; flex-direction: column; position: relative; overflow: hidden !important; min-height: 0; }
+  #ms-studio-master-modal > .flex-1 > [data-studio-region="rail"] { display: flex !important; flex-direction: row; align-items: center; gap: 6px; width: 100% !important; height: 72px; min-height: 72px; padding: 6px 10px; overflow-x: auto; overflow-y: hidden; border-right: 0; border-bottom: 1px solid #dbe3ef; order: 2; z-index: 30; background: rgba(255,255,255,.97) !important; backdrop-filter: blur(18px) saturate(1.35); }
+  #ms-studio-master-modal > .flex-1 > [data-studio-region="rail"] button { flex: 0 0 70px; width: 70px; height: 58px; min-height: 58px; white-space: nowrap; }
+  #ms-studio-master-modal #studio-canvas-viewport { position: relative; flex: 1 1 auto; width: 100%; height: auto; min-height: 0; overflow: auto; padding: 22px 16px 32px; order: 1; }
+  #ms-studio-master-modal .studio-page-stack { left: 10px; top: 12px; bottom: 12px; width: 86px; }
+  #ms-studio-master-modal .studio-page-stage-label { left: 108px; top: 10px; }
   #ms-studio-master-modal #studio-artboard-container { position: absolute; left: 50%; top: 50%; max-width: none; }
   #ms-studio-master-modal #studio-tool-panel,
-  #ms-studio-master-modal #studio-inspector-panel { position: absolute; top: 0; bottom: 0; width: min(86vw, 330px) !important; max-width: 330px; height: 100%; z-index: 50; box-shadow: 0 18px 45px rgba(0,0,0,.45); transition: transform .2s ease; }
+  #ms-studio-master-modal #studio-inspector-panel { position: absolute; top: 0; bottom: 0; width: min(88vw, 340px) !important; max-width: 340px; height: auto; z-index: 50; box-shadow: 0 18px 45px rgba(15,23,42,.28); transition: transform .2s ease; }
   #ms-studio-master-modal #studio-tool-panel { left: 0; transform: translateX(-105%); }
   #ms-studio-master-modal #studio-inspector-panel { right: 0; transform: translateX(105%); }
   #ms-studio-master-modal #studio-tool-panel.ms-studio-mobile-open,
   #ms-studio-master-modal #studio-inspector-panel.ms-studio-mobile-open { transform: translateX(0); }
-  #ms-studio-master-modal #studio-tool-panel:not(.hidden),
-  #ms-studio-master-modal #studio-inspector-panel:not(.hidden) { transform: translateX(0); }
   #ms-studio-master-modal > footer { min-height: 72px; height: auto !important; padding: 8px 10px !important; flex-wrap: nowrap; overflow-x: auto; }
   #ms-studio-master-modal > footer .ml-auto { margin-left: 0 !important; }
-  #ms-studio-master-modal .w-16 { display: none; }
   #ms-studio-master-modal .w-60 { width: min(86vw, 330px) !important; }
 }

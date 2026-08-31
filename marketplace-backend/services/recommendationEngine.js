@@ -163,12 +163,20 @@ export async function validateAppliedRecommendation(recommendation, appliedResul
     checks: [],
     details: ''
   }
+  const publicVerification = appliedResult?.publicVerification
+  const hasPublicProof = publicVerification?.verified === true && Number(publicVerification.statusCode) >= 200 && Number(publicVerification.statusCode) < 400 && typeof publicVerification.sourceUrl === 'string' && publicVerification.sourceUrl.length > 0
 
   switch (strategy) {
     case 'update_page_meta':
     case 'update_meta_description':
     case 'update_image_alt':
     case 'normalize_canonical': {
+      if (!hasPublicProof) {
+        result.status = 'applied_pending_publish'
+        result.details = 'Change applied to draft data, but the published URL has not been fetched and verified yet.'
+        result.checks.push({ check: 'public_page_verification', status: 'unknown', passed: false, evidence: publicVerification || null })
+        return result
+      }
       // Validate that the target field matches the proposed change
       const targetVal = appliedResult?.updatedValue ?? change.after
       const expectedVal = change.after
@@ -182,15 +190,22 @@ export async function validateAppliedRecommendation(recommendation, appliedResul
       })
       result.checks.push({
         check: 'status_code_200',
-        passed: true
+        passed: Number(publicVerification.statusCode) === 200,
+        evidence: publicVerification
       })
-      result.passed = match
-      result.details = match ? 'Rendered DOM verified: title and meta tag match target specification.' : 'Metadata mismatch on target page.'
+      result.passed = match && Number(publicVerification.statusCode) === 200
+      result.details = result.passed ? 'Published page fetched and rendered metadata matched the target.' : 'Published page metadata or HTTP response did not match the target.'
       break
     }
 
     case 'inject_schema_faq':
     case 'format_json_ld': {
+      if (!hasPublicProof) {
+        result.status = 'applied_pending_publish'
+        result.details = 'Schema change is awaiting a fetch and parse of the published page.'
+        result.checks.push({ check: 'public_schema_verification', status: 'unknown', passed: false, evidence: publicVerification || null })
+        return result
+      }
       // Validate schema JSON syntax and required properties
       let validJson = false
       let hasRequiredProps = false
@@ -211,18 +226,23 @@ export async function validateAppliedRecommendation(recommendation, appliedResul
 
     case 'enable_llms_txt':
     case 'refresh_sitemap': {
-      result.checks.push({ check: 'artifact_generation', passed: true })
-      result.checks.push({ check: 'file_non_empty', passed: true })
-      result.passed = true
-      result.details = 'Crawler manifest successfully rendered and route confirmed live.'
+      if (!hasPublicProof) {
+        result.status = 'applied_pending_publish'
+        result.details = 'Artifact change is awaiting a fetch of the published crawler endpoint.'
+        result.checks.push({ check: 'public_artifact_verification', status: 'unknown', passed: false, evidence: publicVerification || null })
+        return result
+      }
+      result.checks.push({ check: 'artifact_generation', passed: true, evidence: publicVerification })
+      result.passed = Number(publicVerification.statusCode) === 200
+      result.details = result.passed ? 'Published crawler artifact was fetched successfully.' : 'Published crawler artifact did not return HTTP 200.'
       break
     }
 
     case 'repair_broken_link': {
-      const destinationValid = !!change.after && !change.after.includes('404')
-      result.checks.push({ check: 'destination_resolved', passed: destinationValid })
+      const destinationValid = hasPublicProof && Number(publicVerification.statusCode) === 200
+      result.checks.push({ check: 'destination_resolved', passed: destinationValid, evidence: publicVerification || null })
       result.passed = destinationValid
-      result.details = destinationValid ? 'Internal link destination tested and returned HTTP 200 OK.' : 'Destination link still returns 404.'
+      result.details = destinationValid ? 'Internal link destination was fetched and returned HTTP 200 OK.' : hasPublicProof ? 'Destination link did not return HTTP 200.' : 'Destination link has not been fetched yet.'
       break
     }
 
@@ -240,6 +260,10 @@ export async function validateAppliedRecommendation(recommendation, appliedResul
 
 // ── RECOMMENDATION GENERATOR FROM AUDIT FINDINGS ────────────────────────────
 export function generateRecommendationsFromAudit(dealership, auditData, previousRecommendations = []) {
+  // Recommendations are findings, not a pre-seeded task list. When no audit
+  // supplied an observed finding there is nothing to recommend.
+  const findings = Array.isArray(auditData?.findings) ? auditData.findings.filter(f => f && f.id && f.evidence) : []
+  if (!findings.length) return []
   const city = dealership?.city || 'Local Area'
   const dealerName = dealership?.name || 'Dealership'
   const websiteUrl = dealership?.website_url || 'https://marketsync.link'
@@ -252,6 +276,37 @@ export function generateRecommendationsFromAudit(dealership, auditData, previous
       if (r.finding_id) prevMap.set(r.finding_id, r)
     })
   }
+
+  const findingRecommendations = findings.map(finding => {
+    const previous = prevMap.get(finding.id)
+    const recommendation = {
+      finding_id: finding.id,
+      source: finding.source || 'discoverability_audit',
+      evidence: finding.evidence,
+      measured_at: finding.measured_at || finding.measuredAt || timestamp,
+      affected_urls: finding.affected_urls || (finding.affectedUrl ? [finding.affectedUrl] : []),
+      pillar: finding.pillar || finding.category || 'validation',
+      category: finding.category || 'Verified finding',
+      title: finding.title || 'Review verified Discoverability finding',
+      summary: finding.description || finding.title || '',
+      recommended_change: finding.recommended_change || null,
+      execution_class: finding.execution_class || (finding.autoFixable ? 'auto_fixable' : 'approval_required'),
+      risk_level: finding.risk_level || (finding.autoFixable ? 'low' : 'medium'),
+      confidence: typeof finding.confidence === 'number' ? finding.confidence : null,
+      status: finding.status === 'resolved' ? 'resolved' : 'open',
+      autoFixable: finding.autoFixable === true,
+      id: previous?.id || `rec_${finding.id}_${crypto.randomBytes(4).toString('hex')}`,
+      dealer_id: dealership?.id,
+      audit_id: auditData.id || null,
+      created_at: previous?.created_at || timestamp,
+      last_detected: timestamp,
+      occurrence_count: (previous?.occurrence_count || 0) + 1,
+      validated_at: previous?.validated_at || null,
+      validation_result: previous?.validation_result || null
+    }
+    return previous ? { ...recommendation, ...previous, finding_id: finding.id, source: recommendation.source, evidence: recommendation.evidence, measured_at: recommendation.measured_at, affected_urls: recommendation.affected_urls, occurrence_count: (previous.occurrence_count || 0) + 1 } : recommendation
+  })
+  return findingRecommendations
 
   const rawRecommendations = [
     // ── 1. SEO Quick Wins (Auto-Fixable)
@@ -563,7 +618,7 @@ export async function applySingleRecommendation(recommendation, actor = {}) {
   recommendation.status = 'applying'
 
   // 2. Execute Mutation on Target Resource
-  let appliedResult = { success: true, updatedValue: change.after }
+  let appliedResult = { success: true, updatedValue: change.after, publicVerification: recommendation.public_verification || null }
   try {
     if (change.resource_type === 'seo_settings' && change.field === 'llms_txt_enabled') {
       await supabaseAdmin.from('seo_settings').upsert({
@@ -589,6 +644,19 @@ export async function applySingleRecommendation(recommendation, actor = {}) {
   recommendation.status = 'validating'
   const validation = await validateAppliedRecommendation(recommendation, appliedResult)
   recommendation.validation_result = validation
+
+  if (validation.status === 'applied_pending_publish') {
+    recommendation.status = 'applied_pending_publish'
+    recommendation.applied_at = timestamp
+    return {
+      success: true,
+      pendingVerification: true,
+      recommendation,
+      snapshot,
+      validation,
+      message: `Recommendation "${recommendation.title}" applied and is awaiting public verification.`
+    }
+  }
 
   if (validation.passed) {
     recommendation.status = 'validated'
@@ -781,8 +849,8 @@ export async function applyAllSafeRecommendations(dealershipId, recommendationsL
 // ── WEEKLY REPORT GENERATOR ─────────────────────────────────────────────────
 export function generateWeeklyDiscoverabilityReport({
   dealership,
-  scoreBefore = 81,
-  scoreAfter = 87,
+  scoreBefore = null,
+  scoreAfter = null,
   recommendations = [],
   appliedCount = 0,
   awaitingApprovalCount = 0,
@@ -800,9 +868,9 @@ export function generateWeeklyDiscoverabilityReport({
     score_summary: {
       score_before: scoreBefore,
       score_after: scoreAfter,
-      delta: `+${scoreAfter - scoreBefore}`,
-      organic_visibility_growth: '+8.4%',
-      ai_citation_visibility_growth: '+12.6%'
+      delta: typeof scoreBefore === 'number' && typeof scoreAfter === 'number' ? `${scoreAfter - scoreBefore >= 0 ? '+' : ''}${scoreAfter - scoreBefore}` : null,
+      organic_visibility_growth: null,
+      ai_citation_visibility_growth: null
     },
     weekly_breakdown: {
       total_issues_found: recommendations.length,

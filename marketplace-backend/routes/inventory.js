@@ -42,6 +42,38 @@ export async function toWebp(buffer, { max = 1920, quality = 82 } = {}) {
     .webp({ quality }).toBuffer()
 }
 
+// Build a small, predictable set of responsive renditions for Website Builder
+// media. The original/canonical WebP remains the fallback; variants are
+// metadata only until a renderer opts into them via srcset/picture.
+async function responsiveImageVariants(buffer) {
+  const widths = [480, 768, 1200, 1600]
+  const variants = {}
+  for (const width of widths) {
+    const image = sharp(buffer).rotate().resize({ width, withoutEnlargement: true })
+    const [webp, avif] = await Promise.all([
+      image.clone().webp({ quality: 82 }).toBuffer(),
+      image.clone().avif({ quality: 72, effort: 4 }).toBuffer(),
+    ])
+    variants[width] = { webp, avif }
+  }
+  return variants
+}
+
+async function uploadResponsiveRenditions(buffer, stem) {
+  const variantUrls = {}
+  const variants = await responsiveImageVariants(buffer)
+  for (const [width, formats] of Object.entries(variants)) {
+    variantUrls[width] = {}
+    for (const [format, bytes] of Object.entries(formats)) {
+      const variantPath = `${stem}-${width}.${format}`
+      const { error } = await supabaseAdmin.storage.from('vehicle-photos').upload(variantPath, bytes, { contentType: `image/${format}`, upsert: false })
+      if (error) throw error
+      variantUrls[width][format] = supabaseAdmin.storage.from('vehicle-photos').getPublicUrl(variantPath).data.publicUrl
+    }
+  }
+  return variantUrls
+}
+
 // AI background swap: cut the vehicle out and drop it on the dealer's branded
 // background in one call (remove.bg). Returns a composited buffer, or null if the
 // feature isn't configured / the call fails (caller then keeps the original).
@@ -302,21 +334,72 @@ export function registerRoutes(app) {
     const { error: upErr } = await supabaseAdmin.storage.from('vehicle-photos').upload(path, webp, { contentType: 'image/webp', upsert: false })
     if (upErr) return res.status(500).json({ error: upErr.message })
     const { data: { publicUrl } } = supabaseAdmin.storage.from('vehicle-photos').getPublicUrl(path)
+    let variantUrls = {}
+    try {
+      variantUrls = await uploadResponsiveRenditions(req.file.buffer, path.slice(0, -'.webp'.length))
+    } catch (e) {
+      console.warn('[site-image] responsive variants unavailable:', e.message)
+    }
     // Keep an indexed library record alongside the storage object so the builder
     // can reuse uploaded media without asking dealers to paste URLs around.
     const metadata = await sharp(webp).metadata().catch(() => ({}))
+    const folder = String(req.body?.folder || 'Library').trim().replace(/\s+/g, ' ').slice(0, 80) || 'Library'
     await supabaseAdmin.from('dealer_website_media').insert({
       dealership_id: req.dealershipId,
       filename: req.file.originalname || `site-image-${Date.now()}.webp`,
+      folder,
       storage_path: path,
       public_url: publicUrl,
       mime_type: 'image/webp',
       file_size_bytes: webp.length,
       width: metadata.width || null,
       height: metadata.height || null,
+      optimized_variants: variantUrls,
       created_by: req.user?.id || null,
     }).catch(() => {})
-    res.json({ ok: true, url: publicUrl })
+    res.json({ ok: true, url: publicUrl, folder, optimized_variants: variantUrls })
+  })
+
+  // Replace an item in place so section references, folder, alt text, and the
+  // media-library identity remain stable while the bytes are optimized again.
+  app.post('/dealership/site-media/:id/replace', requireAuth, requireMfa, requirePermission('site.manage'), photoUpload.single('image'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!req.file) return res.status(400).json({ error: 'No image uploaded' })
+    const { data: current, error: readError } = await supabaseAdmin.from('dealer_website_media').select('id, storage_path, optimized_variants')
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (readError) return res.status(500).json({ error: readError.message })
+    if (!current) return res.status(404).json({ error: 'Media not found' })
+    let webp
+    try { webp = await toWebp(req.file.buffer, { max: 2200, quality: 85 }) } catch (e) { return res.status(500).json({ error: 'Could not process image: ' + e.message }) }
+    const path = `${req.dealershipId}/_site/img-${Date.now()}-${randomBytes(6).toString("hex")}.webp`
+    const { error: uploadError } = await supabaseAdmin.storage.from('vehicle-photos').upload(path, webp, { contentType: 'image/webp', upsert: false })
+    if (uploadError) return res.status(500).json({ error: uploadError.message })
+    let optimizedVariants = {}
+    try { optimizedVariants = await uploadResponsiveRenditions(req.file.buffer, path.slice(0, -'.webp'.length)) }
+    catch (e) { console.warn('[site-media] replacement variants unavailable:', e.message) }
+    const metadata = await sharp(webp).metadata().catch(() => ({}))
+    const publicUrl = supabaseAdmin.storage.from('vehicle-photos').getPublicUrl(path).data.publicUrl
+    const { data: media, error: updateError } = await supabaseAdmin.from('dealer_website_media').update({
+      filename: req.file.originalname || 'website-image.webp', storage_path: path, public_url: publicUrl,
+      mime_type: 'image/webp', file_size_bytes: webp.length, width: metadata.width || null,
+      height: metadata.height || null, optimized_variants: optimizedVariants, updated_at: new Date().toISOString(),
+    }).eq('id', current.id).eq('dealership_id', req.dealershipId).select('*').maybeSingle()
+    if (updateError) return res.status(500).json({ error: updateError.message })
+    if (!media) return res.status(404).json({ error: 'Media not found' })
+    const oldPaths = [current.storage_path]
+    const oldVariants = current.optimized_variants && typeof current.optimized_variants === 'object' ? current.optimized_variants : {}
+    for (const formats of Object.values(oldVariants)) {
+      for (const url of Object.values(formats || {})) {
+        try {
+          const parsed = new URL(String(url))
+          const marker = '/storage/v1/object/public/vehicle-photos/'
+          const index = parsed.pathname.indexOf(marker)
+          if (index >= 0) oldPaths.push(decodeURIComponent(parsed.pathname.slice(index + marker.length)))
+        } catch {}
+      }
+    }
+    await supabaseAdmin.storage.from('vehicle-photos').remove([...new Set(oldPaths.filter(Boolean))]).catch(() => {})
+    res.json({ ok: true, media })
   })
 
   // Private dealership-scoped media index used by the Website Builder library.
@@ -338,6 +421,53 @@ export function registerRoutes(app) {
     const { error: storageError } = await supabaseAdmin.storage.from('vehicle-photos').remove([media.storage_path])
     if (storageError) return res.status(500).json({ error: storageError.message })
     const { error } = await supabaseAdmin.from('dealer_website_media').delete().eq('id', media.id).eq('dealership_id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true })
+  })
+  app.patch('/dealership/site-media/:id', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const altText = String(req.body?.alt_text || '').trim().slice(0, 180)
+    const folder = String(req.body?.folder || '').trim().replace(/\s+/g, ' ').slice(0, 80)
+    const patch = { alt_text: altText || null, updated_at: new Date().toISOString() }
+    if (folder) patch.folder = folder
+    const { data, error } = await supabaseAdmin.from('dealer_website_media').update(patch)
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).select('id, alt_text, folder, updated_at').maybeSingle()
+    if (error) return res.status(500).json({ error: error.message })
+    if (!data) return res.status(404).json({ error: 'Media not found' })
+    res.json({ media: data })
+  })
+
+  // Reusable Website Builder sections use the same structured document model
+  // as page sections; no arbitrary HTML is stored as a component.
+  app.get('/dealership/site-components', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data, error } = await supabaseAdmin.from('dealer_website_components').select('id, name, description, section, created_by, created_at, updated_at').eq('dealership_id', req.dealershipId).order('updated_at', { ascending: false }).limit(100)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ components: data || [] })
+  })
+  app.post('/dealership/site-components', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const name = String(req.body?.name || '').trim().slice(0, 100)
+    const section = req.body?.section && typeof req.body.section === 'object' ? req.body.section : null
+    if (!name || !section || Array.isArray(section)) return res.status(400).json({ error: 'A component name and structured section are required' })
+    const { data, error } = await supabaseAdmin.from('dealer_website_components').insert({ dealership_id: req.dealershipId, name, description: String(req.body?.description || '').trim().slice(0, 300), section, created_by: req.user?.id }).select('id, name, description, section, created_at, updated_at').single()
+    if (error) return res.status(error.code === '23505' ? 409 : 500).json({ error: error.code === '23505' ? 'A component with that name already exists.' : error.message })
+    res.status(201).json({ component: data })
+  })
+  app.patch('/dealership/site-components/:id', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const patch = { updated_at: new Date().toISOString() }
+    if (req.body?.name !== undefined) patch.name = String(req.body.name || '').trim().slice(0, 100)
+    if (req.body?.description !== undefined) patch.description = String(req.body.description || '').trim().slice(0, 300)
+    if (req.body?.section && typeof req.body.section === 'object' && !Array.isArray(req.body.section)) patch.section = req.body.section
+    const { data, error } = await supabaseAdmin.from('dealer_website_components').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select('id, name, description, section, created_at, updated_at').maybeSingle()
+    if (error) return res.status(error.code === '23505' ? 409 : 500).json({ error: error.code === '23505' ? 'A component with that name already exists.' : error.message })
+    if (!data) return res.status(404).json({ error: 'Component not found' })
+    res.json({ component: data })
+  })
+  app.delete('/dealership/site-components/:id', requireAuth, requireMfa, requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { error } = await supabaseAdmin.from('dealer_website_components').delete().eq('id', req.params.id).eq('dealership_id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
     res.json({ ok: true })
   })

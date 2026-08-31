@@ -22,6 +22,8 @@ test('website builder separates draft and publish actions', () => {
   assert.match(builder, /saveWebsite\(this,'draft'\)/)
   assert.match(builder, /saveWebsite\(this,'publish'\)/)
   assert.match(builder, /\/dealership\/site\/revisions/)
+  assert.match(route, /auditWebsiteDiscoverabilityContracts\(content, currentSite \|\| \{\}\)/)
+  assert.match(route, /WEBSITE_DISCOVERABILITY_CONTRACT_FAILED/)
 })
 
 test('website builder exposes scoped media library endpoints', () => {

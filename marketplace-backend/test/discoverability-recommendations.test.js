@@ -143,7 +143,8 @@ describe('MarketSync Discoverability Recommendations & Auto-Remediation Engine',
       }
 
       const passResult = await validateAppliedRecommendation(rec, {
-        updatedValue: 'Used Trucks in Welland | Apex Auto'
+        updatedValue: 'Used Trucks in Welland | Apex Auto',
+        publicVerification: { verified: true, statusCode: 200, sourceUrl: 'https://dealer.example/' }
       })
       assert.equal(passResult.passed, true)
 
@@ -171,7 +172,8 @@ describe('MarketSync Discoverability Recommendations & Auto-Remediation Engine',
           '@context': 'https://schema.org',
           '@type': 'FAQPage',
           mainEntity: [{ '@type': 'Question', name: 'Q1', acceptedAnswer: { text: 'A1' } }]
-        }
+        },
+        publicVerification: { verified: true, statusCode: 200, sourceUrl: 'https://dealer.example/service' }
       })
       assert.equal(passResult.passed, true)
 
@@ -186,7 +188,7 @@ describe('MarketSync Discoverability Recommendations & Auto-Remediation Engine',
         apply_strategy: 'enable_llms_txt',
         recommended_change: { field: 'llms_txt_enabled', after: true }
       }
-      const val = await validateAppliedRecommendation(rec, { success: true })
+      const val = await validateAppliedRecommendation(rec, { success: true, publicVerification: { verified: true, statusCode: 200, sourceUrl: 'https://dealer.example/llms.txt' } })
       assert.equal(val.passed, true)
     })
   })
@@ -219,12 +221,13 @@ describe('MarketSync Discoverability Recommendations & Auto-Remediation Engine',
       })
 
       assert.equal(result.success, true)
-      assert.equal(result.recommendation.status, 'validated')
+      assert.equal(result.recommendation.status, 'applied_pending_publish')
       assert.ok(result.snapshot.id)
-      assert.equal(result.validation.passed, true)
+      assert.equal(result.validation.passed, false)
+      assert.equal(result.validation.status, 'applied_pending_publish')
     })
 
-    it('safely rolls back when post-apply validation fails', async () => {
+    it('keeps an applied change pending when public verification is unavailable', async () => {
       const rec = {
         id: 'rec_fail_test_schema',
         dealer_id: 'dealer_123',
@@ -249,9 +252,10 @@ describe('MarketSync Discoverability Recommendations & Auto-Remediation Engine',
         actorId: 'user_456'
       })
 
-      assert.equal(result.success, false)
-      assert.equal(result.recommendation.status, 'reverted')
-      assert.match(result.message, /rolled back/i)
+      assert.equal(result.success, true)
+      assert.equal(result.pendingVerification, true)
+      assert.equal(result.recommendation.status, 'applied_pending_publish')
+      assert.match(result.message, /awaiting public verification/i)
     })
   })
 
@@ -274,7 +278,8 @@ describe('MarketSync Discoverability Recommendations & Auto-Remediation Engine',
           field: 'meta_title',
           before: 'Original About Title',
           after: 'Applied About Title'
-        }
+        },
+        public_verification: { verified: true, statusCode: 200, sourceUrl: 'https://dealer.example/about' }
       }
 
       // Apply first
@@ -370,15 +375,16 @@ describe('MarketSync Discoverability Recommendations & Auto-Remediation Engine',
   describe('Duplicate Prevention & Findings Normalization', () => {
     it('merges new audit runs with existing recommendations without creating duplicates', () => {
       const dealer = { id: 'd_100', name: 'Apex Auto', city: 'Welland', website_url: 'https://apex.com' }
-      const firstRun = generateRecommendationsFromAudit(dealer, { id: 'aud_1' }, [])
-      assert.ok(firstRun.length >= 5)
+      const findings = [1, 2, 3].map(index => ({ id: `finding-${index}`, title: `Observed issue ${index}`, evidence: { sourceType: 'crawler', verified: true }, source: 'crawler', measured_at: new Date().toISOString(), affected_urls: ['/'] }))
+      const firstRun = generateRecommendationsFromAudit(dealer, { id: 'aud_1', findings }, [])
+      assert.equal(firstRun.length, findings.length)
 
       // Simulate approving one recommendation
       firstRun[0].status = 'approved'
       firstRun[0].approved_at = new Date().toISOString()
 
       // Second audit run should preserve approved status and increment occurrence_count
-      const secondRun = generateRecommendationsFromAudit(dealer, { id: 'aud_2' }, firstRun)
+      const secondRun = generateRecommendationsFromAudit(dealer, { id: 'aud_2', findings }, firstRun)
       assert.equal(secondRun.length, firstRun.length)
       const matching = secondRun.find(r => r.finding_id === firstRun[0].finding_id)
       assert.equal(matching.status, 'approved')

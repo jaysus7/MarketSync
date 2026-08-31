@@ -18,7 +18,7 @@
     }];
     const first = pages[0];
     return {
-      version: 2, id: input.id || id('doc'), title: input.title || options.title || 'Untitled Design',
+      version: Math.max(3, Number(input.version) || 0), id: input.id || id('doc'), title: input.title || options.title || 'Untitled Design',
       format_key: input.format_key || options.formatKey || 'square', width: Number(input.width || first.width) || 1080,
       height: Number(input.height || first.height) || 1080, brand_id: input.brand_id || null,
       metadata: { ...(input.metadata || {}), ...(input.seo ? { seo: clone(input.seo) } : {}) },
@@ -26,9 +26,13 @@
       components: Array.isArray(input.components) ? clone(input.components) : [],
       pages: pages.map((page, index) => ({
         id: page.id || id('page'), name: page.name || `Page ${index + 1}`,
+        format_key: page.format_key || input.format_key || options.formatKey || 'square',
+        variation_of: page.variation_of || null,
         width: Number(page.width || input.width) || 1080, height: Number(page.height || input.height) || 1080,
         background: clone(page.background || input.background || { color: '#0F172A' }),
-        objects: Array.isArray(page.objects) ? clone(page.objects) : []
+        objects: Array.isArray(page.objects) ? clone(page.objects) : [],
+        duration_ms: Math.max(500, Number(page.duration_ms) || 5000),
+        transition: page.transition || 'none'
       }))
     };
   };
@@ -55,7 +59,7 @@
   window.msStudioAddPage = function (document, options = {}) {
     const doc = window.msStudioNormalizeDocument(document);
     const index = doc.pages.length + 1;
-    doc.pages.push({ id: id('page'), name: options.name || `Page ${index}`, width: options.width || doc.width, height: options.height || doc.height, background: { color: options.background || '#0F172A' }, objects: [] });
+    doc.pages.push({ id: id('page'), name: options.name || `Page ${index}`, format_key: options.format_key || doc.format_key, variation_of: options.variation_of || null, width: options.width || doc.width, height: options.height || doc.height, background: { color: options.background || '#0F172A' }, objects: [], duration_ms: Math.max(500, Number(options.duration_ms) || 5000), transition: options.transition || 'none' });
     return doc;
   };
 

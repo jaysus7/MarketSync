@@ -1,6 +1,22 @@
 import { supabaseAdmin } from '../shared.js'
 import { runAutomatedSeoAudit } from './seoMonitoringService.js'
 import { generateRecommendationsFromAudit } from './recommendationEngine.js'
+import { auditWebsiteDiscoverabilityContracts } from './websiteDiscoverabilityContracts.js'
+import { crawlSite } from './discoverabilityCrawlerService.js'
+import { detectAutomotivePage, extractVehicleEntity, validateAutomotiveSchemas, compareInventoryToPublic, automotiveScore, validateBilingualPages } from './automotiveDiscoverabilityService.js'
+
+export function scoreEvidenceChecks(checks = []) {
+  const applicable = checks.filter(check => check.applicable !== false)
+  const measured = applicable.filter(check => ['pass', 'fail'].includes(check.status))
+  const passed = measured.filter(check => check.status === 'pass').length
+  return {
+    qualityScore: measured.length ? Math.round((passed / measured.length) * 100) : null,
+    evidenceCoverage: applicable.length ? Math.round((measured.length / applicable.length) * 100) : 100,
+    passCount: passed,
+    failCount: measured.length - passed,
+    unknownCount: applicable.length - measured.length
+  }
+}
 
 /**
  * MarketSync Discoverability Intelligence Monitoring Service
@@ -16,7 +32,7 @@ export async function runComprehensiveDiscoverabilityAudit(dealershipId, options
   // 1. Fetch dealership record
   const { data: dealer } = await supabaseAdmin
     .from('dealerships')
-    .select('id, name, city, state, address, zip_code, phone, website_url, ai_chatbot_active')
+    .select('id, name, city, state, address, zip_code, phone, website_url, ai_chatbot_active, branding, site_published, site_slug')
     .eq('id', dealershipId)
     .single()
 
@@ -36,187 +52,101 @@ export async function runComprehensiveDiscoverabilityAudit(dealershipId, options
   const city = dealer.city || 'Local'
   const isGscConnected = !!settings?.gsc_connected
   const timestamp = new Date().toISOString()
+  const builderContent = { ...(dealer.branding || {}) }
+  if (Array.isArray(pages) && pages.length) builderContent.pages = pages
+  const websiteBuilderAudit = auditWebsiteDiscoverabilityContracts(builderContent, dealer)
+  const liveCrawl = options.liveCrawl && dealer.website_url
+    ? await crawlSite(dealer.website_url, { ...(options.crawlOptions || {}), persist: options.persistCrawl !== false }).catch(error => ({ status: 'failed', error: error.message, pages: [], findings: [] }))
+    : null
+  const automotiveAudit = liveCrawl?.pages?.length ? (() => {
+    const pagesObserved = liveCrawl.pages.filter(page => page.html).map(page => ({ ...page, automotive: detectAutomotivePage(page), vehicle: extractVehicleEntity(page), schemaValidation: validateAutomotiveSchemas(page, dealer, inventory || []) }))
+    const publicVehicles = pagesObserved.filter(page => page.automotive.pageType === 'vdp').map(page => ({ ...page.vehicle, observedAt: page.fetchedAt }))
+    const inventoryComparison = compareInventoryToPublic(inventory || [], publicVehicles, options)
+    const checks = pagesObserved.flatMap(page => Object.entries(page.schemaValidation).filter(([key]) => ['autoDealer', 'vehicle', 'offer', 'breadcrumb'].includes(key)).map(([key, value]) => ({ id: `${page.finalUrl}-${key}`, status: value.status, applicable: true })))
+    return { pages: pagesObserved, publicVehicles, inventoryComparison, score: automotiveScore(checks), bilingual: validateBilingualPages(pagesObserved.map(page => ({ finalUrl: page.finalUrl, language: page.html.language, hreflang: page.html.hreflang }))) }
+  })() : null
 
   // ── PILLAR 1: SEO HEALTH (0-100) ──────────────────────────────────────────
-  const seoScore = seoAudit?.healthScore || (dealer.website_url ? 84 : 70)
   const seoMetrics = {
-    score: seoScore,
-    organicClicks: isGscConnected ? 1420 : 0,
-    organicImpressions: isGscConnected ? 28400 : 0,
-    averagePosition: isGscConnected ? 11.8 : null,
-    clickThroughRate: isGscConnected ? '5.0%' : null,
-    keywordTiers: {
-      top3: isGscConnected ? 14 : 4,
-      top10: isGscConnected ? 48 : 18,
-      top100: isGscConnected ? 186 : 64
-    },
-    cwvStatus: 'Good (LCP: 1.8s, INP: 82ms, CLS: 0.04)',
-    indexationStatus: 'Healthy (142 pages indexed, 0 unindexed errors)'
+    status: isGscConnected ? 'connected_not_measured' : 'not_connected',
+    score: null,
+    organicClicks: null,
+    organicImpressions: null,
+    averagePosition: null,
+    clickThroughRate: null,
+    keywordTiers: null,
+    cwvStatus: { status: 'not_measured', lcp: null, inp: null, cls: null },
+    indexationStatus: { status: 'not_measured', indexedPages: null, errors: null },
+    evidence: { sourceType: isGscConnected ? 'search_console' : 'search_console', status: isGscConnected ? 'not_measured' : 'not_connected', verified: false, measuredAt: timestamp }
   }
+  seoMetrics.qualityScore = null
+  seoMetrics.evidenceCoverage = 0
 
   // ── PILLAR 2: AEO (ANSWER ENGINE OPTIMIZATION) ────────────────────────────
-  const aeoIssues = []
-  let aeoScore = 88
-
-  if (!pages || pages.length === 0) {
-    aeoScore -= 10
-    aeoIssues.push({
-      id: 'aeo-missing-faq',
-      type: 'opportunity',
-      title: 'Add Structured FAQ Page for Local Dealership Queries',
-      details: 'Creating an FAQ page with FAQPage JSON-LD schema enhances PAA and Featured Snippet capture.'
-    })
-  }
-
   const aeoData = {
-    score: Math.max(50, aeoScore),
-    featuredSnippets: {
-      activeCount: 6,
-      potentialCount: 14,
-      winRate: '42.8%',
-      recentWins: [
-        `What is the towing capacity of 2025 Silverado 1500?`,
-        `Used car financing requirements in ${city}`
-      ],
-      recentLosses: [
-        `Best trade-in value near ${city}`
-      ]
-    },
-    peopleAlsoAsk: {
-      coveredQuestions: 19,
-      totalTracked: 32,
-      reachPercent: '59.3%',
-      topQuestionClusters: [
-        { cluster: 'Vehicle Financing & Trade-In', questions: 8, coverage: '75%' },
-        { cluster: 'Truck Towing & Specs', questions: 6, coverage: '83%' },
-        { cluster: 'Service & Maintenance Intervals', questions: 5, coverage: '40%' }
-      ]
-    },
+    status: 'not_measured', score: null, featuredSnippets: null, peopleAlsoAsk: null,
     schemaValidation: {
-      autoDealerSchema: !!dealer.phone && !!dealer.address ? 'Valid' : 'Incomplete NAP',
-      vehicleSchema: 'Valid (schema.org/Vehicle & Offer active)',
-      faqSchema: 'Valid (FAQPage schema generated)',
-      localBusinessSchema: 'Valid'
+      autoDealerSchema: { status: 'unknown', sourceUrl: null, evidence: 'No public rendered-page parse available.' },
+      vehicleSchema: { status: 'unknown', sourceUrl: null, evidence: 'No public rendered-page parse available.' },
+      faqSchema: { status: 'unknown', sourceUrl: null, evidence: 'No public rendered-page parse available.' },
+      localBusinessSchema: { status: 'unknown', sourceUrl: null, evidence: 'No public rendered-page parse available.' }
     },
-    voiceSearchOptimization: {
-      conversationalReadinessScore: 86,
-      longTailQueryMatchCount: 24,
-      sampleQueries: [
-        `Hey Google, where can I buy a used pickup truck in ${city}?`,
-        `Siri, find Chevrolet auto repair near me with high ratings.`
-      ]
-    }
+    voiceSearchOptimization: { status: 'not_measured', conversationalReadinessScore: null, longTailQueryMatchCount: null, sampleQueries: [] }
   }
+  aeoData.qualityScore = null
+  aeoData.evidenceCoverage = 0
 
   // ── PILLAR 3: GEO / LLMO (AI MODEL VISIBILITY) ────────────────────────────
-  const geoData = {
-    score: 82,
-    brandMentionRate: '68.5%',
-    urlCitationRate: '41.2%',
-    citationShareOfVoice: '24.8%',
-    sentimentBreakdown: {
-      positive: '76%',
-      neutral: '21%',
-      negative: '3%'
-    },
-    hallucinationCount: 0,
-    modelCoverage: [
-      { engine: 'ChatGPT (GPT-4o)', mentions: 18, citations: 12, accuracy: '100%', status: 'Active' },
-      { engine: 'Google Gemini', mentions: 22, citations: 16, accuracy: '100%', status: 'Active' },
-      { engine: 'Perplexity AI', mentions: 19, citations: 15, accuracy: '98%', status: 'Active' },
-      { engine: 'Microsoft Copilot', mentions: 14, citations: 9, accuracy: '100%', status: 'Active' },
-      { engine: 'Anthropic Claude', mentions: 12, citations: 7, accuracy: '100%', status: 'Active' },
-      { engine: 'Google AI Overviews', mentions: 16, citations: 11, accuracy: '100%', status: 'Active' }
-    ],
-    benchmarkEvidenceLog: [
-      {
-        id: `bm-${Date.now()}-1`,
-        query: `Best dealership for used trucks in ${city}`,
-        engine: 'Google Gemini',
-        model: 'Gemini 1.5 Pro',
-        timestamp: new Date(Date.now() - 3600000).toISOString(),
-        locale: 'en-CA',
-        mentioned: true,
-        cited: true,
-        sourceUrl: dealer.website_url || 'https://marketsync.link',
-        competitorMentions: ['Local Auto Mall', 'Regional Motors'],
-        accuracy: 'Accurate'
-      },
-      {
-        id: `bm-${Date.now()}-2`,
-        query: `Where can I get approved for auto financing in ${city} with bad credit?`,
-        engine: 'Perplexity AI',
-        model: 'Sonar Online',
-        timestamp: new Date(Date.now() - 7200000).toISOString(),
-        locale: 'en-CA',
-        mentioned: true,
-        cited: true,
-        sourceUrl: `${dealer.website_url || 'https://marketsync.link'}/credit-application`,
-        competitorMentions: [],
-        accuracy: 'Accurate'
-      }
-    ]
-  }
+  const geoData = { status: 'not_measured', score: null, brandMentionRate: null, urlCitationRate: null, citationShareOfVoice: null, sentimentBreakdown: null, hallucinationCount: null, modelCoverage: [], benchmarkEvidenceLog: [], evidenceType: null }
+  geoData.qualityScore = null
+  geoData.evidenceCoverage = 0
 
   // ── PILLAR 4: SXO (SEARCH EXPERIENCE & CONVERSION) ────────────────────────
   const orgContacts = (contacts || []).filter(c => {
     const s = String(c.source || '').toLowerCase()
     return s.includes('organic') || s.includes('seo') || s.includes('website') || s.includes('direct')
   })
-  const totalLeads = orgContacts.length || 18
-  const appointments = orgContacts.filter(c => ['appointment', 'show', 'sold', 'delivered'].includes(c.status)).length || 6
-  const sold = orgContacts.filter(c => ['sold', 'delivered'].includes(c.status)).length || 2
-
   const sxoData = {
-    score: 87,
-    conversionRate: '3.4%',
-    bounceRate: '28.6%',
-    mobileVsDesktop: {
-      mobileTrafficShare: '68%',
-      mobileConversionRate: '3.2%',
-      desktopTrafficShare: '32%',
-      desktopConversionRate: '3.8%'
-    },
-    topLandingPages: [
-      { url: '/inventory?body_style=Truck', visits: 640, conversions: 24, cvr: '3.75%' },
-      { url: '/credit-application', visits: 410, conversions: 38, cvr: '9.27%' },
-      { url: '/inventory?price_max=35000', visits: 290, conversions: 12, cvr: '4.14%' },
-      { url: '/service', visits: 180, conversions: 14, cvr: '7.77%' }
-    ],
-    funnel: [
-      { step: 'Search Visitors', count: 1820 },
-      { step: 'VDP / Lead Page Views', count: 940 },
-      { step: 'Form / Chat Intake Initiated', count: 112 },
-      { step: 'Qualified Organic Leads Captured', count: totalLeads },
-      { step: 'Appointments Scheduled', count: appointments },
-      { step: 'Deals Closed / Delivered', count: sold }
-    ]
+    status: 'not_measured', score: null, conversionRate: null, bounceRate: null,
+    mobileVsDesktop: null, topLandingPages: [],
+    funnel: orgContacts.length ? [{ step: 'Attributed CRM leads', count: orgContacts.length, source: 'crm' }] : [],
+    evidence: { sourceType: 'analytics', status: 'unknown', verified: false, measuredAt: timestamp, details: 'CRM attribution alone cannot establish visits, bounce rate, or conversion rate.' }
   }
+  sxoData.qualityScore = null
+  sxoData.evidenceCoverage = 0
 
   // ── PILLAR 5: ASO (APP & EXTENSION STORE OPTIMIZATION) ────────────────────
-  const asoData = {
-    score: 92,
-    stores: [
-      {
-        store: 'Chrome Web Store',
-        listingName: 'MarketSync Dealer Extension & Copilot',
-        status: 'Published / Verified',
-        rating: '4.9 / 5.0',
-        reviewCount: 38,
-        weeklyImpressions: 1420,
-        weeklyInstalls: 116,
-        installConversionRate: '8.17%',
-        topKeywords: [
-          { keyword: 'dealership automation', position: 1 },
-          { keyword: 'facebook marketplace dealer poster', position: 2 },
-          { keyword: 'vin decoder chrome extension', position: 1 }
-        ]
-      }
-    ]
-  }
+  // Product distribution is intentionally excluded from the dealership website
+  // composite. No trusted store measurement is available in this audit.
+  const asoData = { status: 'not_measured', score: null, qualityScore: null, evidenceCoverage: 0, stores: [], evidenceType: null }
 
   // ── PILLAR 6: VALIDATION & ACCURACY (CRITICAL / HIGH / MED / LOW) ─────────
   const validationIssues = []
+
+  // The builder contract is the source of truth for page-level discoverability.
+  // Keep these findings in the existing validation pillar so the Discoverability
+  // UI and the Builder cannot disagree about whether a page is optimized.
+  validationIssues.push(...websiteBuilderAudit.issues.map(item => ({
+    ...item,
+    category: 'Website Builder contract',
+    affectedUrl: item.affectedUrl || '/',
+  })))
+  if (liveCrawl?.findings?.length) validationIssues.push(...liveCrawl.findings.map((item, index) => ({
+    id: `crawl-${item.type}-${index}`,
+    severity: item.severity === 'high' ? 'High' : item.severity === 'medium' ? 'Medium' : 'Low',
+    category: 'Live Public Website Crawl',
+    title: item.type,
+    description: `Observed on the public response at ${item.sourceUrl || 'the crawled site'}.`,
+    evidence: item.evidence,
+    source: 'crawler',
+    measured_at: item.evidence?.measuredAt || timestamp,
+    affectedUrl: item.sourceUrl,
+    autoFixable: false,
+    status: 'pending'
+  })))
+  if (automotiveAudit?.inventoryComparison?.findings?.length) validationIssues.push(...automotiveAudit.inventoryComparison.findings.map((item, index) => ({
+    id: `automotive-${item.type}-${index}`, severity: item.severity === 'critical' ? 'Critical' : item.severity === 'high' ? 'High' : 'Medium', category: 'Automotive public inventory', title: item.type, description: 'Canonical inventory was compared with observed public vehicle data.', evidence: item.evidence, source: 'crawler', measured_at: item.evidence?.measuredAt || timestamp, affectedUrl: item.evidence?.sourceUrl || null, autoFixable: false, status: 'pending'
+  })))
   
   // Rule 1: Check NAP
   if (!dealer.phone || !dealer.address || !dealer.zip_code) {
@@ -233,20 +163,8 @@ export async function runComprehensiveDiscoverabilityAudit(dealershipId, options
     })
   }
 
-  // Rule 2: Check llms.txt
-  if (!settings?.llms_txt_enabled) {
-    validationIssues.push({
-      id: 'val-llmstxt-disabled',
-      severity: 'Medium',
-      category: 'AI Knowledge Readiness',
-      title: 'llms.txt Crawler Guidance File Inactive',
-      description: 'AI model crawlers cannot locate structured pricing and inventory manifests.',
-      impact: 'Reduced citation frequency in Gemini and ChatGPT search summaries.',
-      autoFixable: true,
-      status: 'pending',
-      affectedUrl: '/llms.txt'
-    })
-  }
+  // llms.txt configuration is not proof that the public artifact is reachable;
+  // leave it unknown until a crawler fetches and records the response.
 
   // Rule 3: Check inventory pricing freshness
   const staleInventory = (inventory || []).filter(v => !v.price || Number(v.price) <= 0)
@@ -264,68 +182,76 @@ export async function runComprehensiveDiscoverabilityAudit(dealershipId, options
     })
   }
 
-  // Default passing validation checks if clean
-  if (validationIssues.length === 0) {
-    validationIssues.push({
-      id: 'val-clean-canonical',
-      severity: 'Low',
-      category: 'Canonical Verification',
-      title: 'All VDP Canonical & Open Graph Tags Verified',
-      description: 'No duplicate query parameter loops or missing headers found across 142 scanned routes.',
-      impact: 'Optimal link equity distribution.',
-      autoFixable: false,
-      status: 'resolved',
-      affectedUrl: '/* All Routes'
-    })
-  }
-
   const criticalCount = validationIssues.filter(i => i.severity === 'Critical' && i.status === 'pending').length
   const highCount = validationIssues.filter(i => i.severity === 'High' && i.status === 'pending').length
   const mediumCount = validationIssues.filter(i => i.severity === 'Medium' && i.status === 'pending').length
-  const validationScore = Math.max(60, 100 - (criticalCount * 20) - (highCount * 10) - (mediumCount * 5))
+  const validationScore = validationIssues.length ? Math.max(0, 100 - (criticalCount * 20) - (highCount * 10) - (mediumCount * 5)) : null
 
   const validationData = {
+    status: validationIssues.length ? 'measured_with_findings' : 'not_measured',
     score: validationScore,
     criticalCount,
     highCount,
     mediumCount,
     lowCount: validationIssues.filter(i => i.severity === 'Low').length,
     issues: validationIssues,
-    lastScannedAt: timestamp
+    lastScannedAt: timestamp,
+    qualityScore: validationIssues.length ? validationScore : null,
+    evidenceCoverage: validationIssues.length ? 100 : 0
   }
 
   // ── OVERALL COMPOSITE DISCOVERABILITY SCORE ────────────────────────────────
-  const compositeScore = Math.round(
-    (seoScore * 0.30) +
-    (aeoData.score * 0.20) +
-    (geoData.score * 0.20) +
-    (sxoData.score * 0.15) +
-    (validationData.score * 0.10) +
-    (asoData.score * 0.05)
-  )
+  // There is no honest composite until all weighted website pillars have
+  // measured evidence. ASO is deliberately not part of this calculation.
+  const compositeScore = null
 
   // ── ACTIONABLE RECOMMENDATIONS ENGINE ──────────────────────────────────────
-  const recommendations = generateRecommendationsFromAudit(dealer, { id: `aud_${Date.now()}` }, options.previousRecommendations || [])
+  const findings = validationIssues.map(finding => ({
+    ...finding,
+    source: finding.source || 'discoverability_validation',
+    evidence: finding.evidence || finding.description,
+    measured_at: timestamp,
+    affected_urls: finding.affectedUrl ? [finding.affectedUrl] : []
+  }))
+  const recommendations = generateRecommendationsFromAudit(dealer, { id: `aud_${Date.now()}`, findings }, options.previousRecommendations || [])
 
   return {
     dealershipId,
     dealershipName: dealer.name,
     timestamp,
     compositeScore,
+    qualityScore: null,
+    evidenceCoverage: 0,
+    verified100: false,
+    scoringNote: 'Quality is not reported until all applicable website checks have measured evidence; unavailable providers remain unknown.',
     pillars: {
       seo: seoMetrics,
       aeo: aeoData,
       geo: geoData,
       sxo: sxoData,
       aso: asoData,
-      validation: validationData
+      validation: validationData,
+      websiteBuilder: websiteBuilderAudit,
+      livePublicWebsite: liveCrawl ? {
+        status: liveCrawl.status || 'completed',
+        baseUrl: liveCrawl.baseUrl || dealer.website_url,
+        pageCount: liveCrawl.pages?.length || 0,
+        findingCount: liveCrawl.findings?.length || 0,
+        robots: liveCrawl.robotsPolicies || null,
+        sitemaps: liveCrawl.sitemaps || [],
+        evidence: liveCrawl.pages?.map(page => ({
+          sourceType: 'crawler', sourceUrl: page.finalUrl || page.requestedUrl, measuredAt: page.fetchedAt,
+          statusCode: page.statusCode, responseTimeMs: page.responseTimeMs, bodyHash: page.bodyHash, verified: page.statusCode != null
+        })) || []
+      } : { status: 'not_measured', pageCount: 0, findingCount: 0, evidence: [] },
+      automotive: automotiveAudit || { status: 'not_measured', score: { qualityScore: null, evidenceCoverage: 0 }, publicVehicles: [], inventoryComparison: { comparisons: [], findings: [] }, bilingual: { status: 'not_applicable', checks: [] } }
     },
     recommendations,
     history: {
-      dates: ['7 Days Ago', '6 Days Ago', '5 Days Ago', '4 Days Ago', '3 Days Ago', 'Yesterday', 'Today'],
-      searchSovTrend: [18, 19, 21, 20, 22, 23, 24],
-      aiSovTrend: [12, 14, 15, 18, 19, 21, 25],
-      compositeScoreTrend: [81, 82, 83, 84, 84, 85, compositeScore]
+      dates: [],
+      searchSovTrend: [],
+      aiSovTrend: [],
+      compositeScoreTrend: []
     }
   }
 }

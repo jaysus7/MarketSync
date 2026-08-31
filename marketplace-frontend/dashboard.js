@@ -556,7 +556,7 @@ let profileContext = null;
 // html[data-dash-mode] attribute). Persisted per-browser.
 let __dashMode = localStorage.getItem('ms_dash_mode') === 'marketsync' ? 'marketsync' : 'demo';
 // The pages that remain in MarketSync mode (everything else is vehicle-only).
-const MS_ALLOWED_PAGES = new Set(['saas-command', 'saas-customers', 'saas-followups', 'saas-funnel', 'saas-automation', 'saas-email-marketing', 'saas-employees', 'saas-accounting', 'saas-studio', 'saas-website', 'profile', 'owner-users']);
+const MS_ALLOWED_PAGES = new Set(['saas-command', 'saas-customers', 'saas-followups', 'saas-funnel', 'saas-automation', 'saas-email-marketing', 'saas-employees', 'saas-accounting', 'saas-billing', 'saas-affiliates', 'saas-product-usage', 'saas-health', 'saas-trials', 'saas-onboarding', 'saas-announcements', 'saas-intelligence', 'saas-studio', 'saas-website', 'profile', 'owner-users']);
 
 // ── Specialized dealership sub-roles ─────────────────────────────────────────
 // Beyond DEALER_ADMIN / OWNER / MANAGER / SALES_REP, a store can give a login one
@@ -1535,14 +1535,25 @@ function applyMobileQuickRow() {
 window.applyMobileQuickRow = applyMobileQuickRow;
 
 function marketsyncInternalNavPages() {
+  // The first FOUR are the bottom quick row (Pulse / Customers / Money / Work).
+  // The rest populate the "More" sheet so every operating destination is one
+  // tap away — mobile HQ has to feel like the same product as desktop HQ.
   return [
     { page: 'saas-command', label: 'Pulse', icon: 'chart' },
     { page: 'saas-customers', label: 'Accounts', icon: 'building' },
-    { page: 'saas-funnel', label: 'Leads', icon: 'funnel' },
-    { page: 'saas-followups', label: 'Work', icon: 'check' },
-    { page: 'saas-employees', label: 'People', icon: 'users' },
-    { page: 'saas-automation', label: 'Communications', icon: 'chat' },
     { page: 'saas-accounting', label: 'Money', icon: 'dollar' },
+    { page: 'saas-followups', label: 'Work', icon: 'check' },
+    { page: 'saas-billing', label: 'Billing', icon: 'currency' },
+    { page: 'saas-trials', label: 'Trials', icon: 'calendar' },
+    { page: 'saas-affiliates', label: 'Affiliates', icon: 'trophy' },
+    { page: 'saas-product-usage', label: 'Usage', icon: 'chart' },
+    { page: 'saas-automation', label: 'Automation', icon: 'chat' },
+    { page: 'saas-funnel', label: 'Leads', icon: 'funnel' },
+    { page: 'saas-employees', label: 'People', icon: 'users' },
+    { page: 'saas-onboarding', label: 'Onboarding', icon: 'check' },
+    { page: 'saas-announcements', label: 'Announcements', icon: 'bolt' },
+    { page: 'saas-intelligence', label: 'Intelligence', icon: 'bolt' },
+    { page: 'saas-health', label: 'Health', icon: 'bolt' },
   ];
 }
 window.marketsyncInternalNavPages = marketsyncInternalNavPages;
@@ -1582,7 +1593,13 @@ function navPagesForProductKey(key) {
     return one('seo', 'MarketSync SEO', 'chart', { tab: 'overview' });
   }
   if (/website|dealer_website/.test(only)) {
-    return one('website', 'Dealer Website', 'globe', { tab: 'setup' });
+    return [
+      { page: 'website', label: 'Setup', icon: 'wrench', tab: 'setup' },
+      { page: 'website', label: 'Builder', icon: 'globe', tab: 'builder' },
+      { page: 'blog', label: 'Blog Post Tips', icon: 'document' },
+      { page: 'discoverability', label: 'Discovery', icon: 'sparkles' },
+      { page: 'website-settings', label: 'Website Settings', icon: 'shield' },
+    ];
   }
   return null;
 }
@@ -1848,6 +1865,14 @@ function initDashModeForOwner() {
   document.getElementById('nav-saas-automation')?.classList.remove('hidden');// Automation & email (editable drips)
   document.getElementById('nav-saas-employees')?.classList.remove('hidden'); // Employees + permissions
   document.getElementById('nav-saas-accounting')?.classList.remove('hidden'); // Money
+  document.getElementById('nav-saas-billing')?.classList.remove('hidden'); // Billing summary
+  document.getElementById('nav-saas-affiliates')?.classList.remove('hidden'); // Affiliate program
+  document.getElementById('nav-saas-product-usage')?.classList.remove('hidden'); // Product adoption
+  document.getElementById('nav-saas-health')?.classList.remove('hidden'); // Platform health
+  document.getElementById('nav-saas-trials')?.classList.remove('hidden'); // Trials pipeline
+  document.getElementById('nav-saas-onboarding')?.classList.remove('hidden'); // Staff onboarding checklist
+  document.getElementById('nav-saas-announcements')?.classList.remove('hidden'); // Announcements
+  document.getElementById('nav-saas-intelligence')?.classList.remove('hidden'); // HQ Intelligence
   // The demo dealership workspace has been retired — the owner runs the MarketSync
   // SaaS business only, so force the SaaS back office and land on the HQ.
   __dashMode = 'marketsync';

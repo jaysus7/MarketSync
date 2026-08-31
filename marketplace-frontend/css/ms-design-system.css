@@ -293,7 +293,8 @@
    the row reservations cut the board from 936px to 856px on a 1440 viewport
    with no loss of hierarchy. */
 .ms-span-hero,
-.ms-c--hero {
+.ms-c--hero
+{
   grid-column: span 8;
 }
 
@@ -683,10 +684,7 @@ p.ms-text-caption,
 
 /* 44px is the comfortable-touch floor; applied via a class so it can be
    opted into on the controls that need it without inflating dense tables. */
-.ms-touch {
-  min-height: 44px;
-  min-width: 44px;
-}
+.ms-touch { min-height: 44px; min-width: 44px; }
 
 @media (prefers-reduced-motion: reduce) {
 
@@ -858,9 +856,7 @@ p.ms-text-caption,
   }
 
   .ms-span-hero,
-  .ms-c--hero {
-    grid-column: span 6;
-  }
+  .ms-c--hero { grid-column: span 6; }
 
   .ms-span-feature,
   .ms-c--feature {
@@ -890,10 +886,8 @@ p.ms-text-caption,
   /* A collapsed empty card may never be wider than the grid it sits in — a
      span wider than the column count silently creates implicit columns and
      breaks the whole board's alignment. */
-  .ms-c--hero[data-empty="true"],
-  .ms-c--feature[data-empty="true"] {
-    grid-column: span 3;
-  }
+  .ms-c--hero[data-empty="true"] { grid-column: span 3; }
+  .ms-c--feature[data-empty="true"] { grid-column: span 3; }
 
   /* Below 1280 the board column is roughly 700px once the 240px department rail
      and the 300px operations rail are taken out, so six tracks would be ~117px —
@@ -956,10 +950,8 @@ p.ms-text-caption,
   }
 
   /* Two columns means a collapsed empty card is at most one of them. */
-  .ms-c--hero[data-empty="true"],
-  .ms-c--feature[data-empty="true"] {
-    grid-column: span 1;
-  }
+  .ms-c--hero[data-empty="true"] { grid-column: span 1; }
+  .ms-c--feature[data-empty="true"] { grid-column: span 1; }
 
   /* Hero/feature padding and radius are desktop-scaled; on a phone that eats
      horizontal space the content needs. */
@@ -972,9 +964,7 @@ p.ms-text-caption,
   /* Blur is the expensive part of glass. Halve it on the devices least able
      to composite it — applies to BOTH spellings of a glass surface. */
   .ms-surface--glass,
-  .ms-c--glass {
-    --ms-g-blur: 14px;
-  }
+  .ms-c--glass { --ms-g-blur: 14px; }
 
   /* Two tracks. The lead takes the full width — a phone has no room to make a
      tile "twice as important" and still fit its number. */

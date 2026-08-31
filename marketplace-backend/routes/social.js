@@ -37,7 +37,7 @@ import {
   socialOAuthFetchProfile,
   socialOAuthDiscoverAccounts,
   socialOAuthStateHash,
-  socialOAuthRefreshToken,
+  socialOAuthRenewAccountCredentials,
   socialOAuthRevokeToken,
   providerCapabilities,
 } from '../providers/social-providers.js'
@@ -46,19 +46,28 @@ const PROVIDERS = KNOWN_PROVIDERS
 
 export function deriveProviderCapabilities(provider, customCaps = {}) {
   const p = String(provider || '').toLowerCase()
+  const implemented = providerCapabilities(p)
   const baseCaps = {
-    facebook: { publish: true, schedule: true, video: true, reels: true, stories: true, pages: true },
-    instagram: { publish: true, schedule: true, video: true, reels: true, stories: true },
-    linkedin: { publish: true, schedule: true, video: true, articles: true },
-    youtube: { publish: true, schedule: true, video: true, shorts: true },
-    tiktok: { publish: true, schedule: false, video: true },
-    x: { publish: true, schedule: true, video: true },
-  }[p] || { publish: true, schedule: false }
+    publish: implemented.publish === true,
+    schedule: implemented.schedule === true && implemented.publish === true,
+    text: implemented.can_publish_text === true,
+    image: implemented.can_publish_image === true,
+    video: implemented.can_publish_video === true,
+    comments: implemented.can_read_comments === true,
+    insights: implemented.can_read_insights === true,
+    stories: false,
+  }
+  if (p === 'facebook') baseCaps.pages = true
+  if (p === 'instagram') baseCaps.reels = implemented.can_publish_video === true
+  if (p === 'linkedin') baseCaps.articles = false
+  if (p === 'youtube') baseCaps.shorts = false
 
   const derived = { ...baseCaps }
   if (customCaps && typeof customCaps === 'object') {
     for (const [k, v] of Object.entries(customCaps)) {
-      if (typeof v === 'boolean') derived[k] = v
+      // Provider evidence may narrow a capability; it may never elevate one that the
+      // MarketSync adapter does not implement.
+      if (typeof v === 'boolean' && k in derived) derived[k] = derived[k] && v
     }
   }
   return derived
@@ -67,7 +76,7 @@ export function deriveProviderCapabilities(provider, customCaps = {}) {
 // Never select credentials_enc. Listing columns rather than '*' is what keeps a token from
 // leaking into a response by accident when the table grows a column.
 const SECRET_COLUMNS = ['provider', 'credentials_enc'].join(', ')
-const REFRESH_COLUMNS = ['id', 'dealership_id', 'provider', 'credentials_enc', 'status', 'ownership', 'owner_user_id'].join(', ')
+const REFRESH_COLUMNS = ['id', 'dealership_id', 'provider', 'external_account_id', 'credentials_enc', 'status', 'ownership', 'owner_user_id'].join(', ')
 const SAFE_COLUMNS = [
   'id', 'dealership_id', 'provider', 'external_account_id', 'display_name', 'handle',
   'avatar_url', 'ownership', 'owner_user_id', 'status', 'capabilities',
@@ -320,7 +329,7 @@ export function registerSocial(app) {
         return done(false, 'This link expired — try again.')
       }
 
-      const tokens = await socialOAuthExchangeCode(provider, String(req.query.code || ''))
+      const tokens = await socialOAuthExchangeCode(provider, String(req.query.code || ''), { state: String(req.query.state || '') })
       const candidates = await socialOAuthDiscoverAccounts(provider, tokens)
       if (!candidates.length) return done(false, 'No eligible Page, professional account, channel, or profile was found.')
       const tokenMap = Object.fromEntries(candidates.map(c => [c.external_account_id, c._credentials || tokens]))
@@ -361,7 +370,10 @@ export function registerSocial(app) {
       const existingAuthorization = await canActOnAccount(req, existing.id, 'publish')
       if (!existingAuthorization.allowed && session.ownership === 'user' && session.owner_user_id !== req.user.id) return res.status(403).json({ error: existingAuthorization.reason })
     }
-    const row = { dealership_id: session.dealership_id, provider: session.provider, external_account_id: candidate.external_account_id, display_name: candidate.display_name, handle: candidate.handle || null, ownership: session.ownership, owner_user_id: session.owner_user_id, capabilities: providerCapabilities(session.provider, candidate.capabilities), capability_evidence: { source: 'oauth-provider', account_kind: candidate.account_kind }, connected_by: session.user_id, status: 'connected', credentials_enc: encryptJson(credentials), credentials_encryption_version: PII_ENCRYPTION_VERSION, connected_at: now, last_verified_at: now, last_error: null, updated_at: now }
+    const expiresAt = candidate.token_expires_at || (credentials.expires_at
+      ? new Date(credentials.expires_at).toISOString()
+      : credentials.expires_in ? new Date(Date.now() + Number(credentials.expires_in) * 1000).toISOString() : null)
+    const row = { dealership_id: session.dealership_id, provider: session.provider, external_account_id: candidate.external_account_id, display_name: candidate.display_name, handle: candidate.handle || null, ownership: session.ownership, owner_user_id: session.owner_user_id, capabilities: providerCapabilities(session.provider, candidate.capabilities), capability_evidence: { source: 'oauth-provider', account_kind: candidate.account_kind }, connected_by: session.user_id, status: 'connected', credentials_enc: encryptJson(credentials), credentials_encryption_version: PII_ENCRYPTION_VERSION, token_expires_at: expiresAt, connected_at: now, last_verified_at: now, last_error: null, updated_at: now }
     const { data: account, error } = await supabaseAdmin.from('social_accounts').upsert(row, { onConflict: 'dealership_id,provider,external_account_id' }).select(SAFE_COLUMNS).single()
     if (error) return res.status(500).json({ error: error.message })
     await supabaseAdmin.from('social_oauth_sessions').update({ status: 'consumed', selected_account_id: account.id, consumed_at: now }).eq('id', session.id).eq('status', 'pending')
@@ -426,7 +438,7 @@ export function registerSocial(app) {
     if (row.ownership === 'user' && row.owner_user_id !== req.user?.id && !(await hasPermission(req, 'marketing.publish').catch(() => false))) return res.status(403).json({ error: 'You cannot refresh another user-owned account.' })
     const creds = decryptJson(row.credentials_enc)
     try {
-      const next = await socialOAuthRefreshToken(row.provider, creds?.refresh_token || creds?.access_token)
+      const next = await socialOAuthRenewAccountCredentials(row.provider, row.external_account_id, creds)
       const merged = { ...creds, ...next, expires_at: Date.now() + Math.max(60, Number(next.expires_in || 3600) - 60) * 1000 }
       const { data, error } = await supabaseAdmin.from('social_accounts').update({ status: 'connected', credentials_enc: encryptJson(merged), token_expires_at: new Date(merged.expires_at).toISOString(), last_verified_at: new Date().toISOString(), last_error: null, updated_at: new Date().toISOString() }).eq('id', row.id).eq('dealership_id', req.dealershipId).select(SAFE_COLUMNS).single()
       if (error) return res.status(500).json({ error: error.message })

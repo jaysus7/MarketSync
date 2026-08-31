@@ -20,6 +20,7 @@ import { startOrContinueConversation, saveMessage } from './ai-engine.js'
 import { categorizeConversation, formatShownVehicles, summarizeConversation, verifyRecaptcha, RECAPTCHA_SITE_KEY } from './ai-runtime.js'
 import { sanitizeHtml, stripScriptsFromHead } from '../html-sanitizer.js'
 import { registerSitePublicRoutes } from './submodules/site-public.js'
+import { auditWebsiteDiscoverabilityContracts, websitePublishBlockingIssues } from '../services/websiteDiscoverabilityContracts.js'
 
 const slugOk = (s) => /^[a-z0-9]([a-z0-9-]{1,38})[a-z0-9]$/.test(s)   // 3–40, no leading/trailing dash
 // The host a dealer points their custom domain's CNAME at (the static-site domain,
@@ -111,6 +112,22 @@ function publicRep(p) {
 }
 
 const slugify = (s) => String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
+const SITE_LOCKABLE_FIELDS = ['logo_url', 'primary_color', 'secondary_color', 'accent_color', 'heading_font', 'body_font', 'seo_title', 'seo_description', 'head_html']
+function canGovernWebsite(req) {
+  const role = req.profile?.role || req.user?.user_metadata?.role
+  return ['OWNER', 'DEALER_ADMIN', 'DEALER_GROUP'].includes(role) || ['dealer_owner', 'dealer_admin', 'dealer_group_owner', 'platform_owner', 'platform_admin'].includes(req.profile?.account_role || req.profile?.system_role)
+}
+function canGovernGroupWebsite(req) {
+  const role = req.profile?.role || req.user?.user_metadata?.role
+  return role === 'DEALER_GROUP' || ['dealer_group_owner', 'platform_owner', 'platform_admin'].includes(req.profile?.account_role || req.profile?.system_role)
+}
+async function groupWebsiteGovernance(groupId) {
+  if (!groupId) return { group_id: null, locked_fields: [], locked_section_ids: [], approval_required: false }
+  const { data, error } = await supabaseAdmin.from('dealer_groups').select('id, website_governance').eq('id', groupId).maybeSingle()
+  if (error || !data) return { group_id: groupId, locked_fields: [], locked_section_ids: [], approval_required: false }
+  const policy = data.website_governance && typeof data.website_governance === 'object' ? data.website_governance : {}
+  return { group_id: data.id, locked_fields: Array.isArray(policy.locked_fields) ? policy.locked_fields.filter(k => SITE_LOCKABLE_FIELDS.includes(k)) : [], locked_section_ids: Array.isArray(policy.locked_section_ids) ? policy.locked_section_ids.map(String).slice(0, 100) : [], approval_required: policy.approval_required === true }
+}
 
 // Builder persistence is revision-first. The branding JSON remains the published
 // compatibility projection for the existing renderer, while draft edits live here
@@ -134,6 +151,23 @@ async function saveDealerWebsiteRevision({ dealershipId, content, state = 'draft
     if (error) return null
     return data
   } catch { return null }
+}
+
+async function promoteDealerWebsiteContent(dealershipId, content) {
+  const { data: current, error: readError } = await supabaseAdmin.from('dealerships').select('branding').eq('id', dealershipId).single()
+  if (readError) throw readError
+  const branding = { ...(current?.branding || {}) }
+  const source = content && typeof content === 'object' ? content : {}
+  const keys = ['tagline', 'about', 'hours', 'phone', 'email', 'address', 'hero_url', 'primary_color', 'secondary_color', 'accent_color', 'facebook_url', 'instagram_url', 'typography', 'heading_font', 'body_font', 'hero_photos', 'seo_title', 'seo_description', 'seo_keywords', 'seo_image', 'discovery_summary', 'discovery_terms', 'discovery_intents', 'discovery_enabled']
+  for (const key of keys) if (source[key] !== undefined) branding[key] = source[key]
+  if (source.pages !== undefined) branding.site_pages = cleanPages(source.pages)
+  if (source.staff !== undefined) branding.site_team = cleanStaff(source.staff)
+  if (source.builtins !== undefined) branding.site_builtins = cleanBuiltins(source.builtins)
+  if (source.menu_order !== undefined) branding.site_menu_order = cleanMenuOrder(source.menu_order)
+  if (source.sections !== undefined) branding.site_sections = cleanSections(source.sections)
+  if (source.theme !== undefined) branding.site_theme = SITE_THEMES.includes(source.theme) ? source.theme : 'classic'
+  const { error } = await supabaseAdmin.from('dealerships').update({ branding, site_published: true }).eq('id', dealershipId)
+  if (error) throw error
 }
 
 // Derive a unique site_slug from the dealership name (de-duplicated with a numeric
@@ -620,11 +654,209 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     })
   })
 
+  app.get('/dealership/site/governance', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data, error } = await supabaseAdmin.from('dealerships').select('branding, group_id').eq('id', req.dealershipId).single()
+    if (error) return res.status(500).json({ error: error.message })
+    const groupPolicy = await groupWebsiteGovernance(data?.group_id)
+    const localLocks = Array.isArray(data?.branding?.site_locked_fields) ? data.branding.site_locked_fields.filter(k => SITE_LOCKABLE_FIELDS.includes(k)) : []
+    const localSectionLocks = Array.isArray(data?.branding?.site_locked_section_ids) ? data.branding.site_locked_section_ids.map(String).slice(0, 100) : []
+    res.json({ locked_fields: [...new Set([...groupPolicy.locked_fields, ...localLocks])], local_locked_fields: localLocks, inherited_locked_fields: groupPolicy.locked_fields, locked_section_ids: [...new Set([...groupPolicy.locked_section_ids, ...localSectionLocks])], local_locked_section_ids: localSectionLocks, inherited_locked_section_ids: groupPolicy.locked_section_ids, approval_required: data?.branding?.site_approval_required === true || groupPolicy.approval_required, inherited_approval_required: groupPolicy.approval_required, group_id: groupPolicy.group_id, can_manage: canGovernWebsite(req), can_manage_group: canGovernGroupWebsite(req) })
+  })
+  app.patch('/dealership/site/governance', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!canGovernWebsite(req)) return res.status(403).json({ error: 'Only dealership owners or administrators can manage locked brand fields.' })
+    const lockedFields = Array.isArray(req.body?.locked_fields) ? [...new Set(req.body.locked_fields.filter(k => SITE_LOCKABLE_FIELDS.includes(k)))] : []
+    const { data: current, error: readError } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
+    if (readError) return res.status(500).json({ error: readError.message })
+    const sectionLocks = Array.isArray(req.body?.locked_section_ids) ? [...new Set(req.body.locked_section_ids.map(String).filter(Boolean).slice(0, 100))] : []
+    const branding = { ...(current?.branding || {}), site_locked_fields: lockedFields, site_locked_section_ids: sectionLocks, site_approval_required: req.body?.approval_required === true }
+    const { error } = await supabaseAdmin.from('dealerships').update({ branding }).eq('id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'site.governance_updated', { after_state: { locked_fields: lockedFields } })
+    res.json({ ok: true, locked_fields: lockedFields, locked_section_ids: sectionLocks, approval_required: branding.site_approval_required === true })
+  })
+
+  app.get('/dealership/site/group-governance', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    const { data: dealer, error } = await supabaseAdmin.from('dealerships').select('group_id').eq('id', req.dealershipId).single()
+    if (error) return res.status(500).json({ error: error.message })
+    const policy = await groupWebsiteGovernance(dealer?.group_id)
+    res.json({ ...policy, can_manage: canGovernGroupWebsite(req) })
+  })
+
+  app.patch('/dealership/site/group-governance', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
+    if (!canGovernGroupWebsite(req)) return res.status(403).json({ error: 'Only dealer-group owners or platform administrators can manage inherited website controls.' })
+    const { data: dealer, error: dealerError } = await supabaseAdmin.from('dealerships').select('group_id').eq('id', req.dealershipId).single()
+    if (dealerError || !dealer?.group_id) return res.status(409).json({ error: 'This dealership is not attached to a dealer group.' })
+    const lockedFields = Array.isArray(req.body?.locked_fields) ? [...new Set(req.body.locked_fields.filter(k => SITE_LOCKABLE_FIELDS.includes(k)))] : []
+    const lockedSectionIds = Array.isArray(req.body?.locked_section_ids) ? [...new Set(req.body.locked_section_ids.map(String).filter(Boolean).slice(0, 100))] : []
+    const policy = { locked_fields: lockedFields, locked_section_ids: lockedSectionIds, approval_required: req.body?.approval_required === true }
+    const { error } = await supabaseAdmin.from('dealer_groups').update({ website_governance: policy }).eq('id', dealer.group_id)
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'site.group_governance_updated', { after_state: { group_id: dealer.group_id, ...policy } })
+    res.json({ ok: true, group_id: dealer.group_id, ...policy })
+  })
+
+  app.get('/groups/website/change-sets', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.approve'), async (req, res) => {
+    if (!canGovernGroupWebsite(req) || !req.profile?.group_id) return res.status(403).json({ error: 'Dealer-group approval authority required.' })
+    try {
+      const { data: rooftops, error: rooftopError } = await supabaseAdmin.from('dealerships').select('id, name').eq('group_id', req.profile.group_id)
+      if (rooftopError) throw rooftopError
+      const ids = (rooftops || []).map(row => row.id)
+      if (!ids.length) return res.json({ change_sets: [], rooftops: [] })
+      const { data, error } = await supabaseAdmin.from('website_change_sets').select('id, site_id, name, description, version_tag, status, created_by, approved_by, review_feedback, reviewed_by, reviewed_at, published_at, created_at, updated_at').in('site_id', ids).order('created_at', { ascending: false }).limit(200)
+      if (error) throw error
+      const names = new Map((rooftops || []).map(row => [String(row.id), row.name]))
+      res.json({ change_sets: (data || []).map(row => ({ ...row, dealership_name: names.get(String(row.site_id)) || null })), rooftops: rooftops || [] })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.get('/groups/website/audit-log', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.approve'), async (req, res) => {
+    if (!canGovernGroupWebsite(req) || !req.profile?.group_id) return res.status(403).json({ error: 'Dealer-group audit authority required.' })
+    try {
+      const { data: rooftops, error: rooftopError } = await supabaseAdmin.from('dealerships').select('id, name').eq('group_id', req.profile.group_id)
+      if (rooftopError) throw rooftopError
+      const ids = (rooftops || []).map(row => row.id)
+      if (!ids.length) return res.json({ events: [], rooftops: [] })
+      const { data, error } = await supabaseAdmin.from('audit_log').select('id, action, actor_id, actor_email, dealership_id, created_at, meta').in('dealership_id', ids).like('action', 'site.%').order('created_at', { ascending: false }).limit(250)
+      if (error) throw error
+      const names = new Map((rooftops || []).map(row => [String(row.id), row.name]))
+      res.json({ events: (data || []).map(row => ({ ...row, dealership_name: names.get(String(row.dealership_id)) || null })), rooftops: rooftops || [] })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.post('/groups/website/change-sets/:id/approve', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.approve'), async (req, res) => {
+    if (!canGovernGroupWebsite(req) || !req.profile?.group_id) return res.status(403).json({ error: 'Dealer-group approval authority required.' })
+    try {
+      const { data: current, error: readError } = await supabaseAdmin.from('website_change_sets').select('id, site_id, status, created_by, name').eq('id', req.params.id).single()
+      if (readError || !current) return res.status(404).json({ error: 'Change set not found.' })
+      const { data: rooftop } = await supabaseAdmin.from('dealerships').select('id, name').eq('id', current.site_id).eq('group_id', req.profile.group_id).maybeSingle()
+      if (!rooftop) return res.status(404).json({ error: 'Change set is not part of your dealer group.' })
+      if (current.status !== 'review') return res.status(409).json({ error: `Only change sets in review can be approved (current status: ${current.status}).` })
+      if (current.created_by && current.created_by === req.user?.id) return res.status(403).json({ error: 'A change set must be approved by a different reviewer than its requester.', code: 'WEBSITE_APPROVAL_SEPARATION_REQUIRED' })
+      const { data: changeSet, error } = await supabaseAdmin.from('website_change_sets').update({ status: 'approved', approved_by: req.user?.id, reviewed_by: req.user?.id, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', current.id).eq('site_id', rooftop.id).eq('status', 'review').is('approved_by', null).select('id, site_id, name, status, created_by, approved_by, reviewed_at, updated_at').maybeSingle()
+      if (error) throw error
+      if (!changeSet) return res.status(409).json({ error: 'This change set was already reviewed or changed by another user.' })
+      audit(req, 'site.group_change_set_approved', { after_state: { change_set_id: changeSet.id, dealership_id: rooftop.id } })
+      await createNotification({ dealershipId: rooftop.id, type: 'website_approval', title: 'Website change set approved', body: `${changeSet.name} was approved by dealer-group leadership and can be published.`, linkPage: 'website', targetUserId: changeSet.created_by || null })
+      res.json({ change_set: changeSet, dealership: rooftop })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.post('/groups/website/change-sets/:id/reject', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.approve'), async (req, res) => {
+    if (!canGovernGroupWebsite(req) || !req.profile?.group_id) return res.status(403).json({ error: 'Dealer-group approval authority required.' })
+    const feedback = String(req.body?.feedback || '').trim().slice(0, 1000)
+    if (!feedback) return res.status(400).json({ error: 'Reviewer feedback is required when rejecting a change set.' })
+    try {
+      const { data: current, error: readError } = await supabaseAdmin.from('website_change_sets').select('id, site_id, status, created_by, name').eq('id', req.params.id).single()
+      if (readError || !current) return res.status(404).json({ error: 'Change set not found.' })
+      const { data: rooftop } = await supabaseAdmin.from('dealerships').select('id, name').eq('id', current.site_id).eq('group_id', req.profile.group_id).maybeSingle()
+      if (!rooftop) return res.status(404).json({ error: 'Change set is not part of your dealer group.' })
+      if (current.status !== 'review') return res.status(409).json({ error: 'This change set was already reviewed or changed by another user.' })
+      const { data: changeSet, error } = await supabaseAdmin.from('website_change_sets').update({ status: 'rejected', review_feedback: feedback, reviewed_by: req.user?.id, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', current.id).eq('site_id', rooftop.id).eq('status', 'review').select('id, site_id, name, status, created_by, review_feedback, reviewed_by, reviewed_at, updated_at').maybeSingle()
+      if (error) throw error
+      if (!changeSet) return res.status(409).json({ error: 'This change set was already reviewed or changed by another user.' })
+      audit(req, 'site.group_change_set_rejected', { after_state: { change_set_id: changeSet.id, dealership_id: rooftop.id, feedback } })
+      await createNotification({ dealershipId: rooftop.id, type: 'website_approval', title: 'Website change set needs changes', body: `${changeSet.name}: ${feedback}`, linkPage: 'website', targetUserId: changeSet.created_by || null })
+      res.json({ change_set: changeSet, dealership: rooftop })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
   app.get('/dealership/site/revisions', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     try {
       const { data, error } = await supabaseAdmin.from('dealer_website_revisions').select('id, revision_number, state, change_summary, created_by, created_at, published_at').eq('dealership_id', req.dealershipId).order('revision_number', { ascending: false }).limit(80)
       if (error) throw error
-      res.json({ revisions: data || [] })
+      const { data: deployments } = await supabaseAdmin.from('website_deployments').select('id, status, trigger_type, published_summary, deployed_at, verified_at, verified_status, created_at').eq('site_id', req.dealershipId).order('created_at', { ascending: false }).limit(20)
+      res.json({ revisions: data || [], deployments: deployments || [] })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // ── Website change sets: dealer-scoped approval workflow ──────────────────
+  // Reuse the shared website_change_sets table used by HQ. Dealer IDs are
+  // already supported by its text site_id column, so approval history remains
+  // compatible with the existing deployment/control-plane model.
+  app.get('/dealership/site/change-sets', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    try {
+      const { data, error } = await supabaseAdmin.from('website_change_sets')
+        .select('id, site_id, name, description, version_tag, status, created_by, approved_by, review_feedback, reviewed_by, reviewed_at, published_at, created_at, updated_at')
+        .eq('site_id', req.dealershipId).order('created_at', { ascending: false }).limit(50)
+      if (error) throw error
+      res.json({ change_sets: data || [] })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.post('/dealership/site/change-sets', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    try {
+      const revisionId = String(req.body?.revision_id || '').trim()
+      if (!revisionId) return res.status(400).json({ error: 'A draft revision is required.' })
+      const { data: revision, error: revisionError } = await supabaseAdmin.from('dealer_website_revisions')
+        .select('id, revision_number, state, change_summary').eq('id', revisionId).eq('dealership_id', req.dealershipId).single()
+      if (revisionError || !revision) return res.status(404).json({ error: 'Draft revision not found.' })
+      if (revision.state !== 'draft') return res.status(409).json({ error: 'Only a draft revision can be submitted for approval.' })
+      const name = String(req.body?.name || `Website update · revision ${revision.revision_number}`).trim().slice(0, 120)
+      const description = String(req.body?.description || revision.change_summary || '').trim().slice(0, 1000) || null
+      const { data: changeSet, error } = await supabaseAdmin.from('website_change_sets').insert({
+        site_id: req.dealershipId, name: name || 'Website update', description,
+        version_tag: `dealer-${req.dealershipId}-r${revision.revision_number}`.slice(0, 120),
+        status: 'review', created_by: req.user?.id,
+      }).select('id, site_id, name, description, version_tag, status, created_by, created_at, updated_at').single()
+      if (error) throw error
+      const { error: itemError } = await supabaseAdmin.from('website_change_set_items').insert({
+        change_set_id: changeSet.id, item_type: 'page', item_id: revision.id, action: 'publish',
+        diff_payload: { revision_id: revision.id, revision_number: revision.revision_number, change_summary: revision.change_summary || null },
+      })
+      if (itemError) {
+        await supabaseAdmin.from('website_change_sets').delete().eq('id', changeSet.id).eq('site_id', req.dealershipId)
+        throw itemError
+      }
+      audit(req, 'site.change_set_submitted', { after_state: { change_set_id: changeSet.id, revision_id: revision.id, revision_number: revision.revision_number } })
+      await createNotification({ dealershipId: req.dealershipId, type: 'website_approval', title: 'Website approval requested', body: `${changeSet.name} is waiting for owner or administrator review.`, linkPage: 'website' })
+      res.status(201).json({ change_set: changeSet, revision: { id: revision.id, number: revision.revision_number } })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.post('/dealership/site/change-sets/:id/approve', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.approve'), async (req, res) => {
+    if (!canGovernWebsite(req)) return res.status(403).json({ error: 'Only dealership owners or administrators can approve website changes.' })
+    try {
+      const { data: current, error: readError } = await supabaseAdmin.from('website_change_sets').select('id, status, site_id, created_by').eq('id', req.params.id).eq('site_id', req.dealershipId).single()
+      if (readError || !current) return res.status(404).json({ error: 'Change set not found.' })
+      if (current.status !== 'review') return res.status(409).json({ error: `Only change sets in review can be approved (current status: ${current.status}).` })
+      if (current.created_by && current.created_by === req.user?.id) return res.status(403).json({ error: 'A change set must be approved by a different reviewer than its requester.', code: 'WEBSITE_APPROVAL_SEPARATION_REQUIRED' })
+      // Make approval a compare-and-set operation. If two administrators act
+      // at once, only the first request can transition review → approved.
+      const { data: changeSet, error } = await supabaseAdmin.from('website_change_sets').update({ status: 'approved', approved_by: req.user?.id, reviewed_by: req.user?.id, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', current.id).eq('site_id', req.dealershipId).eq('status', 'review').is('approved_by', null).select('id, site_id, name, description, version_tag, status, created_by, approved_by, review_feedback, reviewed_by, reviewed_at, created_at, updated_at').maybeSingle()
+      if (error) throw error
+      if (!changeSet) return res.status(409).json({ error: 'This change set was already approved or changed by another reviewer.' })
+      audit(req, 'site.change_set_approved', { after_state: { change_set_id: changeSet.id } })
+      await createNotification({ dealershipId: req.dealershipId, type: 'website_approval', title: 'Website change set approved', body: `${changeSet.name} was approved and can be published.`, linkPage: 'website', targetUserId: current.created_by || null })
+      res.json({ change_set: changeSet })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.post('/dealership/site/change-sets/:id/reject', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.approve'), async (req, res) => {
+    if (!canGovernWebsite(req)) return res.status(403).json({ error: 'Only dealership owners or administrators can reject website changes.' })
+    const feedback = String(req.body?.feedback || '').trim().slice(0, 1000)
+    if (!feedback) return res.status(400).json({ error: 'Reviewer feedback is required when rejecting a change set.' })
+    try {
+      const { data: changeSet, error } = await supabaseAdmin.from('website_change_sets').update({ status: 'rejected', review_feedback: feedback, reviewed_by: req.user?.id, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', req.params.id).eq('site_id', req.dealershipId).eq('status', 'review').select('id, name, status, created_by, review_feedback, reviewed_by, reviewed_at, updated_at').maybeSingle()
+      if (error) throw error
+      if (!changeSet) return res.status(409).json({ error: 'This change set was already reviewed or changed by another user.' })
+      audit(req, 'site.change_set_rejected', { after_state: { change_set_id: changeSet.id, feedback } })
+      await createNotification({ dealershipId: req.dealershipId, type: 'website_approval', title: 'Website change set needs changes', body: `${changeSet.name}: ${feedback}`, linkPage: 'website', targetUserId: changeSet.created_by || null })
+      res.json({ change_set: changeSet })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  app.get('/dealership/site/audit-log', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    try {
+      const { data, error } = await supabaseAdmin.from('audit_log')
+        .select('id, action, actor_id, actor_email, created_at, meta')
+        .eq('dealership_id', req.dealershipId).like('action', 'site.%')
+        .order('created_at', { ascending: false }).limit(100)
+      if (error) throw error
+      res.json({ events: data || [] })
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
@@ -638,6 +870,57 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
+  app.post('/dealership/site/deployments/:id/rollback', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    try {
+      const { data: deployment, error: deploymentError } = await supabaseAdmin.from('website_deployments').select('id, site_id, published_summary').eq('id', req.params.id).eq('site_id', req.dealershipId).single()
+      if (deploymentError || !deployment) return res.status(404).json({ error: 'Deployment not found' })
+      const revisionId = deployment.published_summary?.revision_id
+      if (!revisionId) return res.status(400).json({ error: 'This deployment has no restorable revision' })
+      const { data: source, error: sourceError } = await supabaseAdmin.from('dealer_website_revisions').select('content, revision_number, state').eq('id', revisionId).eq('dealership_id', req.dealershipId).single()
+      if (sourceError || !source) return res.status(404).json({ error: 'Published revision not found' })
+      const restored = await saveDealerWebsiteRevision({ dealershipId: req.dealershipId, content: source.content, state: 'published', createdBy: req.user?.id, baseRevisionId: revisionId, changeSummary: `Rolled back to revision ${source.revision_number}` })
+      if (!restored) return res.status(500).json({ error: 'Could not create rollback revision' })
+      await promoteDealerWebsiteContent(req.dealershipId, source.content)
+      const now = new Date().toISOString()
+      const { data: rollbackDeployment, error: rollbackDeploymentError } = await supabaseAdmin.from('website_deployments').insert({
+        site_id: req.dealershipId, trigger_type: 'rollback', status: 'verified',
+        published_summary: { revision_id: restored.id, revision_number: restored.revision_number, rollback_source_revision_id: revisionId, change_summary: `Rolled back to revision ${source.revision_number}` },
+        deployed_at: now, verified_at: now, verified_status: 'Database-backed public site state confirmed', created_by: req.user?.id,
+      }).select('id, status, trigger_type, published_summary, deployed_at, verified_at, verified_status').single()
+      if (rollbackDeploymentError || !rollbackDeployment) throw rollbackDeploymentError || new Error('Rollback deployment record was not created')
+      audit(req, 'site.rollback', { after_state: { source_revision_id: revisionId, published_revision_id: restored.id } })
+      res.status(201).json({ ok: true, revision: { id: restored.id, number: restored.revision_number, state: restored.state }, deployment: rollbackDeployment || null })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // Re-check a completed dealer deployment without publishing again. The live
+  // site is database-backed today, so verification compares the deployment's
+  // recorded revision with the current published projection and site state.
+  // Keeping this as a separate operation makes post-publish/cache checks safe
+  // to retry and gives the UI an honest failure state.
+  app.post('/dealership/site/deployments/:id/verify', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
+    try {
+      const { data: deployment, error: deploymentError } = await supabaseAdmin.from('website_deployments')
+        .select('id, site_id, status, published_summary, deployed_at, verified_at, verified_status')
+        .eq('id', req.params.id).eq('site_id', req.dealershipId).single()
+      if (deploymentError || !deployment) return res.status(404).json({ error: 'Deployment not found' })
+      const { data: site, error: siteError } = await supabaseAdmin.from('dealerships').select('site_published, site_slug').eq('id', req.dealershipId).single()
+      if (siteError) throw siteError
+      const live = await latestDealerWebsiteRevision(req.dealershipId, 'published')
+      const expectedRevisionId = String(deployment.published_summary?.revision_id || '')
+      const verified = !!site?.site_published && !!live?.id && (!expectedRevisionId || expectedRevisionId === String(live.id))
+      const verifiedStatus = verified
+        ? `Database-backed production projection confirmed at revision ${live.revision_number}`
+        : 'Production projection does not match the deployment revision'
+      const { data: updated, error: updateError } = await supabaseAdmin.from('website_deployments').update({
+        status: verified ? 'verified' : 'failed', verified_at: new Date().toISOString(), verified_status: verifiedStatus, updated_at: new Date().toISOString(),
+      }).eq('id', deployment.id).eq('site_id', req.dealershipId).select('id, status, trigger_type, published_summary, deployed_at, verified_at, verified_status').single()
+      if (updateError) throw updateError
+      audit(req, verified ? 'site.deployment_verified' : 'site.deployment_verification_failed', { after_state: { deployment_id: deployment.id, revision_id: live?.id || null, expected_revision_id: expectedRevisionId || null, verified } })
+      res.status(verified ? 200 : 409).json({ verified, deployment: updated, site: { site_published: !!site?.site_published, site_slug: site?.site_slug || null }, live_revision: live ? { id: live.id, number: live.revision_number } : null })
+    } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
   // ── ADMIN: update slug / publish / site content ────────────────────────────
   app.put('/dealership/site', requireAuth, requireMfa, requireProduct('marketsync_website'), requirePermission('site.manage'), async (req, res) => {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
@@ -647,15 +930,75 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     const rawBody = req.body || {}
     const b = { ...(rawBody.content && typeof rawBody.content === 'object' ? rawBody.content : {}), ...rawBody }
     const update = {}
-    const { data: currentSite } = await supabaseAdmin.from('dealerships').select('name, branding, site_slug, site_published, city, province, postal_code, website_url').eq('id', req.dealershipId).maybeSingle()
+    const { data: currentSite } = await supabaseAdmin.from('dealerships').select('name, branding, group_id, site_slug, site_published, city, province, postal_code, address, phone, website_url').eq('id', req.dealershipId).maybeSingle()
     const builderAction = ['draft', 'publish'].includes(rawBody.builder_action) ? rawBody.builder_action : null
     let revisionSaved = false
     let revisionInfo = null
+    let builderContractAudit = null
+    let approvedChangeSet = null
+    // Apply brand governance to every site write, including the legacy Settings
+    // form. Previously only visual-builder writes were checked, which allowed a
+    // settings request without builder_action to bypass an administrator lock.
+    const groupPolicy = await groupWebsiteGovernance(currentSite?.group_id)
+    const lockedFields = [...new Set([...(Array.isArray(currentSite?.branding?.site_locked_fields) ? currentSite.branding.site_locked_fields : []), ...groupPolicy.locked_fields])]
+    const lockedSectionIds = [...new Set([...(Array.isArray(currentSite?.branding?.site_locked_section_ids) ? currentSite.branding.site_locked_section_ids.map(String) : []), ...groupPolicy.locked_section_ids])]
+    if (lockedFields.length && !canGovernWebsite(req)) {
+      const attempted = lockedFields.filter(key => rawBody[key] !== undefined || (rawBody.content && rawBody.content[key] !== undefined))
+      if (attempted.length) return res.status(403).json({ error: `Locked brand fields cannot be changed by this role: ${attempted.join(', ')}`, code: 'WEBSITE_BRAND_FIELD_LOCKED', fields: attempted })
+    }
+    if (!canGovernWebsite(req) && lockedSectionIds.length && (rawBody.sections !== undefined || rawBody.content?.sections !== undefined)) {
+      const currentSections = siteContent(currentSite || { name: 'Dealership', branding: {} }).sections || []
+      const nextSections = Array.isArray(rawBody.sections) ? rawBody.sections : rawBody.content.sections
+      const currentLocked = currentSections.filter(section => lockedSectionIds.includes(String(section?.id)))
+      const nextLocked = Array.isArray(nextSections) ? nextSections.filter(section => lockedSectionIds.includes(String(section?.id))) : []
+      const changed = currentLocked.some((section, index) => {
+        const nextIndex = nextLocked.findIndex(candidate => String(candidate?.id) === String(section?.id))
+        return nextIndex < 0 || nextIndex !== currentSections.indexOf(section) || JSON.stringify(nextLocked[nextIndex]) !== JSON.stringify(section)
+      })
+      if (changed || currentLocked.length !== nextLocked.length) return res.status(403).json({ error: 'A protected website section cannot be changed, moved, or removed by this role.', code: 'WEBSITE_SECTION_LOCKED', section_ids: lockedSectionIds })
+    }
+    if (builderAction === 'publish' && (currentSite?.branding?.site_approval_required === true || groupPolicy.approval_required)) {
+      const baseRevisionId = rawBody.base_revision_id ? String(rawBody.base_revision_id).slice(0, 80) : ''
+      if (!baseRevisionId) return res.status(409).json({ error: 'This website requires approval. Save a draft and request approval before publishing.', code: 'WEBSITE_APPROVAL_REQUIRED' })
+      const { data: items, error: itemError } = await supabaseAdmin.from('website_change_set_items').select('change_set_id').eq('item_id', baseRevisionId).limit(20)
+      if (itemError) return res.status(500).json({ error: itemError.message })
+      const changeSetIds = (items || []).map(item => item.change_set_id).filter(Boolean)
+      if (changeSetIds.length) {
+        const { data: approved, error: approvalError } = await supabaseAdmin.from('website_change_sets').select('id, status, name').eq('site_id', req.dealershipId).eq('status', 'approved').in('id', changeSetIds).limit(1).maybeSingle()
+        if (approvalError) return res.status(500).json({ error: approvalError.message })
+        approvedChangeSet = approved || null
+      }
+      if (!approvedChangeSet) return res.status(409).json({ error: 'This website requires an approved change set for the current draft revision.', code: 'WEBSITE_APPROVAL_REQUIRED' })
+    }
     if (builderAction) {
+      // Editors send the draft revision they loaded. Reject stale writes rather
+      // than silently replacing another user's newer work. Legacy/settings
+      // callers that do not send a cursor retain the existing behavior.
+      const baseRevisionId = rawBody.base_revision_id ? String(rawBody.base_revision_id).slice(0, 80) : null
+      if (baseRevisionId) {
+        const currentDraft = await latestDealerWebsiteRevision(req.dealershipId, 'draft')
+        if (currentDraft?.id && currentDraft.id !== baseRevisionId) {
+          return res.status(409).json({
+            error: 'This website draft changed in another session. Reload the latest draft before saving.',
+            code: 'WEBSITE_DRAFT_CONFLICT',
+            current_revision: { id: currentDraft.id, number: currentDraft.revision_number, created_at: currentDraft.created_at },
+          })
+        }
+      }
       const base = siteContent(currentSite || { name: 'Dealership', branding: {} })
       const content = { ...base, ...(rawBody.content && typeof rawBody.content === 'object' ? rawBody.content : {}) }
       for (const key of ['sections', 'pages', 'staff', 'builtins', 'menu_order', 'primary_color', 'secondary_color', 'accent_color', 'typography', 'heading_font', 'body_font', 'hero_photos', 'theme', 'seo_title', 'seo_description', 'seo_keywords', 'discovery_summary', 'discovery_terms', 'discovery_intents', 'discovery_enabled']) {
         if (rawBody[key] !== undefined) content[key] = rawBody[key]
+      }
+      builderContractAudit = auditWebsiteDiscoverabilityContracts(content, currentSite || {})
+      if (builderAction === 'publish') {
+        const blocking = websitePublishBlockingIssues(builderContractAudit)
+        if (blocking.length) return res.status(422).json({
+          error: 'Publish blocked until the page has a discoverable primary heading.',
+          code: 'WEBSITE_DISCOVERABILITY_CONTRACT_FAILED',
+          discoverability: builderContractAudit,
+          blocking_issues: blocking,
+        })
       }
       const saved = await saveDealerWebsiteRevision({ dealershipId: req.dealershipId, content, state: builderAction === 'publish' ? 'published' : 'draft', createdBy: req.user?.id, changeSummary: rawBody.change_summary || (builderAction === 'publish' ? 'Published website builder changes' : 'Saved website builder draft'), baseRevisionId: rawBody.base_revision_id || null })
       revisionSaved = !!saved
@@ -751,8 +1094,27 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     if (!Object.keys(update).length) return res.json({ ok: true, revision: revisionInfo })
     const { error } = await supabaseAdmin.from('dealerships').update(update).eq('id', req.dealershipId)
     if (error) return res.status(500).json({ error: error.message })
+    if (builderAction === 'publish' && revisionInfo) {
+      // Dealer websites are rendered from the published Supabase projection, so
+      // this deployment is synchronous. Keep an auditable deployment record in
+      // the shared deployment table used by HQ rather than inventing a second
+      // history system for dealer sites.
+      const { error: deploymentError } = await supabaseAdmin.from('website_deployments').insert({
+        site_id: req.dealershipId,
+        change_set_id: approvedChangeSet?.id || null,
+        trigger_type: 'publish',
+        status: 'verified',
+        published_summary: { revision_id: revisionInfo.id, revision_number: revisionInfo.number, change_summary: rawBody.change_summary || 'Published website builder changes' },
+        deployed_at: new Date().toISOString(),
+        verified_at: new Date().toISOString(),
+        verified_status: 'Database-backed public site state confirmed',
+        created_by: req.user?.id,
+      })
+      if (deploymentError) return res.status(500).json({ error: `Website published, but deployment verification could not be recorded: ${deploymentError.message}`, code: 'WEBSITE_DEPLOYMENT_RECORD_FAILED', revision: revisionInfo })
+      if (approvedChangeSet?.id) await supabaseAdmin.from('website_change_sets').update({ status: 'published', published_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', approvedChangeSet.id).eq('site_id', req.dealershipId)
+    }
     audit(req, 'site.configuration_updated', { after_state: { fields: Object.keys(update), site_published: update.site_published, site_slug: update.site_slug, custom_domain: update.custom_domain } })
-    res.json({ ok: true, site_slug: update.site_slug, site_published: update.site_published, custom_domain: update.custom_domain, domain_target: SITE_HOST, revision: revisionInfo })
+    res.json({ ok: true, site_slug: update.site_slug, site_published: update.site_published, custom_domain: update.custom_domain, domain_target: SITE_HOST, revision: revisionInfo, current_revision: revisionInfo, discoverability: builderContractAudit })
   })
 
   // ── ADMIN: check whether the dealer's custom domain now points at us ─────────
@@ -784,7 +1146,7 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
   })
 
   // ── Dealer blog — authoring (owner / GM), RLS-scoped via req.supabase ────────
-  const BLOG_COLS = 'id, slug, title, excerpt, content_html, cover_image_url, author, tags, status, seo_title, seo_description, published_at, created_at, updated_at'
+  const BLOG_COLS = 'id, slug, title, excerpt, content_html, cover_image_url, author, category, tags, status, seo_title, seo_description, scheduled_at, published_at, created_at, updated_at'
   async function uniqueBlogSlug(supa, dealershipId, base, ignoreId) {
     let slug = slugify(base) || 'post'; let n = 1
     while (true) {
@@ -810,15 +1172,19 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     const title = String(b.title || '').trim()
     if (!title) return res.status(400).json({ error: 'Title is required' })
     const slug = await uniqueBlogSlug(req.supabase, req.dealershipId, b.slug || title)
-    const status = b.status === 'published' ? 'published' : 'draft'
+    const requestedSchedule = b.scheduled_at ? new Date(b.scheduled_at) : null
+    const scheduled = requestedSchedule && !Number.isNaN(requestedSchedule.getTime()) && requestedSchedule.getTime() > Date.now()
+    const status = b.status === 'published' ? 'published' : (scheduled ? 'scheduled' : 'draft')
     const row = {
       dealership_id: req.dealershipId, slug, title,
       excerpt: String(b.excerpt || '').trim(),
       content_html: String(b.content_html || ''),
       cover_image_url: b.cover_image_url || null,
       author: String(b.author || '').trim() || null,
+      category: String(b.category || 'General').trim().slice(0, 80) || 'General',
       tags: Array.isArray(b.tags) ? b.tags.filter(Boolean).map(String) : [],
       status, seo_title: b.seo_title || null, seo_description: b.seo_description || null,
+      scheduled_at: status === 'scheduled' ? requestedSchedule.toISOString() : null,
       published_at: status === 'published' ? new Date().toISOString() : null,
       created_by: req.user.id,
     }
@@ -839,12 +1205,16 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
     if (b.content_html !== undefined) patch.content_html = String(b.content_html || '')
     if (b.cover_image_url !== undefined) patch.cover_image_url = b.cover_image_url || null
     if (b.author !== undefined) patch.author = String(b.author || '').trim() || null
+    if (b.category !== undefined) patch.category = String(b.category || 'General').trim().slice(0, 80) || 'General'
     if (b.tags !== undefined) patch.tags = Array.isArray(b.tags) ? b.tags.filter(Boolean).map(String) : []
     if (b.seo_title !== undefined) patch.seo_title = b.seo_title || null
     if (b.seo_description !== undefined) patch.seo_description = b.seo_description || null
     if (b.slug !== undefined && b.slug) patch.slug = await uniqueBlogSlug(req.supabase, req.dealershipId, b.slug, existing.id)
-    if (b.status !== undefined) {
-      patch.status = b.status === 'published' ? 'published' : 'draft'
+    if (b.scheduled_at !== undefined || b.status !== undefined) {
+      const requestedSchedule = b.scheduled_at ? new Date(b.scheduled_at) : null
+      const scheduled = requestedSchedule && !Number.isNaN(requestedSchedule.getTime()) && requestedSchedule.getTime() > Date.now()
+      patch.status = b.status === 'published' ? 'published' : (scheduled ? 'scheduled' : 'draft')
+      patch.scheduled_at = patch.status === 'scheduled' ? requestedSchedule.toISOString() : null
       if (patch.status === 'published' && !existing.published_at) patch.published_at = new Date().toISOString()
     }
     const { data, error } = await req.supabase.from('dealer_blog_posts')
@@ -871,17 +1241,19 @@ ${lines || '(no vehicles listed right now)'}` + scopeClause(`${d.name} — its v
   app.get('/site/:slug/blog', rateLimit('pub-site-blog', 120, 60000), async (req, res) => {
     const d = await dealerBySlug(req.params.slug)
     if (!d) return res.status(404).json({ error: 'Site not found' })
+    const now = new Date().toISOString()
     const { data } = await supabaseAdmin.from('dealer_blog_posts')
-      .select('slug, title, excerpt, cover_image_url, author, tags, published_at')
-      .eq('dealership_id', d.id).eq('status', 'published').order('published_at', { ascending: false }).limit(100)
+      .select('slug, title, excerpt, cover_image_url, author, category, tags, published_at')
+      .eq('dealership_id', d.id).or(`status.eq.published,and(status.eq.scheduled,scheduled_at.lte.${now})`).order('published_at', { ascending: false }).limit(100)
     res.json({ posts: data || [] })
   })
   app.get('/site/:slug/blog/:postSlug', rateLimit('pub-site-blogpost', 120, 60000), async (req, res) => {
     const d = await dealerBySlug(req.params.slug)
     if (!d) return res.status(404).json({ error: 'Site not found' })
+    const now = new Date().toISOString()
     const { data } = await supabaseAdmin.from('dealer_blog_posts')
       .select('slug, title, excerpt, content_html, cover_image_url, author, tags, published_at, seo_title, seo_description')
-      .eq('dealership_id', d.id).eq('slug', String(req.params.postSlug || '').toLowerCase()).eq('status', 'published').maybeSingle()
+      .eq('dealership_id', d.id).eq('slug', String(req.params.postSlug || '').toLowerCase()).or(`status.eq.published,and(status.eq.scheduled,scheduled_at.lte.${now})`).maybeSingle()
     if (!data) return res.status(404).json({ error: 'Post not found' })
     res.json({ post: data })
   })

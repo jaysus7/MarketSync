@@ -33,6 +33,9 @@ services:
         value: production
       - key: FRONTEND_URL
         value: https://marketsync.link
+      # Exact public URL of this backend. OAuth redirect URIs are built from this value.
+      - key: API_URL
+        sync: false
       # Core platform (required — set in dashboard)
       - key: SUPABASE_URL
         sync: false
@@ -54,6 +57,42 @@ services:
       # Signs OAuth state for the QuickBooks/Xero/Google connect flow. Auto-generated.
       - key: OAUTH_STATE_SECRET
         generateValue: true
+      # Durable social publishing queue. Database claiming prevents duplicate sends when
+      # Render runs more than one instance.
+      - key: RUN_SOCIAL_PUBLISH_WORKER
+        value: "true"
+      - key: CRON_SECRET
+        sync: false
+      # Social OAuth applications. Values remain in Render and are never committed.
+      # One Meta business app can serve both Facebook Pages and Instagram Professional.
+      - key: META_APP_ID
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      - key: META_GRAPH_VERSION
+        value: v23.0
+      - key: LINKEDIN_CLIENT_ID
+        sync: false
+      - key: LINKEDIN_CLIENT_SECRET
+        sync: false
+      - key: LINKEDIN_API_VERSION
+        value: "202604"
+      - key: YOUTUBE_CLIENT_ID
+        sync: false
+      - key: YOUTUBE_CLIENT_SECRET
+        sync: false
+      - key: TIKTOK_CLIENT_KEY
+        sync: false
+      - key: TIKTOK_CLIENT_SECRET
+        sync: false
+      - key: X_CLIENT_ID
+        sync: false
+      - key: X_CLIENT_SECRET
+        sync: false
+      - key: PINTEREST_APP_ID
+        sync: false
+      - key: PINTEREST_APP_SECRET
+        sync: false
       # Email + data providers
       - key: RESEND_API_KEY
         sync: false

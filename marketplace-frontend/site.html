@@ -13,6 +13,8 @@
        of horizontal scroll). `clip` (not `hidden`) so the sticky header still works. */
     html,body{max-width:100%;overflow-x:clip}
     body{-webkit-font-smoothing:antialiased}
+    :where(a,button,input,select,textarea):focus-visible{outline:3px solid var(--brand,#1e3a8a);outline-offset:3px}
+    @media (prefers-reduced-motion: reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
     /* Let form fields shrink inside flex/grid rows instead of forcing the row wider
        than the viewport (was cropping whole sections on small phones). */
     input,select,textarea{min-width:0;max-width:100%}
@@ -107,7 +109,7 @@
     }
     // Small "+ tax & licensing" note shown under every advertised price.
     const priceNote=(v,cls)=>v&&v.price?`<div class="${cls||'text-[10px] text-slate-400 mt-0.5'}">+ ${taxLabel()} &amp; licensing</div>`:'';
-    let DATA=null, FILTERED=[], FILTERS={q:'',condition:'',body:'',sort:'newest'}, VIEW='home';
+    let DATA=null, FILTERED=[], FILTERS={q:'',condition:'',body:'',sort:'newest'}, VIEW='home', BLOG_CACHE=null;
 
     async function boot(){
       try{
@@ -123,6 +125,8 @@
         injectHead(s.head_html);
         applyTypography(s);
         renderChrome(); go(hashToView(location.hash));
+        const initialVehicle = vehicleIdFromHash(location.hash);
+        if(initialVehicle) setTimeout(()=>openVehicle(initialVehicle),0);
         if(s.sales_chat) mountSalesChat(s);
         maybeDepositBanner();
       }catch(e){ document.getElementById('app').innerHTML=errPage(e.message); }
@@ -148,9 +152,10 @@
     // Title + description for the current view — updated on every navigation so
     // each page carries its OWN, distinct meta. Custom pages use their per-page SEO
     // (or a description derived from the page's own content + focus keyword).
-    function setMeta(title,desc){
+    function setMeta(title,desc,image){
       if(title){ document.title=title; metaTag('meta[property="og:title"]',['property','og:title'],title); }
       if(desc){ metaTag('meta[name="description"]',['name','description'],desc); metaTag('meta[property="og:description"]',['property','og:description'],desc); }
+      if(image) metaTag('meta[property="og:image"]',['property','og:image'],image);
     }
     function setCanonical(url){
       let el=document.head.querySelector('link[rel="canonical"]');
@@ -179,6 +184,15 @@
       const viewUrl=VIEW==='home'?siteUrl:siteUrl+'#'+(VIEW.startsWith('page:')?VIEW.slice(5):VIEW);
       const currentPage=VIEW.startsWith('page:')?findSitePage(VIEW.slice(5)):null;
       graph.push({'@type':currentPage?'WebPage':'CollectionPage','@id':viewUrl+'#page','url':viewUrl,'name':currentPage?.title||document.title,'description':currentPage?.seo_description||undefined,'isPartOf':{'@id':siteUrl+'#website'},'about':{'@id':siteUrl+'#dealer'},'keywords':terms.length?terms.join(', '):undefined});
+      const crumbs=[{'@type':'ListItem','position':1,'name':s.name||'Home','item':siteUrl}];
+      if(currentPage) crumbs.push({'@type':'ListItem','position':2,'name':currentPage.title||'Page','item':viewUrl});
+      const selectedVehicleId=vehicleIdFromHash(location.hash), selectedVehicle=(DATA.vehicles||[]).find(v=>String(v.id)===String(selectedVehicleId));
+      if(selectedVehicle){
+        const vehicleName=[selectedVehicle.year,selectedVehicle.make,selectedVehicle.model,selectedVehicle.trim].filter(Boolean).join(' ');
+        crumbs.push({'@type':'ListItem','position':2,'name':vehicleName||'Vehicle details','item':viewUrl});
+        graph.push({'@type':'Vehicle','@id':viewUrl+'#vehicle','url':viewUrl,'name':vehicleName||'Vehicle details','vehicleMake':selectedVehicle.make||undefined,'model':selectedVehicle.model||undefined,'vehicleModelDate':selectedVehicle.year?String(selectedVehicle.year):undefined,'mileageFromOdometer':selectedVehicle.mileage?{'@type':'QuantitativeValue','value':selectedVehicle.mileage,'unitCode':'KMT'}:undefined,'image':selectedVehicle.image_urls||undefined,'offers':selectedVehicle.price?{'@type':'Offer','price':selectedVehicle.price,'priceCurrency':'CAD','availability':'https://schema.org/InStock'}:undefined});
+      }
+      if(crumbs.length>1) graph.push({'@type':'BreadcrumbList','@id':viewUrl+'#breadcrumbs','itemListElement':crumbs});
       if(VIEW==='inventory'||VIEW==='home'){
         const items=(DATA.vehicles||[]).slice(0,100).map((v,i)=>({'@type':'ListItem','position':i+1,'url':siteUrl+'#inventory/'+encodeURIComponent(v.id),'item':{'@type':'Vehicle','name':[v.year,v.make,v.model,v.trim].filter(Boolean).join(' '),'vehicleMake':v.make||undefined,'model':v.model||undefined,'vehicleModelDate':v.year?String(v.year):undefined,'offers':v.price?{'@type':'Offer','price':v.price,'priceCurrency':'CAD','availability':'https://schema.org/InStock'}:undefined,'image':v.image_urls||undefined}}));
         if(items.length) graph.push({'@type':'ItemList','@id':viewUrl+'#inventory','name':s.discovery_summary||'Available vehicles','numberOfItems':items.length,'itemListElement':items});
@@ -212,17 +226,24 @@
     }
     function applyViewSeo(){
       const s=DATA.site, name=s.name||'Our dealership', loc=s.city?` in ${s.city}`:'';
-      let title, desc;
+      let title, desc, image=s.seo_image||s.hero_url||s.logo_url||'';
+      const selectedVehicleId=vehicleIdFromHash(location.hash), selectedVehicle=(DATA.vehicles||[]).find(v=>String(v.id)===String(selectedVehicleId));
+      if(VIEW==='inventory' && selectedVehicle){
+        const vehicleName=[selectedVehicle.year,selectedVehicle.make,selectedVehicle.model,selectedVehicle.trim].filter(Boolean).join(' ');
+        title=`${vehicleName || 'Vehicle Details'} | ${name}`;
+        desc=`${vehicleName || 'Vehicle details'}${selectedVehicle.mileage ? ` with ${Number(selectedVehicle.mileage).toLocaleString()} km` : ''}${selectedVehicle.price ? `, priced at ${money(selectedVehicle.price)}` : ''} at ${name}${loc}.`;
+        image=selectedVehicle.image_urls?.[0]||image;
+      }
       if(VIEW.startsWith('page:')){
         const p=findSitePage(VIEW.slice(5));
-        if(p){ title=p.seo_title||`${p.title} | ${name}`; desc=p.seo_description||pageDerivedDesc(p,name,loc); }
+        if(p){ title=p.seo_title||`${p.title} | ${name}`; desc=p.seo_description||pageDerivedDesc(p,name,loc); image=p.seo_image||image; }
       }
       if(!title){
-        const D={ inventory:['Inventory',`Browse new & used vehicles${loc}`], build:['Build & Price','Build and price your next vehicle'], trade:['Value Your Trade','Get a real trade-in value in minutes'], finance:['Financing','Get pre-approved fast — no impact to your credit score'], team:['Our Team','Meet our sales, finance and service team'], inquiry:['Contact','Hours, directions and a quick way to reach us'] }[VIEW];
+        const D={ inventory:['Inventory',`Browse new & used vehicles${loc}`], build:['Build & Price','Build and price your next vehicle'], trade:['Value Your Trade','Get a real trade-in value in minutes'], finance:['Financing','Get pre-approved fast — no impact to your credit score'], team:['Our Team','Meet our sales, finance and service team'], blog:['Blog',`Dealer tips and automotive updates from ${name}`], inquiry:['Contact','Hours, directions and a quick way to reach us'] }[VIEW];
         if(VIEW==='home'||!D){ title=s.seo_title||`${name}${s.city?' | '+s.city:''}`; desc=s.seo_description||s.about||`Browse inventory, build your vehicle, and get financing at ${name}.`; }
         else { title=`${D[0]} | ${name}`; desc=`${D[1]} at ${name}${loc}.`; }
       }
-      setMeta(title,desc);
+      setMeta(title,desc,image);
       const canonicalBase=location.origin+location.pathname+(SLUG?`?d=${encodeURIComponent(SLUG)}`:'');
       setCanonical(VIEW==='home'?canonicalBase:canonicalBase+'#'+(VIEW.startsWith('page:')?VIEW.slice(5):VIEW));
       applyDiscoverySchema(s);
@@ -367,6 +388,7 @@
       }
       if(biOn('trade')) entries.push({token:'b:trade',label:biLabel('trade','Value Trade'),onclick:"go('trade')",menu:biMenu('trade')});
       if(biOn('finance')) entries.push({token:'b:finance',label:biLabel('finance','Financing'),onclick:"go('finance')",menu:biMenu('finance')});
+      if(biOn('blog')) entries.push({token:'b:blog',label:biLabel('blog','Blog'),onclick:"go('blog')",menu:biMenu('blog')});
       if(hasTeam&&biOn('team')) entries.push({token:'b:team',label:biLabel('team','Team'),onclick:"go('team')",menu:biMenu('team')});
       if(biOn('contact')) entries.push({token:'b:contact',label:biLabel('contact','Contact'),onclick:"go('inquiry')",menu:biMenu('contact')});
       // Apply the dealer's explicit menu order (unlisted items keep their natural order, after listed ones).
@@ -442,7 +464,30 @@
           <div class="text-center text-xs text-slate-500 py-4">© ${new Date().getFullYear()} ${esc(s.name)} · Powered by <a href="https://marketsync.io" target="_blank" rel="noopener" class="font-bold text-slate-400 hover:text-indigo-400 transition cursor-pointer">MarketSync</a></div>
         </footer>`;
     }
-    function go(view,vehId,prefill){ VIEW=view; window.scrollTo(0,0); renderView(); applyViewSeo();
+    function responsiveImageSrcset(url, format='webp'){
+      const raw=String(url||'');
+      const match=raw.match(/^(https?:\/\/[^/]+\/storage\/v1)\/object\/public\/(.+)$/i);
+      if(!match) return '';
+      const path=match[2].split('?')[0];
+      const safeFormat=format==='avif'?'avif':'webp';
+      return [480,768,1200,1600].map(w=>`${match[1]}/render/image/public/${path}?width=${w}&quality=${safeFormat==='avif'?72:82}&format=${safeFormat} ${w}w`).join(', ');
+    }
+    function ensureImagePerformanceAndA11y(){
+      const host=document.getElementById('app'); if(!host) return;
+      host.querySelectorAll('img').forEach((img)=>{
+        img.decoding='async';
+        if(!img.getAttribute('srcset')){ const raw=img.currentSrc||img.src; const srcset=responsiveImageSrcset(raw); if(srcset){ img.setAttribute('srcset',srcset); img.setAttribute('sizes',img.classList.contains('object-cover')?'(max-width: 768px) 100vw, 50vw':'100vw'); if(!img.parentElement?.matches('picture')){ const avif=responsiveImageSrcset(raw,'avif'); if(avif){ const picture=document.createElement('picture'); const source=document.createElement('source'); source.type='image/avif'; source.srcset=avif; source.sizes=img.getAttribute('sizes')||'100vw'; img.parentNode.insertBefore(picture,img); picture.appendChild(source); picture.appendChild(img); } } } }
+        if(!img.getAttribute('alt')){
+          const vehicle=img.closest('button')?.getAttribute('onclick')?.match(/openVehicle\('([^']+)/)?.[1];
+          img.alt=vehicle?'Vehicle photo':(img.closest('header,footer')?'Dealership logo':'Dealership website image');
+        }
+        if(!img.loading){
+          const rect=img.getBoundingClientRect();
+          img.loading=rect.top > window.innerHeight * 1.5 ? 'lazy' : 'eager';
+        }
+      });
+    }
+    function go(view,vehId,prefill){ VIEW=view; window.scrollTo(0,0); renderView(); applyViewSeo(); requestAnimationFrame(ensureImagePerformanceAndA11y);
       const h=viewToHash(view); if(location.hash!==h){ location.hash=h; }
       if(view==='inquiry'){ setTimeout(()=>{ const vf=document.getElementById('i-vehicle'); if(vehId&&vf) vf.value=vehId; const mf=document.getElementById('i-msg'); if(prefill&&mf) mf.value=prefill;
         // Reserve + online deposits enabled → relabel the CTA to a pay-a-deposit action.
@@ -453,18 +498,21 @@
     // Hash routing: gives every page a distinct, shareable, crawlable URL and lets
     // AI-inserted internal links (href="#finance", "#/page-slug") just work.
     function viewToHash(v){ if(!v||v==='home') return '#home'; if(v.startsWith('page:')) return '#/'+v.slice(5); if(v==='inquiry') return '#contact'; return '#'+v; }
-    function hashToView(h){ h=(h||'').replace(/^#/,''); if(!h||h==='home') return 'home'; if(h[0]==='/') return 'page:'+h.slice(1); if(h==='contact') return 'inquiry'; if(['inventory','build','trade','finance','team'].includes(h)) return h; return 'home'; }
-    window.addEventListener('hashchange',()=>{ const v=hashToView(location.hash); if(v===VIEW) return; VIEW=v; window.scrollTo(0,0); renderView(); applyViewSeo(); });
+    function vehicleIdFromHash(h){ const raw=String(h||'').replace(/^#/,''); if(!raw.toLowerCase().startsWith('inventory/')) return ''; try{return decodeURIComponent(raw.slice('inventory/'.length));}catch{return raw.slice('inventory/'.length);} }
+    function hashToView(h){ h=(h||'').replace(/^#/,''); if(!h||h==='home') return 'home'; if(h[0]==='/') return 'page:'+h.slice(1); if(h==='contact') return 'inquiry'; if(h.startsWith('inventory/')) return 'inventory'; if(h.startsWith('blog/')) return h==='blog/'?'blog':('blogpost:'+h.slice(5)); if(['inventory','build','trade','finance','team','blog'].includes(h)) return h; return 'home'; }
+    window.addEventListener('hashchange',()=>{ const v=hashToView(location.hash); VIEW=v; window.scrollTo(0,0); renderView(); applyViewSeo(); requestAnimationFrame(ensureImagePerformanceAndA11y); const vehicleId=vehicleIdFromHash(location.hash); if(vehicleId) setTimeout(()=>openVehicle(vehicleId),0); });
     // Is a built-in page switched on? (default on when unset)
     function builtinOn(k){ const bi=(DATA.site&&DATA.site.builtins)||{}; return !bi[k]||bi[k].enabled!==false; }
     // Map a view to the builtin key that gates it (null = always available).
-    const VIEW_BUILTIN={inventory:'inventory',build:'build',trade:'trade',finance:'finance',inquiry:'contact',team:'team'};
+    const VIEW_BUILTIN={inventory:'inventory',build:'build',trade:'trade',finance:'finance',inquiry:'contact',team:'team',blog:'blog'};
     function renderView(){
       const el=document.getElementById('view'); if(!el) return;
       const gate=VIEW_BUILTIN[VIEW]; if(gate&&!builtinOn(gate)){ VIEW='home'; return void renderHome(el); }
       if(VIEW==='inventory') renderInventory(el);
       else if(VIEW==='build') renderBuild(el);
       else if(VIEW==='team') el.innerHTML=viewTeam();
+      else if(VIEW==='blog') renderPublicBlog(el);
+      else if(VIEW.startsWith('blogpost:')) renderPublicBlogPost(el,VIEW.slice(9));
       else if(VIEW==='trade') el.innerHTML=viewTrade();
       else if(VIEW==='finance') el.innerHTML=viewFinance();
       else if(VIEW==='inquiry') el.innerHTML=viewInquiry();
@@ -473,6 +521,19 @@
       // Prepend dealer-defined intro sections (hero/SEO) above a built-in view's functional content.
       const bkey=VIEW_BUILTIN[VIEW]; const bsecs=bkey&&((DATA.site.builtins||{})[bkey]||{}).sections;
       if(bsecs&&bsecs.length) el.insertAdjacentHTML('afterbegin', bsecs.map(sectionHtml).join(''));
+    }
+
+    async function publicBlogRequest(postSlug=''){
+      const path=postSlug?`/site/${encodeURIComponent(SLUG)}/blog/${encodeURIComponent(postSlug)}`:`/site/${encodeURIComponent(SLUG)}/blog`;
+      const r=await fetch(`${API}${path}`); const data=await r.json(); if(!r.ok) throw new Error(data.error||'Blog is unavailable.'); return data;
+    }
+    function renderPublicBlog(el){
+      el.innerHTML='<section class="max-w-6xl mx-auto px-4 py-14"><div class="text-sm text-slate-400">Loading articles…</div></section>';
+      publicBlogRequest().then(data=>{ const posts=data.posts||[]; el.innerHTML=`<section class="max-w-6xl mx-auto px-4 py-12"><div class="max-w-2xl mb-8"><div class="text-xs uppercase tracking-wider font-black brand-text">From our team</div><h1 class="text-4xl font-black mt-2">Dealer tips &amp; updates</h1><p class="text-slate-500 mt-2">Helpful buying, ownership, service, and dealership news from ${esc(DATA.site.name||'our team')}.</p></div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">${posts.length?posts.map(p=>`<article class="bg-white rounded-2xl overflow-hidden cshadow flex flex-col">${p.cover_image_url?`<img src="${esc(p.cover_image_url)}" alt="${esc(p.title||'Blog article')}" loading="lazy" class="w-full h-48 object-cover">`:''}<div class="p-5 flex-1 flex flex-col"><div class="text-[10px] uppercase tracking-wider font-black brand-text">${esc(p.category||'Dealer news')}</div><h2 class="text-xl font-black mt-1">${esc(p.title)}</h2><p class="text-sm text-slate-500 mt-2 flex-1">${esc(p.excerpt||'Read the latest dealership news and helpful automotive advice.')}</p><div class="text-xs text-slate-400 mt-4">${esc(p.author||DATA.site.name||'Dealer team')} · ${p.published_at?new Date(p.published_at).toLocaleDateString():''}</div><a href="#blog/${encodeURIComponent(p.slug)}" class="mt-4 inline-flex self-start brand-bg text-white font-bold px-4 py-2 rounded-lg text-sm">Read article</a></div></article>`).join(''):'<div class="col-span-full text-slate-400">No published articles yet.</div>'}</div></section>`; applyViewSeo(); requestAnimationFrame(ensureImagePerformanceAndA11y); }).catch(e=>{ el.innerHTML=`<section class="max-w-3xl mx-auto px-4 py-16 text-center"><div class="text-lg font-bold text-slate-700">${esc(e.message)}</div><div class="text-sm text-slate-400 mt-2">Please check back soon.</div></section>`; });
+    }
+    function renderPublicBlogPost(el,slug){
+      el.innerHTML='<section class="max-w-3xl mx-auto px-4 py-14"><div class="text-sm text-slate-400">Loading article…</div></section>';
+      publicBlogRequest(slug).then(data=>{ const p=data.post; document.title=p.seo_title||`${p.title} | ${DATA.site.name||'Dealer'}`; if(p.seo_description) setMeta(document.title,p.seo_description,p.cover_image_url||DATA.site.hero_url||''); el.innerHTML=`<article class="max-w-3xl mx-auto px-4 py-12"><a href="#blog" class="text-sm font-bold brand-text">← All articles</a><div class="text-xs uppercase tracking-wider font-black brand-text mt-8">${esc(p.category||'Dealer news')}</div><h1 class="text-4xl font-black mt-2">${esc(p.title)}</h1><div class="text-sm text-slate-400 mt-3">${esc(p.author||DATA.site.name||'Dealer team')} · ${p.published_at?new Date(p.published_at).toLocaleDateString():''}</div>${p.cover_image_url?`<img src="${esc(p.cover_image_url)}" alt="${esc(p.title||'Blog article')}" loading="eager" class="w-full max-h-[440px] object-cover rounded-2xl mt-8">`:''}<div class="prose max-w-none mt-8 text-slate-700">${richText(p.content_html||'')}</div></article>`; requestAnimationFrame(ensureImagePerformanceAndA11y); }).catch(e=>{ el.innerHTML=`<section class="max-w-3xl mx-auto px-4 py-16 text-center"><div class="text-lg font-bold text-slate-700">${esc(e.message)}</div><a href="#blog" class="brand-text font-bold text-sm mt-3 inline-block">Back to Blog</a></section>`; });
     }
 
     // ── HOME ───────────────────────────────────────────────────────────────────
@@ -500,14 +561,17 @@
     function sectionTreeHtml(sec){
       const r=sec?.responsive||{}, d=r.desktop||{}, t=r.tablet||{}, m=r.mobile||{};
       const children=Array.isArray(sec?.children)?sec.children.map(sectionTreeHtml).join(''):'';
-      const width=d.content_width==='full'?'100%':(d.content_width==='wide'?'88%':'min(1200px, calc(100% - 3rem))');
+      // Sections are full-bleed by default. Their inner content controls provide
+      // the readable max-width, while the section background/hero can reach the
+      // edges of the live site and the Builder canvas.
+      const width=d.content_width==='contained'?'min(1200px, calc(100% - 3rem))':(d.content_width==='wide'?'88%':'100%');
       return `<div data-ms-responsive="1" style="--ms-content-width:${esc(width)};--ms-py-d:${Number(d.padding_y)||64}px;--ms-py-t:${Number(t.padding_y||d.padding_y)||64}px;--ms-py-m:${Number(m.padding_y||t.padding_y||d.padding_y)||64}px">${sectionHtml(sec)}${children}</div>`;
     }
     function renderSections(el, secs){
       el.innerHTML = secs.map(sectionTreeHtml).join('');
       if(typeof PREVIEW!=='undefined'&&PREVIEW) requestAnimationFrame(markPreviewSections);
     }
-    function ctaTarget(t,link){ if(t==='link'&&link) return `onclick="window.open('${esc(link)}','_blank')"`; const v={trade:'trade',finance:'finance',contact:'inquiry',inquiry:'inquiry',inventory:'inventory',build:'build',team:'team'}[t]||'inquiry'; return `onclick="go('${v}')"`; }
+    function ctaTarget(t,link){ if(t==='link'&&link) return `onclick="window.open('${esc(link)}','_blank')"`; if(t==='service') return `onclick="bookAppt(null,'Service appointment','Service appointment')"`; const v={trade:'trade',finance:'finance',contact:'inquiry',inquiry:'inquiry',inventory:'inventory',build:'build',team:'team'}[t]||'inquiry'; return `onclick="go('${v}')"`; }
     function setBody(b){ invReset(); if(b) INV.facets.body=new Set([b]); go('inventory'); }
     // Generated hero art: layered mesh gradients tinted with the dealer's brand +
     // a per-style accent, over a subtle dot texture. Beautiful, on-brand, and the
@@ -824,7 +888,7 @@
           if(!items.length) return '';
           return `<section class="bg-slate-900 text-white"><div class="max-w-6xl mx-auto px-4 py-14"><h2${fx('title')} class="text-2xl font-black mb-5">${esc(g.title||'Browse by body style')}</h2><div class="grid grid-cols-2 sm:grid-cols-4 gap-4">${items.map(([b,d])=>`<div class="bg-white text-slate-900 rounded-2xl p-4 flex flex-col"><div class="font-black">${esc(b)}</div>${d.min<Infinity?`<div class="text-xs text-slate-500 mt-0.5 mb-3">Starting at ${money(d.min)}</div>`:'<div class="mb-3"></div>'}<button onclick="setBody('${esc(b)}')" class="mt-auto w-full brand-bg text-white text-sm font-bold py-2 rounded-lg hover:opacity-90">See (${d.n}) in stock</button></div>`).join('')}</div></div></section>`;
         }
-        case 'service_cta': return ctaBand(g.title||'Book your service',g.subtitle||'Factory-trained technicians.',g.button_label||'Book service',g.button_target||'inquiry',g.button_link);
+        case 'service_cta': return ctaBand(g.title||'Book your service',g.subtitle||'Factory-trained technicians.',g.button_label||'Book service',g.button_target||'service',g.button_link);
         case 'staff': return ((DATA.site.staff||[]).length||(DATA.team||[]).length)?`<section class="bg-white border-t border-slate-200"><div class="max-w-6xl mx-auto px-4 py-10 text-center"><h2${fx('title')} class="text-2xl font-black mb-2">${esc(g.title||'Meet our team')}</h2><p class="text-slate-500 mb-4">Sales, service and management — here to help.</p><button onclick="go('team')" class="brand-bg text-white font-bold px-5 py-2.5 rounded-lg">See our team →</button></div></section>`:'';
         case 'faq': { const items=Array.isArray(g.items)?g.items:[]; return `<section class="max-w-3xl mx-auto px-4 py-12"><h2${fx('title')} class="text-2xl font-black mb-6">${esc(g.title||'Frequently asked questions')}</h2><div class="space-y-3"${fx('items')}>${items.map(it=>`<details class="bg-white rounded-lg cshadow p-4"><summary class="font-bold cursor-pointer">${esc(it.q||'')}</summary><p class="text-sm text-slate-600 mt-2 whitespace-pre-line">${esc(it.a||'')}</p></details>`).join('')||'<div class="text-sm text-slate-400">Add FAQ items in the section settings.</div>'}</div></section>`; }
         case 'gallery': { const imgs=Array.isArray(g.images)?g.images:[]; return imgs.length?`<section class="max-w-6xl mx-auto px-4 py-10">${g.title?`<h2${fx('title')} class="text-2xl font-black mb-4">${esc(g.title)}</h2>`:''}<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2"${fx('images')}>${imgs.map(u=>`<img src="${esc(u)}" class="w-full h-40 object-cover rounded-lg">`).join('')}</div></section>`:''; }
@@ -1021,6 +1085,8 @@
       go('inventory');
     }
     function openVehicle(id){ const v=(DATA.vehicles||[]).find(x=>x.id===id); if(!v) return;
+      const canonicalHash='#inventory/'+encodeURIComponent(String(id));
+      if(location.hash!==canonicalHash){ const u=new URL(location.href); u.hash=canonicalHash; history.replaceState({},'',u.href); }
       const imgs=Array.isArray(v.image_urls)?v.image_urls:[];
       const label=esc([v.year,v.make,v.model].filter(Boolean).join(' '));
       const gallery=imgs.length
@@ -1286,8 +1352,17 @@
       return wrap(`<section class="max-w-3xl mx-auto px-4 py-10"><h1 class="text-3xl font-black mb-4">${esc(p.title)}</h1><div class="prose max-w-none text-slate-700">${richText(p.body_html||'')}</div></section>`);
     }
 
+    function siteAttribution(){
+      const allowed=['utm_source','utm_medium','utm_campaign','utm_content','utm_term','gclid','fbclid','campaign_id','c'];
+      let saved={}; try{ saved=JSON.parse(localStorage.getItem('ms_site_attribution_'+SLUG)||'{}')||{}; }catch(_){ saved={}; }
+      const q=new URLSearchParams(location.search), current={};
+      allowed.forEach(k=>{ const v=(q.get(k)||'').trim(); if(v) current[k==='c'?'campaign_id':k]=v.slice(0,180); });
+      if(!saved.referrer_source && document.referrer){ try{ const ref=new URL(document.referrer); if(ref.origin!==location.origin) saved.referrer_source=ref.hostname.slice(0,160); }catch(_){} }
+      if(Object.keys(current).length){ saved={...saved,...current}; try{ localStorage.setItem('ms_site_attribution_'+SLUG,JSON.stringify(saved)); }catch(_){} }
+      return saved;
+    }
     async function postLead(body,formEl,btn){ btn.disabled=true; const t=btn.textContent; btn.textContent='Sending…';
-      try{ const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error('x');
+      try{ const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...siteAttribution(),...body})}); if(!r.ok) throw new Error('x');
         formEl.innerHTML='<div class="text-center py-10"><div class="text-2xl mb-2">✓</div><div class="font-bold text-emerald-600">Thanks! We\'ll be in touch shortly.</div></div>';
       }catch(e){ btn.disabled=false; btn.textContent=t; alert('Sorry, something went wrong. Please call us.'); } }
     const V=(id)=>(document.getElementById(id)?.value||'').trim();
@@ -1377,7 +1452,7 @@
       inp.value=''; chatPush('me',text); CHAT_BUSY=true; chatTyping(true);
       try{
         const msgs=CHAT.filter(m=>m.who==='me'||m.who==='bot').slice(-8).map(m=>({role:m.who==='me'?'user':'assistant',content:m.text}));
-        const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs})});
+        const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...siteAttribution(),messages:msgs})});
         const d=await r.json().catch(()=>({}));
         chatTyping(false);
         chatPush('bot',d.reply||"Sorry, I didn't catch that — could you rephrase?");
@@ -1395,7 +1470,7 @@
       // Full structured transcript (both sides) so the dealer can read exactly what the AI said.
       const chat_transcript=CHAT.filter(m=>m.who==='me'||m.who==='bot').map(m=>({role:m.who==='me'?'user':'assistant',content:String(m.text||'').slice(0,2000)})).slice(-60);
       try{
-        await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({form_type:'chat',name,phone,email,message:'From website chat: '+transcript,chat_transcript})});
+        await fetch(`${API}/site/${encodeURIComponent(SLUG)}/lead`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...siteAttribution(),form_type:'chat',name,phone,email,message:'From website chat: '+transcript,transcript})});
         CHAT_CAPTURED=true;
         document.getElementById('ms-chat-capture').style.display='none';
         chatPush('bot',`Thanks${name?' '+name:''}! A product advisor will reach out shortly. Anything else I can help with in the meantime?`);
@@ -1405,13 +1480,13 @@
 
     // ── Native appointment booking (test drive / consult) ──────────────────────
     let __bookVeh=null, __bookLabel='';
-    function bookAppt(vehId,label){ __bookVeh=vehId||null; __bookLabel=label||''; const m=document.querySelector('.fixed'); if(m) m.remove();
+    function bookAppt(vehId,label,kind='Test drive'){ __bookVeh=vehId||null; __bookLabel=label||''; window.__bookKind=kind||'Test drive'; const m=document.querySelector('.fixed'); if(m) m.remove();
       const pad=n=>String(n).padStart(2,'0');
       const min=new Date(Date.now()+86400000).toISOString().slice(0,10);
       let times=''; for(let h=9;h<=18;h++){ [0,30].forEach(mm=>{ if(h===18&&mm===30)return; const v=pad(h)+':'+pad(mm); const lbl=((h%12)||12)+':'+pad(mm)+' '+(h<12?'AM':'PM'); times+=`<option value="${v}" ${v==='10:00'?'selected':''}>${lbl}</option>`; }); }
       const wrap=document.createElement('div'); wrap.className='fixed inset-0 z-[80] bg-black/60 flex items-start justify-center p-4 overflow-auto';
       wrap.innerHTML=`<div class="bg-white rounded-2xl w-full max-w-md my-8 shadow-2xl" onclick="event.stopPropagation()">
-        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100"><div><div class="text-lg font-black text-slate-900">Book a test drive</div><div class="text-xs text-slate-500">${label?esc(label):'Pick a time that works for you'}</div></div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 text-2xl leading-none">&times;</button></div>
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100"><div><div class="text-lg font-black text-slate-900">Book a ${esc(window.__bookKind.toLowerCase())}</div><div class="text-xs text-slate-500">${label?esc(label):'Pick a time that works for you'}</div></div><button onclick="this.closest('.fixed').remove()" class="text-slate-400 text-2xl leading-none">&times;</button></div>
         <div id="bk-body" class="p-5 space-y-2.5">
           <input id="bk-name" placeholder="Your name" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
           <div class="grid grid-cols-2 gap-2"><input id="bk-phone" type="tel" placeholder="Phone" class="border border-slate-300 rounded-lg px-3 py-2 text-sm"><input id="bk-email" type="email" placeholder="Email" class="border border-slate-300 rounded-lg px-3 py-2 text-sm"></div>
@@ -1430,7 +1505,7 @@
       const when=new Date(date+'T'+time+':00'); if(isNaN(when.getTime())||when.getTime()<Date.now()){ err.textContent='Pick a future time.'; err.classList.remove('hidden'); return; }
       let tz=''; try{ tz=Intl.DateTimeFormat().resolvedOptions().timeZone; }catch(_){}
       btn.disabled=true; const t=btn.textContent; btn.textContent='Booking…';
-      try{ const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/book`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,phone,email,notes,vehicle_id:__bookVeh,when:when.toISOString(),tz,kind:'Test drive'})});
+      try{ const r=await fetch(`${API}/site/${encodeURIComponent(SLUG)}/book`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...siteAttribution(),name,phone,email,notes,vehicle_id:__bookVeh,when:when.toISOString(),tz,kind:window.__bookKind||'Test drive'})});
         const d=await r.json(); if(!r.ok) throw new Error(d.error||'Could not book that time.');
         document.getElementById('bk-body').innerHTML=`<div class="text-center py-6"><div class="text-4xl">✅</div><div class="text-lg font-black text-slate-900 mt-2">You're booked!</div><div class="text-sm text-slate-500 mt-1">Check your inbox for the confirmation. See you then!</div>${d.meet_url?`<a href="${d.meet_url}" target="_blank" class="inline-block mt-3 text-sm font-bold brand-text">Join link</a>`:''}<div class="mt-3"><button onclick="this.closest('.fixed').remove()" class="text-slate-500 font-bold text-sm">Close</button></div></div>`;
       }catch(e){ btn.disabled=false; btn.textContent=t; err.textContent=e.message||'Something went wrong — please call us.'; err.classList.remove('hidden'); } }
@@ -1448,8 +1523,9 @@
     // instantly. It also outlines home sections and reports clicks so the builder
     // can select/edit the section you click. Same origin → postMessage is safe.
     const PREVIEW = new URLSearchParams(location.search).get('preview')==='1';
+    const previewHost = window.opener && window.opener !== window ? window.opener : parent;
     let previewSession = null;
-    const postPreview=(message)=>{ try{ parent.postMessage({...message,session:previewSession},location.origin); }catch(e){} };
+    const postPreview=(message)=>{ try{ previewHost.postMessage({...message,session:previewSession},location.origin); }catch(e){} };
     if(PREVIEW){
       document.documentElement.setAttribute('data-preview','1');
       // Every element that maps to a setting outlines on hover, so it is visible
@@ -1460,7 +1536,7 @@
         +'[data-preview="1"] [data-ms-field]:has([data-ms-field]:hover){outline-color:transparent}';
       document.head.appendChild(pvStyle);
       window.addEventListener('message',(ev)=>{
-        if(ev.source!==parent || ev.origin!==location.origin) return;
+        if(ev.source!==previewHost || ev.origin!==location.origin) return;
         const m=ev.data||{}; if(m.type!=='ms-preview-apply') return;
         if(!previewSession) previewSession=typeof m.session==='string'&&m.session.length<=120?m.session:null;
         if(!previewSession || m.session!==previewSession) return;
@@ -1483,7 +1559,7 @@
           setTimeout(markPreviewSections,120);
         }catch(e){}
       });
-      const notifyReady=()=>{ try{ parent.postMessage({type:'ms-preview-ready'},location.origin); }catch(e){} };
+      const notifyReady=()=>{ try{ previewHost.postMessage({type:'ms-preview-ready'},location.origin); }catch(e){} };
       window.addEventListener('load',notifyReady); setTimeout(notifyReady,400);
     }
     // Outline top-level home sections, let them be dragged to reorder, and show a

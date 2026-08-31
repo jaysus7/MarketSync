@@ -1811,7 +1811,16 @@ function renderMarketingSuiteNav(suiteKey, host, navRoot) {
   // AI, Design Studio, Social Scheduler, Automations and campaigns.
   if (Array.isArray(cfg.navItems)) {
     const dealer = ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'DEALER_GROUP'].includes(String(profileContext?.role || ''));
-    html += cfg.navItems.filter(item => !item.dealerOnly || dealer).map(item => {
+    // Keep the stable top-level entitlement registry intact, but expose the
+    // website area's actual destinations in the visible Digital shell. The
+    // old renderer showed only Dealer Website (or, on some routes, Discovery),
+    // hiding Setup, Builder, Blog, and Website Settings.
+    const visibleItems = [...cfg.navItems];
+    const websiteArea = cfg.areas?.find(area => area.id === 'website');
+    if (websiteArea) websiteArea.items.forEach(item => {
+      if (!visibleItems.some(existing => existing.page === item.page && existing.tab === item.tab)) visibleItems.push(item);
+    });
+    html += visibleItems.filter(item => !item.dealerOnly || dealer).map(item => {
       const call = item.studioLaunch
         ? 'ensureOpenMarketSyncStudio()'
         : `deptGo('${esc(item.page)}'${item.invmode ? `,'${esc(item.invmode)}'` : `,''`}${item.tab ? `,'${esc(item.tab)}'` : ''})`;
@@ -2251,19 +2260,25 @@ function switchPage(pageId) {
   if (pageId === 'email-marketing' || pageId === 'email-campaigns') loadDealerEmail();
   if (pageId === 'studio' || pageId === 'design-studio') {
     Promise.resolve(window.msLoadScript ? window.msLoadScript('js/modules/studio/scene-model.js?v=20260814_v12') : null)
-      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/document-model.js?v=20260829_v1'))
-      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-store.js?v=20260829_v1'))
-      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-autosave.js?v=20260829_v1'))
-      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260818_fontfamily_v1'))
-      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260826_digital_pages_v3'))
-      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-shell.js?v=20260826_studio_tp_v1'))
-      .then(() => { if (typeof openMarketSyncStudio === 'function') openMarketSyncStudio(); });
+      .then(() => window.msLoadScript && Promise.all([
+        'js/design-studio/state/document-schema.js', 'js/design-studio/state/history-store.js', 'js/design-studio/state/studio-store.js',
+        'js/design-studio/editor/canvas-engine.js', 'js/design-studio/editor/selection-engine.js', 'js/design-studio/editor/transform-engine.js', 'js/design-studio/editor/snapping-engine.js', 'js/design-studio/editor/keyboard-engine.js',
+        'js/design-studio/panels/layers-panel.js', 'js/design-studio/panels/properties-panel.js', 'js/design-studio/panels/assets-panel.js', 'js/design-studio/panels/templates-panel.js', 'js/design-studio/panels/brand-panel.js', 'js/design-studio/panels/pages-panel.js', 'js/design-studio/panels/history-panel.js',
+        'js/design-studio/services/autosave-service.js', 'js/design-studio/services/version-service.js', 'js/design-studio/services/media-service.js', 'js/design-studio/services/export-service.js', 'js/design-studio/services/publishing-service.js', 'js/design-studio/services/ai-service.js', 'js/design-studio/studio-shell.js'
+      ].map(path => window.msLoadScript(`${path}?v=20260830_prostudio`))))
+      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/document-model.js?v=20260830_prostudio'))
+      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-store.js?v=20260830_prostudio'))
+      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-autosave.js?v=20260830_prostudio'))
+      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260830_prostudio'))
+      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-shell.js?v=20260830_light_rail_v1'))
+      .then(() => { if (typeof openMarketSyncStudio === 'function') openMarketSyncStudio(); })
+      .catch(renderMarketSyncStudioBootError);
   }
   if (pageId === 'social-scheduler') {
     const bootSched = () => { if (typeof loadSocialSchedulerPage === 'function') loadSocialSchedulerPage(); };
     if (typeof loadSocialSchedulerPage === 'function') bootSched();
     else if (window.msLoadScript) {
-      Promise.resolve(window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260826_sched_load_v1'))
+      Promise.resolve(window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260829_pinterest_v1'))
         .then(bootSched).catch(bootSched);
     }
   }
@@ -2307,6 +2322,14 @@ function switchPage(pageId) {
   if (pageId === 'saas-automation') loadSaasAutomation();
   if (pageId === 'saas-employees') loadSaasEmployees();
   if (pageId === 'saas-accounting') loadSaasAccounting();
+  if (pageId === 'saas-billing' && typeof loadSaasBillingSummary === 'function') loadSaasBillingSummary();
+  if (pageId === 'saas-affiliates' && typeof loadSaasAffiliates === 'function') loadSaasAffiliates();
+  if (pageId === 'saas-product-usage' && typeof loadSaasProductUsage === 'function') loadSaasProductUsage();
+  if (pageId === 'saas-health' && typeof loadSaasHealth === 'function') loadSaasHealth();
+  if (pageId === 'saas-trials' && typeof loadSaasTrials === 'function') loadSaasTrials();
+  if (pageId === 'saas-onboarding' && typeof loadSaasOnboarding === 'function') loadSaasOnboarding();
+  if (pageId === 'saas-announcements' && typeof loadSaasAnnouncements === 'function') loadSaasAnnouncements();
+  if (pageId === 'saas-intelligence' && typeof loadSaasIntelligence === 'function') loadSaasIntelligence();
   if (pageId === 'saas-agents' && typeof loadHqAgents === 'function') loadHqAgents();
   if (pageId === 'saas-entitlements' && typeof loadHqEntitlements === 'function') loadHqEntitlements();
   if (pageId === 'saas-products' && typeof loadHqProducts === 'function') loadHqProducts();
@@ -2504,6 +2527,13 @@ async function extractPdfText(file, options = {}) {
   return out.slice(0, maxChars);
 }
 
+function renderMarketSyncStudioBootError(error) {
+  console.error('[Design Studio] Failed to start', error);
+  const root = document.getElementById('studio-root');
+  if (root) root.innerHTML = `<div class="m-4 rounded-3xl border border-rose-200 bg-white/80 p-6 text-slate-900 shadow-xl backdrop-blur-2xl dark:border-rose-500/30 dark:bg-slate-900/80 dark:text-white"><p class="text-xs font-black uppercase tracking-[0.18em] text-rose-600 dark:text-rose-300">Design Studio could not start</p><h2 class="mt-2 text-2xl font-black">The editor hit a loading error.</h2><p class="mt-2 text-base text-slate-600 dark:text-slate-300">Refresh this page to retry. Social Scheduler remains available separately.</p><button type="button" class="mt-5 rounded-2xl border border-slate-300 bg-white/70 px-5 py-3 text-sm font-bold shadow-sm dark:border-white/15 dark:bg-white/10" onclick="location.reload()">Refresh Design Studio</button></div>`;
+  if (typeof showToast === 'function') showToast('Design Studio could not start. Refresh to retry.', 'error');
+}
+
 window.ensureOpenMarketSyncStudio = function ensureOpenMarketSyncStudio(designId, opts) {
   const run = () => {
     const fn = window.__msOpenStudioReal || (typeof window.openMarketSyncStudio === 'function' && window.openMarketSyncStudio !== ensureOpenMarketSyncStudio ? window.openMarketSyncStudio : null);
@@ -2519,15 +2549,19 @@ window.ensureOpenMarketSyncStudio = function ensureOpenMarketSyncStudio(designId
   }
   const load = window.msLoadScript
     ? Promise.resolve(window.msLoadScript('js/modules/studio/scene-model.js?v=20260814_v12'))
-        .then(() => window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260818_fontfamily_v1'))
-        .then(() => window.msLoadScript('js/modules/studio/studio-scheduler.js?v=20260826_digital_pages_v3'))
-        .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260826_studio_tp_v1'))
+        .then(() => Promise.all([
+          'js/design-studio/state/document-schema.js', 'js/design-studio/state/history-store.js', 'js/design-studio/state/studio-store.js', 'js/design-studio/editor/canvas-engine.js', 'js/design-studio/editor/selection-engine.js', 'js/design-studio/editor/transform-engine.js', 'js/design-studio/editor/snapping-engine.js', 'js/design-studio/editor/keyboard-engine.js', 'js/design-studio/panels/layers-panel.js', 'js/design-studio/panels/properties-panel.js', 'js/design-studio/panels/assets-panel.js', 'js/design-studio/panels/templates-panel.js', 'js/design-studio/panels/brand-panel.js', 'js/design-studio/panels/pages-panel.js', 'js/design-studio/panels/history-panel.js', 'js/design-studio/services/autosave-service.js', 'js/design-studio/services/version-service.js', 'js/design-studio/services/media-service.js', 'js/design-studio/services/export-service.js', 'js/design-studio/services/publishing-service.js', 'js/design-studio/services/ai-service.js', 'js/design-studio/studio-shell.js'
+        ].map(path => window.msLoadScript(`${path}?v=20260830_prostudio`))))
+        .then(() => window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260830_prostudio'))
+        .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260830_light_rail_v1'))
     : Promise.resolve();
   return Promise.resolve(load).then(() => {
     if (typeof window.openMarketSyncStudio === 'function' && window.openMarketSyncStudio !== ensureOpenMarketSyncStudio) {
       window.__msOpenStudioReal = window.openMarketSyncStudio;
     }
     run();
-  }).catch(run);
+  }).catch((error) => {
+    renderMarketSyncStudioBootError(error);
+  });
 };
 if (typeof window.openMarketSyncStudio !== 'function') window.openMarketSyncStudio = window.ensureOpenMarketSyncStudio;

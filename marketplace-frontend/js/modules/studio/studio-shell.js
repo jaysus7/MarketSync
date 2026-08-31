@@ -41,7 +41,15 @@ const STUDIO_SOCIAL_FORMATS = {
   linkedin: { label: 'LinkedIn Page Post', w: 1200, h: 627, safe: [6, 6, 8, 6], note: 'LinkedIn 1.91:1 safe content area' },
   x_landscape: { label: 'X Landscape Post', w: 1600, h: 900, safe: [6, 6, 8, 6], note: 'Keep text away from crop edges' },
   youtube: { label: 'YouTube Thumbnail', w: 1280, h: 720, safe: [6, 6, 8, 6], note: 'Keep title and logo inside' },
-  pinterest: { label: 'Pinterest Pin 2:3', w: 1000, h: 1500, safe: [7, 7, 10, 7], note: 'Pin-safe content area' }
+  pinterest: { label: 'Pinterest Pin 2:3', w: 1000, h: 1500, safe: [7, 7, 10, 7], note: 'Pin-safe content area' },
+  facebook_post: { label: 'Facebook Post', w: 1200, h: 630, safe: [6, 6, 8, 6], note: 'Feed-safe content area' },
+  facebook_story: { label: 'Facebook Story', w: 1080, h: 1920, safe: [14, 15, 20, 6], note: 'Story controls remain clear' },
+  marketplace: { label: 'Marketplace Image', w: 1200, h: 900, safe: [6, 6, 8, 6], note: 'Vehicle and price stay visible in search cards' },
+  email_hero: { label: 'Email Hero', w: 1200, h: 600, safe: [7, 7, 9, 7], note: 'Email-safe headline and CTA area' },
+  website_banner: { label: 'Website Banner', w: 1920, h: 720, safe: [8, 7, 10, 7], note: 'Responsive website content bounds' },
+  display_300x250: { label: 'Display Ad 300×250', w: 300, h: 250, safe: [7, 7, 9, 7], note: 'Compact display-ad safe area' },
+  display_728x90: { label: 'Display Ad 728×90', w: 728, h: 90, safe: [8, 4, 8, 4], note: 'Leaderboard safe area' },
+  display_160x600: { label: 'Display Ad 160×600', w: 160, h: 600, safe: [4, 8, 5, 8], note: 'Skyscraper safe area' }
 };
 
 // Small inline SVG previews so each Shapes button shows the actual shape, not just
@@ -70,6 +78,11 @@ const STUDIO_STICKERS = [
   '❌', '💯', '🏆', '👍', '❤️', '⚡', '🛠️', '🔑', '🎁', '📣', '🕒', '🛡️',
 ];
 
+const STUDIO_STICKER_LIBRARY = Array.from({ length: 120 }, (_, index) => {
+  const set = ['🚗','🚙','🚕','🚓','🚑','🚒','🚐','🛻','🚚','🚛','🚜','🏎️','🏁','🔧','🛠️','⚙️','🔩','🧰','⛽','🔋','🔌','🛞','⭐','🌟','✨','🔥','💥','💯','✅','❌','⚠️','💰','💵','💳','🏆','🥇','🎉','🎊','🎁','📣','📢','📞','📍','🗺️','📅','📝','💬','📸','🎥','▶️','⏱️','🚀','⚡','🌈','☀️','🌙','🌧️','❄️','🌲','⛰️','🌊','🛣️','🏙️','🏠','🏢','🅿️','🟢','🔵','🟣','🟠','🔴','⬛','⬜','🔶','🔷','🔺','🔻','❤️','💙','💚','💛','🖤','🤝','👍','👎','🙌','👏','😎','🤩','🙂','😮','🤔','🧑‍🔧','🧑‍💼','🐶','🐱','🌱','♻️','🔒','🛡️','📊','📈','🎯','🧠','🤖','💡','🔔','🎟️'];
+  return { id: `sticker-${index + 1}`, value: set[index % set.length], name: `Sticker ${index + 1}` };
+});
+
 // Curated Google Fonts for on-canvas text — loaded on demand (not on every page
 // load) the first time the Text tool is opened, via a single stylesheet request.
 const STUDIO_GOOGLE_FONTS = [
@@ -77,6 +90,31 @@ const STUDIO_GOOGLE_FONTS = [
   'Playfair Display', 'Anton', 'Archivo Black', 'Roboto Condensed',
   'DM Sans', 'Barlow Condensed', 'Teko', 'Righteous',
 ];
+
+const STUDIO_FONT_CATEGORIES = { all: 'All fonts', sans: 'Sans serif', display: 'Display', serif: 'Serif', mono: 'Monospace', script: 'Script / hand' };
+const STUDIO_FONT_CATEGORY_FOR = font => /serif|merriweather|garamond|crimson|lora|baskerville|spectral|prata|zilla|cormorant/i.test(font) ? 'serif' : /script|hand|lobster|satisfy|dancing|marker|ravi|turncoat/i.test(font) ? 'script' : /mono|inconsolata|plex mono/i.test(font) ? 'mono' : /anton|bebas|oswald|archivo black|black|orbitron|teko|righteous|russo|staatliches|unbounded|syne|fjalla/i.test(font) ? 'display' : 'sans';
+const STUDIO_FONT_CATALOG = Array.from(new Set([...STUDIO_GOOGLE_FONTS, 'Roboto','Open Sans','Lato','Nunito','Raleway','Merriweather','Source Sans 3','Source Serif 4','Work Sans','Rubik','Outfit','Space Grotesk','Plus Jakarta Sans','Sora','Urbanist','Figtree','Geologica','Albert Sans','Archivo','Barlow','Cabin','Catamaran','Chakra Petch','Chivo','Commissioner','Comfortaa','Cormorant Garamond','Crimson Text','Dancing Script','Dela Gothic One','EB Garamond','Exo 2','Fira Sans','Fjalla One','Fraunces','Gabarito','Heebo','Hind','IBM Plex Sans','IBM Plex Serif','Inconsolata','Josefin Sans','Kanit','Karla','Khand','Libre Baskerville','Libre Franklin','Lobster','Lora','Marcellus','Maven Pro','Michroma','Mitr','Mukta','Noto Sans','Noto Serif','Oleo Script','Onest','Orbitron','Patrick Hand','Permanent Marker','Philosopher','Play','Prata','Public Sans','Quicksand','Rajdhani','Red Hat Display','Rokkitt','Russo One','Saira','Satisfy','Sen','Signika','Skranji','Slabo 27px','Spectral','Staatliches','Syne','Titillium Web','Trispace','Ubuntu','Unbounded','Varela Round','Vollkorn','Walter Turncoat','Yanone Kaffeesatz','Zilla Slab']));
+const STUDIO_SHAPE_LIBRARY = Array.from({ length: 120 }, (_, index) => { const base = ['rect','badge','circle','ellipse','triangle','diamond','pentagon','hexagon','star','line','arrow','heart','speech'][index % 13]; return { id: `shape-${index + 1}`, base, name: `${base[0].toUpperCase()} ${index + 1}` }; });
+const STUDIO_ICON_LIBRARY = Array.from({ length: 120 }, (_, index) => { const names = ['car','truck','screwdriver-wrench','gear','wrench','calendar','camera','chart-line','chart-pie','check','circle-check','circle-info','clock','cloud','comment','credit-card','envelope','file','film','flag','folder','gift','globe','handshake','heart','house','image','key','laptop','leaf','lightbulb','link','location-dot','lock','magnifying-glass','map','message','mobile-screen','paper-plane','phone','play','plus','print','rocket','share-nodes','shield','shop','star','tags','thumbs-up','ticket','toolbox','trophy','user','users','video','wallet','wand-magic-sparkles','wifi','xmark']; return { id: `icon-${index + 1}`, name: names[index % names.length], label: `${names[index % names.length]} ${index + 1}` }; });
+const STUDIO_GIF_LIBRARY = [['Celebration','https://media.giphy.com/media/g9582DNuQppxC/giphy.gif'],['Applause','https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif'],['Rocket','https://media.giphy.com/media/26tOZ6e9jD8ZP7jK8/giphy.gif'],['Sparkles','https://media.giphy.com/media/26AHONQ79FdWZhAI0/giphy.gif']];
+const STUDIO_GIF_PRESETS = (() => {
+  const groups = {
+    Automotive: ['car','truck','suv','sedan','electric vehicle','charging','test drive','dealership','sales','service','oil change','car wash','detail','mechanic','wrench','tire','engine','road trip','race car','driving'],
+    Reactions: ['yes','no','wow','mind blown','excited','happy','sad','laughing','applause','high five','thumbs up','celebrate','mic drop','nailed it','bravo','thank you','welcome','oops','confused','thinking'],
+    Business: ['sale','deal','price drop','new arrival','sold','approved','financing','money','cash','growth','success','meeting','teamwork','work smarter','analytics','chart up','goal','launch','announcement','marketing'],
+    Seasonal: ['summer','winter','spring','fall','new year','valentines','st patricks','easter','mothers day','fathers day','canada day','halloween','thanksgiving','black friday','cyber monday','christmas','holiday','snow','sunshine','weekend'],
+    Utility: ['loading','check mark','error','warning','notification','arrow','swipe','click here','coming soon','stay tuned','live','breaking news','reminder','question','idea','light bulb','rocket launch','sparkles','fire','confetti']
+  };
+  return Object.entries(groups).flatMap(([category, terms]) => terms.map((query, index) => ({ id: `gif-preset-${category.toLowerCase()}-${index + 1}`, category, query, label: query.replace(/\b\w/g, char => char.toUpperCase()) }))).slice(0, 120);
+})();
+const STUDIO_PREMADE_ELEMENTS = [
+  ['sale-badge','Sale badge','Offers','badge','SALE EVENT'], ['price-badge','Price badge','Offers','badge','SALE PRICE'], ['payment-card','Payment card','Offers','card','PAYMENT OFFER'], ['apr-badge','Finance offer badge','Offers','badge','FINANCE OFFER'], ['clearance-ribbon','Clearance ribbon','Offers','ribbon','CLEARANCE'], ['new-arrival','New arrival','Offers','badge','JUST ARRIVED'], ['hot-deal','Hot deal','Offers','badge','HOT DEAL'], ['price-drop','Price drop','Offers','badge','PRICE DROP'],
+  ['cta-primary','Primary CTA','Buttons','button','SHOP INVENTORY'], ['cta-secondary','Secondary CTA','Buttons','button','BOOK A TEST DRIVE'], ['cta-finance','Finance CTA','Buttons','button','GET PRE-APPROVED'], ['cta-trade','Trade CTA','Buttons','button','VALUE MY TRADE'], ['cta-service','Service CTA','Buttons','button','BOOK SERVICE'], ['cta-contact','Contact CTA','Buttons','button','TALK TO OUR TEAM'],
+  ['review-badge','Review badge','Trust','trust','CUSTOMER REVIEWS'], ['guarantee-badge','Dealer commitment badge','Trust','trust','OUR DEALER COMMITMENT'], ['one-owner','One owner badge','Trust','badge','ONE OWNER'], ['certified-badge','Certified badge','Trust','badge','CERTIFIED PRE-OWNED'], ['no-credit','Apply online','Trust','trust','APPLY ONLINE'], ['fast-approval','Pre-approval CTA','Trust','trust','START PRE-APPROVAL'],
+  ['trade-callout','Trade-in callout','Automotive','callout','REQUEST A TRADE VALUE'], ['inventory-label','Inventory label','Automotive','badge','IN STOCK'], ['vehicle-specs','Vehicle specs','Automotive','card','YEAR • BODY • DRIVETRAIN'], ['featured-vehicle','Featured vehicle','Automotive','card','FEATURED VEHICLE'], ['electric-label','Electric label','Automotive','badge','ELECTRIC VEHICLE'], ['fuel-saver','Fuel saver','Automotive','badge','FUEL EFFICIENT'],
+  ['dealer-header','Dealership header','Brand','header','DEALERSHIP NAME'], ['hours-card','Hours card','Brand','card','VIEW TODAY\'S HOURS'], ['contact-card','Contact card','Brand','card','CALL OUR TEAM'], ['location-card','Location card','Brand','card','VISIT OUR SHOWROOM'], ['social-follow','Social follow','Brand','button','FOLLOW US'], ['newsletter','Newsletter CTA','Brand','button','GET OUR SPECIALS'],
+  ['disclaimer-apr','APR disclaimer','Legal','legal','O.A.C. • Terms and conditions apply.'], ['disclaimer-price','Price disclaimer','Legal','legal','Plus taxes, licensing and applicable fees.'], ['disclaimer-inventory','Inventory disclaimer','Legal','legal','Vehicle availability subject to change.'], ['disclaimer-trade','Trade disclaimer','Legal','legal','Trade values subject to in-person appraisal.']
+].map(([id,name,category,kind,text]) => ({ id, name, category, kind, text }));
 
 function loadStudioGoogleFonts() {
   if (document.getElementById('studio-google-fonts-link')) return;
@@ -110,6 +148,60 @@ function studioAddSticker(emoji) {
   window.__studioAdapter.addText(emoji, { fontSize: 96, fontWeight: '400' });
 }
 window.studioAddSticker = studioAddSticker;
+
+function studioCatalogButtons(items, query, render) { const needle = String(query || '').toLowerCase(); return items.filter(item => !needle || `${item.name} ${item.label || ''} ${item.value || ''}`.toLowerCase().includes(needle)).map(render).join('') || '<div class="col-span-4 p-4 text-center text-xs text-slate-500">Nothing matches that search.</div>'; }
+function renderStudioShapeLibrary(query = '') { return studioCatalogButtons(STUDIO_SHAPE_LIBRARY, query, item => `<button type="button" onclick="studioAddShape('${item.base}')" title="${escS(item.name)}" aria-label="Add ${escS(item.name)}" class="studio-shape-card aspect-square rounded-2xl bg-transparent hover:bg-blue-50 dark:hover:bg-slate-800/70 border border-transparent hover:border-blue-300 dark:hover:border-blue-500/60 text-slate-700 dark:text-slate-200 flex items-center justify-center transition"><span class="studio-shape-art">${STUDIO_SHAPE_PREVIEW[item.base] || '◆'}</span></button>`); }
+function filterStudioShapes() { const el = document.getElementById('studio-shape-library'); if (el) el.innerHTML = renderStudioShapeLibrary(document.getElementById('studio-shape-query')?.value); }
+function renderStudioStickerLibrary(query = '') { return studioCatalogButtons(STUDIO_STICKER_LIBRARY, query, item => `<button type="button" onclick="studioAddSticker('${item.value}')" title="${escS(item.name)}" class="aspect-square rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-500/20 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-2xl">${item.value}</button>`); }
+function filterStudioStickers() { const el = document.getElementById('studio-sticker-library'); if (el) el.innerHTML = renderStudioStickerLibrary(document.getElementById('studio-sticker-query')?.value); }
+function renderStudioFontLibrary(query = '', category = 'all') { const needle = String(query || '').toLowerCase(); return STUDIO_FONT_CATALOG.filter(font => (!needle || font.toLowerCase().includes(needle)) && (category === 'all' || STUDIO_FONT_CATEGORY_FOR(font) === category)).map(font => `<button type="button" data-font="${escS(font)}" onclick="studioPickFont('${font.replace(/'/g, "\\'")}')" style="font-family:'${escS(font)}', sans-serif" class="w-full text-left px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-500/20 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white">${escS(font)}</button>`).join('') || '<div class="p-4 text-center text-xs text-slate-500">No fonts match.</div>'; }
+function filterStudioFonts() { const el = document.getElementById('studio-font-picker'); if (el) el.innerHTML = renderStudioFontLibrary(document.getElementById('studio-font-query')?.value, document.getElementById('studio-font-category')?.value || 'all'); }
+function loadStudioIconFont() { if (document.getElementById('studio-fontawesome-link')) return; const link = document.createElement('link'); link.id = 'studio-fontawesome-link'; link.rel = 'stylesheet'; link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css'; document.head.appendChild(link); }
+const STUDIO_ICON_SYMBOLS = { car:'🚗', truck:'🚚', 'screwdriver-wrench':'🛠️', gear:'⚙️', wrench:'🔧', calendar:'📅', camera:'📷', 'chart-line':'📈', 'chart-pie':'📊', check:'✓', 'circle-check':'✅', 'circle-info':'ⓘ', clock:'🕒', cloud:'☁️', comment:'💬', 'credit-card':'💳', envelope:'✉️', file:'📄', film:'🎞️', flag:'⚑', folder:'📁', gift:'🎁', globe:'🌐', handshake:'🤝', heart:'❤️', house:'🏠', image:'🖼️', key:'🔑', laptop:'💻', leaf:'🍃', lightbulb:'💡', link:'🔗', 'location-dot':'📍', lock:'🔒', 'magnifying-glass':'🔍', map:'🗺️', message:'💬', 'mobile-screen':'📱', 'paper-plane':'✈️', phone:'☎️', play:'▶️', plus:'＋', print:'🖨️', rocket:'🚀', 'share-nodes':'🔗', shield:'🛡️', shop:'🏪', star:'⭐', tags:'🏷️', 'thumbs-up':'👍', ticket:'🎟️', toolbox:'🧰', trophy:'🏆', user:'👤', users:'👥', video:'🎥', wallet:'👛', 'wand-magic-sparkles':'✨', wifi:'📶', xmark:'×' };
+const STUDIO_BRAND_ICON_LIBRARY = ['facebook','instagram','linkedin','tiktok','youtube','x-twitter','whatsapp','telegram','discord','reddit','pinterest','snapchat','threads','twitch','spotify','apple','google','microsoft','amazon','github','gitlab','slack','figma','canva','wordpress','shopify','wix','squarespace','stripe','paypal','square','uber','lyft','airbnb','skype','vimeo','dribbble','behance','medium','tumblr','yelp','tripadvisor','wikipedia-w','stack-overflow','codepen','npm','node','react','vuejs','angular','svelte','html5','css3-alt','js','python','java','php','swift','android','chrome','firefox','safari','edge','opera','internet-explorer','linux','windows','docker','aws','cloudflare','mailchimp','hubspot','salesforce','intercom','hubspot','google-drive','dropbox','onedrive','box','evernote','jira','trello','asana','notion','meetup','sketch','adobe','autoprefixer','bootstrap','tailwind-css','sass','less','npm','git-alt','bitbucket','firstdraft','monday','readme','weixin','line','viber','signal-messenger','kickstarter','patreon','buy-n-large','product-hunt','steam','xbox','playstation','app-store','google-play','goodreads','lastfm','soundcloud','deezer','bandcamp','itunes','reddit-alien','facebook-messenger','google-business','google-pay','apple-pay','cc-visa','cc-mastercard','cc-amex','cc-paypal','cc-stripe','wifi','phone','envelope','globe'].filter((name, index, names) => names.indexOf(name) === index).map((name, index) => ({ id: `brand-icon-${index + 1}`, name, label: name.replace(/-/g, ' ') }));
+const STUDIO_ICON_LIBRARIES = { lucide: ['Lucide', 'lucide'], phosphor: ['Phosphor', 'ph'], tabler: ['Tabler', 'tabler'], material: ['Material Symbols', 'material-symbols'], heroicons: ['Heroicons', 'heroicons-outline'], bootstrap: ['Bootstrap Icons', 'bi'], remix: ['Remix Icon', 'ri'], iconoir: ['Iconoir', 'iconoir'], boxicons: ['Boxicons', 'bxs'], iconify: ['Iconify · Lucide set', 'lucide'], fontawesome: ['Font Awesome Free · Solid', 'fa6-solid'], 'fontawesome-brands': ['Font Awesome Free · Brands & Social', 'fa6-brands'] };
+const STUDIO_ICON_SLUGS = {
+  lucide: { 'screwdriver-wrench':'wrench', gear:'settings', 'circle-info':'info', comment:'message-circle', envelope:'mail', globe:'globe-2', house:'home', 'location-dot':'map-pin', 'magnifying-glass':'search', message:'message-square', 'mobile-screen':'smartphone', 'paper-plane':'send', print:'printer', 'share-nodes':'share-2', shop:'shopping-bag', 'wand-magic-sparkles':'wand-sparkles', xmark:'x' },
+  phosphor: { 'screwdriver-wrench':'wrench', gear:'gear', 'circle-info':'info', envelope:'envelope', globe:'globe', house:'house', 'location-dot':'map-pin', 'magnifying-glass':'magnifying-glass', message:'chat', 'mobile-screen':'device-mobile', 'paper-plane':'paper-plane-tilt', print:'printer', 'share-nodes':'share-network', shop:'storefront', xmark:'x' },
+  tabler: { 'screwdriver-wrench':'tools', gear:'settings', 'circle-info':'info-circle', envelope:'mail', globe:'world', house:'home', image:'photo', 'location-dot':'map-pin', 'magnifying-glass':'search', message:'message', 'mobile-screen':'device-mobile', 'paper-plane':'send', print:'printer', 'share-nodes':'share', shop:'building-store', xmark:'x' },
+  material: { 'screwdriver-wrench':'build', gear:'settings', 'circle-info':'info', envelope:'mail', globe:'public', house:'home', image:'image', 'location-dot':'location_on', 'magnifying-glass':'search', message:'chat_bubble', 'mobile-screen':'smartphone', 'paper-plane':'send', print:'print', 'share-nodes':'share', shop:'storefront', xmark:'close' }
+};
+function studioIconUrl(name, library = 'lucide') { const [label, prefix] = STUDIO_ICON_LIBRARIES[library] || STUDIO_ICON_LIBRARIES.lucide; const slug = STUDIO_ICON_SLUGS[library]?.[name] || name; return `https://api.iconify.design/${encodeURIComponent(prefix)}/${encodeURIComponent(slug)}.svg?color=%232563EB`; }
+function renderStudioIconLibrary(query = '', library = document.getElementById('studio-icon-library-select')?.value || 'lucide') { const catalog = library === 'fontawesome-brands' ? STUDIO_BRAND_ICON_LIBRARY : STUDIO_ICON_LIBRARY; return studioCatalogButtons(catalog, query, item => { const fallback = STUDIO_ICON_SYMBOLS[item.name] || '✦'; const url = studioIconUrl(item.name, library); return `<button type="button" onclick="studioAddIcon('${item.id}')" title="${escS(item.label)}" aria-label="Add ${escS(item.label)} icon" class="studio-icon-card aspect-square rounded-2xl bg-transparent hover:bg-blue-50 dark:hover:bg-slate-800/70 border border-transparent hover:border-blue-300 dark:hover:border-blue-500/60 flex items-center justify-center text-blue-600 dark:text-blue-400 transition"><img src="${url}" alt="" loading="lazy" class="studio-icon-art object-contain" onerror="this.classList.add('hidden');this.nextElementSibling.classList.remove('hidden')"><span class="hidden text-4xl leading-none" aria-hidden="true">${fallback}</span></button>`; }); }
+function filterStudioIcons() { const el = document.getElementById('studio-icon-library'); if (el) el.innerHTML = renderStudioIconLibrary(document.getElementById('studio-icon-query')?.value, document.getElementById('studio-icon-library-select')?.value || 'lucide'); }
+function studioAddIcon(id) { const library = document.getElementById('studio-icon-library-select')?.value || 'lucide'; const catalog = library === 'fontawesome-brands' ? STUDIO_BRAND_ICON_LIBRARY : STUDIO_ICON_LIBRARY; const item = catalog.find(icon => icon.id === id); const adapter = window.__studioAdapter; if (!item || !adapter) return; const url = studioIconUrl(item.name, library); adapter.addImage(url, `Icon: ${item.name}`).then((image) => { if (image) { image.msData = { ...(image.msData || {}), iconName: item.name, iconLibrary: library, mediaType: 'svg-icon' }; adapter.saveHistory(); if (typeof showToast === 'function') showToast(`${item.name} icon added`, 'success'); return; } adapter.addText(STUDIO_ICON_SYMBOLS[item.name] || '✦', { fontSize: 110, fontWeight: '900', name: `Icon: ${item.name}`, iconName: item.name, iconLibrary: library }); if (typeof showToast === 'function') showToast('Icon preview unavailable — added emoji fallback', 'info'); }); }
+function addStudioGifFromUrl(url) { const value = String(url || document.getElementById('studio-gif-url')?.value || '').trim(); if (!value) return; window.__studioAdapter?.addImage(value, 'Animated GIF').then((image) => { const active = image || window.__studioAdapter.fabricCanvas?.getActiveObject(); if (active) { active.msData = { ...(active.msData || {}), mediaType: 'gif' }; window.__studioAdapter.saveHistory(); } }); }
+function studioGifPresetSearch(query) { const input = document.getElementById('studio-gif-search'); if (input) input.value = query; searchStudioGifs(); }
+async function searchStudioGifs() {
+  const query = String(document.getElementById('studio-gif-search')?.value || '').trim();
+  const provider = document.getElementById('studio-gif-provider')?.value || 'giphy';
+  const results = document.getElementById('studio-gif-results');
+  if (!results || !query) return;
+  results.innerHTML = '<div class="col-span-3 p-3 text-center text-xs text-slate-400">Searching animated assets…</div>';
+  try {
+    const payload = await apiGetJson(`/marketing/studio/gifs/search?provider=${encodeURIComponent(provider)}&q=${encodeURIComponent(query)}`);
+    const items = payload.results || [];
+    results.innerHTML = items.map(item => `<button type="button" onclick="addStudioGifFromUrl('${String(item.source_url).replace(/'/g, '&#39;')}')" title="${escS(item.title)}" class="studio-gif-result text-left"><img src="${item.preview_url}" alt="" loading="lazy" class="studio-gif-result-image"><span class="studio-gif-result-title">${escS(item.title)}</span></button>`).join('') || '<div class="col-span-3 p-3 text-center text-xs text-slate-500">No GIFs found. Try another search.</div>';
+  } catch (error) {
+    const message = String(error?.message || '').replace(/^Error:\s*/i, '') || 'GIF search could not load.';
+    results.innerHTML = `<div class="col-span-3 studio-gif-status studio-gif-status-error"><strong>${escS(message)}</strong><br><span>Add the provider key to the staging environment, or paste a GIF URL below.</span></div>`;
+  }
+}
+window.searchStudioGifs = searchStudioGifs; window.studioGifPresetSearch = studioGifPresetSearch;
+function renderStudioPremadeElements(query = '', category = 'all') { const needle = String(query || '').toLowerCase(); return STUDIO_PREMADE_ELEMENTS.filter(item => (!needle || `${item.name} ${item.category} ${item.text}`.toLowerCase().includes(needle)) && (category === 'all' || item.category === category)).map(item => { const isButton = item.kind === 'button'; const isRibbon = item.kind === 'ribbon'; const isLegal = item.kind === 'legal'; const previewStyle = isButton ? 'background:linear-gradient(135deg,#2563EB,#4F46E5);color:#fff;border-radius:14px;box-shadow:0 5px 14px rgba(37,99,235,.28)' : isRibbon ? 'background:linear-gradient(135deg,#E11D48,#FB7185);color:#fff;border-radius:10px;transform:rotate(-2deg)' : isLegal ? 'background:#F1F5F9;color:#334155;border-radius:10px' : 'background:linear-gradient(135deg,#172554,#2563EB);color:#fff;border-radius:999px;box-shadow:0 5px 14px rgba(37,99,235,.2)'; const labelSize = isLegal ? '9px' : isButton ? '12px' : '11px'; return `<button type="button" onclick="studioAddPremade('${item.id}')" class="studio-element-card text-left p-2.5 rounded-2xl bg-white dark:bg-slate-800 hover:border-blue-500 hover:shadow-md border border-slate-200 dark:border-slate-700 transition"><div class="flex items-center justify-between gap-2"><span class="text-[9px] uppercase tracking-wider font-black text-sky-500">${escS(item.category)}</span><span class="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 flex items-center justify-center text-xs">+</span></div><div class="mt-2 h-20 flex items-center justify-center px-2 text-center font-black overflow-hidden" style="${previewStyle};font-size:${labelSize};line-height:1.05">${escS(item.text)}</div><div class="mt-2 text-[10px] font-bold text-slate-800 dark:text-white truncate">${escS(item.name)}</div><div class="text-[9px] text-slate-500 dark:text-slate-400">Click to add to canvas</div></button>`; }).join('') || '<div class="col-span-2 p-4 text-center text-xs text-slate-500">No elements match.</div>'; }
+function filterStudioPremadeElements() { const el = document.getElementById('studio-premade-library'); if (el) el.innerHTML = renderStudioPremadeElements(document.getElementById('studio-premade-query')?.value, document.getElementById('studio-premade-category')?.value || 'all'); }
+const STUDIO_TEXT_TEMPLATES = [
+  ['bold-title','Bold title','Titles','YOUR BIG IDEA','#0F172A','#FFFFFF',58,'900'], ['gradient-title','Gradient title','Titles','MAKE IT HAPPEN','#2563EB','#FFFFFF',52,'900'], ['outlined-title','Outlined title','Titles','STAND OUT','#172033','#FFFFFF',54,'900'], ['condensed-title','Condensed title','Titles','WEEKEND EVENT','#E11D48','#FFFFFF',42,'900'],
+  ['sale-price','Sale price','Offers','SALE PRICE','#10B981','#FFFFFF',56,'900'], ['monthly-price','Monthly payment','Offers','PAYMENT OFFER','#2563EB','#FFFFFF',42,'900'], ['apr-callout','Finance offer','Offers','FINANCE OFFER','#F59E0B','#172033',42,'900'], ['limited-time','Limited time','Offers','LIMITED TIME ONLY','#E11D48','#FFFFFF',34,'900'],
+  ['eyebrow','Eyebrow label','Labels','FEATURED INVENTORY','#172033','#93C5FD',22,'900'], ['new-arrival','New arrival','Labels','JUST ARRIVED','#4F46E5','#FFFFFF',26,'900'], ['certified','Certified label','Labels','CERTIFIED PRE-OWNED','#0F766E','#FFFFFF',24,'900'], ['stock-label','Stock label','Labels','IN STOCK • READY TODAY','#172033','#FFFFFF',22,'800'],
+  ['info-card','Info card','Information','VIEW TODAY\'S HOURS','#1E293B','#FFFFFF',25,'800'], ['phone-card','Contact card','Information','CALL OUR TEAM','#0F172A','#FFFFFF',25,'800'], ['location-card','Location card','Information','VISIT OUR SHOWROOM','#334155','#FFFFFF',25,'800'], ['disclaimer','Disclaimer','Information','SEE DEALER FOR COMPLETE DETAILS','#F1F5F9','#334155',17,'700']
+].map(([id, name, category, text, background, fill, fontSize, fontWeight]) => ({ id, name, category, text, background, fill, fontSize, fontWeight }));
+function renderStudioTextTemplates(query = '') { return studioCatalogButtons(STUDIO_TEXT_TEMPLATES, query, item => `<button type="button" onclick="studioAddTextTemplate('${item.id}')" class="text-left p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-500/20 border border-slate-300 dark:border-slate-700 transition"><div class="h-16 rounded-lg flex items-center justify-center px-2 text-center overflow-hidden" style="background:${item.background};color:${item.fill};font-size:${Math.max(10, item.fontSize * .25)}px;font-weight:${item.fontWeight};line-height:1.05">${escS(item.text)}</div><div class="mt-2 text-[10px] font-bold text-slate-900 dark:text-white truncate">${escS(item.name)}</div><div class="text-[9px] text-slate-500">${escS(item.category)}</div></button>`); }
+function filterStudioTextTemplates() { const el = document.getElementById('studio-text-template-library'); if (el) el.innerHTML = renderStudioTextTemplates(document.getElementById('studio-text-template-query')?.value || ''); }
+function studioAddTextTemplate(id) { const item = STUDIO_TEXT_TEMPLATES.find(template => template.id === id); const adapter = window.__studioAdapter; const canvas = adapter?.fabricCanvas; if (!item || !adapter || !canvas) return; const center = canvas.getCenter(); const width = Math.max(360, Math.min(760, item.text.length * item.fontSize * .52)); const objects = []; adapter.addShape('rect', item.background); const shape = canvas.getActiveObject(); if (shape) { shape.set({ left: center.left - width / 2, top: center.top - 52, width, height: 104, rx: 18, ry: 18 }); shape.msData = { ...(shape.msData || {}), name: `${item.name} background`, textTemplateId: item.id }; objects.push(shape); } adapter.addText(item.text, { x: center.left - width / 2 + 24, y: center.top - item.fontSize * .35, width: width - 48, fontSize: item.fontSize, fontWeight: item.fontWeight, fill: item.fill, textAlign: 'center', name: item.name, textTemplateId: item.id }); const text = canvas.getActiveObject(); if (text) { text.msData = { ...(text.msData || {}), name: item.name, textTemplateId: item.id }; objects.push(text); } if (objects.length > 1) { canvas.discardActiveObject(); canvas.setActiveObject(new window.fabric.ActiveSelection(objects, { canvas })); adapter.groupSelected(); } if (typeof showToast === 'function') showToast(`${item.name} added — text remains editable`, 'success'); }
+window.studioAddTextTemplate = studioAddTextTemplate;
+function studioAddPremade(id) { const item = STUDIO_PREMADE_ELEMENTS.find(element => element.id === id); const adapter = window.__studioAdapter; const canvas = adapter?.fabricCanvas; if (!item || !adapter || !canvas) return; const center = canvas.getCenter(); const objects = []; const fill = item.kind === 'button' ? '#2563EB' : item.kind === 'ribbon' ? '#E11D48' : item.kind === 'legal' ? '#172033' : '#4F46E5'; const width = item.kind === 'legal' ? 620 : item.kind === 'button' ? 480 : 420; const height = item.kind === 'legal' ? 78 : item.kind === 'button' ? 96 : 88; adapter.addShape(item.kind === 'badge' || item.kind === 'ribbon' || item.kind === 'button' ? 'badge' : 'rect', fill); const shape = canvas.getActiveObject(); if (shape) { shape.set({ left: center.left - width / 2, top: center.top - height / 2, width, height, rx: item.kind === 'button' ? 26 : 18, ry: item.kind === 'button' ? 26 : 18 }); shape.msData = { ...(shape.msData || {}), name: `${item.name} background`, premadeId: item.id }; objects.push(shape); } adapter.addText(item.text, { x: center.left, y: center.top, width: width - 48, fontSize: item.kind === 'legal' ? 17 : item.kind === 'button' ? 26 : 24, fontWeight: item.kind === 'legal' ? '600' : '900', fill: item.kind === 'legal' ? '#E2E8F0' : '#FFFFFF', textAlign: 'center', originX: 'center', originY: 'center', name: `${item.name} text`, premadeId: item.id }); const text = canvas.getActiveObject(); if (text) { text.msData = { ...(text.msData || {}), name: `${item.name} text`, premadeId: item.id }; objects.push(text); } if (objects.length > 1) { canvas.discardActiveObject(); canvas.setActiveObject(new window.fabric.ActiveSelection(objects, { canvas })); adapter.groupSelected(); } if (typeof showToast === 'function') showToast(`${item.name} added — edit or duplicate it`, 'success'); }
+window.filterStudioShapes = filterStudioShapes; window.filterStudioStickers = filterStudioStickers; window.filterStudioFonts = filterStudioFonts; window.filterStudioIcons = filterStudioIcons; window.studioAddIcon = studioAddIcon; window.addStudioGifFromUrl = addStudioGifFromUrl; window.filterStudioPremadeElements = filterStudioPremadeElements; window.studioAddPremade = studioAddPremade; window.filterStudioTextTemplates = filterStudioTextTemplates;
 
 function escS(str) {
   if (str == null) return '';
@@ -214,6 +306,7 @@ function studioKeydownHandler(e) {
   const editable = tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable;
   if (editable) return;
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); adapter.deleteSelected(); return; }
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) { e.preventDefault(); const distance = e.shiftKey ? 10 : 1; const delta = { ArrowUp: [0, -distance], ArrowDown: [0, distance], ArrowLeft: [-distance, 0], ArrowRight: [distance, 0] }[e.key]; adapter.nudgeSelected(delta[0], delta[1]); return; }
   const mod = e.ctrlKey || e.metaKey;
   if (!mod) return;
   const key = e.key.toLowerCase();
@@ -276,6 +369,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
           <button onclick="zoomStudioFit()" title="Fit to Screen" class="px-2.5 py-1 ml-1 rounded-lg bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 text-[11px] font-bold text-slate-900 dark:text-white transition">Fit</button>
         </div>
         <button id="studio-guides-toggle" onclick="toggleStudioGuides()" class="px-3 py-1.5 rounded-xl bg-indigo-600 text-white dark:bg-blue-600/20 dark:border dark:border-blue-500/40 dark:text-blue-300 text-xs font-bold">Guides on</button>
+        <button id="studio-grid-toggle" onclick="toggleStudioGrid()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">Grid off</button>
 
         <div class="h-5 w-px bg-slate-200 dark:bg-slate-800"></div>
 
@@ -291,6 +385,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
         <select id="studio-format-picker" onchange="changeStudioFormat(this.value)" class="bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700">
           ${Object.entries(STUDIO_SOCIAL_FORMATS).map(([key, format]) => `<option value="${key}" ${scene.format_key === key ? 'selected' : ''}>${format.label} (${format.w}×${format.h})</option>`).join('')}
         </select>
+        <button type="button" onclick="openStudioMagicResize()" class="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-black whitespace-nowrap">✦ Magic Resize</button>
         <div class="flex items-center rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 p-0.5" title="Preview breakpoint-specific layout overrides">
           <button type="button" onclick="setStudioBreakpoint('desktop')" data-studio-breakpoint="desktop" class="studio-breakpoint px-2 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-black">Desktop</button>
           <button type="button" onclick="setStudioBreakpoint('tablet')" data-studio-breakpoint="tablet" class="studio-breakpoint px-2 py-1 rounded-lg text-slate-500 dark:text-slate-300 text-[10px] font-bold">Tablet</button>
@@ -305,6 +400,9 @@ function renderStudioWorkspaceHtml(designName, scene) {
           <svg class="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>Save
         </button>
         <button onclick="openStudioRevisionHistory()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition">History</button>
+        <button onclick="openStudioCollaboration()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition">Review</button>
+        <button onclick="openStudioAiDesign()" class="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-black transition">✦ AI Design</button>
+        <button onclick="openStudioExport()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition">Export</button>
         <button onclick="publishStudioDesign()" class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-lg transition">Publish</button>
         <button onclick="if(typeof openStudioSchedulerWithEntitlementCheck === 'function') openStudioSchedulerWithEntitlementCheck()" class="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition flex items-center gap-1.5">
           <svg class="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Schedule
@@ -319,37 +417,39 @@ function renderStudioWorkspaceHtml(designName, scene) {
     <!-- Main Workspace Body -->
     <div class="flex-1 flex overflow-hidden relative">
       <!-- Left Tool Rail -->
-      <nav class="w-16 bg-slate-50 dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 flex flex-col items-center py-3 gap-3 flex-shrink-0 z-10">
-        <button onclick="setStudioTool('templates')" id="tool-btn-templates" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition ${window.__studioActiveTool==='templates'?'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50':''}">
-          <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Templates
+      <nav data-studio-region="rail" class="w-16 bg-slate-50 dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 flex flex-col items-center py-3 gap-3 flex-shrink-0 z-10">
+        <button onclick="setStudioTool('templates')" id="tool-btn-templates" data-studio-tool="templates" aria-current="${window.__studioActiveTool === 'templates' ? 'page' : 'false'}" class="studio-tool-rail-button">
+          <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Templates
         </button>
-        <button onclick="setStudioTool('inventory')" id="tool-btn-inventory" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition ${window.__studioActiveTool==='inventory'?'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50':''}">
-          <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 17a2 2 0 100 4 2 2 0 000-4zm10 0a2 2 0 100 4 2 2 0 000-4zM4 9h16l-1.5 5H5.5L4 9z"/></svg>Inventory
+        <button onclick="setStudioTool('elements')" id="tool-btn-elements" data-studio-tool="elements" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base mb-0.5">✦</span>Elements</button>
+        <button onclick="setStudioTool('inventory')" id="tool-btn-inventory" data-studio-tool="inventory" aria-current="false" class="studio-tool-rail-button">
+          <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 17a2 2 0 100 4 2 2 0 000-4zm10 0a2 2 0 100 4 2 2 0 000-4zM4 9h16l-1.5 5H5.5L4 9z"/></svg>Inventory
         </button>
-        <button onclick="setStudioTool('photos')" id="tool-btn-photos" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-          <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Photos
+        <button onclick="setStudioTool('photos')" id="tool-btn-photos" data-studio-tool="photos" aria-current="false" class="studio-tool-rail-button">
+          <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Photos
         </button>
-        <button onclick="setStudioTool('videos')" id="tool-btn-videos" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-base">▶</span>Videos</button>
-        <button onclick="setStudioTool('record')" id="tool-btn-record" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition ${window.__studioActiveTool==='record'?'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50':''}"><span class="text-base">●</span>Record</button>
-        <button onclick="setStudioTool('uploads')" id="tool-btn-uploads" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-base">↑</span>Uploads</button>
-        <button onclick="setStudioTool('media')" id="tool-btn-media" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-base mb-0.5">▧</span>Media</button>
-        <button onclick="setStudioTool('shapes')" id="tool-btn-shapes" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-          <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/></svg>Shapes
+        <button onclick="setStudioTool('videos')" id="tool-btn-videos" data-studio-tool="videos" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base">▶</span>Videos</button>
+        <button onclick="setStudioTool('record')" id="tool-btn-record" data-studio-tool="record" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base">●</span>Record</button>
+        <button onclick="setStudioTool('uploads')" id="tool-btn-uploads" data-studio-tool="uploads" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base">↑</span>Uploads</button>
+        <button onclick="setStudioTool('media')" id="tool-btn-media" data-studio-tool="media" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base mb-0.5">▧</span>Media</button>
+        <button onclick="setStudioTool('shapes')" id="tool-btn-shapes" data-studio-tool="shapes" aria-current="false" class="studio-tool-rail-button">
+          <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/></svg>Shapes
         </button>
-        <button onclick="setStudioTool('stickers')" id="tool-btn-stickers" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-          <span class="text-base mb-0.5">⭐</span>Stickers
+        <button onclick="setStudioTool('icons')" id="tool-btn-icons" data-studio-tool="icons" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base mb-0.5">✦</span>Icons</button>
+        <button onclick="setStudioTool('stickers')" id="tool-btn-stickers" data-studio-tool="stickers" aria-current="false" class="studio-tool-rail-button">
+          <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3z"/></svg>Stickers
         </button>
-        <button onclick="setStudioTool('text')" id="tool-btn-text" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition ${window.__studioActiveTool==='text'?'bg-indigo-600/30 text-indigo-400 border border-indigo-500/50':''}">
-          <span class="text-base font-black">Aa</span>Text
+        <button onclick="setStudioTool('text')" id="tool-btn-text" data-studio-tool="text" aria-current="false" class="studio-tool-rail-button">
+          <span class="studio-tool-icon text-base font-black">Aa</span>Text
         </button>
-        <button onclick="setStudioTool('brand')" id="tool-btn-brand" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-          <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10M7 12h10m-7 5h7"/></svg>Brand
+        <button onclick="setStudioTool('brand')" id="tool-btn-brand" data-studio-tool="brand" aria-current="false" class="studio-tool-rail-button">
+          <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10M7 12h10m-7 5h7"/></svg>Brand
         </button>
-        <button onclick="setStudioTool('layers')" id="tool-btn-layers" class="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-base mb-0.5">≡</span>Layers</button>
+        <button onclick="setStudioTool('layers')" id="tool-btn-layers" data-studio-tool="layers" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base mb-0.5">≡</span>Layers</button>
       </nav>
 
       <!-- Left Tool Panel Drawer -->
-      <aside class="w-60 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0 z-10 overflow-y-auto transition-all duration-200" id="studio-tool-panel">
+      <aside data-studio-region="drawer" class="w-60 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0 z-10 overflow-y-auto transition-all duration-200" id="studio-tool-panel">
         <div class="flex items-center justify-between p-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
           <span class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Tool Drawer</span>
           <button type="button" onclick="toggleStudioToolPanel()" class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-xs font-bold px-1.5 py-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800" title="Collapse Tool Panel">&lt;</button>
@@ -358,7 +458,9 @@ function renderStudioWorkspaceHtml(designName, scene) {
       </aside>
 
       <!-- Center Artboard Viewport Canvas -->
-      <main id="studio-canvas-viewport" class="flex-1 min-w-0 bg-slate-50 dark:bg-slate-950 overflow-hidden relative">
+      <main data-studio-region="canvas" id="studio-canvas-viewport" class="flex-1 min-w-0 bg-slate-50 dark:bg-slate-950 overflow-hidden relative">
+        <div id="studio-page-stack" aria-label="Pages" class="studio-page-stack"></div>
+        <div class="studio-page-stage-label"><span id="studio-active-page-label">Page 1</span><span class="studio-page-stage-actions"><button type="button" onclick="duplicateStudioPage(window.__studioAdapter?.activePageId)" title="Duplicate page">⧉</button><button type="button" onclick="deleteStudioPage(window.__studioAdapter?.activePageId)" title="Delete page">⌫</button></span></div>
         <div id="studio-artboard-container" class="absolute left-1/2 top-1/2 shadow-2xl rounded-2xl overflow-hidden border-4 border-blue-500/70 bg-white dark:bg-slate-900 ring-4 ring-blue-500/20 transition-transform duration-200 origin-center" style="width:${scene.width}px; height:${scene.height}px; transform:translate(-50%, -50%) scale(0.55);">
           <canvas id="studio-main-canvas"></canvas>
           ${renderStudioSafeGuides(scene.format_key || 'square')}
@@ -366,21 +468,21 @@ function renderStudioWorkspaceHtml(designName, scene) {
       </main>
 
       <!-- Right Property Inspector & Layer Controls -->
-      <aside class="w-60 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0 p-3 z-10 overflow-y-auto transition-all duration-200" id="studio-inspector-panel">
+      <aside data-studio-region="inspector" class="w-60 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0 p-3 z-10 overflow-y-auto transition-all duration-200" id="studio-inspector-panel">
         <div class="flex items-center justify-between pb-2.5 mb-2 border-b border-slate-200 dark:border-slate-800">
           <span class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Inspector</span>
           <button type="button" onclick="toggleStudioInspectorPanel()" class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-xs font-bold px-1.5 py-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800" title="Collapse Inspector">&gt;</button>
         </div>
-        ${renderStudioInspectorHtml(null)}
+        ${renderStudioProfessionalInspectorHtml(null)}
       </aside>
     </div>
-    <footer class="h-16 flex-shrink-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-3 flex items-center gap-2 overflow-x-auto z-30">
+    <footer data-studio-region="footer" class="h-16 flex-shrink-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-3 flex items-center gap-2 overflow-x-auto z-30">
       <span class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Pages</span>
       <select onchange="setStudioPage(this.value)" class="max-w-28 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1.5 text-xs font-bold">${(scene.pages || [{ id: 'page-1', name: 'Page 1' }]).map((page, index) => `<option value="${escS(page.id || `page-${index + 1}`)}">${escS(page.name || `Page ${index + 1}`)}</option>`).join('')}</select>
       <button onclick="addStudioPage()" class="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-700 text-xs font-black">+ Page</button>
       <div class="h-7 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
       <span class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-1">Text</span>
-      <button onclick="studioAddText('heading')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">+ Heading</button>
+      <button onclick="studioAddText('heading')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black">+ Heading</button>
       <button onclick="studioAddText('subheading')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold">+ Subheading</button>
       <button onclick="studioAddText('body')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-medium">+ Body text</button>
       <div class="h-7 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
@@ -443,14 +545,21 @@ const STUDIO_TEMPLATES_CATALOG = {
       height: 1920,
       background: { color: '#18181B' },
       elements: [
-        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1600&q=82', x: 0, y: 200, width: 1080, height: 1100, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
-        { id: 'el-top-banner', type: 'shape', shapeType: 'rect', x: 0, y: 0, width: 1080, height: 200, fill: '#EF4444', opacity: 1, z: 2, name: 'Price Reduction Banner' },
-        { id: 'el-top-txt', type: 'text', x: 320, y: 75, text: 'PRICE REDUCED!', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 3, name: 'Banner Text' },
-        { id: 'el-card', type: 'shape', shapeType: 'rect', x: 50, y: 1350, width: 980, height: 480, fill: '#27272A', rx: 32, opacity: 0.95, z: 4, name: 'Card Background' },
-        { id: 'el-ymmt', type: 'text', x: 100, y: 1410, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 48, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'Vehicle Title' },
-        { id: 'el-miles', type: 'text', x: 100, y: 1480, text: 'Mileage: {{vehicle.mileage}} miles', fontSize: 24, fontWeight: '600', fill: '#A1A1AA', z: 6, name: 'Mileage' },
-        { id: 'el-price', type: 'text', x: 100, y: 1560, text: 'NOW ONLY: {{vehicle.price}}', fontSize: 40, fontWeight: '900', fill: '#34D399', z: 7, name: 'Special Price' },
-        { id: 'el-store', type: 'text', x: 100, y: 1720, text: '{{dealership.name}} • {{dealership.phone}}', fontSize: 22, fontWeight: '700', fill: '#E4E4E7', z: 8, name: 'Store Contact' }
+        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1600&q=88', x: 0, y: 0, width: 1080, height: 1410, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
+        { id: 'el-photo-overlay', type: 'shape', shapeType: 'rect', x: 0, y: 0, width: 1080, height: 1410, fill: '#07111F', opacity: 0.34, z: 2, name: 'Photo Contrast Overlay' },
+        { id: 'el-top-banner', type: 'shape', shapeType: 'badge', x: 70, y: 82, width: 330, height: 68, fill: '#EF4444', opacity: 1, rx: 34, z: 3, name: 'Price Reduction Banner' },
+        { id: 'el-top-txt', type: 'text', x: 104, y: 102, width: 270, text: 'PRICE REDUCED', fontSize: 30, fontWeight: '900', fill: '#FFFFFF', z: 4, name: 'Banner Text' },
+        { id: 'el-headline', type: 'text', x: 70, y: 250, width: 820, text: 'YOUR NEXT ADVENTURE STARTS HERE', fontSize: 72, fontWeight: '900', fill: '#FFFFFF', z: 4, name: 'Campaign Headline' },
+        { id: 'el-subhead', type: 'text', x: 74, y: 470, width: 680, text: 'Drive away in a better vehicle for less.', fontSize: 30, fontWeight: '600', fill: '#E2E8F0', z: 4, name: 'Campaign Subheadline' },
+        { id: 'el-card', type: 'shape', shapeType: 'rect', x: 50, y: 1225, width: 980, height: 635, fill: '#0B1220', rx: 34, opacity: 0.97, z: 5, name: 'Vehicle Information Card' },
+        { id: 'el-card-label', type: 'text', x: 100, y: 1290, width: 500, text: 'FEATURED VEHICLE', fontSize: 24, fontWeight: '900', fill: '#67E8F9', z: 6, name: 'Vehicle Label' },
+        { id: 'el-ymmt', type: 'text', x: 100, y: 1340, width: 850, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 54, fontWeight: '900', fill: '#FFFFFF', z: 6, name: 'Vehicle Title' },
+        { id: 'el-miles', type: 'text', x: 100, y: 1425, width: 700, text: '{{vehicle.mileage}} miles • Available now', fontSize: 28, fontWeight: '600', fill: '#CBD5E1', z: 6, name: 'Mileage' },
+        { id: 'el-price-label', type: 'text', x: 100, y: 1500, width: 250, text: 'NOW ONLY', fontSize: 23, fontWeight: '900', fill: '#94A3B8', z: 6, name: 'Price Label' },
+        { id: 'el-price', type: 'text', x: 100, y: 1530, width: 650, text: '{{vehicle.price}}', fontSize: 68, fontWeight: '900', fill: '#34D399', z: 6, name: 'Special Price' },
+        { id: 'el-cta', type: 'shape', shapeType: 'badge', x: 100, y: 1660, width: 470, height: 88, fill: '#2563EB', opacity: 1, rx: 24, z: 6, name: 'Campaign CTA' },
+        { id: 'el-cta-txt', type: 'text', x: 145, y: 1685, width: 380, text: 'BOOK A TEST DRIVE  →', fontSize: 25, fontWeight: '900', fill: '#FFFFFF', z: 7, name: 'CTA Text' },
+        { id: 'el-store', type: 'text', x: 100, y: 1790, width: 850, text: '{{dealership.name}} • {{dealership.phone}}', fontSize: 22, fontWeight: '700', fill: '#CBD5E1', z: 7, name: 'Store Contact' }
       ]
     }
   },
@@ -472,7 +581,7 @@ const STUDIO_TEMPLATES_CATALOG = {
         { id: 'el-card', type: 'shape', shapeType: 'rect', x: 600, y: 0, width: 600, height: 628, fill: '#1E293B', opacity: 1, z: 2, name: 'Right Copy Panel' },
         { id: 'el-badge', type: 'text', x: 650, y: 60, text: 'WEEKEND SPECIAL', fontSize: 20, fontWeight: '800', fill: '#F59E0B', z: 3, name: 'Badge' },
         { id: 'el-title', type: 'text', x: 650, y: 110, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 36, fontWeight: '900', fill: '#FFFFFF', z: 4, name: 'Vehicle Name' },
-        { id: 'el-offer', type: 'text', x: 650, y: 220, text: '0% APR FOR 60 MONTHS AVAILABLE', fontSize: 22, fontWeight: '700', fill: '#94A3B8', z: 5, name: 'Offer Text' },
+        { id: 'el-offer', type: 'text', x: 650, y: 220, text: 'ASK ABOUT CURRENT APPROVED OFFERS', fontSize: 22, fontWeight: '700', fill: '#94A3B8', z: 5, name: 'Offer Text', approval_required: true },
         { id: 'el-price', type: 'text', x: 650, y: 300, text: 'PRICE: {{vehicle.price}}', fontSize: 38, fontWeight: '900', fill: '#10B981', z: 6, name: 'Price Text' },
         { id: 'el-cta-btn', type: 'shape', shapeType: 'rect', x: 650, y: 440, width: 480, height: 75, fill: '#2563EB', rx: 16, opacity: 1, z: 7, name: 'CTA Button' },
         { id: 'el-cta-txt', type: 'text', x: 790, y: 465, text: 'CLAIM THIS OFFER', fontSize: 22, fontWeight: '800', fill: '#FFFFFF', z: 8, name: 'CTA Text' }
@@ -498,8 +607,8 @@ const STUDIO_TEMPLATES_CATALOG = {
         { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1600&q=82', x: 0, y: 120, width: 1080, height: 780, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
         { id: 'el-card', type: 'shape', shapeType: 'rect', x: 40, y: 920, width: 1000, height: 380, fill: '#1E293B', rx: 24, opacity: 0.95, z: 4, name: 'Bottom Details Card' },
         { id: 'el-ymmt', type: 'text', x: 80, y: 970, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 42, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'Title' },
-        { id: 'el-insp', type: 'text', x: 80, y: 1040, text: '172-Point Inspection Passed • Low Mileage', fontSize: 22, fontWeight: '600', fill: '#94A3B8', z: 6, name: 'Inspection' },
-        { id: 'el-price', type: 'text', x: 80, y: 1120, text: '{{vehicle.price}} • 12-Month Warranty Included', fontSize: 28, fontWeight: '800', fill: '#34D399', z: 7, name: 'Price & Warranty' },
+        { id: 'el-insp', type: 'text', x: 80, y: 1040, text: 'CERTIFICATION DETAILS AVAILABLE', fontSize: 22, fontWeight: '600', fill: '#94A3B8', z: 6, name: 'Inspection', approval_required: true },
+        { id: 'el-price', type: 'text', x: 80, y: 1120, text: '{{vehicle.sale_price|Contact dealer for details}}', binding: { template: '{{vehicle.sale_price|Contact dealer for details}}' }, fontSize: 28, fontWeight: '800', fill: '#34D399', z: 7, name: 'Price & Warranty' },
         { id: 'el-phone', type: 'text', x: 80, y: 1210, text: 'Call Us Today: {{dealership.phone}}', fontSize: 22, fontWeight: '700', fill: '#38BDF8', z: 8, name: 'Phone' }
       ]
     }
@@ -519,7 +628,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       background: { color: '#064E3B' },
       elements: [
         { id: 'el-hdr', type: 'text', x: 60, y: 80, text: 'TOP MARKET TRADE VALUE', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 1, name: 'Header' },
-        { id: 'el-sub', type: 'text', x: 60, y: 150, text: 'We Need Used Inventory — Get Up to 120% KBB Value!', fontSize: 26, fontWeight: '700', fill: '#A7F3D0', z: 2, name: 'Subtitle' },
+        { id: 'el-sub', type: 'text', x: 60, y: 150, text: 'We Need Used Inventory — Request Your Trade Appraisal', fontSize: 26, fontWeight: '700', fill: '#A7F3D0', z: 2, name: 'Subtitle' },
         { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=1600&q=82', x: 60, y: 220, width: 960, height: 560, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
         { id: 'el-btn', type: 'shape', shapeType: 'rect', x: 60, y: 840, width: 960, height: 160, fill: '#10B981', rx: 24, opacity: 1, z: 4, name: 'CTA Card' },
         { id: 'el-btn-txt', type: 'text', x: 180, y: 900, text: 'VALUE YOUR TRADE IN 60 SECONDS', fontSize: 32, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'CTA Text' }
@@ -545,7 +654,7 @@ const STUDIO_TEMPLATES_CATALOG = {
         { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1592833159155-c62df1b65634?auto=format&fit=crop&w=1600&q=82', x: 0, y: 160, width: 1080, height: 1100, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
         { id: 'el-card', type: 'shape', shapeType: 'rect', x: 50, y: 1300, width: 980, height: 520, fill: '#0F172A', rx: 32, opacity: 0.95, z: 4, name: 'Card' },
         { id: 'el-title', type: 'text', x: 100, y: 1360, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'Title' },
-        { id: 'el-rebate', type: 'text', x: 100, y: 1430, text: 'Federal & State Rebates Up to $7,500 Available', fontSize: 24, fontWeight: '700', fill: '#38BDF8', z: 6, name: 'Rebate' },
+        { id: 'el-rebate', type: 'text', x: 100, y: 1430, text: 'ASK ABOUT CURRENT EV PROGRAM ELIGIBILITY', fontSize: 24, fontWeight: '700', fill: '#38BDF8', z: 6, name: 'Rebate', approval_required: true },
         { id: 'el-price', type: 'text', x: 100, y: 1510, text: 'NET PRICE: {{vehicle.price}}', fontSize: 40, fontWeight: '900', fill: '#34D399', z: 7, name: 'Price' },
         { id: 'el-btn', type: 'shape', shapeType: 'rect', x: 100, y: 1620, width: 880, height: 100, fill: '#06B6D4', rx: 20, opacity: 1, z: 8, name: 'Button' },
         { id: 'el-btn-txt', type: 'text', x: 340, y: 1655, text: 'EXPLORE EV OFFERS', fontSize: 26, fontWeight: '800', fill: '#FFFFFF', z: 9, name: 'Button Text' }
@@ -578,6 +687,18 @@ Object.entries(STUDIO_SOCIAL_FORMATS).forEach(([formatKey, format], index) => {
   };
 });
 
+// The professional template catalogue is generated as editable scene JSON by the
+// shared document schema. It extends this existing picker instead of introducing
+// another template system or flattened artwork format.
+(window.msDesignStudioAutomotiveTemplates || []).forEach(template => {
+  STUDIO_TEMPLATES_CATALOG[template.template_key] = {
+    ...template,
+    desc: `${template.category} · fully editable`,
+    width: template.scene.width,
+    height: template.scene.height
+  };
+});
+
 function renderStudioSafeGuides(formatKey) {
   const format = STUDIO_SOCIAL_FORMATS[formatKey] || STUDIO_SOCIAL_FORMATS.square;
   const [top, right, bottom, left] = format.safe;
@@ -585,11 +706,9 @@ function renderStudioSafeGuides(formatKey) {
   return `<div id="studio-safe-guides" class="absolute inset-0 pointer-events-none z-20"><div style="position:absolute;top:${top}%;right:${right}%;bottom:${bottom}%;left:${left}%;border:3px dashed rgba(96,165,250,.95);border-radius:18px;box-shadow:0 0 0 9999px rgba(15,23,42,.08)"><span style="position:absolute;left:10px;top:10px;background:rgba(15,23,42,.86);color:#dbeafe;padding:6px 10px;border-radius:8px;font:800 18px/1 Arial;letter-spacing:.04em">SAFE AREA · ${format.note}</span></div>${profileGuide}</div>`;
 }
 
-// Every template used to preview as the exact same generic blue gradient with the
-// exact same "YOUR CAMPAIGN STARTS HERE" caption — none of the 9+ templates looked
-// any different from each other in the picker. Build a real gradient from each
-// template's OWN scene colors (background + its most prominent shape fills) instead,
-// so the card actually shows what that template looks like.
+// Template cards are miniature renderings of the actual scene. A gradient plus a
+// title made every template look like a placeholder; the picker needs to expose the
+// real composition, photography, typography, and CTA hierarchy before insertion.
 function templatePreviewGradient(tmpl) {
   const bg = tmpl.scene?.background?.color || '#0f172a';
   const fills = (tmpl.scene?.elements || [])
@@ -599,12 +718,33 @@ function templatePreviewGradient(tmpl) {
   return `linear-gradient(135deg, ${bg}, ${accent} 58%, ${accent2})`;
 }
 
-function renderStudioTemplateCards(filter = 'all') {
-  return Object.values(STUDIO_TEMPLATES_CATALOG).filter(t => filter === 'all' || t.format_key === filter).map(t => {
-    const preview = t.preview || templatePreviewGradient(t);
-    const format = STUDIO_SOCIAL_FORMATS[t.format_key];
-    return `<button onclick="loadStudioTemplate('${t.template_key}')" class="w-full text-left rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 hover:border-blue-500 transition group"><div style="height:104px;background:${preview}" class="relative p-3"><span class="absolute left-2 top-2 px-2 py-1 rounded-lg bg-slate-950/75 text-[9px] font-black text-blue-200">${format ? `${format.w}×${format.h}` : 'READY'}</span><div class="absolute left-3 right-3 bottom-3 text-white font-black text-sm leading-tight drop-shadow">${escS(t.name)}</div></div><div class="p-3"><div class="text-xs font-black text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-300">${t.name}</div><div class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">${t.desc}</div></div></button>`;
+function templatePreviewMarkup(tmpl) {
+  const scene = tmpl.scene || {};
+  const width = Number(scene.width || tmpl.width || 1080);
+  const height = Number(scene.height || tmpl.height || 1080);
+  const elements = (scene.elements || []).slice().sort((a, b) => Number(a.z || 0) - Number(b.z || 0));
+  const previewText = value => String(value || '').replace(/\{\{[^}]+\}\}/g, '2024 Vehicle').replace(/\s+/g, ' ').trim();
+  const nodes = elements.map(element => {
+    const left = `${(Number(element.x || 0) / width) * 100}%`;
+    const top = `${(Number(element.y || 0) / height) * 100}%`;
+    const w = `${(Number(element.width || width) / width) * 100}%`;
+    const h = `${(Number(element.height || height) / height) * 100}%`;
+    const base = `position:absolute;left:${left};top:${top};width:${w};height:${h};opacity:${element.opacity == null ? 1 : element.opacity};`;
+    if (element.type === 'vehicle-image' || element.type === 'image') return element.src ? `<img src="${escS(element.src)}" alt="" loading="lazy" style="${base}object-fit:${element.fit === 'contain' ? 'contain' : 'cover'};" onerror="this.style.display='none'">` : '';
+    if (element.type === 'shape') { const background = element.gradient?.colors?.length > 1 ? `linear-gradient(135deg,${element.gradient.colors.join(',')})` : (element.fill || '#2563eb'); return `<div style="${base}background:${escS(background)};border-radius:${Math.min(50, Number(element.rx || 0) / Math.max(1, Number(element.width || width)) * 100)}%;"></div>`; }
+    if (element.type === 'text') return `<div style="${base}color:${escS(element.fill || '#fff')};font-size:${Math.max(6, Math.min(34, Number(element.fontSize || 24) * 0.22))}px;font-weight:${escS(element.fontWeight || '700')};font-family:Manrope,Arial,sans-serif;line-height:1.05;overflow:hidden;">${escS(previewText(element.text))}</div>`;
+    return '';
   }).join('');
+  return `<div class="studio-template-preview" style="aspect-ratio:${width}/${height};background:${escS(scene.background?.color || '#0f172a')};">${nodes}</div>`;
+}
+
+function renderStudioTemplateCards(filter = window.__studioTemplateFormat || 'all', category = window.__studioTemplateCategory || 'all', limit = window.__studioTemplateLimit || 24) {
+  const matches = Object.values(STUDIO_TEMPLATES_CATALOG).filter(t => (filter === 'all' || t.format_key === filter) && (category === 'all' || t.category === category));
+  const cards = matches.slice(0, limit).map(t => {
+    const format = STUDIO_SOCIAL_FORMATS[t.format_key];
+    return `<button onclick="loadStudioTemplate('${t.template_key}')" class="w-full text-left rounded-2xl overflow-hidden bg-white border border-slate-200 hover:border-blue-500 hover:shadow-lg transition group"><div class="relative overflow-hidden bg-slate-950">${templatePreviewMarkup(t)}<span class="absolute left-2 top-2 px-2 py-1 rounded-lg bg-slate-950/80 text-[9px] font-black text-blue-100">${format ? `${format.w}×${format.h}` : 'READY'}</span></div><div class="p-3"><div class="text-xs font-black text-slate-900 group-hover:text-blue-600">${escS(t.name)}</div><div class="mt-1 text-[10px] text-slate-500">${escS(t.desc)}</div></div></button>`;
+  }).join('');
+  return cards + (matches.length > limit ? `<button type="button" onclick="loadMoreStudioTemplates()" class="w-full py-3 rounded-2xl border border-slate-300 dark:border-slate-700 text-xs font-black">Show more templates (${matches.length - limit})</button>` : '');
 }
 
 function renderStudioToolPanelContent(tool) {
@@ -629,7 +769,8 @@ function renderStudioToolPanelContent(tool) {
     return `
       <div class="p-4 space-y-3">
         <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Social Templates</h3><p class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Ready-made layouts with gradients, shapes and safe text placement.</p></div>
-        <select onchange="filterStudioTemplates(this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white"><option value="all">All social sizes</option>${Object.entries(STUDIO_SOCIAL_FORMATS).map(([key,f]) => `<option value="${key}">${f.label}</option>`).join('')}</select>
+        <select onchange="filterStudioTemplates(this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white"><option value="all">All output sizes</option>${Object.entries(STUDIO_SOCIAL_FORMATS).map(([key,f]) => `<option value="${key}">${f.label}</option>`).join('')}</select>
+        <select onchange="filterStudioTemplateCategory(this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white"><option value="all">All categories</option>${[...new Set(Object.values(STUDIO_TEMPLATES_CATALOG).map(template => template.category).filter(Boolean))].map(category => `<option value="${escS(category)}">${escS(category)}</option>`).join('')}</select>
         <div id="studio-template-cards" class="space-y-3">${renderStudioTemplateCards()}</div>
         <div class="pt-3 mt-1 border-t border-slate-200 dark:border-slate-800 space-y-2">
           <h4 class="text-[11px] font-black uppercase tracking-wider text-sky-400">✦ Generate a template</h4>
@@ -639,6 +780,8 @@ function renderStudioToolPanelContent(tool) {
         </div>
       </div>
     `;
+  } else if (tool === 'elements') {
+    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Premade Elements</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Editable grouped building blocks. Add one, then change the text, color, or duplicate it.</p></div><div class="flex gap-2"><input id="studio-premade-query" oninput="filterStudioPremadeElements()" placeholder="Search badges, CTAs, cards..." class="min-w-0 flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs"><select id="studio-premade-category" onchange="filterStudioPremadeElements()" class="w-24 px-1 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[10px]"><option value="all">All</option>${['Offers','Buttons','Trust','Automotive','Brand','Legal'].map(category => `<option value="${category}">${category}</option>`).join('')}</select></div><div id="studio-premade-library" class="grid grid-cols-2 gap-2 max-h-[68vh] overflow-y-auto">${renderStudioPremadeElements()}</div></div>`;
   } else if (tool === 'inventory') {
     return `
       <div class="p-4 space-y-3">
@@ -646,13 +789,7 @@ function renderStudioToolPanelContent(tool) {
         <p class="text-[11px] text-slate-500 dark:text-slate-400 -mt-1">Pick a vehicle — its photo and details fill an automotive template, ready to edit and schedule.</p>
         <input type="text" placeholder="Search stock #, VIN, year make model..." oninput="searchStudioInventory(this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white">
         <div class="space-y-2" id="studio-inventory-list">
-          <button onclick="createFromVehicle('demo_v1')" class="w-full text-left p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-xs font-black text-indigo-400">VEH</div>
-            <div class="min-w-0 flex-1">
-              <div class="text-xs font-bold text-slate-900 dark:text-white">2024 Ford F-150 Lariat</div>
-              <div class="text-[11px] text-emerald-400 font-bold">$54,990 • STK #F9041</div>
-            </div>
-          </button>
+          <div class="p-3 text-xs text-slate-500">Loading connected inventory…</div>
         </div>
       </div>
     `;
@@ -674,7 +811,7 @@ function renderStudioToolPanelContent(tool) {
   } else if (tool === 'videos') {
     return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Pexels Videos</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Search free video clips and place them on the canvas.</p></div><form onsubmit="event.preventDefault(); searchStudioVideos(document.getElementById('studio-video-query').value)" class="flex gap-2"><input id="studio-video-query" type="search" value="car dealership" placeholder="Search videos..." class="min-w-0 flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white"><button class="px-3 rounded-xl bg-blue-600 text-xs font-black">Search</button></form><div class="space-y-3" id="studio-video-results"><div class="p-5 text-center text-xs text-slate-500 dark:text-slate-400">Loading Pexels videos…</div></div><a href="https://www.pexels.com/videos/" target="_blank" rel="noopener" class="block text-center text-[10px] font-bold text-sky-400 hover:underline">Videos provided by Pexels</a></div>`;
   } else if (tool === 'uploads') {
-    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Your Video Uploads</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Upload video files up to 200 MB and reuse them here.</p></div><label class="block p-4 rounded-xl border-2 border-dashed border-blue-500/50 bg-blue-500/10 text-center cursor-pointer hover:bg-blue-500/20"><span class="block text-xl mb-1">↑</span><span class="text-xs font-black">Upload your video</span><input type="file" accept="video/*" class="hidden" onchange="uploadStudioVideo(this)"></label><div id="studio-upload-status" class="hidden text-xs text-center text-sky-400"></div><div id="studio-uploaded-videos" class="space-y-3"><div class="p-5 text-center text-xs text-slate-500 dark:text-slate-400">Loading your videos…</div></div></div>`;
+    return `<div class="studio-uploads-panel p-4 space-y-4"><div><div class="flex items-center gap-2"><span class="studio-panel-icon">↑</span><h3 class="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Uploads</h3></div><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Bring your own photos and videos into the Studio. They stay available in your Media library.</p></div><div class="studio-upload-dropzone"><div class="studio-upload-dropzone-icon">↑</div><div class="text-sm font-black text-slate-900 dark:text-white">Upload media</div><div class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">PNG, JPG, WebP, GIF, MP4 · up to 200 MB</div><div class="grid grid-cols-2 gap-2 mt-4"><label class="studio-upload-action studio-upload-action-primary"><span>Photo</span><input type="file" accept="image/*" class="hidden" onchange="uploadStudioImage(this)"></label><label class="studio-upload-action"><span>Video</span><input type="file" accept="video/*" class="hidden" onchange="uploadStudioVideo(this)"></label></div></div><div id="studio-upload-status" class="hidden text-xs text-center text-sky-500 dark:text-sky-300"></div><button type="button" onclick="setStudioTool('media')" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-black text-slate-800 dark:text-white hover:border-blue-500 transition">Open Media library →</button><div class="pt-2 border-t border-slate-200 dark:border-slate-700"><div class="flex items-center justify-between mb-2"><span class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Recent video uploads</span></div><div id="studio-uploaded-videos" class="space-y-3"><div class="p-5 text-center text-xs text-slate-500 dark:text-slate-400">Loading your videos…</div></div></div></div>`;
   } else if (tool === 'record') {
     return `
       <div class="p-4 space-y-3">
@@ -689,7 +826,8 @@ function renderStudioToolPanelContent(tool) {
     return `
       <div class="p-4 space-y-3">
         <h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Shapes &amp; Badges</h3>
-        <div class="grid grid-cols-3 gap-2">${[['rect','Rectangle'],['badge','Rounded'],['circle','Circle'],['ellipse','Ellipse'],['triangle','Triangle'],['diamond','Diamond'],['pentagon','Pentagon'],['hexagon','Hexagon'],['star','Star'],['line','Line'],['arrow','Arrow'],['heart','Heart'],['speech','Speech']].map(([id,label]) => `<button onclick="studioAddShape('${id}')" title="${label}" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-center flex flex-col items-center gap-1.5"><span class="text-slate-700 dark:text-slate-200">${STUDIO_SHAPE_PREVIEW[id]}</span><span class="text-[10px] font-bold">${label}</span></button>`).join('')}</div>
+        <input id="studio-shape-query" oninput="filterStudioShapes()" placeholder="Search 120 shapes..." class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs">
+        <div id="studio-shape-library" class="grid grid-cols-3 gap-2 max-h-[52vh] overflow-y-auto">${renderStudioShapeLibrary()}</div>
         <div class="border-t border-slate-200 dark:border-slate-800 pt-3"><h4 class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Draw</h4><div class="grid grid-cols-2 gap-2"><button onclick="studioDrawingMode('pen')" class="p-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">Pen</button><button onclick="studioDrawingMode('pencil')" class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-black">Pencil</button></div><button onclick="studioSelectMode()" class="mt-2 w-full p-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold">Select &amp; move objects</button></div>
       </div>
     `;
@@ -697,12 +835,17 @@ function renderStudioToolPanelContent(tool) {
     return `
       <div class="p-4 space-y-3">
         <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Stickers &amp; Clip Art</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Click to drop a sticker on the canvas — drag to resize once placed.</p></div>
-        <div class="grid grid-cols-4 gap-2">${STUDIO_STICKERS.map(s => `<button onclick="studioAddSticker('${s}')" title="Add sticker" class="aspect-square rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-2xl transition">${s}</button>`).join('')}</div>
+        <input id="studio-sticker-query" oninput="filterStudioStickers()" placeholder="Search 120 stickers..." class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs">
+        <div id="studio-sticker-library" class="grid grid-cols-4 gap-2 max-h-[42vh] overflow-y-auto">${renderStudioStickerLibrary()}</div>
+        <div class="studio-gif-panel"><div class="studio-gif-heading"><h4>GIF library · 100+ searches</h4><span>GIPHY · Tenor</span></div><div class="studio-gif-featured">${STUDIO_GIF_LIBRARY.map(([name,url]) => `<button type="button" onclick="addStudioGifFromUrl('${url}')" class="studio-gif-card"><img src="${url}" alt="${name}" loading="lazy"><span>${name}</span></button>`).join('')}</div><div class="studio-gif-search-row"><input id="studio-gif-search" onkeydown="if(event.key==='Enter') searchStudioGifs()" placeholder="Search GIFs…"><select id="studio-gif-provider" aria-label="GIF provider"><option value="giphy">GIPHY</option><option value="tenor">Tenor</option></select><button type="button" onclick="searchStudioGifs()">Search</button></div><div class="studio-gif-quick-label">Quick searches</div><div class="studio-gif-filters">${STUDIO_GIF_PRESETS.map(item => `<button type="button" onclick="studioGifPresetSearch('${item.query.replace(/'/g, "\\'")}')" class="studio-gif-filter">${escS(item.label)}</button>`).join('')}</div><div id="studio-gif-results" class="studio-gif-results"></div><div class="studio-gif-paste"><input id="studio-gif-url" placeholder="Paste a GIF URL"><button type="button" onclick="addStudioGifFromUrl()">Add GIF</button></div></div>
       </div>
     `;
+  } else if (tool === 'icons') {
+    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-white">Icons</h3><p class="text-[10px] text-slate-400 mt-1">Free SVG icons from open icon libraries. Emojis remain available in Stickers.</p></div><select id="studio-icon-library-select" onchange="filterStudioIcons()" class="w-full px-3 py-2 rounded-xl bg-slate-900 text-white border border-white/10 text-xs">${Object.entries(STUDIO_ICON_LIBRARIES).map(([key,[label]]) => `<option value="${key}">${label}</option>`).join('')}</select><input id="studio-icon-query" oninput="filterStudioIcons()" placeholder="Search 120 icons..." class="w-full px-3 py-2 rounded-xl bg-slate-900 text-white placeholder:text-slate-500 border border-white/10 text-xs"><div id="studio-icon-library" class="grid grid-cols-4 gap-2 max-h-[65vh] overflow-y-auto">${renderStudioIconLibrary()}</div></div>`;
   } else if (tool === 'text') {
     return `
       <div class="p-4 space-y-5">
+        <!-- Font cards call studioPickFont(...) so selection applies to the active text or next insert. -->
         <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Text</h3><p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Generate copy with AI, then pick a font and add it to the canvas.</p></div>
 
         <div class="space-y-2 pb-4 border-b border-slate-200 dark:border-slate-800">
@@ -712,23 +855,36 @@ function renderStudioToolPanelContent(tool) {
           <div id="studio-ai-result" class="hidden p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-200 whitespace-pre-wrap"></div>
         </div>
 
+        <div class="space-y-2 pb-4 border-b border-slate-200 dark:border-slate-800">
+          <div class="flex items-center justify-between gap-2">
+            <h4 class="text-[11px] font-black uppercase tracking-wider text-sky-400">Stylized text templates</h4>
+            <span class="text-[9px] text-slate-500 dark:text-slate-400">Editable after insert</span>
+          </div>
+          <input id="studio-text-template-query" oninput="filterStudioTextTemplates()" placeholder="Search titles, offers, info…" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white">
+          <div id="studio-text-template-library" class="grid grid-cols-2 gap-2 max-h-[34vh] overflow-y-auto">${renderStudioTextTemplates()}</div>
+        </div>
+
         <div class="space-y-2">
           <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Fonts</h4>
           <p class="text-[10px] text-slate-500 dark:text-slate-400 -mt-1">Pick a font — applies to selected text, or the next text you add.</p>
-          <div class="space-y-1.5" id="studio-font-picker">${STUDIO_GOOGLE_FONTS.map(f => `<button type="button" data-font="${escS(f)}" onclick="studioPickFont('${f.replace(/'/g, "\\'")}')" style="font-family:'${escS(f)}', sans-serif" class="w-full text-left px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white transition">${escS(f)}</button>`).join('')}</div>
+          <div class="flex gap-2"><input id="studio-font-query" oninput="filterStudioFonts()" placeholder="Search 100+ Google fonts..." class="min-w-0 flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs"><select id="studio-font-category" onchange="filterStudioFonts()" class="w-28 px-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs">${Object.entries(STUDIO_FONT_CATEGORIES).map(([value,label]) => `<option value="${value}">${label}</option>`).join('')}</select></div>
+          <div class="space-y-1.5 max-h-[48vh] overflow-y-auto" id="studio-font-picker">${renderStudioFontLibrary()}</div>
         </div>
       </div>
     `;
   } else if (tool === 'brand') {
-    const storeName = window.__dealerConfig?.store_name || 'MarketSync Motors';
+    const kit = window.__studioBrandKit || {}, storeName = kit.dealership_name || window.__dealerConfig?.store_name || 'Dealership';
+    const colors = [kit.primary_color, kit.secondary_color, kit.accent_color].filter(Boolean);
+    const logos = [kit.logo_url, kit.alternate_logo_url, kit.light_logo_url, kit.dark_logo_url, kit.logo_mark_url].filter(Boolean);
     return `
       <div class="p-4 space-y-3">
         <h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Dealership Brand Kit</h3>
         <div class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 space-y-2">
           <div class="text-xs font-bold text-slate-900 dark:text-white">${escS(storeName)}</div>
-          <button onclick="if(window.__studioAdapter) window.__studioAdapter.addImage('/assets/brand/marketsync-logo-primary.png', 'MarketSync Logo')" class="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold">
-            + Insert Dealership Logo
-          </button>
+          <div class="grid grid-cols-3 gap-2">${colors.map(color => `<button type="button" onclick="studioApplyBrandColor('${escS(color)}')" title="Apply ${escS(color)}" class="h-10 rounded-xl border border-white/30" style="background:${escS(color)}"></button>`).join('') || '<span class="col-span-3 text-[10px] text-slate-500">No approved colours saved.</span>'}</div>
+          <div class="grid grid-cols-2 gap-2">${logos.map((url, index) => `<button type="button" onclick="window.__studioAdapter?.addImage('${escS(url)}','Dealership logo')" class="p-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700"><img src="${escS(url)}" alt="Approved logo ${index + 1}" class="w-full h-12 object-contain"></button>`).join('') || '<span class="col-span-2 text-[10px] text-slate-500">No approved logo saved.</span>'}</div>
+          <div class="grid grid-cols-2 gap-2 text-[10px]"><button type="button" onclick="studioApplyBrandFont('heading')" class="p-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700">Heading · ${escS(kit.heading_font || 'Not set')}</button><button type="button" onclick="studioApplyBrandFont('body')" class="p-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700">Body · ${escS(kit.body_font || 'Not set')}</button></div>
+          <button type="button" onclick="openStudioBrandKitManager()" class="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold">Manage Brand Kit</button>
         </div>
       </div>
     `;
@@ -790,6 +946,7 @@ window.saveStudioStructure = saveStudioStructure;
 
 function renderStudioInspectorHtml(selected) {
   const object = Array.isArray(selected) ? selected[0] : selected;
+  const isText = ['textbox', 'text', 'i-text'].includes(object?.type);
   const color = typeof object?.fill === 'string' && object.fill.startsWith('#') ? object.fill : (typeof object?.stroke === 'string' && object.stroke.startsWith('#') ? object.stroke : '#2563eb');
   const opacity = Math.round((object?.opacity ?? 1) * 100);
   return `
@@ -800,8 +957,13 @@ function renderStudioInspectorHtml(selected) {
         <div class="grid grid-cols-2 gap-2"><label class="text-[10px] font-bold text-slate-500">X<input type="number" value="${Math.round(object?.left || 0)}" onchange="studioSetObjectGeometry('left', this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label><label class="text-[10px] font-bold text-slate-500">Y<input type="number" value="${Math.round(object?.top || 0)}" onchange="studioSetObjectGeometry('top', this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label><label class="text-[10px] font-bold text-slate-500">Width<input type="number" value="${Math.round(object?.getScaledWidth?.() || object?.width || 0)}" onchange="studioSetObjectGeometry('width', this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label><label class="text-[10px] font-bold text-slate-500">Height<input type="number" value="${Math.round(object?.getScaledHeight?.() || object?.height || 0)}" onchange="studioSetObjectGeometry('height', this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label></div>
         <div><label class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Colour</label><input type="color" value="${color}" onchange="studioSetObjectStyle('color', this.value)" class="mt-1 w-full h-9 rounded-lg bg-transparent cursor-pointer"></div>
         <div><div class="flex justify-between"><label class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Transparency</label><span id="studio-opacity-value" class="text-[11px] text-sky-400">${100-opacity}%</span></div><input type="range" min="0" max="100" value="${opacity}" oninput="document.getElementById('studio-opacity-value').textContent=(100-Number(this.value))+'%'" onchange="studioSetObjectStyle('opacity', Number(this.value)/100)" class="w-full accent-blue-500"></div>
+        <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Animation<select onchange="studioSetAnimation(this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"><option value="none">None</option><option value="float">Float</option><option value="pulse">Pulse</option><option value="spin">Spin</option><option value="bounce">Bounce</option><option value="fade">Fade</option></select></label>
       </div>
+      ${isText ? `<div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2"><div class="text-[10px] font-black uppercase text-slate-500">Typography</div><label class="block text-[10px] text-slate-500">Font family<input value="${escS(object?.fontFamily || 'Manrope')}" onchange="studioSetTextStyle('fontFamily', this.value)" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label><div class="grid grid-cols-3 gap-2"><label class="text-[10px] text-slate-500">Size<input type="number" min="6" value="${Math.round(object?.fontSize || 36)}" onchange="studioSetTextStyle('fontSize', Number(this.value))" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label><label class="text-[10px] text-slate-500">Line height<input type="number" min="0.5" max="3" step="0.05" value="${Number(object?.lineHeight || 1.08).toFixed(2)}" onchange="studioSetTextStyle('lineHeight', Number(this.value))" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label><label class="text-[10px] text-slate-500">Spacing<input type="number" min="-200" max="800" value="${Math.round(object?.charSpacing || 0)}" onchange="studioSetTextStyle('charSpacing', Number(this.value))" class="mt-1 w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"></label></div><div class="grid grid-cols-3 gap-1">${['left','center','right'].map(value => `<button type="button" onclick="studioSetTextStyle('textAlign','${value}')" class="py-1.5 rounded-lg ${object?.textAlign === value ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800'} text-[10px] font-bold">${value[0].toUpperCase() + value.slice(1)}</button>`).join('')}</div><div class="grid grid-cols-2 gap-2"><button type="button" onclick="studioTransformText('uppercase')" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">UPPERCASE</button><button type="button" onclick="studioTransformText('lowercase')" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">lowercase</button></div></div>` : ''}
       <button onclick="studioToggleNodes()" class="w-full py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-black">Edit vector nodes</button>
+      <div class="grid grid-cols-2 gap-2"><button onclick="window.__studioAdapter?.toggleSelectedLock()" class="py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-black">${object?.lockMovementX ? 'Unlock' : 'Lock'}</button><button onclick="window.__studioAdapter?.toggleSelectedVisibility()" class="py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-black">Hide</button></div>
+      <div class="grid grid-cols-3 gap-1"><button onclick="window.__studioAdapter?.alignSelected('left')" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">Left</button><button onclick="window.__studioAdapter?.alignSelected('center')" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">Center</button><button onclick="window.__studioAdapter?.alignSelected('right')" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">Right</button><button onclick="window.__studioAdapter?.alignSelected('top')" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">Top</button><button onclick="window.__studioAdapter?.alignSelected('middle')" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">Middle</button><button onclick="window.__studioAdapter?.alignSelected('bottom')" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">Bottom</button></div>
+      ${object?.type === 'image' ? `<div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2"><div class="text-[10px] font-black uppercase text-slate-500">Image adjustments</div>${[['brightness','Brightness'],['contrast','Contrast'],['saturation','Saturation'],['blur','Blur']].map(([key,label]) => `<label class="block text-[10px] text-slate-500">${label}<input type="range" min="${key === 'blur' ? 0 : -1}" max="1" step="0.05" value="${object?.msData?.adjustments?.[key] || 0}" oninput="window.__studioAdapter?.adjustSelectedImage({${key}:Number(this.value)})" class="w-full"></label>`).join('')}<div class="grid grid-cols-2 gap-2"><button onclick="window.__studioAdapter?.updateSelected({flipX:!window.__studioAdapter.fabricCanvas.getActiveObject().flipX})" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">Flip horizontal</button><button onclick="window.__studioAdapter?.updateSelected({flipY:!window.__studioAdapter.fabricCanvas.getActiveObject().flipY})" class="py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">Flip vertical</button></div></div>` : ''}
       <div class="space-y-1">
         <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Layer Order:</label>
         <div class="flex gap-2">
@@ -816,13 +978,64 @@ function renderStudioInspectorHtml(selected) {
   `;
 }
 
+function renderStudioProfessionalInspectorHtml(selected) {
+  const object = Array.isArray(selected) ? selected[0] : selected;
+  if (!object) return `<div class="studio-inspector-empty"><span class="studio-inspector-empty-icon">◇</span><strong>Select an element</strong><p>Move, resize and rotate directly on the canvas. Style, position and motion controls will appear here.</p></div>`;
+  const isText = ['textbox', 'text', 'i-text'].includes(object.type);
+  const isImage = object.type === 'image';
+  const tab = window.__studioInspectorTab || 'style';
+  const opacity = Math.round((object.opacity ?? 1) * 100);
+  const color = typeof object.fill === 'string' && object.fill.startsWith('#') ? object.fill : '#2563eb';
+  const stroke = typeof object.stroke === 'string' && object.stroke.startsWith('#') ? object.stroke : '#0f172a';
+  const animation = object.msData?.animation || {};
+  const input = 'studio-control-input';
+  const action = 'studio-control-action';
+  const tabButton = (key, label) => `<button type="button" onclick="setStudioInspectorTab('${key}')" aria-current="${tab === key ? 'page' : 'false'}">${label}</button>`;
+  const stylePanel = `
+    <section class="studio-inspector-section"><h4>Appearance</h4>
+      <div class="studio-control-grid studio-control-grid-2"><label>Fill<input type="color" value="${color}" onchange="studioSetObjectStyle('color',this.value)"></label><label>Stroke<input type="color" value="${stroke}" onchange="studioSetObjectStyle('stroke',this.value)"></label></div>
+      <label>Stroke width<input class="${input}" type="number" min="0" max="40" value="${Number(object.strokeWidth || 0)}" onchange="studioSetObjectStyle('strokeWidth',Math.max(0,Number(this.value)))"></label>
+      ${object.type === 'rect' ? `<label>Corner radius<input class="${input}" type="range" min="0" max="160" value="${Number(object.rx || 0)}" oninput="studioSetObjectStyle('rx',Number(this.value));studioSetObjectStyle('ry',Number(this.value))"></label>` : ''}
+      <label><span class="studio-control-label-row"><span>Opacity</span><output id="studio-opacity-value">${opacity}%</output></span><input type="range" min="0" max="100" value="${opacity}" oninput="document.getElementById('studio-opacity-value').value=this.value+'%'" onchange="studioSetObjectStyle('opacity',Number(this.value)/100)"></label>
+    </section>
+    <section class="studio-inspector-section"><h4>Depth &amp; effects</h4><div class="studio-style-presets">${[['none','None'],['soft','Soft'],['lift','Lift'],['glow','Glow']].map(([key,label]) => `<button class="${action}" onclick="window.__studioAdapter?.setSelectedShadow('${key}')">${label}</button>`).join('')}</div></section>
+    ${isText ? `<section class="studio-inspector-section"><h4>Typography</h4><label>Font<input class="${input}" value="${escS(object.fontFamily || 'Manrope')}" onchange="studioSetTextStyle('fontFamily',this.value)"></label><div class="studio-control-grid studio-control-grid-3"><label>Size<input class="${input}" type="number" min="6" value="${Math.round(object.fontSize || 36)}" onchange="studioSetTextStyle('fontSize',Number(this.value))"></label><label>Line<input class="${input}" type="number" min=".5" max="3" step=".05" value="${Number(object.lineHeight || 1.08).toFixed(2)}" onchange="studioSetTextStyle('lineHeight',Number(this.value))"></label><label>Spacing<input class="${input}" type="number" min="-200" max="800" value="${Math.round(object.charSpacing || 0)}" onchange="studioSetTextStyle('charSpacing',Number(this.value))"></label></div><div class="studio-segmented">${['left','center','right','justify'].map(value => `<button aria-current="${object.textAlign === value ? 'page' : 'false'}" onclick="studioSetTextStyle('textAlign','${value}')">${value}</button>`).join('')}</div><div class="studio-control-grid studio-control-grid-2"><button class="${action}" onclick="studioTransformText('uppercase')">UPPERCASE</button><button class="${action}" onclick="studioTransformText('lowercase')">lowercase</button></div></section>` : ''}
+    ${isImage ? `<section class="studio-inspector-section"><h4>Image adjustments</h4>${[['brightness','Brightness'],['contrast','Contrast'],['saturation','Saturation'],['blur','Blur']].map(([key,label]) => `<label>${label}<input type="range" min="${key === 'blur' ? 0 : -1}" max="1" step=".05" value="${object.msData?.adjustments?.[key] || 0}" oninput="window.__studioAdapter?.adjustSelectedImage({${key}:Number(this.value)})"></label>`).join('')}</section>` : ''}`;
+  const positionPanel = `
+    <section class="studio-inspector-section"><h4>Transform</h4><div class="studio-control-grid studio-control-grid-2"><label>X<input class="${input}" type="number" value="${Math.round(object.left || 0)}" onchange="studioSetObjectGeometry('left',this.value)"></label><label>Y<input class="${input}" type="number" value="${Math.round(object.top || 0)}" onchange="studioSetObjectGeometry('top',this.value)"></label><label>Width<input class="${input}" type="number" min="1" value="${Math.round(object.getScaledWidth?.() || object.width || 0)}" onchange="studioSetObjectGeometry('width',this.value)"></label><label>Height<input class="${input}" type="number" min="1" value="${Math.round(object.getScaledHeight?.() || object.height || 0)}" onchange="studioSetObjectGeometry('height',this.value)"></label></div><label>Rotation<input class="${input}" type="number" min="-360" max="360" value="${Math.round(object.angle || 0)}" onchange="studioSetObjectGeometry('rotation',this.value)"></label><div class="studio-control-grid studio-control-grid-2"><button class="${action}" onclick="studioFlipSelected('x')">↔ Flip horizontal</button><button class="${action}" onclick="studioFlipSelected('y')">↕ Flip vertical</button></div></section>
+    <section class="studio-inspector-section"><h4>Align to page</h4><div class="studio-align-grid">${[['left','Left'],['center','Center'],['right','Right'],['top','Top'],['middle','Middle'],['bottom','Bottom']].map(([key,label]) => `<button onclick="window.__studioAdapter?.alignSelected('${key}')">${label}</button>`).join('')}</div><div class="studio-control-grid studio-control-grid-2"><button class="${action}" onclick="window.__studioAdapter?.distributeSelected('horizontal')">Distribute ↔</button><button class="${action}" onclick="window.__studioAdapter?.distributeSelected('vertical')">Distribute ↕</button></div></section>
+    <section class="studio-inspector-section"><h4>Layer order</h4><div class="studio-control-grid studio-control-grid-2"><button class="${action}" onclick="window.__studioAdapter?.bringToFront()">To front</button><button class="${action}" onclick="window.__studioAdapter?.bringForward()">Forward</button><button class="${action}" onclick="window.__studioAdapter?.sendBackwards()">Backward</button><button class="${action}" onclick="window.__studioAdapter?.sendToBack()">To back</button></div></section>`;
+  const animatePanel = `<section class="studio-inspector-section"><h4>Element animation</h4><p class="studio-control-help">Motion remains editable and is included in animated exports.</p><div class="studio-animation-grid">${[['none','—','None'],['float','↟','Float'],['pulse','◉','Pulse'],['spin','↻','Spin'],['bounce','↥','Bounce'],['fade','◐','Fade']].map(([key,icon,label]) => `<button aria-current="${(animation.type || 'none') === key ? 'page' : 'false'}" onclick="studioSetAnimation('${key}')"><span>${icon}</span>${label}</button>`).join('')}</div><label>Duration <span class="studio-control-unit">ms</span><input class="${input}" type="number" min="300" max="12000" step="100" value="${Number(animation.duration || 1600)}" onchange="studioSetAnimationDuration(this.value)"></label></section>`;
+  return `<div class="studio-inspector-heading"><div><span>${escS(object.msData?.type || object.type || 'Element')}</span><input value="${escS(object.msData?.name || '')}" placeholder="Untitled element" onchange="renameStudioLayer(this.value)"></div><button title="Close selection" onclick="window.__studioAdapter?.fabricCanvas?.discardActiveObject();window.__studioAdapter?.fabricCanvas?.requestRenderAll();window.__studioAdapter?.onSelectionChange([])">×</button></div><div class="studio-inspector-tabs">${tabButton('style','Style')}${tabButton('position','Position')}${tabButton('animate','Animate')}</div><div class="studio-inspector-body">${tab === 'position' ? positionPanel : tab === 'animate' ? animatePanel : stylePanel}<section class="studio-inspector-section studio-inspector-actions"><div class="studio-control-grid studio-control-grid-2"><button class="${action}" onclick="window.__studioAdapter?.toggleSelectedLock()">${object.lockMovementX ? 'Unlock' : 'Lock'}</button><button class="${action}" onclick="window.__studioAdapter?.toggleSelectedVisibility()">Hide</button></div><button class="studio-delete-action" onclick="window.__studioAdapter?.deleteSelected()">Delete element</button></section></div>`;
+}
+
+function setStudioInspectorTab(tab) {
+  window.__studioInspectorTab = ['style','position','animate'].includes(tab) ? tab : 'style';
+  const panel = document.getElementById('studio-inspector-panel');
+  const active = window.__studioAdapter?.fabricCanvas?.getActiveObject();
+  if (panel) panel.innerHTML = renderStudioProfessionalInspectorHtml(active ? [active] : []);
+}
+window.setStudioInspectorTab = setStudioInspectorTab;
+function studioFlipSelected(axis) {
+  const active = window.__studioAdapter?.fabricCanvas?.getActiveObject();
+  if (!active) return;
+  window.__studioAdapter.updateSelected(axis === 'y' ? { flipY: !active.flipY } : { flipX: !active.flipX });
+}
+window.studioFlipSelected = studioFlipSelected;
+function studioSetAnimationDuration(value) {
+  const active = window.__studioAdapter?.fabricCanvas?.getActiveObject();
+  if (!active) return;
+  window.__studioAdapter.setSelectedAnimation(active.msData?.animation?.type || 'float', Math.max(300, Number(value) || 1600));
+}
+window.studioSetAnimationDuration = studioSetAnimationDuration;
+
 async function initStudioAdapter(scene) {
   const canvasEl = document.getElementById('studio-main-canvas');
   if (!canvasEl) return;
   window.__studioAdapter = new StudioFabricAdapter(canvasEl, {
     onSelection: (selected) => {
       const panel = document.getElementById('studio-inspector-panel');
-      if (panel) panel.innerHTML = renderStudioInspectorHtml(selected);
+      if (panel) panel.innerHTML = renderStudioProfessionalInspectorHtml(selected);
       const hint = document.getElementById('studio-text-hint');
       const active = Array.isArray(selected) ? selected[0] : selected;
       if (hint) hint.textContent = active && ['textbox', 'text', 'i-text'].includes(active.type) ? 'Text selected — use the controls' : 'Select text to format it';
@@ -835,6 +1048,7 @@ async function initStudioAdapter(scene) {
   });
 
   await window.__studioAdapter.init(scene, window.__studioCurrentVehicle);
+  syncStudioPageUi();
   wireStudioContextMenu(window.__studioAdapter);
 }
 
@@ -913,14 +1127,45 @@ window.studioCtxAction = studioCtxAction;
 
 function setStudioTool(tool) {
   window.__studioActiveTool = tool;
+  document.querySelectorAll('[data-studio-tool]').forEach(button => {
+    button.setAttribute('aria-current', button.dataset.studioTool === tool ? 'page' : 'false');
+  });
   const panel = document.getElementById('studio-tool-panel');
   if (panel) panel.innerHTML = renderStudioToolPanelContent(tool);
   if (tool === 'photos') setTimeout(() => searchStudioLibrary('car dealership'), 0);
   if (tool === 'videos') setTimeout(() => searchStudioVideos('car dealership'), 0);
+  if (tool === 'inventory') setTimeout(() => searchStudioInventory(''), 0);
   if (tool === 'uploads') setTimeout(loadStudioUploadedVideos, 0);
   if (tool === 'media') setTimeout(loadStudioMediaLibrary, 0);
   if (tool === 'text') setTimeout(loadStudioGoogleFonts, 0);
+  if (tool === 'brand') setTimeout(loadStudioBrandKit, 0);
 }
+
+async function loadStudioBrandKit(force = false) {
+  if (!force && window.__studioBrandKit) return window.__studioBrandKit;
+  try { window.__studioBrandKit = (await apiGetJson('/marketing/studio/brand-kit'))?.brand_kit || {}; }
+  catch (_) { window.__studioBrandKit = {}; }
+  if (window.__studioActiveTool === 'brand') { const panel = document.getElementById('studio-tool-panel'); if (panel) panel.innerHTML = renderStudioToolPanelContent('brand'); }
+  return window.__studioBrandKit;
+}
+window.loadStudioBrandKit = loadStudioBrandKit;
+function studioApplyBrandColor(color) { const active = window.__studioAdapter?.fabricCanvas?.getActiveObject(); if (!active) { if (typeof showToast === 'function') showToast('Select an element first.', 'info'); return; } window.__studioAdapter.updateSelected({ fill: color }); }
+window.studioApplyBrandColor = studioApplyBrandColor;
+function studioApplyBrandFont(kind) { const font = window.__studioBrandKit?.[kind === 'heading' ? 'heading_font' : 'body_font']; if (font) window.__studioAdapter?.updateSelectedText({ fontFamily: font }); }
+window.studioApplyBrandFont = studioApplyBrandFont;
+async function openStudioBrandKitManager() {
+  const kit = await loadStudioBrandKit();
+  openStudioSheet('Dealership Brand Kit', `<form onsubmit="event.preventDefault();saveStudioBrandKit()" class="grid sm:grid-cols-2 gap-4">${[['primary_color','Primary colour','color'],['secondary_color','Secondary colour','color'],['accent_color','Accent colour','color'],['heading_font','Heading font','text'],['body_font','Body font','text'],['phone','Dealer phone','text'],['website','Website','url'],['logo_url','Primary logo URL','url'],['alternate_logo_url','Alternate logo URL','url'],['light_logo_url','Light logo URL','url'],['dark_logo_url','Dark logo URL','url'],['logo_mark_url','Logo mark URL','url']].map(([key,label,type]) => `<label class="text-sm font-bold">${label}<input id="studio-brand-${key}" type="${type}" value="${escS(kit[key] || (type === 'color' ? '#2563eb' : ''))}" class="mt-1 w-full h-11 px-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700"></label>`).join('')}<label class="sm:col-span-2 text-sm font-bold">Legal disclaimer templates<textarea id="studio-brand-legal_disclaimers" rows="4" class="mt-1 w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700">${escS(Array.isArray(kit.legal_disclaimers) ? kit.legal_disclaimers.join('\n') : kit.legal_disclaimers || '')}</textarea></label><button class="sm:col-span-2 py-3 rounded-2xl bg-indigo-600 text-white font-black">Save managed Brand Kit</button></form>`);
+}
+window.openStudioBrandKitManager = openStudioBrandKitManager;
+async function saveStudioBrandKit() {
+  const keys = ['primary_color','secondary_color','accent_color','heading_font','body_font','phone','website','logo_url','alternate_logo_url','light_logo_url','dark_logo_url','logo_mark_url'];
+  const payload = Object.fromEntries(keys.map(key => [key, document.getElementById(`studio-brand-${key}`)?.value || '']));
+  payload.legal_disclaimers = (document.getElementById('studio-brand-legal_disclaimers')?.value || '').split('\n').map(value => value.trim()).filter(Boolean);
+  try { window.__studioBrandKit = (await apiSendJson('/marketing/studio/brand-kit', 'PUT', payload))?.brand_kit || payload; document.getElementById('studio-action-sheet')?.remove(); setStudioTool('brand'); if (typeof showToast === 'function') showToast('Brand Kit saved.', 'success'); }
+  catch (error) { if (typeof showToast === 'function') showToast(error.message || 'Brand Kit could not be saved.', 'error'); }
+}
+window.saveStudioBrandKit = saveStudioBrandKit;
 
 let __studioMediaAssets = [];
 async function loadStudioMediaLibrary() {
@@ -975,14 +1220,40 @@ function renameStudioLayer(name) {
 }
 window.renameStudioLayer = renameStudioLayer;
 
-function setStudioPage(pageId) { window.__studioAdapter?.setPage(pageId); }
+function setStudioPage(pageId) { window.__studioAdapter?.setPage(pageId); setTimeout(syncStudioPageUi, 0); }
 window.setStudioPage = setStudioPage;
+function renderStudioPageStack(scene = window.__studioAdapter?.currentScene) {
+  const stack = document.getElementById('studio-page-stack');
+  if (!stack) return;
+  const pages = scene?.pages || [];
+  const activeId = window.__studioAdapter?.activePageId || pages[0]?.id;
+  stack.innerHTML = pages.map((page, index) => `<div class="studio-page-stack-item ${page.id === activeId ? 'is-active' : ''}"><button type="button" onclick="setStudioPage('${escS(page.id)}')" class="studio-page-card" title="Open ${escS(page.name || `Page ${index + 1}`)}"><span class="studio-page-card-canvas" style="background:${escS(page.background?.color || '#0F172A')}"><span>${(page.objects || []).length || 0} objects</span></span><span class="studio-page-card-label">${index + 1}. ${escS(page.name || `Page ${index + 1}`)}</span></button><div class="studio-page-card-actions"><button type="button" onclick="duplicateStudioPage('${escS(page.id)}')" title="Duplicate page">＋</button><button type="button" onclick="deleteStudioPage('${escS(page.id)}')" title="Delete page">×</button></div></div>`).join('') || '<div class="p-3 text-xs text-slate-500">No pages yet.</div>';
+}
+window.renderStudioPageStack = renderStudioPageStack;
+function syncStudioPageUi() {
+  renderStudioPageStack();
+  const select = document.querySelector('#ms-studio-master-modal footer select');
+  const pages = window.__studioAdapter?.currentScene?.pages || [];
+  const active = pages.find(page => page.id === window.__studioAdapter?.activePageId) || pages[0];
+  const label = document.getElementById('studio-active-page-label');
+  if (label) label.textContent = active?.name || 'Page 1';
+  if (select) { select.innerHTML = pages.map((page, index) => `<option value="${escS(page.id)}">${escS(page.name || `Page ${index + 1}`)}</option>`).join(''); select.value = window.__studioAdapter?.activePageId || pages[0]?.id || ''; }
+}
+function duplicateStudioPage(pageId) {
+  const adapter = window.__studioAdapter; const current = adapter?.currentScene; const source = current?.pages?.find(page => page.id === pageId); if (!adapter || !current || !source || !window.msStudioSceneToDocument) return;
+  const doc = window.msStudioSceneToDocument(adapter.exportScene()); const copy = JSON.parse(JSON.stringify(source)); copy.id = `page_${Date.now()}`; copy.name = `${source.name || 'Page'} copy`; doc.pages.splice(doc.pages.findIndex(page => page.id === source.id) + 1, 0, copy); adapter.currentScene = window.msStudioDocumentToScene(doc); adapter.activePageId = copy.id; window.__studioDocument = doc; window.__msStudioStore?.update(doc); adapter.renderScene(adapter.currentScene); syncStudioPageUi(); if (typeof showToast === 'function') showToast('Page duplicated', 'success');
+}
+function deleteStudioPage(pageId) {
+  const adapter = window.__studioAdapter; const current = adapter?.currentScene; if (!adapter || !current?.pages || current.pages.length <= 1) { if (typeof showToast === 'function') showToast('Keep at least one page', 'info'); return; }
+  const doc = window.msStudioSceneToDocument(adapter.exportScene()); const index = doc.pages.findIndex(page => page.id === pageId); if (index < 0) return; doc.pages.splice(index, 1); const next = doc.pages[Math.max(0, index - 1)]; adapter.currentScene = window.msStudioDocumentToScene(doc); adapter.activePageId = next.id; window.__studioDocument = doc; window.__msStudioStore?.update(doc); adapter.renderScene(adapter.currentScene); syncStudioPageUi(); if (typeof showToast === 'function') showToast('Page deleted', 'success');
+}
+window.duplicateStudioPage = duplicateStudioPage; window.deleteStudioPage = deleteStudioPage;
 function addStudioPage() {
   const adapter = window.__studioAdapter; if (!adapter?.currentScene || !window.msStudioAddPage) return;
   const doc = window.msStudioAddPage(window.msStudioSceneToDocument(adapter.exportScene()));
   adapter.currentScene = window.msStudioDocumentToScene(doc); adapter.activePageId = doc.pages[doc.pages.length - 1].id;
   adapter.renderScene(adapter.currentScene); window.__studioDocument = doc; window.__msStudioStore?.update(doc);
-  const select = document.querySelector('footer select'); if (select) { select.innerHTML = doc.pages.map(page => `<option value="${escS(page.id)}">${escS(page.name)}</option>`).join(''); select.value = adapter.activePageId; }
+  syncStudioPageUi();
   if (typeof showToast === 'function') showToast('New page added', 'success');
 }
 window.addStudioPage = addStudioPage;
@@ -1008,15 +1279,18 @@ async function loadStudioTemplate(tmplKey) {
       scene.elements.forEach(el => { if (el.type === 'vehicle-image') el.src = photo; });
     }
   }
+  const boundScene = window.msDesignStudioSchema?.refreshBindings
+    ? window.msDesignStudioSchema.refreshBindings(scene, studioDesignContext(veh))
+    : scene;
 
   if (window.__studioAdapter) {
-    await window.__studioAdapter.renderScene(scene);
+    await window.__studioAdapter.renderScene(boundScene);
   }
   const container = document.getElementById('studio-artboard-container');
-  if (container) { container.style.width = `${scene.width}px`; container.style.height = `${scene.height}px`; }
+  if (container) { container.style.width = `${boundScene.width}px`; container.style.height = `${boundScene.height}px`; }
   const picker = document.getElementById('studio-format-picker');
-  if (picker && STUDIO_SOCIAL_FORMATS[scene.format_key]) picker.value = scene.format_key;
-  updateStudioSafeGuides(scene.format_key || 'square');
+  if (picker && STUDIO_SOCIAL_FORMATS[boundScene.format_key]) picker.value = boundScene.format_key;
+  updateStudioSafeGuides(boundScene.format_key || 'square');
   zoomStudioFit();
   if (typeof showToast === 'function') showToast(`Loaded ${tmpl.name}`, 'success');
 }
@@ -1026,9 +1300,9 @@ async function loadStudioTemplate(tmplKey) {
 // then the social scheduler). Reuses loadStudioTemplate — no separate editor. Defaults to
 // the square vehicle spotlight when no template is specified.
 async function createFromVehicle(vehicleId, tmplKey) {
-  const inv = (ENGINE_DATA && ENGINE_DATA['marketing-overview']?.inventory) || [];
-  const v = inv.find(x => x.id === vehicleId) || window.__studioCurrentVehicle
-    || { id: vehicleId || 'demo_v1', year: 2024, make: 'Ford', model: 'F-150 Lariat', price: 54990, stock_number: 'F9041' };
+  const inv = await loadStudioInventory();
+  const v = inv.find(x => String(x.id) === String(vehicleId));
+  if (!v) { if (typeof showToast === 'function') showToast('That vehicle is no longer available in connected inventory.', 'error'); return; }
   window.__studioCurrentVehicle = v;
   if (window.__studioAdapter) window.__studioAdapter.currentVehicle = v;
   if (typeof setStudioTool === 'function') setStudioTool('templates');   // show the template rail
@@ -1038,39 +1312,48 @@ async function createFromVehicle(vehicleId, tmplKey) {
 }
 window.createFromVehicle = createFromVehicle;
 
-function searchStudioInventory(query) {
+async function loadStudioInventory(force = false) {
+  if (!force && Array.isArray(window.__studioInventoryCache)) return window.__studioInventoryCache;
+  try {
+    const data = await apiGetJson('/inventory');
+    window.__studioInventoryCache = Array.isArray(data) ? data : (data?.vehicles || data?.inventory || []);
+  } catch (_) { window.__studioInventoryCache = []; }
+  return window.__studioInventoryCache;
+}
+
+function studioDesignContext(vehicle) {
+  const dealer = window.__dealerConfig || {};
+  return { vehicle, dealership: { ...dealer, name: dealer.store_name || dealer.name || '', logo_url: dealer.logo_url || dealer.logo || '', legal_disclaimer: dealer.legal_disclaimer || '' }, salesperson: window.__currentUserProfile || {}, cta: 'Shop now' };
+}
+
+async function searchStudioInventory(query) {
   const listEl = document.getElementById('studio-inventory-list');
   if (!listEl) return;
   const q = (query || '').toLowerCase().trim();
-  const inv = (ENGINE_DATA && ENGINE_DATA['marketing-overview']?.inventory || [
-    { id: 'demo_v1', year: 2024, make: 'Ford', model: 'F-150 Lariat', price: 54990, stocknumber: 'F9041' },
-    { id: 'demo_v2', year: 2024, make: 'Honda', model: 'Civic Touring', price: 29850, stocknumber: 'H1022' }
-  ]).filter(v => !q || `${v.year} ${v.make} ${v.model} ${v.stocknumber} ${v.vin || ''}`.toLowerCase().includes(q));
+  const inv = (await loadStudioInventory()).filter(v => !q || `${v.year} ${v.make} ${v.model} ${v.trim || ''} ${v.stock_number || v.stocknumber || ''} ${v.vin || ''}`.toLowerCase().includes(q));
 
   listEl.innerHTML = inv.map(v => `
     <button onclick="createFromVehicle('${v.id}')" class="w-full text-left p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 transition flex items-center gap-3">
       <div class="w-10 h-10 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-xs font-black text-indigo-400">VEH</div>
       <div class="min-w-0 flex-1">
         <div class="text-xs font-bold text-slate-900 dark:text-white truncate">${escS(`${v.year || ''} ${v.make || ''} ${v.model || ''}`.trim() || 'Vehicle')}</div>
-        <div class="text-[11px] text-emerald-400 font-bold">$${Number(v.price || 0).toLocaleString()} • STK #${escS(v.stocknumber || '—')}</div>
+        <div class="text-[11px] text-emerald-400 font-bold">${v.sale_price || v.price || v.msrp ? `$${Number(v.sale_price || v.price || v.msrp).toLocaleString()}` : 'Price not supplied'} • STK #${escS(v.stock_number || v.stocknumber || '—')}</div>
       </div>
     </button>
   `).join('') || `<div class="text-xs text-slate-500 dark:text-slate-400 italic p-3">No matching inventory.</div>`;
 }
 
 async function bindVehicleToStudio(vehicleId) {
-  const inv = (ENGINE_DATA && ENGINE_DATA['marketing-overview']?.inventory) || [];
-  const v = inv.find(x => x.id === vehicleId) || { year: 2024, make: 'Ford', model: 'F-150 Lariat', price: 54990, stocknumber: 'F9041' };
+  const inv = await loadStudioInventory();
+  const v = inv.find(x => String(x.id) === String(vehicleId));
+  if (!v) { if (typeof showToast === 'function') showToast('Vehicle not found in connected inventory.', 'error'); return; }
   window.__studioCurrentVehicle = v;
   if (window.__studioAdapter) {
-    if (v.primary_photo_url || v.photo_url || v.image_url) {
-      window.__studioAdapter.addImage(v.primary_photo_url || v.photo_url || v.image_url, `${v.year} ${v.make} ${v.model}`);
-    }
-    window.__studioAdapter.addShape('badge', '#10B981');
-    window.__studioAdapter.addText(`${v.year || ''} ${v.make || ''} ${v.model || ''}`.trim(), { fontSize: 40, fontWeight: '900', fill: '#FFFFFF', y: 120 });
-    window.__studioAdapter.addText(`$${Number(v.price || 0).toLocaleString()}`, { fontSize: 48, fontWeight: '900', fill: '#10B981', y: 180 });
+    window.__studioAdapter.currentVehicle = v;
+    const refreshed = window.msDesignStudioSchema?.refreshBindings(window.__studioAdapter.exportScene(), studioDesignContext(v));
+    if (refreshed) await window.__studioAdapter.renderScene(refreshed);
   }
-  if (typeof showToast === 'function') showToast(`Bound ${v.year || ''} ${v.make || ''} ${v.model || ''} to design!`, 'success');
+  if (typeof showToast === 'function') showToast(`Refreshed this design from the canonical ${v.year || ''} ${v.make || ''} ${v.model || ''} inventory record.`, 'success');
 }
 
 // Search state — a fresh search resets to page 1 and replaces results; "Load More"
@@ -1219,6 +1502,8 @@ function studioSetObjectStyle(property, value) {
     window.__studioAdapter.updateSelected(usesStroke ? { stroke: value } : { fill: value });
   } else window.__studioAdapter.updateSelected({ [property]: value });
 }
+function studioSetAnimation(value) { if (!window.__studioAdapter?.setSelectedAnimation(value) && typeof showToast === 'function') showToast('Select an object first', 'info'); }
+window.studioSetAnimation = studioSetAnimation;
 
 function studioToggleNodes() {
   const editing = window.__studioAdapter?.toggleNodeEditing();
@@ -1241,6 +1526,13 @@ function studioSetTextStyle(property, value) {
     if (typeof showToast === 'function') showToast('Select a text box first', 'info');
   }
 }
+function studioTransformText(mode) {
+  const object = window.__studioAdapter?.fabricCanvas?.getActiveObject();
+  if (!object || !['textbox', 'text', 'i-text'].includes(object.type)) return;
+  const text = String(object.text || '');
+  window.__studioAdapter.updateSelectedText({ text: mode === 'lowercase' ? text.toLowerCase() : text.toUpperCase() });
+}
+window.studioTransformText = studioTransformText;
 
 async function generateStudioAiCopy() {
   const prompt = document.getElementById('studio-ai-prompt')?.value?.trim();
@@ -1329,15 +1621,112 @@ function addLibraryImageToCanvas(url, name = 'Photo Asset') {
   }
 }
 
-function changeStudioFormat(formatKey) {
+function openStudioSheet(title, body) {
+  document.getElementById('studio-action-sheet')?.remove();
+  const sheet = document.createElement('div');
+  sheet.id = 'studio-action-sheet';
+  sheet.className = 'fixed inset-0 z-[100001] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4';
+  sheet.innerHTML = `<section role="dialog" aria-modal="true" aria-labelledby="studio-sheet-title" class="w-full max-w-3xl max-h-[88vh] overflow-y-auto rounded-[28px] bg-white dark:bg-slate-900 border border-white/40 dark:border-white/10 shadow-2xl text-slate-900 dark:text-white"><header class="sticky top-0 z-10 flex items-center justify-between gap-4 px-6 py-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800"><h2 id="studio-sheet-title" class="text-xl font-black">${escS(title)}</h2><button type="button" onclick="document.getElementById('studio-action-sheet')?.remove()" class="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-xl">×</button></header><div class="p-6">${body}</div></section>`;
+  sheet.addEventListener('click', event => { if (event.target === sheet) sheet.remove(); });
+  document.body.appendChild(sheet); return sheet;
+}
+
+function openStudioMagicResize() {
+  const current = window.__studioAdapter?.exportScene(); if (!current) return;
+  const formats = window.msDesignStudioFormats || {};
+  openStudioSheet('Magic Resize · Create variations', `<p class="text-sm text-slate-600 dark:text-slate-300 mb-4">MarketSync will create editable pages and reflow vehicle imagery, headlines, offers, CTA buttons, logos, and disclaimers. Your current page stays unchanged.</p><form onsubmit="event.preventDefault();generateStudioVariations()"><div class="grid sm:grid-cols-2 gap-3">${Object.entries(formats).map(([key, format]) => `<label class="flex items-center gap-3 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-violet-500"><input type="checkbox" name="studio-variation" value="${key}" ${key === current.format_key ? '' : 'checked'}><span><b class="block text-sm">${escS(format.label)}</b><span class="text-xs text-slate-500">${format.width}×${format.height}</span></span></label>`).join('')}</div><button class="mt-5 w-full py-3 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-black">Create editable variations</button></form>`);
+}
+window.openStudioMagicResize = openStudioMagicResize;
+
+async function generateStudioVariations() {
+  const adapter = window.__studioAdapter, schema = window.msDesignStudioSchema; if (!adapter || !schema) return;
+  const selected = [...document.querySelectorAll('input[name="studio-variation"]:checked')].map(input => input.value);
+  if (!selected.length) { if (typeof showToast === 'function') showToast('Choose at least one output size.', 'info'); return; }
+  const source = adapter.exportScene(), doc = window.msStudioSceneToDocument(source);
+  const variations = schema.createVariations({ ...source, id: adapter.activePageId || source.id }, selected);
+  doc.pages.push(...variations); doc.version = 3; doc.metadata = { ...(doc.metadata || {}), variation_set_updated_at: new Date().toISOString() };
+  window.__studioDocument = doc; adapter.currentScene = window.msStudioDocumentToScene(doc); adapter.activePageId = variations[0].id;
+  await adapter.renderScene(adapter.currentScene); window.__msStudioStore?.update(doc); window.msStudioScheduleAutosave?.(adapter.currentScene); syncStudioPageUi();
+  document.getElementById('studio-action-sheet')?.remove(); zoomStudioFit();
+  if (typeof showToast === 'function') showToast(`${variations.length} editable variations created.`, 'success');
+}
+window.generateStudioVariations = generateStudioVariations;
+
+async function openStudioAiDesign() {
+  const inventory = await loadStudioInventory();
+  const options = inventory.map(vehicle => `<option value="${escS(vehicle.id)}">${escS(`${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''} ${vehicle.trim || ''}`.trim())} · ${escS(vehicle.stock_number || vehicle.stocknumber || 'No stock #')}</option>`).join('');
+  openStudioSheet('AI Design · Editable dealership creative', `<p class="text-sm text-slate-600 dark:text-slate-300">Describe the campaign. AI creates layout structures with protected placeholders; MarketSync then fills them locally from your connected inventory and Brand Kit.</p><form onsubmit="event.preventDefault();generateStudioAiDesignOptions()" class="mt-5 space-y-4"><label class="block text-sm font-bold">Campaign request<textarea id="studio-ai-design-prompt" rows="3" required placeholder="Create a weekend sale for a 2027 GMC Sierra AT4" class="mt-2 w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700"></textarea></label><label class="block text-sm font-bold">Connected vehicle<select id="studio-ai-design-vehicle" ${inventory.length ? '' : 'disabled'} class="mt-2 w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700"><option value="">No vehicle selected</option>${options}</select></label>${inventory.length ? '' : '<p class="text-sm text-amber-600">No available inventory records are connected. The layout can still be generated, but MarketSync will not invent vehicle facts.</p>'}<button id="studio-ai-design-submit" class="w-full py-3 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-black">Generate three editable options</button><div id="studio-ai-design-results" class="grid sm:grid-cols-3 gap-3"></div></form>`);
+}
+window.openStudioAiDesign = openStudioAiDesign;
+
+async function generateStudioAiDesignOptions() {
+  const prompt = document.getElementById('studio-ai-design-prompt')?.value?.trim(); if (!prompt) return;
+  const button = document.getElementById('studio-ai-design-submit'), results = document.getElementById('studio-ai-design-results');
+  const vehicleId = document.getElementById('studio-ai-design-vehicle')?.value;
+  const vehicle = (await loadStudioInventory()).find(item => String(item.id) === String(vehicleId)) || null;
+  const current = window.__studioAdapter?.exportScene(), formatKey = current?.format_key || 'square', size = STUDIO_SOCIAL_FORMATS[formatKey] || { w: 1080, h: 1080 };
+  if (button) { button.disabled = true; button.textContent = 'Creating editable layouts…'; }
+  try {
+    const styles = ['minimal premium editorial', 'bold automotive retail', 'clean high-contrast modern'];
+    const responses = await Promise.all(styles.map(style => apiSendJson('/ai/studio-template', 'POST', { prompt: `${prompt}. Visual direction: ${style}. Use factual placeholders for every vehicle, dealership, price, payment, incentive, rate, and legal claim.`, format_key: formatKey, width: size.w, height: size.h })));
+    window.__studioAiDesignOptions = responses.map((response, index) => ({ name: response.name || `Option ${index + 1}`, scene: window.msDesignStudioSchema?.refreshBindings(response.scene, studioDesignContext(vehicle)) || response.scene }));
+    if (results) results.innerHTML = window.__studioAiDesignOptions.map((option, index) => `<button type="button" onclick="applyStudioAiDesign(${index})" class="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-violet-500 text-left"><span class="block text-[10px] uppercase font-black text-violet-500">Editable option ${index + 1}</span><b class="block mt-1">${escS(option.name)}</b><span class="block mt-2 text-xs text-slate-500">${option.scene.elements?.length || 0} editable layers</span></button>`).join('');
+  } catch (error) { if (typeof showToast === 'function') showToast(error.message || 'AI designs could not be generated', 'error'); }
+  finally { if (button) { button.disabled = false; button.textContent = 'Generate three editable options'; } }
+}
+window.generateStudioAiDesignOptions = generateStudioAiDesignOptions;
+
+async function applyStudioAiDesign(index) {
+  const option = window.__studioAiDesignOptions?.[index]; if (!option?.scene || !window.__studioAdapter) return;
+  await window.__studioAdapter.renderScene(option.scene); window.__studioDocument = window.msStudioSceneToDocument(option.scene, { title: option.name });
+  window.__msStudioStore?.update(window.__studioDocument); window.msStudioScheduleAutosave?.(option.scene); document.getElementById('studio-action-sheet')?.remove(); zoomStudioFit();
+  if (typeof showToast === 'function') showToast(`${option.name} is ready to edit.`, 'success');
+}
+window.applyStudioAiDesign = applyStudioAiDesign;
+
+function openStudioExport() {
+  openStudioSheet('Export design', `<p class="text-sm text-slate-600 dark:text-slate-300 mb-4">Export the active page at its full dimensions. Transparent PNG removes the page background only.</p><div class="grid sm:grid-cols-2 gap-3"><button onclick="exportStudioFile('png')" class="p-4 rounded-2xl bg-indigo-600 text-white font-black">PNG · full quality</button><button onclick="exportStudioFile('jpeg')" class="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 font-black">JPG · optimized</button><button onclick="exportStudioFile('transparent')" class="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 font-black">Transparent PNG</button><button onclick="renderStudioDesignAndPublish()" class="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 font-black">Render for MarketSync handoff</button></div>`);
+}
+window.openStudioExport = openStudioExport;
+
+function exportStudioFile(format = 'png') {
+  const canvas = window.__studioAdapter?.fabricCanvas; if (!canvas) return;
+  const transparent = format === 'transparent', previous = canvas.backgroundColor;
+  if (transparent) canvas.setBackgroundColor('rgba(0,0,0,0)', canvas.renderAll.bind(canvas));
+  const mimeFormat = format === 'jpeg' ? 'jpeg' : 'png';
+  const url = canvas.toDataURL({ format: mimeFormat, quality: format === 'jpeg' ? .92 : 1, multiplier: 1 });
+  if (transparent) canvas.setBackgroundColor(previous, canvas.renderAll.bind(canvas));
+  const link = document.createElement('a'); link.href = url; link.download = `${(document.getElementById('studio-design-name')?.value || 'marketsync-design').replace(/[^a-z0-9_-]+/gi, '-')}.${mimeFormat === 'jpeg' ? 'jpg' : 'png'}`; link.click();
+}
+window.exportStudioFile = exportStudioFile;
+
+async function openStudioCollaboration() {
+  const design = window.__studioCurrentDesign;
+  if (!design?.id) { if (typeof showToast === 'function') showToast('Save the design before starting review.', 'info'); return; }
+  let collaboration = { comments: [], approvals: [] };
+  try { collaboration = await apiGetJson(`/marketing/studio/designs/${design.id}/collaboration`); } catch (_) {}
+  openStudioSheet('Comments & approvals', `<div class="grid md:grid-cols-2 gap-6"><section><h3 class="font-black">Comments</h3><div class="mt-3 space-y-2 max-h-72 overflow-y-auto">${(collaboration.comments || []).map(comment => `<article class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950"><p class="text-sm">${escS(comment.body)}</p><time class="text-[10px] text-slate-500">${escS(new Date(comment.created_at).toLocaleString())}</time></article>`).join('') || '<p class="text-sm text-slate-500">No comments yet.</p>'}</div><form onsubmit="event.preventDefault();addStudioComment()" class="mt-3"><textarea id="studio-comment-body" rows="3" required placeholder="Leave feedback or @mention a teammate…" class="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700"></textarea><button class="mt-2 w-full py-2 rounded-xl bg-slate-800 dark:bg-slate-700 text-white font-bold">Add comment</button></form></section><section><h3 class="font-black">Approval workflow</h3><div class="mt-3 space-y-2">${(collaboration.approvals || []).map(approval => `<article class="p-3 rounded-2xl border border-slate-200 dark:border-slate-700"><b class="text-sm capitalize">${escS(String(approval.status).replace('_',' '))}</b><p class="text-xs text-slate-500">Revision ${approval.revision_number || 'current'} · ${escS(approval.note || '')}</p>${approval.status === 'requested' ? `<div class="grid grid-cols-3 gap-1 mt-2"><button onclick="decideStudioApproval('${approval.id}','approved')" class="py-1 rounded-lg bg-emerald-600 text-white text-[10px] font-black">Approve</button><button onclick="decideStudioApproval('${approval.id}','revision_requested')" class="py-1 rounded-lg bg-amber-500 text-white text-[10px] font-black">Revise</button><button onclick="decideStudioApproval('${approval.id}','rejected')" class="py-1 rounded-lg bg-rose-600 text-white text-[10px] font-black">Reject</button></div>` : ''}</article>`).join('') || '<p class="text-sm text-slate-500">No approval request yet.</p>'}</div><form onsubmit="event.preventDefault();requestStudioApproval()" class="mt-3"><textarea id="studio-approval-note" rows="2" placeholder="Note for the reviewer" class="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700"></textarea><button class="mt-2 w-full py-2 rounded-xl bg-indigo-600 text-white font-black">Request approval</button></form></section></div>`);
+}
+window.openStudioCollaboration = openStudioCollaboration;
+async function addStudioComment() { const body = document.getElementById('studio-comment-body')?.value?.trim(); if (!body) return; await apiSendJson(`/marketing/studio/designs/${window.__studioCurrentDesign.id}/comments`, 'POST', { body }); openStudioCollaboration(); }
+window.addStudioComment = addStudioComment;
+async function requestStudioApproval() { const note = document.getElementById('studio-approval-note')?.value?.trim(); await saveStudioDesign(); await apiSendJson(`/marketing/studio/designs/${window.__studioCurrentDesign.id}/approval-requests`, 'POST', { note }); openStudioCollaboration(); }
+window.requestStudioApproval = requestStudioApproval;
+async function decideStudioApproval(id, status) { await apiSendJson(`/marketing/studio/designs/${window.__studioCurrentDesign.id}/approvals/${id}/decision`, 'POST', { status }); openStudioCollaboration(); }
+window.decideStudioApproval = decideStudioApproval;
+
+async function changeStudioFormat(formatKey) {
   const sz = STUDIO_SOCIAL_FORMATS[formatKey] || STUDIO_SOCIAL_FORMATS.square;
   const container = document.getElementById('studio-artboard-container');
   if (container) {
     container.style.width = `${sz.w}px`;
     container.style.height = `${sz.h}px`;
   }
-  if (window.__studioAdapter) window.__studioAdapter.resizeCanvas(sz.w, sz.h);
-  if (window.__studioAdapter?.currentScene) window.__studioAdapter.currentScene.format_key = formatKey;
+  if (window.__studioAdapter) {
+    const current = window.__studioAdapter.exportScene();
+    const reflowed = window.msDesignStudioSchema?.reflowScene(current, formatKey);
+    if (reflowed) await window.__studioAdapter.renderScene(reflowed); else window.__studioAdapter.resizeCanvas(sz.w, sz.h);
+  }
   updateStudioSafeGuides(formatKey);
   zoomStudioFit();
   if (typeof showToast === 'function') showToast(`Format set to ${formatKey.toUpperCase()}`, 'info');
@@ -1356,9 +1745,13 @@ function setStudioBreakpoint(breakpoint) {
 window.setStudioBreakpoint = setStudioBreakpoint;
 
 function filterStudioTemplates(formatKey) {
+  window.__studioTemplateFormat = formatKey; window.__studioTemplateLimit = 24;
   const cards = document.getElementById('studio-template-cards');
   if (cards) cards.innerHTML = renderStudioTemplateCards(formatKey);
 }
+function filterStudioTemplateCategory(category) { window.__studioTemplateCategory = category; window.__studioTemplateLimit = 24; const cards = document.getElementById('studio-template-cards'); if (cards) cards.innerHTML = renderStudioTemplateCards(); }
+function loadMoreStudioTemplates() { window.__studioTemplateLimit = (window.__studioTemplateLimit || 24) + 24; const cards = document.getElementById('studio-template-cards'); if (cards) cards.innerHTML = renderStudioTemplateCards(); }
+window.filterStudioTemplateCategory = filterStudioTemplateCategory; window.loadMoreStudioTemplates = loadMoreStudioTemplates;
 
 function updateStudioSafeGuides(formatKey) {
   const old = document.getElementById('studio-safe-guides');
@@ -1372,6 +1765,15 @@ function toggleStudioGuides() {
   guides.classList.toggle('hidden');
   if (button) button.textContent = guides.classList.contains('hidden') ? 'Guides off' : 'Guides on';
 }
+
+function toggleStudioGrid() {
+  const board = document.getElementById('studio-artboard-container');
+  const button = document.getElementById('studio-grid-toggle');
+  if (!board) return;
+  board.classList.toggle('ms-studio-grid-on');
+  if (button) button.textContent = board.classList.contains('ms-studio-grid-on') ? 'Grid on' : 'Grid off';
+}
+window.toggleStudioGrid = toggleStudioGrid;
 
 // Renaming a design that already exists persists straight away, so the title in
 // the header and the title in My Designs never disagree. A design that has not
@@ -1494,12 +1896,12 @@ function showSocialSchedulerUpgradeModal() {
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5"/></svg>
           </div>
           <div>
-            <h3 class="text-base font-black text-slate-900 dark:text-white">Social Scheduler Required</h3>
-            <p class="text-xs text-slate-500">Upgrade to schedule and distribute your designs directly to social channels.</p>
+            <h3 class="text-base font-black text-slate-900 dark:text-white">Social publishing is not enabled</h3>
+            <p class="text-xs text-slate-500">Review this account's subscription to schedule and distribute designs.</p>
           </div>
         </div>
         <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-          Design Studio allows you to create high-converting graphics and canvas artwork. To publish or schedule your designs across Facebook, Instagram, LinkedIn, TikTok, and YouTube, add the standalone <strong>Social Scheduler ($99/mo)</strong> or upgrade to any <strong>Marketing Suite</strong>.
+          Your design remains saved and editable. Direct publishing and scheduling become available when Social Scheduler or an eligible MarketSync suite is active for this account.
         </p>
         <div class="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
           <a href="upgrade.html" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md transition">View Upgrade Options</a>

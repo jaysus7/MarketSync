@@ -9,6 +9,7 @@
  */
 import { supabaseAdmin, stripe } from '../shared.js'
 import { requireAuth } from '../middleware.js'
+import { requestHasCronSecret } from '../cron-auth.js'
 import { resolveProducts, saasCan, saasRoleOf, SAAS_ROLES, SAAS_PERMISSIONS } from './profile.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { SMART_MODEL } from '../aiModels.js'
@@ -29,9 +30,16 @@ export function registerSaasAdmin(app) {
 
   app.get('/saas/overview', requireAuth, async (req, res) => {
     if (!need('view_customers')(req, res)) return
-    const [{ data: dealers }, { data: profiles }] = await Promise.all([
+    // Affiliate commissions is optional — the table may not be present in every
+    // environment. Any failure resolves to null so the overview stays honest
+    // (rendered as "Not connected") rather than fabricating a zero.
+    const affiliatePromise = supabaseAdmin.from('affiliate_commissions')
+      .select('amount, status, created_at').limit(20000)
+      .then(r => r, () => ({ data: null, error: true }))
+    const [{ data: dealers }, { data: profiles }, affRes] = await Promise.all([
       supabaseAdmin.from('dealerships').select('id, name, is_personal, billing_status, trial_ends_at, plan, products, created_at').order('created_at', { ascending: false }).limit(2000),
       supabaseAdmin.from('profiles').select('id, dealership_id, billing_status, trial_ends_at').limit(8000),
+      affiliatePromise,
     ])
     // Personal workspaces bill on the profile — index the (single) profile per personal org.
     const profByDealer = {}
@@ -40,6 +48,7 @@ export function registerSaasAdmin(app) {
     const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0)
     const soon = Date.now() + 5 * 86400000
     let mrr = 0, active = 0, trials = 0, churnRisk = 0, newThisMonth = 0
+    let pastDue = 0, newMrrThisMonth = 0, trialsExpiring = 0
     const trialList = [], topAccounts = []
 
     for (const d of (dealers || [])) {
@@ -52,19 +61,46 @@ export function registerSaasAdmin(app) {
       // Anyone inside a live trial window counts as a trial customer, even if the
       // billing_status hasn't been set to TRIALING yet (fresh sign-ups).
       const futureTrial = trialEnds && new Date(trialEnds) > new Date()
-      if (activeStatus(status)) { active++; mrr += accountMrr; topAccounts.push({ id: d.id, name: d.name, mrr: accountMrr, products }) }
-      else if (dunningStatus(status)) { churnRisk++ }
+      if (activeStatus(status)) {
+        active++; mrr += accountMrr
+        topAccounts.push({ id: d.id, name: d.name, mrr: accountMrr, products })
+        if (d.created_at && new Date(d.created_at) >= monthStart) newMrrThisMonth += accountMrr
+      }
+      else if (dunningStatus(status)) { churnRisk++; pastDue++ }
       else if (trialingStatus(status) || futureTrial) {
         if (futureTrial) {
           trials++
           const days = Math.max(0, Math.round((new Date(trialEnds) - Date.now()) / 86400000))
           trialList.push({ id: d.id, name: d.name, days_left: days, products })
-          if (new Date(trialEnds).getTime() < soon) churnRisk++
+          if (new Date(trialEnds).getTime() < soon) { churnRisk++; trialsExpiring++ }
         } else { churnRisk++ }   // trialing status but the trial window has lapsed = at-risk / recovery
       }
 
       if (d.created_at && new Date(d.created_at) >= monthStart) newThisMonth++
     }
+
+    // Affiliate program is the recurring cost-of-goods. `pending` = owed but not yet
+    // paid. If the table is absent (or unreadable), affiliate stays null so the UI
+    // renders "Not connected" instead of a fake $0.
+    let affiliate = null
+    if (affRes && affRes.data && !affRes.error) {
+      const num = (v) => Number(v) || 0
+      let affPending = 0, affPaidThisMonth = 0
+      for (const c of affRes.data) {
+        const amt = num(c.amount)
+        if (c.status === 'paid') { if (c.created_at && new Date(c.created_at) >= monthStart) affPaidThisMonth += amt }
+        else { affPending += amt }
+      }
+      affiliate = {
+        payouts_due: Math.round(affPending * 100) / 100,
+        paid_this_month: Math.round(affPaidThisMonth * 100) / 100,
+      }
+    }
+
+    // Platform health: derived here from what we can actually observe from HQ.
+    // `ok` = nothing dunning + no expired trials in the churn bucket. Anything
+    // richer (queue depth, integration failures) comes from /owner/health.
+    const health = { status: pastDue > 0 ? 'degraded' : 'ok', past_due: pastDue }
 
     topAccounts.sort((a, b) => b.mrr - a.mrr)
     trialList.sort((a, b) => (a.days_left ?? 999) - (b.days_left ?? 999))
@@ -73,6 +109,11 @@ export function registerSaasAdmin(app) {
       // "Customers" includes everyone on the books — paying + in-trial.
       customers: active + trials,
       churn_risk: churnRisk, new_this_month: newThisMonth,
+      past_due: pastDue,
+      revenue_this_month: newMrrThisMonth,   // new MRR added in the current month
+      trials_expiring_5d: trialsExpiring,
+      affiliate,                              // null → "Not connected"
+      health,
       trials: trialList.slice(0, 12),
       top_accounts: topAccounts.slice(0, 8),
       total_accounts: (dealers || []).length,
@@ -288,12 +329,35 @@ export function registerSaasAdmin(app) {
     }
     if (ltv == null) ltv = tenureMonths != null ? mrr * tenureMonths : mrr
 
+    // Customer health — same formula the pipeline endpoint uses so the score
+    // matches everywhere. `factors` explains the score so an HQ user can act
+    // on it instead of trusting a number they can't reason about.
+    const adoptionPoints = Math.round(Math.min(engines.size, 5) / 5 * 45)
+    const recencyPoints = lastDays == null ? 0 : lastDays <= 3 ? 35 : lastDays <= 7 ? 28 : lastDays <= 14 ? 18 : lastDays <= 30 ? 8 : 0
+    const billingPoints = activeStatus(status) ? 20 : (trialingStatus(status) || (trialEnds && new Date(trialEnds) > new Date())) ? 12 : 0
+    const healthScore = Math.min(100, adoptionPoints + recencyPoints + billingPoints)
+    const health = {
+      score: healthScore,
+      band: healthScore >= 70 ? 'good' : healthScore >= 40 ? 'watch' : 'at_risk',
+      factors: [
+        { key: 'adoption', label: 'Product adoption', points: adoptionPoints, max: 45,
+          detail: `${engines.size} engine${engines.size === 1 ? '' : 's'} touched in 90d` },
+        { key: 'recency', label: 'Recent activity', points: recencyPoints, max: 35,
+          detail: lastDays == null ? 'No activity captured yet' : lastDays === 0 ? 'Active today' : `Last active ${lastDays}d ago` },
+        { key: 'billing', label: 'Billing standing', points: billingPoints, max: 20,
+          detail: activeStatus(status) ? 'Paying, in good standing'
+            : dunningStatus(status) ? 'Past due — recover payment'
+            : (trialingStatus(status) || (trialEnds && new Date(trialEnds) > new Date())) ? 'On trial' : 'Not billing' },
+      ],
+    }
+
     res.json({
       id: dealer.id, name: dealer.name, website_url: dealer.website_url || null,
       is_personal: !!dealer.is_personal, status: (status || '').toUpperCase() || null,
       created_at: dealer.created_at, trial_ends_at: trialEnds,
       products, product_keys: productKeys, plan: dealer.plan || null,
       mrr, arr: mrr * 12, ltv, ltv_source: ltvSource, tenure_months: tenureMonths,
+      health,
       engines_used: [...engines], activity_90d: recent.length, last_activity_days: lastDays,
       team: (team || []).map(t => ({ id: t.id, name: t.full_name, role: t.role, saas_role: t.saas_role })),
       timeline: (events || []).map(e => ({ name: e.event_name, at: e.created_at })),
@@ -574,5 +638,740 @@ export function registerSaasAdmin(app) {
     }).eq('id', targetId)
     if (error) return res.status(500).json({ error: error.message })
     res.json({ ok: true, user_id: targetId, saas_role: role || null })
+  })
+
+  // ══ HQ Affiliates ═════════════════════════════════════════════════════════
+  // Company-wide view of the affiliate program. Reads three canonical tables
+  // (affiliates, affiliate_referrals, affiliate_commissions). Any one missing
+  // becomes null in the response so the UI can render "Not connected" rather
+  // than fabricating zeroes. Gated behind view_customers (same as HQ Pulse).
+  app.get('/saas/affiliates', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const safe = (p) => p.then(r => r, () => ({ data: null, error: true }))
+    const [affRes, refRes, comRes] = await Promise.all([
+      safe(supabaseAdmin.from('affiliates').select('id, code, email, status, created_at').limit(5000)),
+      safe(supabaseAdmin.from('affiliate_referrals').select('affiliate_id, dealership_id, status, created_at').limit(20000)),
+      safe(supabaseAdmin.from('affiliate_commissions').select('affiliate_id, amount, status, created_at').limit(50000)),
+    ])
+    if (!affRes.data) return res.json({ connected: false, affiliates: null, program: null })
+
+    const referralsByAff = new Map()
+    for (const r of refRes.data || []) {
+      const arr = referralsByAff.get(r.affiliate_id) || []
+      arr.push(r); referralsByAff.set(r.affiliate_id, arr)
+    }
+    const commissionsByAff = new Map()
+    let totalPending = 0, totalPaid = 0
+    for (const c of comRes.data || []) {
+      const arr = commissionsByAff.get(c.affiliate_id) || []
+      arr.push(c); commissionsByAff.set(c.affiliate_id, arr)
+      const amt = Number(c.amount) || 0
+      if (c.status === 'paid') totalPaid += amt
+      else totalPending += amt
+    }
+    const rows = affRes.data.map(a => {
+      const refs = referralsByAff.get(a.id) || []
+      const coms = commissionsByAff.get(a.id) || []
+      const active = refs.filter(r => r.status === 'active').length
+      const earned = coms.reduce((s, c) => s + (Number(c.amount) || 0), 0)
+      const pending = coms.filter(c => c.status !== 'paid').reduce((s, c) => s + (Number(c.amount) || 0), 0)
+      return {
+        id: a.id, code: a.code, email: a.email, status: a.status,
+        referrals: refs.length, active_referrals: active,
+        earned: Math.round(earned * 100) / 100,
+        pending_payout: Math.round(pending * 100) / 100,
+        conversion_rate: refs.length ? Math.round(active / refs.length * 100) : 0,
+      }
+    })
+    rows.sort((a, b) => b.earned - a.earned)
+    res.json({
+      connected: true,
+      program: {
+        affiliate_count: affRes.data.length,
+        active_affiliates: affRes.data.filter(a => (a.status || '').toLowerCase() === 'active').length,
+        referral_count: (refRes.data || []).length,
+        active_referrals: (refRes.data || []).filter(r => r.status === 'active').length,
+        pending_payouts: Math.round(totalPending * 100) / 100,
+        paid_out: Math.round(totalPaid * 100) / 100,
+      },
+      affiliates: rows.slice(0, 200),
+    })
+  })
+
+  // ══ HQ Product Usage ══════════════════════════════════════════════════════
+  // Adoption per product namespace, derived from the `events` spine only.
+  // Events use `<namespace>.<action>` naming — same convention the customer
+  // pipeline endpoint already reads. No new tables required.
+  app.get('/saas/product-usage', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const days = Math.max(1, Math.min(90, Number(req.query.days) || 30))
+    const since = new Date(Date.now() - days * 86400000).toISOString()
+    const evtRes = await supabaseAdmin.from('events')
+      .select('dealership_id, event_name, created_at')
+      .gte('created_at', since).limit(100000)
+      .then(r => r, () => ({ data: null, error: true }))
+    if (!evtRes.data) return res.json({ connected: false, window_days: days, products: null })
+
+    const byProduct = new Map()
+    for (const e of evtRes.data) {
+      const ns = String(e.event_name || '').split('.')[0]
+      if (!ns) continue
+      const p = byProduct.get(ns) || { events: 0, accounts: new Set(), last_at: null }
+      p.events++
+      if (e.dealership_id) p.accounts.add(e.dealership_id)
+      if (!p.last_at || e.created_at > p.last_at) p.last_at = e.created_at
+      byProduct.set(ns, p)
+    }
+    const products = Array.from(byProduct.entries()).map(([key, p]) => ({
+      key, events: p.events, accounts: p.accounts.size, last_at: p.last_at,
+    })).sort((a, b) => b.accounts - a.accounts)
+    res.json({
+      connected: true, window_days: days,
+      total_events: evtRes.data.length,
+      products,
+    })
+  })
+
+  // ══ HQ Trend Charts (time-series from daily snapshots) ═══════════════════
+  // Reads N days of the hq_daily_snapshots table. When the table is empty (no
+  // cron run yet) we return connected:false + an empty series — the chart then
+  // renders "Not measured" instead of a fake flat line at zero.
+  app.get('/saas/trends', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const days = Math.max(7, Math.min(365, Number(req.query.days) || 30))
+    const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
+    const { data, error } = await supabaseAdmin.from('hq_daily_snapshots')
+      .select('*').gte('snapshot_date', since).order('snapshot_date', { ascending: true })
+    if (error) return res.json({ connected: false, window_days: days, series: null, reason: error.message })
+    if (!data || data.length === 0) return res.json({ connected: false, window_days: days, series: null })
+    res.json({
+      connected: true, window_days: days,
+      series: data.map(r => ({
+        date: r.snapshot_date,
+        mrr: Number(r.mrr) || 0, arr: Number(r.arr) || 0,
+        active_customers: r.active_customers, trial_accounts: r.trial_accounts,
+        new_this_month: r.new_this_month, churn_risk: r.churn_risk,
+        past_due: r.past_due,
+        affiliate_payouts_due: r.affiliate_payouts_due == null ? null : Number(r.affiliate_payouts_due),
+      })),
+    })
+  })
+
+  // ── Nightly snapshot job (cron-secret gated). Idempotent per calendar day. ─
+  // POST /cron/hq-snapshot — same secret contract every /cron/* uses. Called
+  // once a day (Render cron), pulls the same numbers /saas/overview computes,
+  // and upserts a row keyed by today's UTC date.
+  app.post('/cron/hq-snapshot', async (req, res) => {
+    if (!requestHasCronSecret(req)) return res.status(403).json({ error: 'forbidden' })
+    const t0 = Date.now()
+    const runInsert = async (status, error, meta) => {
+      await supabaseAdmin.from('hq_job_runs').insert({
+        job_key: 'hq_snapshot', status, error, metadata: meta || {},
+        duration_ms: Date.now() - t0, finished_at: new Date().toISOString(),
+      })
+    }
+    try {
+      const [{ data: dealers }, { data: profiles }, affRes] = await Promise.all([
+        supabaseAdmin.from('dealerships').select('id, is_personal, billing_status, trial_ends_at, products, created_at').limit(5000),
+        supabaseAdmin.from('profiles').select('dealership_id, billing_status, trial_ends_at').limit(20000),
+        supabaseAdmin.from('affiliate_commissions').select('amount, status').limit(50000).then(r => r, () => ({ data: null })),
+      ])
+      const profByDealer = {}
+      for (const p of profiles || []) { (profByDealer[p.dealership_id] = profByDealer[p.dealership_id] || []).push(p) }
+      const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0)
+      let mrr = 0, active = 0, trials = 0, churnRisk = 0, newThisMonth = 0, pastDue = 0
+      for (const d of (dealers || [])) {
+        let status = d.billing_status, trialEnds = d.trial_ends_at
+        if (d.is_personal) { const u = (profByDealer[d.id] || [])[0]; if (u) { status = u.billing_status; trialEnds = u.trial_ends_at } }
+        const products = resolveProducts(d)
+        const acctMrr = Object.keys(PRODUCT_MRR).reduce((s, k) => s + (products[k] ? PRODUCT_MRR[k] : 0), 0)
+        const futureTrial = trialEnds && new Date(trialEnds) > new Date()
+        if (activeStatus(status)) { active++; mrr += acctMrr }
+        else if (dunningStatus(status)) { churnRisk++; pastDue++ }
+        else if (trialingStatus(status) || futureTrial) { if (futureTrial) trials++; else churnRisk++ }
+        if (d.created_at && new Date(d.created_at) >= monthStart) newThisMonth++
+      }
+      let affPayoutsDue = null
+      if (affRes.data) {
+        affPayoutsDue = 0
+        for (const c of affRes.data) if (c.status !== 'paid') affPayoutsDue += Number(c.amount) || 0
+        affPayoutsDue = Math.round(affPayoutsDue * 100) / 100
+      }
+      const today = new Date().toISOString().slice(0, 10)
+      const { error: upErr } = await supabaseAdmin.from('hq_daily_snapshots').upsert({
+        snapshot_date: today, mrr, arr: mrr * 12,
+        active_customers: active, trial_accounts: trials, new_this_month: newThisMonth,
+        churn_risk: churnRisk, past_due: pastDue, affiliate_payouts_due: affPayoutsDue,
+        captured_at: new Date().toISOString(),
+      }, { onConflict: 'snapshot_date' })
+      if (upErr) throw upErr
+      await runInsert('success', null, { mrr, active, trials })
+      res.json({ ok: true, snapshot_date: today, mrr, active_customers: active })
+    } catch (e) {
+      await runInsert('error', e.message)
+      res.status(500).json({ error: e.message })
+    }
+  })
+
+  // ══ HQ Accounting — company expense ledger + budgets ═════════════════════
+  // These are MarketSync's OWN operating expenses, not a dealership ledger.
+  // Reads gated on view_customers (Pulse level); writes on manage_followups
+  // (same gate as other HQ mutations). Cross-day totals stay honest — if the
+  // table is empty the UI shows the empty state, never a placeholder number.
+  app.get('/saas/accounting/expenses', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const days = Math.max(1, Math.min(365, Number(req.query.days) || 90))
+    const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
+    const [{ data: cats }, { data: rows }] = await Promise.all([
+      supabaseAdmin.from('hq_expense_categories').select('*').order('label'),
+      supabaseAdmin.from('hq_vendor_expenses').select('*').gte('incurred_on', since).order('incurred_on', { ascending: false }).limit(2000),
+    ])
+    const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0)
+    const totals = { window: 0, this_month: 0, by_category: {} }
+    for (const c of (cats || [])) totals.by_category[c.key] = { label: c.label, monthly_budget: c.monthly_budget == null ? null : Number(c.monthly_budget), spent_this_month: 0, spent_window: 0 }
+    for (const r of (rows || [])) {
+      const amt = Number(r.amount) || 0
+      totals.window += amt
+      const thisMonth = new Date(r.incurred_on) >= monthStart
+      if (thisMonth) totals.this_month += amt
+      const bucket = totals.by_category[r.category_key] || (totals.by_category[r.category_key || 'uncategorized'] = { label: r.category_key || 'Uncategorized', monthly_budget: null, spent_this_month: 0, spent_window: 0 })
+      bucket.spent_window += amt
+      if (thisMonth) bucket.spent_this_month += amt
+    }
+    for (const k of Object.keys(totals.by_category)) {
+      const b = totals.by_category[k]
+      b.spent_this_month = Math.round(b.spent_this_month * 100) / 100
+      b.spent_window = Math.round(b.spent_window * 100) / 100
+      b.budget_utilization = b.monthly_budget ? Math.round(b.spent_this_month / b.monthly_budget * 100) : null
+    }
+    res.json({
+      window_days: days,
+      totals: {
+        window: Math.round(totals.window * 100) / 100,
+        this_month: Math.round(totals.this_month * 100) / 100,
+        by_category: totals.by_category,
+      },
+      categories: cats || [],
+      expenses: rows || [],
+    })
+  })
+
+  app.post('/saas/accounting/expenses', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const b = req.body || {}
+    const vendor = String(b.vendor || '').trim().slice(0, 240)
+    const amount = Number(b.amount)
+    const incurredOn = b.incurred_on ? new Date(b.incurred_on) : new Date()
+    if (!vendor) return res.status(400).json({ error: 'Vendor required' })
+    if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'Amount must be a positive number' })
+    if (Number.isNaN(incurredOn.getTime())) return res.status(400).json({ error: 'Invalid incurred_on date' })
+    const row = {
+      vendor,
+      category_key: b.category_key ? String(b.category_key).trim().slice(0, 60) : null,
+      amount, currency: (b.currency || 'USD').slice(0, 3).toUpperCase(),
+      incurred_on: incurredOn.toISOString().slice(0, 10),
+      memo: b.memo ? String(b.memo).slice(0, 1000) : null,
+      recurring: !!b.recurring,
+      created_by: req.user?.id || null,
+    }
+    const { data, error } = await supabaseAdmin.from('hq_vendor_expenses').insert(row).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+
+  app.patch('/saas/accounting/expenses/:id', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const patch = {}
+    const b = req.body || {}
+    for (const k of ['vendor', 'category_key', 'memo']) if (k in b) patch[k] = b[k] == null || b[k] === '' ? null : String(b[k]).slice(0, 1000)
+    if ('amount' in b) { const n = Number(b.amount); if (!Number.isFinite(n) || n <= 0) return res.status(400).json({ error: 'Bad amount' }); patch.amount = n }
+    if ('incurred_on' in b) patch.incurred_on = new Date(b.incurred_on).toISOString().slice(0, 10)
+    if ('recurring' in b) patch.recurring = !!b.recurring
+    if ('status' in b) {
+      if (!['recorded', 'pending', 'paid', 'cancelled'].includes(b.status)) return res.status(400).json({ error: 'Bad status' })
+      patch.status = b.status
+    }
+    const { data, error } = await supabaseAdmin.from('hq_vendor_expenses').update(patch).eq('id', req.params.id).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+
+  app.delete('/saas/accounting/expenses/:id', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const { error } = await supabaseAdmin.from('hq_vendor_expenses').delete().eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true })
+  })
+
+  // ── Receipt OCR for HQ operating expenses. Uses the same Anthropic vision
+  // path the dealership endpoint uses, but gated on HQ manage_followups
+  // (not MFA + dealership + ai_boost) so an HQ user can capture their
+  // MarketSync-side vendor spend. Returns the decoded fields; the client
+  // then confirms and POSTs to /saas/accounting/expenses. Never inserts on
+  // its own — the user always confirms the numbers first.
+  app.post('/saas/accounting/expenses/scan', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI features not configured' })
+    const img = String(req.body?.image || '')
+    const m = img.match(/^data:(image\/(png|jpe?g|webp));base64,(.+)$/)
+    if (!m) return res.status(400).json({ error: 'Send the receipt photo as a base64 data URL.' })
+    const media_type = m[1] === 'image/jpg' ? 'image/jpeg' : m[1]
+    const data = m[3]
+    if (data.length > 8_000_000) return res.status(400).json({ error: 'Image too large — retake at normal quality.' })
+    // Category keys the HQ ledger actually uses so the AI can pick one that
+    // matches an existing bucket instead of coining a new label.
+    const { data: cats } = await supabaseAdmin.from('hq_expense_categories').select('key, label')
+    const catList = (cats || []).map(c => `${c.key} (${c.label})`).slice(0, 20).join(', ')
+    const prompt = `You are reading a photo of a purchase RECEIPT for MarketSync's own operating expenses. Extract ONLY what is clearly legible. Return STRICT JSON with these keys (use null when not visible): vendor (the store/merchant name), date (YYYY-MM-DD), subtotal, tax, total. Also return category_key — pick the single best match from THIS list of MarketSync HQ categories (copy the key exactly), or null if none clearly fit: ${catList || 'infrastructure, software, marketing, contractors, operations'}. Numbers must be plain (no currency symbols or commas). Do not guess or invent. Return ONLY the JSON object, no prose.`
+    try {
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      const msg = await Promise.race([
+        anthropic.messages.create({ model: SMART_MODEL, max_tokens: 400, messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type, data } },
+          { type: 'text', text: prompt },
+        ] }] }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 30000)),
+      ])
+      let txt = (msg?.content?.[0]?.text || '').trim().replace(/^```json\s*|\s*```$/g, '')
+      let f
+      try { f = JSON.parse(txt) } catch { return res.status(422).json({ error: 'Could not read the receipt clearly — try a flatter, well-lit photo.' }) }
+      const num = (v) => { const n = parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, '')); return Number.isFinite(n) ? n : null }
+      res.json({ ok: true, fields: {
+        vendor: f.vendor ? String(f.vendor).slice(0, 120) : null,
+        date: /^\d{4}-\d{2}-\d{2}$/.test(f.date || '') ? f.date : null,
+        subtotal: num(f.subtotal), tax: num(f.tax), total: num(f.total),
+        category_key: f.category_key ? String(f.category_key).slice(0, 60) : null,
+      } })
+    } catch (e) {
+      res.status(500).json({ error: e.message === 'ai timeout' ? 'Reading the receipt took too long — try again.' : 'Could not read the receipt.' })
+    }
+  })
+
+  // ── HQ income entries (one-off invoices, side revenue). Kept separate from
+  // subscription MRR so /saas/accounting can reconcile without double-count.
+  app.get('/saas/accounting/income', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const days = Math.max(1, Math.min(365, Number(req.query.days) || 90))
+    const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
+    const { data, error } = await supabaseAdmin.from('hq_income_entries')
+      .select('*').gte('received_on', since).order('received_on', { ascending: false }).limit(2000)
+    if (error) return res.status(500).json({ error: error.message })
+    const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0)
+    let windowTotal = 0, monthTotal = 0
+    for (const r of data || []) {
+      const amt = Number(r.amount) || 0
+      windowTotal += amt
+      if (new Date(r.received_on) >= monthStart) monthTotal += amt
+    }
+    res.json({
+      window_days: days,
+      totals: { window: Math.round(windowTotal * 100) / 100, this_month: Math.round(monthTotal * 100) / 100 },
+      income: data || [],
+    })
+  })
+  app.post('/saas/accounting/income', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const b = req.body || {}
+    const source = String(b.source || '').trim().slice(0, 240)
+    const amount = Number(b.amount)
+    const receivedOn = b.received_on ? new Date(b.received_on) : new Date()
+    if (!source) return res.status(400).json({ error: 'Source (payer / invoice title) required' })
+    if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'Amount must be a positive number' })
+    if (Number.isNaN(receivedOn.getTime())) return res.status(400).json({ error: 'Invalid received_on date' })
+    const row = {
+      source,
+      category_key: b.category_key ? String(b.category_key).trim().slice(0, 60) : null,
+      amount, currency: (b.currency || 'USD').slice(0, 3).toUpperCase(),
+      received_on: receivedOn.toISOString().slice(0, 10),
+      memo: b.memo ? String(b.memo).slice(0, 1000) : null,
+      // invoice_url is optional — client passes a URL if it hosted the file
+      // itself. We do NOT persist raw base64 blobs in Postgres.
+      invoice_url: b.invoice_url ? String(b.invoice_url).slice(0, 2000) : null,
+      created_by: req.user?.id || null,
+    }
+    const { data, error } = await supabaseAdmin.from('hq_income_entries').insert(row).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+  app.delete('/saas/accounting/income/:id', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const { error } = await supabaseAdmin.from('hq_income_entries').delete().eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true })
+  })
+
+  // ── Same OCR path but for income invoices. Fields returned map to the
+  // shape POST /saas/accounting/income expects.
+  app.post('/saas/accounting/income/scan', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'AI features not configured' })
+    const img = String(req.body?.image || '')
+    const m = img.match(/^data:(image\/(png|jpe?g|webp));base64,(.+)$/)
+    if (!m) return res.status(400).json({ error: 'Send the invoice photo as a base64 data URL.' })
+    const media_type = m[1] === 'image/jpg' ? 'image/jpeg' : m[1]
+    const data = m[3]
+    if (data.length > 8_000_000) return res.status(400).json({ error: 'Image too large — retake at normal quality.' })
+    const prompt = `You are reading a photo of an INVOICE that MarketSync issued (or received payment for). Extract ONLY what is clearly legible. Return STRICT JSON with these keys (use null when not visible): source (the payer / client name), date (YYYY-MM-DD, the invoice or received date), amount (grand total, plain number, no currency symbols or commas). Do not guess or invent. Return ONLY the JSON object, no prose.`
+    try {
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+      const msg = await Promise.race([
+        anthropic.messages.create({ model: SMART_MODEL, max_tokens: 300, messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type, data } },
+          { type: 'text', text: prompt },
+        ] }] }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('ai timeout')), 30000)),
+      ])
+      let txt = (msg?.content?.[0]?.text || '').trim().replace(/^```json\s*|\s*```$/g, '')
+      let f
+      try { f = JSON.parse(txt) } catch { return res.status(422).json({ error: 'Could not read the invoice clearly — try a flatter, well-lit photo.' }) }
+      const num = (v) => { const n = parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, '')); return Number.isFinite(n) ? n : null }
+      res.json({ ok: true, fields: {
+        source: f.source ? String(f.source).slice(0, 240) : null,
+        date: /^\d{4}-\d{2}-\d{2}$/.test(f.date || '') ? f.date : null,
+        amount: num(f.amount),
+      } })
+    } catch (e) {
+      res.status(500).json({ error: e.message === 'ai timeout' ? 'Reading the invoice took too long — try again.' : 'Could not read the invoice.' })
+    }
+  })
+
+  app.patch('/saas/accounting/categories/:key', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const b = req.body || {}
+    const patch = {}
+    if ('label' in b) patch.label = String(b.label || '').trim().slice(0, 240)
+    if ('monthly_budget' in b) {
+      if (b.monthly_budget == null || b.monthly_budget === '') patch.monthly_budget = null
+      else { const n = Number(b.monthly_budget); if (!Number.isFinite(n) || n < 0) return res.status(400).json({ error: 'Bad budget' }); patch.monthly_budget = n }
+    }
+    const { data, error } = await supabaseAdmin.from('hq_expense_categories').update(patch).eq('key', req.params.key).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+
+  // ══ HQ Billing Summary ════════════════════════════════════════════════════
+  // Rolls up subscription state across every dealership: active / trialing /
+  // past-due / cancel-at-period-end counts, plus a receivables approximation
+  // from dunning accounts × their inferred MRR. Reads only tables that are
+  // already the billing truth (dealerships + subscriptions); Stripe drill-down
+  // stays in the existing /owner/billing/:id endpoint.
+  app.get('/saas/billing-summary', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const [{ data: dealers }, subsRes] = await Promise.all([
+      supabaseAdmin.from('dealerships').select('id, name, billing_status, products, plan').limit(2000),
+      supabaseAdmin.from('subscriptions').select('dealership_id, status, cancel_at_period_end, current_period_end').limit(8000)
+        .then(r => r, () => ({ data: null, error: true })),
+    ])
+    const subs = subsRes.data
+    // Subscription-driven counts (Stripe-backed) if we can read the table.
+    let activeSubs = null, trialingSubs = null, pastDueSubs = null, cancelling = null
+    if (subs) {
+      activeSubs = 0; trialingSubs = 0; pastDueSubs = 0; cancelling = 0
+      for (const s of subs) {
+        const st = String(s.status || '').toLowerCase()
+        if (st === 'active') activeSubs++
+        else if (st === 'trialing') trialingSubs++
+        else if (st === 'past_due' || st === 'unpaid') pastDueSubs++
+        if (s.cancel_at_period_end) cancelling++
+      }
+    }
+    // Receivables: sum inferred MRR of dunning dealers (best-effort until an
+    // invoice-history table exists). Emit null if the concept can't be computed.
+    let receivables = 0, pastDueAccounts = 0
+    for (const d of (dealers || [])) {
+      if (!dunningStatus(d.billing_status)) continue
+      pastDueAccounts++
+      const products = resolveProducts(d)
+      receivables += Object.keys(PRODUCT_MRR).reduce((s, k) => s + (products[k] ? PRODUCT_MRR[k] : 0), 0)
+    }
+    res.json({
+      stripe_connected: subs !== null,
+      subscriptions: subs === null ? null : {
+        active: activeSubs, trialing: trialingSubs, past_due: pastDueSubs,
+        cancel_at_period_end: cancelling,
+      },
+      receivables: {
+        past_due_accounts: pastDueAccounts,
+        estimated_owed_mrr: receivables,     // conservative MRR-based approximation
+        note: 'Approximated from active entitlements — real invoice totals require the invoice-history table.',
+      },
+    })
+  })
+
+  // ══ HQ Platform Health ════════════════════════════════════════════════════
+  // Aggregates the observable health signals: dunning + trials-expiring +
+  // integration failure rate. No secrets emitted. Same permission as Pulse.
+  app.get('/saas/platform-health', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const safe = (p) => p.then(r => r, () => ({ data: null, error: true }))
+    const since24h = new Date(Date.now() - 24 * 3600 * 1000).toISOString()
+    const [dRes, iRes, jRes, wRes] = await Promise.all([
+      safe(supabaseAdmin.from('dealerships').select('billing_status, trial_ends_at, is_personal').limit(2000)),
+      safe(supabaseAdmin.from('dealer_integrations').select('status, provider, updated_at').limit(5000)),
+      safe(supabaseAdmin.from('hq_job_runs').select('job_key, status, error, started_at, duration_ms')
+        .gte('started_at', since24h).order('started_at', { ascending: false }).limit(1000)),
+      safe(supabaseAdmin.from('hq_webhook_events').select('provider, status, error, received_at')
+        .gte('received_at', since24h).order('received_at', { ascending: false }).limit(1000)),
+    ])
+    let pastDue = 0, expiringTrials = 0
+    for (const d of (dRes.data || [])) {
+      if (dunningStatus(d.billing_status)) pastDue++
+      if (d.trial_ends_at && new Date(d.trial_ends_at) > new Date() &&
+          new Date(d.trial_ends_at).getTime() - Date.now() < 5 * 86400000) expiringTrials++
+    }
+    const integrationsConnected = iRes.data !== null
+    const failedIntegrations = integrationsConnected
+      ? (iRes.data || []).filter(i => ['error', 'failed', 'disconnected'].includes(String(i.status || '').toLowerCase())).length
+      : null
+    // Job + webhook health. Both null-when-empty so brand new environments
+    // render "Not measured" instead of a fake "0 failures".
+    let failedJobs = null, runningJobs = null, recentFailedJobs = null
+    if (jRes.data !== null) {
+      failedJobs = jRes.data.filter(r => r.status === 'error').length
+      runningJobs = jRes.data.filter(r => r.status === 'running').length
+      recentFailedJobs = jRes.data.filter(r => r.status === 'error').slice(0, 10).map(r => ({
+        job_key: r.job_key, error: r.error, started_at: r.started_at, duration_ms: r.duration_ms,
+      }))
+    }
+    let failedWebhooks = null, recentFailedWebhooks = null
+    if (wRes.data !== null) {
+      failedWebhooks = wRes.data.filter(r => r.status === 'failed').length
+      recentFailedWebhooks = wRes.data.filter(r => r.status === 'failed').slice(0, 10).map(r => ({
+        provider: r.provider, error: r.error, received_at: r.received_at,
+      }))
+    }
+    const anySignalBad = (pastDue > 0) || (failedIntegrations && failedIntegrations > 0)
+      || (failedJobs != null && failedJobs > 0) || (failedWebhooks != null && failedWebhooks > 0)
+    res.json({
+      status: anySignalBad ? 'degraded' : 'ok',
+      signals: {
+        past_due: pastDue,
+        trials_expiring_5d: expiringTrials,
+        failed_integrations: failedIntegrations,
+        failed_jobs_24h: failedJobs,          // null → "Not measured"
+        running_jobs: runningJobs,
+        failed_webhooks_24h: failedWebhooks,   // null → "Not measured"
+      },
+      recent_failures: {
+        jobs: recentFailedJobs || [],
+        webhooks: recentFailedWebhooks || [],
+      },
+      env: process.env.NODE_ENV || 'unknown',
+    })
+  })
+
+  // ══ HQ Trials pipeline ═══════════════════════════════════════════════════
+  // Classifies every trial into an explicit stage (new / onboarding / active /
+  // engaged / low_engagement / expiring / converted / expired), with the last
+  // activity and days-remaining that decide the stage. Basis for the Trials
+  // engine page. Only reads tables that already exist.
+  app.get('/saas/trials', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const since = new Date(Date.now() - 30 * 86400000).toISOString()
+    const [{ data: dealers }, { data: profiles }, evtRes] = await Promise.all([
+      supabaseAdmin.from('dealerships').select('id, name, is_personal, billing_status, trial_ends_at, products, created_at').limit(3000),
+      supabaseAdmin.from('profiles').select('dealership_id, billing_status, trial_ends_at').limit(20000),
+      supabaseAdmin.from('events').select('dealership_id, event_name, created_at').gte('created_at', since)
+        .order('created_at', { ascending: false }).limit(50000)
+        .then(r => r, () => ({ data: null })),
+    ])
+    const profByDealer = {}
+    for (const p of profiles || []) { (profByDealer[p.dealership_id] = profByDealer[p.dealership_id] || []).push(p) }
+    const activityByAcct = new Map()
+    for (const e of (evtRes?.data || [])) {
+      const a = activityByAcct.get(e.dealership_id) || { count: 0, last: null, engines: new Set() }
+      a.count++
+      if (!a.last) a.last = e.created_at
+      const ns = String(e.event_name || '').split('.')[0]
+      if (ns) a.engines.add(ns)
+      activityByAcct.set(e.dealership_id, a)
+    }
+    const now = Date.now()
+    const trials = []
+    for (const d of (dealers || [])) {
+      let status = d.billing_status, trialEnds = d.trial_ends_at
+      if (d.is_personal) { const u = (profByDealer[d.id] || [])[0]; if (u) { status = u.billing_status; trialEnds = u.trial_ends_at } }
+      const inTrialWindow = trialEnds && new Date(trialEnds).getTime() > now
+      const trialingByStatus = String(status || '').toUpperCase() === 'TRIALING'
+      if (!inTrialWindow && !trialingByStatus) continue
+      if (activeStatus(status)) continue   // already converted → not in pipeline
+      const days = trialEnds ? Math.round((new Date(trialEnds).getTime() - now) / 86400000) : null
+      const a = activityByAcct.get(d.id) || { count: 0, last: null, engines: new Set() }
+      const daysSinceStart = d.created_at ? Math.round((now - new Date(d.created_at).getTime()) / 86400000) : null
+      let stage
+      if (!inTrialWindow) stage = 'expired'
+      else if (days != null && days <= 5) stage = 'expiring'
+      else if (a.engines.size >= 3 && a.count >= 10) stage = 'engaged'
+      else if (a.engines.size >= 1 && a.count >= 3) stage = 'active'
+      else if (daysSinceStart != null && daysSinceStart <= 2) stage = 'new'
+      else if (a.count > 0) stage = 'onboarding'
+      else stage = 'low_engagement'
+      const nextAction =
+        stage === 'expiring' ? 'Convert — book demo now' :
+        stage === 'expired' ? 'Re-engage — trial lapsed' :
+        stage === 'engaged' ? 'Convert to paid' :
+        stage === 'active' ? 'Nudge to next feature' :
+        stage === 'onboarding' ? 'Coach through first outcome' :
+        stage === 'new' ? 'Welcome outreach' :
+        'Activation outreach'
+      trials.push({
+        id: d.id, name: d.name || 'Account',
+        stage, days_left: days, days_since_start: daysSinceStart,
+        activity_30d: a.count, engines_used: a.engines.size,
+        last_activity: a.last, next_action: nextAction,
+        products: resolveProducts(d),
+      })
+    }
+    const STAGES = ['new', 'onboarding', 'active', 'engaged', 'low_engagement', 'expiring', 'expired']
+    const counts = Object.fromEntries(STAGES.map(s => [s, 0]))
+    for (const t of trials) counts[t.stage] = (counts[t.stage] || 0) + 1
+    // Trial conversion rate over 30 days: paid_new / (paid_new + trialing).
+    // "paid_new" = dealers created in the last 30 days that are now ACTIVE.
+    let paidNew30d = 0, allNew30d = 0
+    const cutoff = now - 30 * 86400000
+    for (const d of (dealers || [])) {
+      if (!d.created_at) continue
+      if (new Date(d.created_at).getTime() < cutoff) continue
+      allNew30d++
+      let effStatus = d.billing_status
+      if (d.is_personal) { const u = (profByDealer[d.id] || [])[0]; if (u) effStatus = u.billing_status }
+      if (activeStatus(effStatus)) paidNew30d++
+    }
+    const conversionRate = allNew30d > 0 ? Math.round(paidNew30d / allNew30d * 100) : null
+    trials.sort((a, b) => (a.days_left ?? 9999) - (b.days_left ?? 9999))
+    res.json({
+      stages: STAGES, counts,
+      conversion_rate_30d: conversionRate,   // null when we can't compute
+      trials,
+    })
+  })
+
+  // ══ Automation diagnostics ═══════════════════════════════════════════════
+  // Roll-up of sequence health for the HQ Automations page. Surfaces stalled
+  // enrollments (paused > 7 days), failed step sends, and the top offending
+  // sequences. Reads only existing tables.
+  app.get('/saas/automation/diagnostics', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const since = new Date(Date.now() - 30 * 86400000).toISOString()
+    const [{ data: seqs }, { data: enrollments }, sendRes] = await Promise.all([
+      supabaseAdmin.from('saas_sequences').select('id, key, name, enabled'),
+      supabaseAdmin.from('saas_sequence_enrollments').select('id, sequence_key, dealership_id, status, current_step, updated_at, started_at')
+        .gte('started_at', since).limit(20000)
+        .then(r => r, () => ({ data: null })),
+      supabaseAdmin.from('saas_sequence_step_runs').select('sequence_key, dealership_id, status, error, ran_at')
+        .gte('ran_at', since).limit(50000)
+        .then(r => r, () => ({ data: null })),
+    ])
+    const enr = enrollments?.data ?? enrollments
+    const runs = sendRes?.data ?? sendRes
+    // Support both callable safe() shape and direct data.
+    const enrRows = Array.isArray(enr) ? enr : (enr?.data || [])
+    const runRows = Array.isArray(runs) ? runs : (runs?.data || [])
+    const stalledCutoff = Date.now() - 7 * 86400000
+    let active = 0, paused = 0, stopped = 0, stalled = 0
+    const byKey = {}
+    for (const e of enrRows) {
+      const b = byKey[e.sequence_key] || (byKey[e.sequence_key] = { active: 0, paused: 0, stopped: 0, failed: 0 })
+      if (e.status === 'active') { active++; b.active++ }
+      else if (e.status === 'paused') {
+        paused++; b.paused++
+        if (e.updated_at && new Date(e.updated_at).getTime() < stalledCutoff) stalled++
+      }
+      else if (e.status === 'stopped') { stopped++; b.stopped++ }
+    }
+    const failedRuns = runRows.filter(r => r.status === 'error' || r.status === 'failed')
+    for (const r of failedRuns) {
+      const b = byKey[r.sequence_key] || (byKey[r.sequence_key] = { active: 0, paused: 0, stopped: 0, failed: 0 })
+      b.failed++
+    }
+    const sequences = (seqs || []).map(s => ({
+      key: s.key, name: s.name, enabled: s.enabled !== false, ...(byKey[s.key] || { active: 0, paused: 0, stopped: 0, failed: 0 }),
+    })).sort((a, b) => (b.failed - a.failed) || (b.active - a.active))
+    res.json({
+      // Runs table is optional (older environments) — surface that honestly.
+      runs_connected: runRows !== null,
+      totals: { active, paused, stopped, stalled_over_7d: stalled, failed_runs_30d: failedRuns.length },
+      sequences,
+      recent_failures: failedRuns.slice(0, 15).map(r => ({
+        sequence_key: r.sequence_key, dealership_id: r.dealership_id, error: r.error, ran_at: r.ran_at,
+      })),
+    })
+  })
+
+  // ══ Staff onboarding checklist ═══════════════════════════════════════════
+  // A per-staff checklist (JSON on profiles.hq_onboarding). Owner-only.
+  const STAFF_ONBOARDING = [
+    { key: 'profile',       label: 'Profile complete (name, business email, department)' },
+    { key: 'mfa',           label: 'MFA enrolled' },
+    { key: 'training',      label: 'Product training complete' },
+    { key: 'first_account', label: 'First customer account assigned' },
+    { key: 'first_action',  label: 'First follow-up logged' },
+  ]
+  app.get('/saas/staff/onboarding', requireAuth, async (req, res) => {
+    if (saasRoleOf(req) !== 'owner') { res.status(403).json({ error: 'Owner access required' }); return }
+    const { data: staff } = await supabaseAdmin.from('profiles')
+      .select('id, full_name, department, saas_role, hq_onboarding, business_email')
+      .not('saas_role', 'is', null).order('full_name').limit(500)
+    res.json({
+      checklist: STAFF_ONBOARDING,
+      staff: (staff || []).map(p => {
+        const state = (p.hq_onboarding && typeof p.hq_onboarding === 'object') ? p.hq_onboarding : {}
+        const done = STAFF_ONBOARDING.filter(item => !!state[item.key]).length
+        return {
+          id: p.id, name: p.full_name || p.business_email || '—',
+          department: p.department || null, saas_role: p.saas_role,
+          checklist_state: STAFF_ONBOARDING.reduce((acc, item) => (acc[item.key] = !!state[item.key], acc), {}),
+          progress_pct: Math.round(done / STAFF_ONBOARDING.length * 100),
+        }
+      }),
+    })
+  })
+  app.patch('/saas/staff/:id/onboarding', requireAuth, async (req, res) => {
+    if (saasRoleOf(req) !== 'owner') { res.status(403).json({ error: 'Owner access required' }); return }
+    const key = String(req.body?.key || '')
+    if (!STAFF_ONBOARDING.find(i => i.key === key)) return res.status(400).json({ error: 'Unknown checklist key' })
+    const done = !!req.body?.done
+    const { data: current } = await supabaseAdmin.from('profiles').select('hq_onboarding').eq('id', req.params.id).maybeSingle()
+    const next = { ...((current && current.hq_onboarding && typeof current.hq_onboarding === 'object') ? current.hq_onboarding : {}), [key]: done }
+    const { error } = await supabaseAdmin.from('profiles').update({ hq_onboarding: next }).eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true, key, done })
+  })
+
+  // ══ HQ announcements (customer + staff) ══════════════════════════════════
+  // Composer-style broadcasts. Server-side sending stays out of scope for this
+  // slice — this is the durable inbox record HQ authors decide on.
+  app.get('/saas/announcements', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const audience = req.query.audience === 'staff' ? 'staff' : req.query.audience === 'customer' ? 'customer' : null
+    let q = supabaseAdmin.from('hq_announcements').select('*').order('created_at', { ascending: false }).limit(100)
+    if (audience) q = q.eq('audience', audience)
+    const { data, error } = await q
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ announcements: data || [] })
+  })
+  app.post('/saas/announcements', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const b = req.body || {}
+    const audience = b.audience === 'staff' ? 'staff' : 'customer'
+    const title = String(b.title || '').trim().slice(0, 240)
+    const body = String(b.body || '').trim().slice(0, 8000)
+    if (!title || !body) return res.status(400).json({ error: 'Title and body required' })
+    const publishAt = b.publish_at ? new Date(b.publish_at) : new Date()
+    if (Number.isNaN(publishAt.getTime())) return res.status(400).json({ error: 'Invalid publish_at' })
+    const row = {
+      audience, title, body, publish_at: publishAt.toISOString(),
+      severity: ['info', 'warning', 'success'].includes(b.severity) ? b.severity : 'info',
+      created_by: req.user?.id || null,
+    }
+    const { data, error } = await supabaseAdmin.from('hq_announcements').insert(row).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data)
+  })
+  app.delete('/saas/announcements/:id', requireAuth, async (req, res) => {
+    if (!need('manage_followups')(req, res)) return
+    const { error } = await supabaseAdmin.from('hq_announcements').delete().eq('id', req.params.id)
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ ok: true })
   })
 }

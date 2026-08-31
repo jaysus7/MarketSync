@@ -105,6 +105,10 @@ node server.js
 
 Key environment variables (set in Render or a local `.env`):
 
+For Design Studio live GIF search, also set `GIPHY_API_KEY` and/or
+`TENOR_API_KEY` on the backend service. These keys are used only by the
+server-side GIF proxy and must not be added to frontend code.
+
 | Variable | Purpose |
 |----------|---------|
 | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` | Supabase project + admin access |
