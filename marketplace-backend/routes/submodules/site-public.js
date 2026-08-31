@@ -13,7 +13,7 @@ import { categorizeConversation, formatShownVehicles, summarizeConversation, ver
 import { aiAllowed, recordUsage } from '../../usage.js'
 import { offTopicRefusal, scopeClause, sanitizeTranscript, CHAT_LIMITS } from '../../chatGuard.js'
 
-const SITE_COLS = 'id, name, branding, site_published, site_slug, custom_domain, city, province, postal_code, website_url, photo_background_url'
+const SITE_COLS = 'id, name, branding, site_published, site_slug, custom_domain, city, province, postal_code, website_url, photo_background_url, discovery_summary, discovery_terms, discovery_intents, discovery_enabled'
 
 // Placed widgets & typography presets
 const WIDGET_SLOTS = ['top_banner', 'hero_below', 'above_inventory', 'below_inventory', 'above_footer']
