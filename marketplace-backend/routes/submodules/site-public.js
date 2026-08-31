@@ -817,11 +817,11 @@ Sitemap: ${base}/sitemap.xml`)
 
   <!-- Structured Data (JSON-LD) -->
   <script type="application/ld+json">
-  ${JSON.stringify(vehicleSchema).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')}
+  ${JSON.stringify(vehicleSchema)}
   </script>
 
   <script type="application/ld+json">
-  ${JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')}
+  ${JSON.stringify(breadcrumbSchema)}
   </script>
 
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
@@ -989,11 +989,11 @@ Sitemap: ${base}/sitemap.xml`)
 
   <!-- Structured Data (JSON-LD) -->
   <script type="application/ld+json">
-  ${JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')}
+  ${JSON.stringify(breadcrumbSchema)}
   </script>
 
   <script type="application/ld+json">
-  ${JSON.stringify(itemListSchema).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')}
+  ${JSON.stringify(itemListSchema)}
   </script>
 
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
