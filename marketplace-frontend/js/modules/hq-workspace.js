@@ -1200,4 +1200,123 @@ window.hqRotateSingleKeyPrompt = async function(agentId) {
 
 window.loadHqAgents = loadHqAgents;
 
+// ══ HQ Affiliates ═══════════════════════════════════════════════════════════
+// Company view of the affiliate program. Reads /saas/affiliates (see backend).
+// Any missing table renders as "Not connected" — no fabricated zeros.
+async function loadSaasAffiliates() {
+  const root = document.getElementById('saas-affiliates-root'); if (!root) return;
+  const money = (v) => '$' + Math.round(Number(v) || 0).toLocaleString();
+  root.innerHTML = '<div class="text-sm text-slate-400 p-6">Loading affiliates…</div>';
+  try {
+    const d = await apiGetJson('/saas/affiliates');
+    if (!d.connected) {
+      root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Affiliates','Program overview + top performers'):'<h1 class="text-2xl font-black">Affiliates</h1>'}
+        <div class="rounded-2xl border border-amber-300/60 bg-amber-50/40 dark:border-amber-900/60 dark:bg-amber-950/20 p-6 text-sm text-amber-800 dark:text-amber-200">
+          <b class="block text-base mb-1">Not connected</b>
+          The affiliates table is not present in this environment. Enable the affiliate program to populate this page.
+        </div>`;
+      return;
+    }
+    const p = d.program || {};
+    const rows = (d.affiliates || []).map(a => `
+      <tr class="border-t border-slate-100 dark:border-slate-800">
+        <td class="p-3 font-bold text-slate-800 dark:text-slate-100">${esc(a.code || a.email || a.id)}</td>
+        <td class="p-3 text-slate-600 dark:text-slate-300 text-xs">${esc((a.status || '—').toLowerCase())}</td>
+        <td class="p-3 text-right font-bold">${a.referrals}</td>
+        <td class="p-3 text-right text-emerald-600 dark:text-emerald-400 font-bold">${a.active_referrals}</td>
+        <td class="p-3 text-right font-black">${money(a.earned)}</td>
+        <td class="p-3 text-right ${a.pending_payout > 0 ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-slate-500'}">${money(a.pending_payout)}</td>
+        <td class="p-3 text-right text-slate-500">${a.conversion_rate}%</td>
+      </tr>`).join('') || '<tr><td colspan="7" class="p-6 text-center text-sm text-slate-500">No affiliates yet.</td></tr>';
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Affiliates','Program overview + top performers'):'<h1 class="text-2xl font-black">Affiliates</h1>'}
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        ${typeof engKpi === 'function' ? engKpi('Total affiliates', (p.affiliate_count || 0).toLocaleString()) : ''}
+        ${typeof engKpi === 'function' ? engKpi('Active', (p.active_affiliates || 0).toLocaleString(), 'text-emerald-600 dark:text-emerald-400') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Referrals (active)', `${p.active_referrals || 0}/${p.referral_count || 0}`) : ''}
+        ${typeof engKpi === 'function' ? engKpi('Pending payouts', money(p.pending_payouts || 0), (p.pending_payouts || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : '') : ''}
+      </div>
+      <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <table class="w-full text-left text-xs">
+          <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-500">
+            <th class="p-3">Affiliate</th><th class="p-3">Status</th>
+            <th class="p-3 text-right">Referrals</th><th class="p-3 text-right">Active</th>
+            <th class="p-3 text-right">Earned</th><th class="p-3 text-right">Owed</th>
+            <th class="p-3 text-right">Conversion</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message || 'Could not load affiliates')}</div>`;
+  }
+}
+window.loadSaasAffiliates = loadSaasAffiliates;
+
+// ══ HQ Product Usage ═══════════════════════════════════════════════════════
+async function loadSaasProductUsage() {
+  const root = document.getElementById('saas-product-usage-root'); if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400 p-6">Loading usage…</div>';
+  try {
+    const d = await apiGetJson('/saas/product-usage?days=30');
+    if (!d.connected) {
+      root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Product Usage','Adoption per product (30 days)'):'<h1 class="text-2xl font-black">Product Usage</h1>'}
+        <div class="rounded-2xl border border-amber-300/60 bg-amber-50/40 dark:border-amber-900/60 dark:bg-amber-950/20 p-6 text-sm text-amber-800 dark:text-amber-200">
+          <b class="block text-base mb-1">Not connected</b>
+          The events spine is unreadable, so per-product adoption cannot be shown.
+        </div>`;
+      return;
+    }
+    const label = (window.SAAS_PRODUCT_LABEL || {});
+    const rows = (d.products || []).map(p => `
+      <tr class="border-t border-slate-100 dark:border-slate-800">
+        <td class="p-3 font-bold text-slate-800 dark:text-slate-100">${esc(label[p.key] || p.key)}</td>
+        <td class="p-3 text-right font-black">${(p.accounts || 0).toLocaleString()}</td>
+        <td class="p-3 text-right">${(p.events || 0).toLocaleString()}</td>
+        <td class="p-3 text-right text-xs text-slate-500">${p.last_at ? new Date(p.last_at).toLocaleString() : '—'}</td>
+      </tr>`).join('') || '<tr><td colspan="4" class="p-6 text-center text-sm text-slate-500">No events in this window.</td></tr>';
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Product Usage','Adoption per product (last '+d.window_days+' days)'):'<h1 class="text-2xl font-black">Product Usage</h1>'}
+      <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        ${typeof engKpi === 'function' ? engKpi('Products in use', (d.products || []).length.toLocaleString()) : ''}
+        ${typeof engKpi === 'function' ? engKpi('Total events', (d.total_events || 0).toLocaleString()) : ''}
+        ${typeof engKpi === 'function' ? engKpi('Window (days)', String(d.window_days || 30)) : ''}
+      </div>
+      <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <table class="w-full text-left text-xs">
+          <thead><tr class="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-500">
+            <th class="p-3">Product</th><th class="p-3 text-right">Accounts</th><th class="p-3 text-right">Events</th><th class="p-3 text-right">Last</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message || 'Could not load product usage')}</div>`;
+  }
+}
+window.loadSaasProductUsage = loadSaasProductUsage;
+
+// ══ HQ Platform Health ═════════════════════════════════════════════════════
+async function loadSaasHealth() {
+  const root = document.getElementById('saas-health-root'); if (!root) return;
+  root.innerHTML = '<div class="text-sm text-slate-400 p-6">Checking platform…</div>';
+  try {
+    const d = await apiGetJson('/saas/platform-health');
+    const s = d.signals || {};
+    const failedInt = s.failed_integrations == null ? '<span class="text-slate-400 text-base font-bold">Not connected</span>' : (s.failed_integrations).toLocaleString();
+    const statusTone = d.status === 'ok' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400';
+    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Platform Health','Dunning, expiring trials, integration failures'):'<h1 class="text-2xl font-black">Platform Health</h1>'}
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        ${typeof engKpi === 'function' ? engKpi('Overall', d.status === 'ok' ? 'Healthy' : 'Degraded', statusTone) : ''}
+        ${typeof engKpi === 'function' ? engKpi('Past due', (s.past_due || 0).toLocaleString(), (s.past_due || 0) > 0 ? 'text-rose-600 dark:text-rose-400' : '') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Trials expiring ≤5d', (s.trials_expiring_5d || 0).toLocaleString(), (s.trials_expiring_5d || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : '') : ''}
+        ${typeof engKpi === 'function' ? engKpi('Failed integrations', failedInt, (s.failed_integrations > 0) ? 'text-rose-600 dark:text-rose-400' : '') : ''}
+      </div>
+      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 text-sm text-slate-600 dark:text-slate-300">
+        Signals are read live from dealerships + dealer_integrations. Environment: <b>${esc(d.env || 'unknown')}</b>.
+      </div>`;
+  } catch (e) {
+    root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message || 'Could not load platform health')}</div>`;
+  }
+}
+window.loadSaasHealth = loadSaasHealth;
+
 

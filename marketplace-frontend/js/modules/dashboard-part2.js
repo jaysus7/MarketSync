@@ -2322,6 +2322,9 @@ function switchPage(pageId) {
   if (pageId === 'saas-automation') loadSaasAutomation();
   if (pageId === 'saas-employees') loadSaasEmployees();
   if (pageId === 'saas-accounting') loadSaasAccounting();
+  if (pageId === 'saas-affiliates' && typeof loadSaasAffiliates === 'function') loadSaasAffiliates();
+  if (pageId === 'saas-product-usage' && typeof loadSaasProductUsage === 'function') loadSaasProductUsage();
+  if (pageId === 'saas-health' && typeof loadSaasHealth === 'function') loadSaasHealth();
   if (pageId === 'saas-agents' && typeof loadHqAgents === 'function') loadHqAgents();
   if (pageId === 'saas-entitlements' && typeof loadHqEntitlements === 'function') loadHqEntitlements();
   if (pageId === 'saas-products' && typeof loadHqProducts === 'function') loadHqProducts();

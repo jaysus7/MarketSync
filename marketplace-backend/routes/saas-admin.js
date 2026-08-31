@@ -615,4 +615,129 @@ export function registerSaasAdmin(app) {
     if (error) return res.status(500).json({ error: error.message })
     res.json({ ok: true, user_id: targetId, saas_role: role || null })
   })
+
+  // ══ HQ Affiliates ═════════════════════════════════════════════════════════
+  // Company-wide view of the affiliate program. Reads three canonical tables
+  // (affiliates, affiliate_referrals, affiliate_commissions). Any one missing
+  // becomes null in the response so the UI can render "Not connected" rather
+  // than fabricating zeroes. Gated behind view_customers (same as HQ Pulse).
+  app.get('/saas/affiliates', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const safe = (p) => p.then(r => r, () => ({ data: null, error: true }))
+    const [affRes, refRes, comRes] = await Promise.all([
+      safe(supabaseAdmin.from('affiliates').select('id, code, email, status, created_at').limit(5000)),
+      safe(supabaseAdmin.from('affiliate_referrals').select('affiliate_id, dealership_id, status, created_at').limit(20000)),
+      safe(supabaseAdmin.from('affiliate_commissions').select('affiliate_id, amount, status, created_at').limit(50000)),
+    ])
+    if (!affRes.data) return res.json({ connected: false, affiliates: null, program: null })
+
+    const referralsByAff = new Map()
+    for (const r of refRes.data || []) {
+      const arr = referralsByAff.get(r.affiliate_id) || []
+      arr.push(r); referralsByAff.set(r.affiliate_id, arr)
+    }
+    const commissionsByAff = new Map()
+    let totalPending = 0, totalPaid = 0
+    for (const c of comRes.data || []) {
+      const arr = commissionsByAff.get(c.affiliate_id) || []
+      arr.push(c); commissionsByAff.set(c.affiliate_id, arr)
+      const amt = Number(c.amount) || 0
+      if (c.status === 'paid') totalPaid += amt
+      else totalPending += amt
+    }
+    const rows = affRes.data.map(a => {
+      const refs = referralsByAff.get(a.id) || []
+      const coms = commissionsByAff.get(a.id) || []
+      const active = refs.filter(r => r.status === 'active').length
+      const earned = coms.reduce((s, c) => s + (Number(c.amount) || 0), 0)
+      const pending = coms.filter(c => c.status !== 'paid').reduce((s, c) => s + (Number(c.amount) || 0), 0)
+      return {
+        id: a.id, code: a.code, email: a.email, status: a.status,
+        referrals: refs.length, active_referrals: active,
+        earned: Math.round(earned * 100) / 100,
+        pending_payout: Math.round(pending * 100) / 100,
+        conversion_rate: refs.length ? Math.round(active / refs.length * 100) : 0,
+      }
+    })
+    rows.sort((a, b) => b.earned - a.earned)
+    res.json({
+      connected: true,
+      program: {
+        affiliate_count: affRes.data.length,
+        active_affiliates: affRes.data.filter(a => (a.status || '').toLowerCase() === 'active').length,
+        referral_count: (refRes.data || []).length,
+        active_referrals: (refRes.data || []).filter(r => r.status === 'active').length,
+        pending_payouts: Math.round(totalPending * 100) / 100,
+        paid_out: Math.round(totalPaid * 100) / 100,
+      },
+      affiliates: rows.slice(0, 200),
+    })
+  })
+
+  // ══ HQ Product Usage ══════════════════════════════════════════════════════
+  // Adoption per product namespace, derived from the `events` spine only.
+  // Events use `<namespace>.<action>` naming — same convention the customer
+  // pipeline endpoint already reads. No new tables required.
+  app.get('/saas/product-usage', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const days = Math.max(1, Math.min(90, Number(req.query.days) || 30))
+    const since = new Date(Date.now() - days * 86400000).toISOString()
+    const evtRes = await supabaseAdmin.from('events')
+      .select('dealership_id, event_name, created_at')
+      .gte('created_at', since).limit(100000)
+      .then(r => r, () => ({ data: null, error: true }))
+    if (!evtRes.data) return res.json({ connected: false, window_days: days, products: null })
+
+    const byProduct = new Map()
+    for (const e of evtRes.data) {
+      const ns = String(e.event_name || '').split('.')[0]
+      if (!ns) continue
+      const p = byProduct.get(ns) || { events: 0, accounts: new Set(), last_at: null }
+      p.events++
+      if (e.dealership_id) p.accounts.add(e.dealership_id)
+      if (!p.last_at || e.created_at > p.last_at) p.last_at = e.created_at
+      byProduct.set(ns, p)
+    }
+    const products = Array.from(byProduct.entries()).map(([key, p]) => ({
+      key, events: p.events, accounts: p.accounts.size, last_at: p.last_at,
+    })).sort((a, b) => b.accounts - a.accounts)
+    res.json({
+      connected: true, window_days: days,
+      total_events: evtRes.data.length,
+      products,
+    })
+  })
+
+  // ══ HQ Platform Health ════════════════════════════════════════════════════
+  // Aggregates the observable health signals: dunning + trials-expiring +
+  // integration failure rate. No secrets emitted. Same permission as Pulse.
+  app.get('/saas/platform-health', requireAuth, async (req, res) => {
+    if (!need('view_customers')(req, res)) return
+    const safe = (p) => p.then(r => r, () => ({ data: null, error: true }))
+    const [dRes, iRes] = await Promise.all([
+      safe(supabaseAdmin.from('dealerships').select('billing_status, trial_ends_at, is_personal').limit(2000)),
+      safe(supabaseAdmin.from('dealer_integrations').select('status, provider, updated_at').limit(5000)),
+    ])
+    let pastDue = 0, expiringTrials = 0
+    for (const d of (dRes.data || [])) {
+      if (dunningStatus(d.billing_status)) pastDue++
+      if (d.trial_ends_at && new Date(d.trial_ends_at) > new Date() &&
+          new Date(d.trial_ends_at).getTime() - Date.now() < 5 * 86400000) expiringTrials++
+    }
+    const integrationsConnected = iRes.data !== null
+    const failedIntegrations = integrationsConnected
+      ? (iRes.data || []).filter(i => ['error', 'failed', 'disconnected'].includes(String(i.status || '').toLowerCase())).length
+      : null
+    const status = (pastDue > 0 || (failedIntegrations && failedIntegrations > 0))
+      ? 'degraded' : 'ok'
+    res.json({
+      status,
+      signals: {
+        past_due: pastDue,
+        trials_expiring_5d: expiringTrials,
+        failed_integrations: failedIntegrations,           // null → "Not connected"
+      },
+      env: process.env.NODE_ENV || 'unknown',
+    })
+  })
 }

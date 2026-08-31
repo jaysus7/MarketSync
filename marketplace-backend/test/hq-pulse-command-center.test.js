@@ -47,3 +47,43 @@ test('/saas/overview keeps permission gate (view_customers) — no HQ data leak'
     /app\.get\('\/saas\/overview',\s*requireAuth,[\s\S]{0,120}need\('view_customers'\)/,
     'view_customers permission gate must not be removed')
 })
+
+// ── Slice 2 endpoints: Affiliates, Product Usage, Platform Health ────────────
+test('Slice 2 endpoints are registered and gated', async () => {
+  const s = await src()
+  for (const path of ['/saas/affiliates', '/saas/product-usage', '/saas/platform-health']) {
+    assert.match(s, new RegExp(`app\\.get\\('${path.replace(/\//g, '\\/')}'`),
+      `route missing: ${path}`)
+  }
+  // All three must sit behind the same permission gate as Pulse.
+  for (const path of ['/saas/affiliates', '/saas/product-usage', '/saas/platform-health']) {
+    assert.match(s, new RegExp(
+      `app\\.get\\('${path.replace(/\//g, '\\/')}'[\\s\\S]{0,300}need\\('view_customers'\\)`),
+      `${path} must gate on view_customers`)
+  }
+})
+
+test('/saas/affiliates returns {connected:false} when the affiliates table is missing', async () => {
+  const s = await src()
+  // The endpoint must resolve to connected:false rather than empty arrays when
+  // the affiliates table cannot be read — otherwise the UI would render "0
+  // affiliates" as if the program were empty, which is a fabricated fact.
+  assert.match(s, /if\s*\(!affRes\.data\)\s*return\s+res\.json\(\{\s*connected:\s*false/,
+    'affiliates route must return connected:false on unreadable table')
+})
+
+test('/saas/product-usage returns {connected:false} when the events spine is unreadable', async () => {
+  const s = await src()
+  assert.match(s, /if\s*\(!evtRes\.data\)\s*return\s+res\.json\(\{\s*connected:\s*false/,
+    'product-usage route must return connected:false on unreadable events')
+})
+
+test('/saas/platform-health leaves failed_integrations as null when the table is absent', async () => {
+  const s = await src()
+  // A null (rather than 0) makes the UI render "Not connected" for the
+  // integrations signal, which is the honest state when we cannot read.
+  // failedIntegrations is set to `null` up front and only overwritten with a
+  // count when the read succeeded — so the response emits null for "unknown".
+  assert.match(s, /failedIntegrations\s*=\s*integrationsConnected\s*\?[\s\S]*?:\s*null/,
+    'failed_integrations must fall back to null when the table cannot be read')
+})
