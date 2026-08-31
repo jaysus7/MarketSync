@@ -615,11 +615,11 @@ export function registerSitePublicRoutes(app) {
                 <p style="font-size: 12px; color: #999; margin: 8px 0 0;">${v.photos && v.photos[0] ? 'Photo available' : 'No photo'}</p>
               </div>
               <div style="padding: 16px;">
-                <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 6px;"><a href="${siteUrl}/inventory/${encodeURIComponent(v.id)}" style="color: inherit; text-decoration: none;">${v.year || ''} ${v.make || ''} ${v.model || ''}</a></h3>
+                <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 6px;"><a href="${escapeUrlAttribute(siteUrl + '/inventory/' + encodeURIComponent(v.id))}" style="color: inherit; text-decoration: none;">${escapeHtml(String(v.year || ''))} ${escapeHtml(v.make || '')} ${escapeHtml(v.model || '')}</a></h3>
                 ${v.trim ? `<p style="font-size: 13px; color: #666; margin-bottom: 6px;">${escapeHtml(v.trim)}</p>` : ''}
                 ${v.mileage ? `<p style="font-size: 13px; color: #666; margin-bottom: 6px;">${escapeHtml(String(v.mileage))} km</p>` : ''}
                 ${v.price ? `<p style="font-size: 18px; font-weight: 700; color: ${safePrimaryColor}; margin-top: 12px;">$${Number(v.price).toLocaleString('en-CA')}</p>` : ''}
-                <a href="${siteUrl}/inventory/${encodeURIComponent(v.id)}" style="display: block; margin-top: 12px; padding: 8px 12px; background: ${safePrimaryColor}; color: white; text-align: center; text-decoration: none; border-radius: 4px; font-size: 13px; font-weight: 600;">View Details</a>
+                <a href="${escapeUrlAttribute(siteUrl + '/inventory/' + encodeURIComponent(v.id))}" style="display: block; margin-top: 12px; padding: 8px 12px; background: ${safePrimaryColor}; color: white; text-align: center; text-decoration: none; border-radius: 4px; font-size: 13px; font-weight: 600;">View Details</a>
               </div>
             </article>
           `).join('')}
@@ -896,9 +896,9 @@ Sitemap: ${base}/sitemap.xml`)
   <!-- Server-rendered vehicle detail content -->
   <main role="main" style="max-width: 1200px; margin: 0 auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
     <nav aria-label="Breadcrumb" style="margin-bottom: 20px; font-size: 14px; color: #666;">
-      <a href="${siteUrl}" style="text-decoration: none; color: #1e3a8a;">Home</a>
+      <a href="${escapeUrlAttribute(siteUrl)}" style="text-decoration: none; color: #1e3a8a;">Home</a>
       &gt;
-      <a href="${siteUrl}/inventory/" style="text-decoration: none; color: #1e3a8a;">Inventory</a>
+      <a href="${escapeUrlAttribute(siteUrl + '/inventory/')}" style="text-decoration: none; color: #1e3a8a;">Inventory</a>
       &gt;
       <span>${safeVehicleYear} ${safeVehicleMake} ${safeVehicleModel}</span>
     </nav>
@@ -941,7 +941,7 @@ Sitemap: ${base}/sitemap.xml`)
           ${site.city || site.province ? `<p style="font-size: 14px; color: #666;">${escapeHtml(site.city || '')}${site.city && site.province ? ', ' : ''}${escapeHtml(site.province || '')}</p>` : ''}
         </div>
 
-        <a href="${siteUrl}/inventory/" style="display: block; padding: 12px 16px; background: ${safePrimaryColor}; color: white; text-align: center; text-decoration: none; border-radius: 4px; font-weight: 600; margin-top: 15px;">Back to Inventory</a>
+        <a href="${escapeUrlAttribute(siteUrl + '/inventory/')}" style="display: block; padding: 12px 16px; background: ${safePrimaryColor}; color: white; text-align: center; text-decoration: none; border-radius: 4px; font-weight: 600; margin-top: 15px;">Back to Inventory</a>
       </aside>
     </div>
   </main>
