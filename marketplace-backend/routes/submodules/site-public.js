@@ -594,6 +594,44 @@ export function registerSitePublicRoutes(app) {
 </head>
 <body>
   <noscript>This website requires JavaScript to be enabled. Please enable JavaScript in your browser settings.</noscript>
+
+  <!-- Server-rendered homepage content -->
+  <main role="main" style="max-width: 1200px; margin: 0 auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="margin-bottom: 40px;">
+      <h1 style="font-size: 32px; color: #0f172a; margin-bottom: 10px;">${safeSiteName}</h1>
+      <p style="font-size: 16px; color: #666; margin-bottom: 20px;">${safeDescription}</p>
+      ${safeSitePhone ? `<p style="font-size: 14px; color: #666;"><a href="tel:${safeSitePhone.replace(/\D/g, '')}" style="color: ${safePrimaryColor}; text-decoration: none; font-weight: 600;">${safeSitePhone}</a></p>` : ''}
+    </div>
+
+    <section style="margin-top: 40px;">
+      <h2 style="font-size: 24px; color: #0f172a; margin-bottom: 20px; border-bottom: 3px solid ${safePrimaryColor}; padding-bottom: 10px;">Inventory (${inventory ? inventory.length : 0} Vehicles)</h2>
+
+      ${inventory && inventory.length > 0 ? `
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-top: 20px;">
+          ${inventory.slice(0, 12).map(v => `
+            <article style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; transition: box-shadow 0.3s ease;">
+              <div style="background: #f8fafc; padding: 16px; min-height: 200px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; border-bottom: 1px solid #e2e8f0;">
+                <p style="font-size: 32px; margin: 0;">🚗</p>
+                <p style="font-size: 12px; color: #999; margin: 8px 0 0;">${v.photos && v.photos[0] ? 'Photo available' : 'No photo'}</p>
+              </div>
+              <div style="padding: 16px;">
+                <h3 style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 6px;"><a href="${siteUrl}/inventory/${encodeURIComponent(v.id)}" style="color: inherit; text-decoration: none;">${v.year || ''} ${v.make || ''} ${v.model || ''}</a></h3>
+                ${v.trim ? `<p style="font-size: 13px; color: #666; margin-bottom: 6px;">${escapeHtml(v.trim)}</p>` : ''}
+                ${v.mileage ? `<p style="font-size: 13px; color: #666; margin-bottom: 6px;">${escapeHtml(String(v.mileage))} km</p>` : ''}
+                ${v.price ? `<p style="font-size: 18px; font-weight: 700; color: ${safePrimaryColor}; margin-top: 12px;">$${Number(v.price).toLocaleString('en-CA')}</p>` : ''}
+                <a href="${siteUrl}/inventory/${encodeURIComponent(v.id)}" style="display: block; margin-top: 12px; padding: 8px 12px; background: ${safePrimaryColor}; color: white; text-align: center; text-decoration: none; border-radius: 4px; font-size: 13px; font-weight: 600;">View Details</a>
+              </div>
+            </article>
+          `).join('')}
+        </div>
+        ${inventory.length > 12 ? `<p style="text-align: center; margin-top: 30px; color: #666;">+ ${inventory.length - 12} more vehicles available</p>` : ''}
+      ` : `
+        <p style="color: #999; text-align: center; padding: 40px 0;">No vehicles in inventory at this time. Please check back soon.</p>
+      `}
+    </section>
+  </main>
+
+  <!-- Client-side rendering mount point -->
   <div id="root"></div>
 
   <script src="/assets/public-shell.js"></script>
@@ -854,6 +892,61 @@ Sitemap: ${base}/sitemap.xml`)
 </head>
 <body>
   <noscript>This website requires JavaScript to be enabled. Please enable JavaScript in your browser settings.</noscript>
+
+  <!-- Server-rendered vehicle detail content -->
+  <main role="main" style="max-width: 1200px; margin: 0 auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <nav aria-label="Breadcrumb" style="margin-bottom: 20px; font-size: 14px; color: #666;">
+      <a href="${siteUrl}" style="text-decoration: none; color: #1e3a8a;">Home</a>
+      &gt;
+      <a href="${siteUrl}/inventory/" style="text-decoration: none; color: #1e3a8a;">Inventory</a>
+      &gt;
+      <span>${safeVehicleYear} ${safeVehicleMake} ${safeVehicleModel}</span>
+    </nav>
+
+    <h1 style="font-size: 28px; margin-bottom: 10px; color: #0f172a;">${safeVehicleYear} ${safeVehicleMake} ${safeVehicleModel} ${safeVehicleTrim}</h1>
+    <p style="font-size: 16px; color: #666; margin-bottom: 30px;">${description}</p>
+
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-top: 30px;">
+      <div>
+        <h2 style="font-size: 18px; margin-bottom: 15px; color: #0f172a; border-bottom: 2px solid ${safePrimaryColor}; padding-bottom: 10px;">Vehicle Details</h2>
+        <dl style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 14px; line-height: 1.6;">
+          <dt style="font-weight: 600; color: #0f172a;">Year</dt>
+          <dd style="color: #666;">${safeVehicleYear}</dd>
+          <dt style="font-weight: 600; color: #0f172a;">Make</dt>
+          <dd style="color: #666;">${safeVehicleMake}</dd>
+          <dt style="font-weight: 600; color: #0f172a;">Model</dt>
+          <dd style="color: #666;">${safeVehicleModel}</dd>
+          ${safeVehicleTrim ? `<dt style="font-weight: 600; color: #0f172a;">Trim</dt><dd style="color: #666;">${safeVehicleTrim}</dd>` : ''}
+          ${safeVehicleMileage ? `<dt style="font-weight: 600; color: #0f172a;">Mileage</dt><dd style="color: #666;">${safeVehicleMileage} km</dd>` : ''}
+          ${safeVehicleColor ? `<dt style="font-weight: 600; color: #0f172a;">Color</dt><dd style="color: #666;">${safeVehicleColor}</dd>` : ''}
+          ${safeVehicleBody ? `<dt style="font-weight: 600; color: #0f172a;">Body Type</dt><dd style="color: #666;">${safeVehicleBody}</dd>` : ''}
+          ${safeVehicleTransmission ? `<dt style="font-weight: 600; color: #0f172a;">Transmission</dt><dd style="color: #666;">${safeVehicleTransmission}</dd>` : ''}
+          ${safeVehicleEngineSize ? `<dt style="font-weight: 600; color: #0f172a;">Engine</dt><dd style="color: #666;">${safeVehicleEngineSize}L</dd>` : ''}
+          ${safeVehicleVin ? `<dt style="font-weight: 600; color: #0f172a;">VIN</dt><dd style="color: #666; font-family: monospace;">${safeVehicleVin}</dd>` : ''}
+        </dl>
+      </div>
+
+      <aside style="background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; height: fit-content;">
+        ${vehicle.price ? `<div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0;">
+          <p style="font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;">Price</p>
+          <p style="font-size: 28px; font-weight: 700; color: ${safePrimaryColor};">$${Number(vehicle.price).toLocaleString('en-CA')}</p>
+        </div>` : ''}
+
+        <div style="margin-bottom: 20px;">
+          <p style="font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; font-weight: 600;">Dealership</p>
+          <p style="font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 8px;">${escapeHtml(site.name)}</p>
+          ${site.phone ? `<p style="font-size: 14px; color: #666; margin-bottom: 5px;">
+            <a href="tel:${site.phone.replace(/\D/g, '')}" style="color: ${safePrimaryColor}; text-decoration: none;">${escapeHtml(site.phone)}</a>
+          </p>` : ''}
+          ${site.city || site.province ? `<p style="font-size: 14px; color: #666;">${escapeHtml(site.city || '')}${site.city && site.province ? ', ' : ''}${escapeHtml(site.province || '')}</p>` : ''}
+        </div>
+
+        <a href="${siteUrl}/inventory/" style="display: block; padding: 12px 16px; background: ${safePrimaryColor}; color: white; text-align: center; text-decoration: none; border-radius: 4px; font-weight: 600; margin-top: 15px;">Back to Inventory</a>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Client-side rendering mount point -->
   <div id="root"></div>
 
   <script src="/assets/public-shell.js"></script>
