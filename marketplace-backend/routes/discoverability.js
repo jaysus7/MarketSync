@@ -23,6 +23,11 @@ import {
   getAutopilotQueue,
   getAutopilotAuditTrail
 } from '../services/discoverabilityAutopilotService.js'
+import {
+  startPeriodicAudit,
+  stopPeriodicAudit,
+  getSchedulerState
+} from '../services/discoverabilitySchedulerService.js'
 
 /**
  * MarketSync Discoverability Intelligence API Router
@@ -227,6 +232,69 @@ export default function registerDiscoverabilityRoutes(app) {
     } catch (err) {
       console.error('[discoverability/dashboard/actions] error:', err.message)
       res.status(500).json({ error: 'Failed to load action dashboard', detail: err.message })
+    }
+  })
+
+  // ── Scheduler Management (BATCH 8) ──────────────────────────────────────
+  app.post('/discoverability/scheduler/start', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) {
+      return res.status(403).json({ error: 'Discoverability entitlement required' })
+    }
+
+    try {
+      const { frequencyHours = 24, autoApplySmallFixes = false } = req.body
+      const config = { frequencyHours, autoApplySmallFixes }
+      const started = startPeriodicAudit(req.dealershipId, config)
+
+      res.json({
+        success: true,
+        started,
+        message: started ? 'Periodic audit started' : 'Audit already running',
+        config
+      })
+    } catch (err) {
+      console.error('[discoverability/scheduler/start] error:', err.message)
+      res.status(500).json({ error: 'Failed to start scheduler', detail: err.message })
+    }
+  })
+
+  app.post('/discoverability/scheduler/stop', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) {
+      return res.status(403).json({ error: 'Discoverability entitlement required' })
+    }
+
+    try {
+      const stopped = stopPeriodicAudit(req.dealershipId)
+
+      res.json({
+        success: true,
+        stopped,
+        message: stopped ? 'Periodic audit stopped' : 'No audit was running'
+      })
+    } catch (err) {
+      console.error('[discoverability/scheduler/stop] error:', err.message)
+      res.status(500).json({ error: 'Failed to stop scheduler', detail: err.message })
+    }
+  })
+
+  app.get('/discoverability/scheduler/status', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) {
+      return res.status(403).json({ error: 'Discoverability entitlement required' })
+    }
+
+    try {
+      const state = getSchedulerState()
+      const dealershipJob = state.jobs.find(j => j.dealershipId === req.dealershipId)
+
+      res.json({
+        success: true,
+        running: !!dealershipJob,
+        job: dealershipJob || null,
+        serverStatus: state
+      })
+    } catch (err) {
+      console.error('[discoverability/scheduler/status] error:', err.message)
+      res.status(500).json({ error: 'Failed to get scheduler status', detail: err.message })
     }
   })
 

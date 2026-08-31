@@ -147,6 +147,38 @@ test('Discoverability Action-First Dashboard prioritizes recommendations by acti
   }
 })
 
+test('Discoverability Scheduler management endpoints respond correctly', async () => {
+  const { baseUrl, authHeaders, close } = await createTestServer()
+  try {
+    // Check status before starting
+    const statusBefore = await fetch(`${baseUrl}/discoverability/scheduler/status`, {
+      headers: authHeaders
+    })
+    assert.equal(statusBefore.status, 200)
+
+    // Start scheduler endpoint should respond
+    const startRes = await fetch(`${baseUrl}/discoverability/scheduler/start`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ frequencyHours: 24 })
+    })
+    assert.equal(startRes.status, 200)
+    const startJson = await startRes.json()
+    assert.equal(startJson.success, true)
+
+    // Stop scheduler endpoint should respond
+    const stopRes = await fetch(`${baseUrl}/discoverability/scheduler/stop`, {
+      method: 'POST',
+      headers: authHeaders
+    })
+    assert.equal(stopRes.status, 200)
+    const stopJson = await stopRes.json()
+    assert.equal(stopJson.success, true)
+  } finally {
+    await close()
+  }
+})
+
 test('Discoverability AEO endpoint returns Featured Snippets, PAA reach, and Voice Search', async () => {
   const { baseUrl, authHeaders, close } = await createTestServer()
   try {
