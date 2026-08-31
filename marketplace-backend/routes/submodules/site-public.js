@@ -459,6 +459,11 @@ export function registerSitePublicRoutes(app) {
     return JSON.stringify(obj).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')
   }
 
+  function escapeJsonString(str) {
+    if (!str) return ''
+    return JSON.stringify(String(str))
+  }
+
   function escapeHtml(str) {
     if (!str) return ''
     return String(str)
@@ -529,25 +534,29 @@ export function registerSitePublicRoutes(app) {
 
   <!-- Structured Data (JSON-LD) -->
   <script type="application/ld+json">
-  {
+  ${JSON.stringify({
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
-    "name": "${escapedSiteData.includes(safeSiteName) ? safeSiteName : escapedSiteData.split('"name":"')[1]?.split('"')[0] || safeSiteName}",
-    "image": "${safeSiteLogo}",
-    "url": "${safeSiteUrl}",
-    ${safeSitePhone ? `"telephone": "${safeSitePhone}",` : ''}
-    ${safeSiteEmail ? `"email": "${safeSiteEmail}",` : ''}
-    ${safeSiteAddress ? `"address": {
-      "@type": "PostalAddress",
-      "streetAddress": "${safeSiteAddress}",
-      "addressLocality": "${safeSiteCity}",
-      "addressRegion": "${safeSiteProvince}",
-      "postalCode": "${safeSitePostalCode}"
-    },` : ''}
+    "name": site.name || 'Dealer',
+    "image": site.logo_url || ogImage,
+    "url": siteUrl,
+    ...(site.phone ? { "telephone": site.phone } : {}),
+    ...(site.email ? { "email": site.email } : {}),
+    ...(site.address ? {
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": site.address,
+        "addressLocality": site.city || '',
+        "addressRegion": site.province || '',
+        "postalCode": dealer?.postal_code || ''
+      }
+    } : {}),
     "priceRange": "$",
-    "@type": ["LocalBusiness", "AutoDealer"]${safeFacebookUrl || safeInstagramUrl ? `,
-    "sameAs": [${[safeFacebookUrl && `"${safeFacebookUrl}"`, safeInstagramUrl && `"${safeInstagramUrl}"`].filter(Boolean).join(', ')}]` : ''}
-  }
+    "@type": ["LocalBusiness", "AutoDealer"],
+    ...(site.facebook_url || site.instagram_url ? {
+      "sameAs": [site.facebook_url, site.instagram_url].filter(Boolean)
+    } : {})
+  }).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')}
   </script>
 
   <!-- Site Configuration (used by client-side renderer) -->
