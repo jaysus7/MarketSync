@@ -43,13 +43,21 @@ import {
 // Removed in-memory Maps — use Supabase as durable source of truth
 // Helper: fetch recommendations from database
 async function fetchRecommendations(dealershipId) {
-  const { data, error } = await supabaseAdmin
-    .from('discoverability_recommendations')
-    .select('*')
-    .eq('dealership_id', dealershipId)
-    .order('created_at', { ascending: false })
-  if (error) throw error
-  return data || []
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('discoverability_recommendations')
+      .select('*')
+      .eq('dealership_id', dealershipId)
+      .order('created_at', { ascending: false })
+    if (error) {
+      console.warn('[discoverability] fetch error:', error.message)
+      return []
+    }
+    return data || []
+  } catch (err) {
+    console.warn('[discoverability] fetch exception:', err.message)
+    return []
+  }
 }
 
 // Helper: persist recommendation to database
@@ -118,9 +126,10 @@ export default function registerDiscoverabilityRoutes(app) {
       })
     }
 
+    let audit = null
     try {
       const previousRecs = await fetchRecommendations(req.dealershipId).catch(() => [])
-      const audit = await runComprehensiveDiscoverabilityAudit(req.dealershipId, { previousRecommendations: previousRecs }).catch(() => null)
+      audit = await runComprehensiveDiscoverabilityAudit(req.dealershipId, { previousRecommendations: previousRecs }).catch(() => null)
 
       if (audit?.recommendations) {
         for (const rec of audit.recommendations) {
@@ -427,69 +436,93 @@ export default function registerDiscoverabilityRoutes(app) {
   app.post('/discoverability/recommendations/:id/approve', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
     if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
 
-    const list = DEALERSHIP_RECOMMENDATIONS_STORE.get(req.dealershipId) || []
-    const recIndex = list.findIndex(r => r.id === req.params.id)
-    if (recIndex === -1) return res.status(404).json({ error: 'Recommendation not found' })
+    try {
+      const timestamp = new Date().toISOString()
+      const approvedBy = req.user?.email || 'dealer_admin'
 
-    const rec = list[recIndex]
-    const timestamp = new Date().toISOString()
-    rec.status = 'approved'
-    rec.approved_at = timestamp
-    rec.approved_by = req.user?.email || 'dealer_admin'
-    rec.approval_notes = req.body?.notes || null
+      const { data, error } = await supabaseAdmin
+        .from('discoverability_recommendations')
+        .update({
+          status: 'approved',
+          approved_at: timestamp,
+          updated_at: timestamp,
+          metadata: { approved_by: approvedBy, approval_notes: req.body?.notes || null }
+        })
+        .eq('dealership_id', req.dealershipId)
+        .eq('id', req.params.id)
+        .select()
+        .limit(1)
 
-    list[recIndex] = rec
-    DEALERSHIP_RECOMMENDATIONS_STORE.set(req.dealershipId, list)
+      if (error) throw error
+      const rec = data?.[0]
+      if (!rec) return res.status(404).json({ error: 'Recommendation not found' })
 
-    res.json({
-      success: true,
-      recommendation: rec,
-      message: `Recommendation "${rec.title}" approved by ${rec.approved_by}.`
-    })
+      res.json({
+        success: true,
+        recommendation: rec,
+        message: `Recommendation "${rec.title}" approved by ${approvedBy}.`
+      })
+    } catch (err) {
+      res.status(400).json({ error: err.message })
+    }
   })
 
   // ── 12. Reject / Dismiss Recommendation ────────────────────────────────────
   app.post('/discoverability/recommendations/:id/reject', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
     if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
 
-    const list = DEALERSHIP_RECOMMENDATIONS_STORE.get(req.dealershipId) || []
-    const recIndex = list.findIndex(r => r.id === req.params.id)
-    if (recIndex === -1) return res.status(404).json({ error: 'Recommendation not found' })
+    try {
+      const timestamp = new Date().toISOString()
 
-    const rec = list[recIndex]
-    rec.status = 'dismissed'
-    rec.rejected_at = new Date().toISOString()
-    rec.rejection_reason = req.body?.reason || 'Dismissed by dealership'
+      const { data, error } = await supabaseAdmin
+        .from('discoverability_recommendations')
+        .update({
+          status: 'dismissed',
+          updated_at: timestamp,
+          metadata: { rejected_at: timestamp, rejection_reason: req.body?.reason || 'Dismissed by dealership' }
+        })
+        .eq('dealership_id', req.dealershipId)
+        .eq('id', req.params.id)
+        .select()
+        .limit(1)
 
-    list[recIndex] = rec
-    DEALERSHIP_RECOMMENDATIONS_STORE.set(req.dealershipId, list)
+      if (error) throw error
+      const rec = data?.[0]
+      if (!rec) return res.status(404).json({ error: 'Recommendation not found' })
 
-    res.json({
-      success: true,
-      recommendation: rec,
-      message: `Recommendation "${rec.title}" dismissed.`
-    })
+      res.json({
+        success: true,
+        recommendation: rec,
+        message: `Recommendation "${rec.title}" dismissed.`
+      })
+    } catch (err) {
+      res.status(400).json({ error: err.message })
+    }
   })
 
   // ── 13. Revert Single Applied Recommendation ───────────────────────────────
   app.post('/discoverability/recommendations/:id/revert', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
     if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
 
-    const list = DEALERSHIP_RECOMMENDATIONS_STORE.get(req.dealershipId) || []
-    const recIndex = list.findIndex(r => r.id === req.params.id)
-    if (recIndex === -1) return res.status(404).json({ error: 'Recommendation not found' })
-
-    const rec = list[recIndex]
     try {
+      const { data: recs, error: fetchErr } = await supabaseAdmin
+        .from('discoverability_recommendations')
+        .select('*')
+        .eq('dealership_id', req.dealershipId)
+        .eq('id', req.params.id)
+        .limit(1)
+      if (fetchErr) throw fetchErr
+
+      const rec = recs?.[0]
+      if (!rec) return res.status(404).json({ error: 'Recommendation not found' })
+
       const result = await revertRecommendation(rec, null, {
         actorId: req.user?.id || 'admin',
         actorEmail: req.user?.email || 'admin@marketsync.link',
         req
       })
 
-      list[recIndex] = result.recommendation
-      DEALERSHIP_RECOMMENDATIONS_STORE.set(req.dealershipId, list)
-
+      await persistRecommendation(req.dealershipId, result.recommendation)
       res.json(result)
     } catch (err) {
       res.status(400).json({ error: err.message })
@@ -500,7 +533,7 @@ export default function registerDiscoverabilityRoutes(app) {
   app.post('/discoverability/recommendations/apply-all-safe', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
     if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
 
-    let list = DEALERSHIP_RECOMMENDATIONS_STORE.get(req.dealershipId)
+    let list = await fetchRecommendations(req.dealershipId)
     if (!list || list.length === 0) {
       const audit = await runComprehensiveDiscoverabilityAudit(req.dealershipId).catch(() => null)
       list = audit?.recommendations || []
@@ -512,8 +545,6 @@ export default function registerDiscoverabilityRoutes(app) {
       req
     })
 
-    DEALERSHIP_RECOMMENDATIONS_STORE.set(req.dealershipId, list)
-
     res.json(batchSummary)
   })
 
@@ -522,7 +553,7 @@ export default function registerDiscoverabilityRoutes(app) {
     if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
 
     const { recommendation_ids = [] } = req.body
-    const list = DEALERSHIP_RECOMMENDATIONS_STORE.get(req.dealershipId) || []
+    const list = await fetchRecommendations(req.dealershipId)
     const results = []
 
     for (const id of recommendation_ids) {
@@ -541,7 +572,6 @@ export default function registerDiscoverabilityRoutes(app) {
       }
     }
 
-    DEALERSHIP_RECOMMENDATIONS_STORE.set(req.dealershipId, list)
     res.json({
       success: true,
       reverted_count: results.filter(r => r.success).length,
@@ -553,14 +583,16 @@ export default function registerDiscoverabilityRoutes(app) {
   app.post('/discoverability/audit', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
     if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
 
-    const previousRecs = DEALERSHIP_RECOMMENDATIONS_STORE.get(req.dealershipId) || []
+    const previousRecs = await fetchRecommendations(req.dealershipId)
     const auditResult = await runComprehensiveDiscoverabilityAudit(req.dealershipId, {
       forceFresh: true,
       previousRecommendations: previousRecs
     })
 
     if (auditResult?.recommendations) {
-      DEALERSHIP_RECOMMENDATIONS_STORE.set(req.dealershipId, auditResult.recommendations)
+      for (const rec of auditResult.recommendations) {
+        await persistRecommendation(req.dealershipId, rec).catch(() => {})
+      }
     }
 
     // Check if dealership has automated auto-apply enabled
@@ -752,15 +784,26 @@ export default function registerDiscoverabilityRoutes(app) {
     let persistenceId
     try { persistenceId = await createPersistedCrawlRun({ dealershipId: req.dealershipId, baseUrl: safeUrl.href, options }) } catch (error) { return res.status(503).json({ error: 'Crawl persistence is unavailable', detail: error.message }) }
     const job = { id: persistenceId, dealershipId: req.dealershipId, baseUrl: safeUrl.href, status: 'running', startedAt: new Date().toISOString() }
-    DEALERSHIP_CRAWL_STORE.set(req.dealershipId, job)
-    crawlSite(safeUrl.href, { ...options, dealershipId: req.dealershipId, persistedRunId: persistenceId }).then(result => DEALERSHIP_CRAWL_STORE.set(req.dealershipId, { ...job, ...result, status: 'completed' })).catch(async error => { await supabaseAdmin.from('discoverability_crawl_runs').update({ status: 'failed', completed_at: new Date().toISOString() }).eq('id', persistenceId); DEALERSHIP_CRAWL_STORE.set(req.dealershipId, { ...job, status: 'failed', error: error.message, completedAt: new Date().toISOString() }) })
+    crawlSite(safeUrl.href, { ...options, dealershipId: req.dealershipId, persistedRunId: persistenceId }).then(async result => {
+      try {
+        await supabaseAdmin.from('discoverability_crawl_runs').update({ status: 'completed', completed_at: new Date().toISOString(), page_count: result.pages?.length || 0, finding_count: result.findings?.length || 0 }).eq('id', persistenceId)
+      } catch (e) {
+        console.warn('[crawl] update completed failed:', e.message)
+      }
+    }).catch(async error => {
+      try {
+        await supabaseAdmin.from('discoverability_crawl_runs').update({ status: 'failed', completed_at: new Date().toISOString() }).eq('id', persistenceId)
+      } catch (e) {
+        console.warn('[crawl] update failed failed:', e.message)
+      }
+    })
     res.status(202).json({ success: true, crawl: job })
   })
 
   app.get('/discoverability/crawl/latest', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
     if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
     let crawl; try { crawl = await getLatestPersistedCrawl(req.dealershipId) } catch (error) { return res.status(503).json({ error: 'Crawl persistence is unavailable', detail: error.message }) }
-    if (!crawl) { const active = DEALERSHIP_CRAWL_STORE.get(req.dealershipId); if (!active) return res.status(404).json({ error: 'No crawl has been started' }); return res.json({ success: true, crawl: active }) }
+    if (!crawl) return res.status(404).json({ error: 'No crawl has been started' })
     res.json({ success: true, crawl })
   })
 
@@ -846,7 +889,7 @@ export default function registerDiscoverabilityRoutes(app) {
       .eq('id', req.dealershipId)
       .single()
 
-    const list = DEALERSHIP_RECOMMENDATIONS_STORE.get(req.dealershipId) || []
+    const list = await fetchRecommendations(req.dealershipId)
     const report = generateWeeklyDiscoverabilityReport({
       dealership: dealer,
       scoreBefore: null,
