@@ -1803,38 +1803,125 @@ window.hqDeleteIncome = async (id) => {
   catch (e) { if (typeof showToast === 'function') showToast(e.message || 'Could not delete', 'error'); }
 };
 
-// ── Photo capture pipelines. Both open a native file picker and, on iOS +
-// Android, that picker offers the camera as an option because of capture=environment.
-function hqOpenCapture(endpoint, onFields, label) {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'image/*';
-  input.setAttribute('capture', 'environment');
-  input.style.display = 'none';
-  document.body.appendChild(input);
-  input.onchange = async () => {
-    const file = input.files && input.files[0]; input.remove();
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      if (typeof showToast === 'function') showToast('Reading ' + label + '…', 'info');
-      try {
-        const r = await apiSendJson(endpoint, 'POST', { image: evt.target.result });
-        onFields(r.fields || {});
-      } catch (e) {
-        if (typeof showToast === 'function') showToast(e.message || 'Could not read ' + label, 'error');
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-  input.click();
+// ── Capture pipelines. One shape, two surfaces.
+//
+// Phone (<=767px): skip the modal, open the OS camera/file picker directly
+//   via `<input type=file capture=environment>`.
+// Desktop: open a drop-zone modal that accepts a dragged file, a pasted
+//   screenshot (Cmd+V / Ctrl+V), or a click-to-choose fallback. Drag-drop
+//   and paste are the natural desktop UX; the phone-only file picker was
+//   awkward there.
+//
+// Both paths POST to the /scan endpoint which decodes the image and returns
+// { fields } to pre-fill the confirm modal. Raw bytes are not persisted.
+function hqIsMobile() {
+  return typeof window !== 'undefined'
+    && window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
 }
-window.hqOpenReceiptCapture = () => hqOpenCapture('/saas/accounting/expenses/scan', (f) => {
-  hqOpenExpenseModal(f);
-}, 'receipt');
-window.hqOpenInvoiceCapture = () => hqOpenCapture('/saas/accounting/income/scan', (f) => {
-  hqOpenIncomeModal(f);
-}, 'invoice');
+async function hqSendCaptureImage(endpoint, dataUrl, onFields, label) {
+  const err = document.getElementById('hq-capture-err');
+  const progress = document.getElementById('hq-capture-progress');
+  const drop = document.getElementById('hq-capture-drop');
+  if (progress) progress.classList.remove('hidden');
+  if (drop) drop.classList.add('opacity-40', 'pointer-events-none');
+  if (err) err.classList.add('hidden');
+  if (typeof showToast === 'function' && !progress) showToast('Reading ' + label + '…', 'info');
+  try {
+    const r = await apiSendJson(endpoint, 'POST', { image: dataUrl });
+    document.getElementById('hq-capture-modal')?.remove();
+    onFields(r.fields || {});
+  } catch (e) {
+    if (err) { err.textContent = e.message || ('Could not read ' + label); err.classList.remove('hidden'); }
+    else if (typeof showToast === 'function') showToast(e.message || 'Could not read ' + label, 'error');
+    if (progress) progress.classList.add('hidden');
+    if (drop) drop.classList.remove('opacity-40', 'pointer-events-none');
+  }
+}
+function hqOpenCapture(endpoint, onFields, label) {
+  if (hqIsMobile()) {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*';
+    input.setAttribute('capture', 'environment');
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.onchange = () => {
+      const file = input.files && input.files[0]; input.remove();
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => hqSendCaptureImage(endpoint, evt.target.result, onFields, label);
+      reader.readAsDataURL(file);
+    };
+    input.click();
+    return;
+  }
+  document.getElementById('hq-capture-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'hq-capture-modal';
+  modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm';
+  modal.innerHTML = `
+    <div class="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+        <h3 class="text-base font-black text-slate-900 dark:text-white">Capture ${esc(label)}</h3>
+        <button onclick="document.getElementById('hq-capture-modal')?.remove()" class="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-lg font-bold">\u{2715}</button>
+      </div>
+      <div id="hq-capture-drop" tabindex="0" class="border-2 border-dashed border-indigo-400/60 dark:border-indigo-600/60 hover:border-indigo-600 dark:hover:border-indigo-400 bg-indigo-50/40 dark:bg-indigo-950/20 rounded-2xl p-8 text-center cursor-pointer transition space-y-2 focus:outline-none">
+        <div class="text-sm font-black text-slate-900 dark:text-white">Drop a photo here, paste from clipboard, or click to choose</div>
+        <div class="text-xs text-slate-500 dark:text-slate-400">JPG, PNG or WEBP · Anthropic Vision reads the ${esc(label)}, you confirm the numbers.</div>
+        <div class="text-[11px] text-slate-400">Tip: on Mac ⌘⇧⁴ to screenshot, then ⌘V here. On Windows use ⊞+⇧+S, then Ctrl+V.</div>
+      </div>
+      <input id="hq-capture-file" type="file" accept="image/*" class="hidden">
+      <div id="hq-capture-err" class="hidden mt-3 text-sm text-rose-600 dark:text-rose-400"></div>
+      <div id="hq-capture-progress" class="hidden mt-3 flex items-center justify-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-xs">
+        <span class="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-ping"></span>
+        <span>Decoding with AI…</span>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  const drop = modal.querySelector('#hq-capture-drop');
+  const file = modal.querySelector('#hq-capture-file');
+  const err = modal.querySelector('#hq-capture-err');
+  const handle = (blob) => {
+    if (!blob) return;
+    if (!/^image\//.test(blob.type)) {
+      err.textContent = 'That does not look like an image.'; err.classList.remove('hidden'); return;
+    }
+    const reader = new FileReader();
+    reader.onload = (evt) => hqSendCaptureImage(endpoint, evt.target.result, onFields, label);
+    reader.readAsDataURL(blob);
+  };
+  drop.onclick = () => file.click();
+  file.onchange = () => handle(file.files && file.files[0]);
+  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('ring-2','ring-indigo-400'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('ring-2','ring-indigo-400'));
+  drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('ring-2','ring-indigo-400'); handle(e.dataTransfer?.files?.[0]); });
+  // Global paste (Cmd/Ctrl+V) — the modal is the visual anchor, so any paste
+  // while it is open is meant for it. Focus the drop so the browser prefers
+  // this element for keyboard events over anything underneath.
+  drop.focus();
+  const onPaste = (e) => {
+    const items = (e.clipboardData?.items) || [];
+    for (const it of items) {
+      if (it.kind === 'file' && /^image\//.test(it.type)) {
+        e.preventDefault();
+        return handle(it.getAsFile());
+      }
+    }
+  };
+  const onEsc = (e) => { if (e.key === 'Escape') document.getElementById('hq-capture-modal')?.remove(); };
+  document.addEventListener('paste', onPaste);
+  document.addEventListener('keydown', onEsc);
+  // Detach the global listeners as soon as the modal is torn down.
+  const cleanup = new MutationObserver(() => {
+    if (!document.body.contains(modal)) {
+      document.removeEventListener('paste', onPaste);
+      document.removeEventListener('keydown', onEsc);
+      cleanup.disconnect();
+    }
+  });
+  cleanup.observe(document.body, { childList: true });
+}
+window.hqOpenReceiptCapture = () => hqOpenCapture('/saas/accounting/expenses/scan', (f) => hqOpenExpenseModal(f), 'receipt');
+window.hqOpenInvoiceCapture = () => hqOpenCapture('/saas/accounting/income/scan', (f) => hqOpenIncomeModal(f), 'invoice');
 
 // ── Budget save: batch every non-empty input into one PATCH burst.
 window.hqSaveHqBudgets = async () => {

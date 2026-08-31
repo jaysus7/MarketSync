@@ -937,7 +937,7 @@ ENGINES['saas-accounting'] = {
                 </div>`)}
               ${engCard('Recent vendor expenses', `
                 <div class="mb-3 flex gap-2">
-                  <button onclick="hqOpenReceiptCapture()" class="ms-btn !text-[13px] bg-rose-600 hover:bg-rose-500 text-white">Snap receipt</button>
+                  <button onclick="hqOpenReceiptCapture()" class="ms-btn !text-[13px] bg-rose-600 hover:bg-rose-500 text-white">Capture receipt</button>
                   <button onclick="hqOpenExpenseModal()" class="ms-btn !text-[13px] border border-slate-200 dark:border-slate-700">Enter manually</button>
                 </div>
                 <div class="overflow-x-auto"><table class="w-full text-left">
@@ -969,7 +969,7 @@ ENGINES['saas-accounting'] = {
               ${engCard('One-off income (invoices, consulting, side revenue)', `
                 <p class="text-[12px] text-slate-500 mb-3">Subscription MRR is counted automatically above — this table is for everything else.</p>
                 <div class="mb-3 flex gap-2">
-                  <button onclick="hqOpenInvoiceCapture()" class="ms-btn !text-[13px] bg-emerald-600 hover:bg-emerald-500 text-white">Snap invoice</button>
+                  <button onclick="hqOpenInvoiceCapture()" class="ms-btn !text-[13px] bg-emerald-600 hover:bg-emerald-500 text-white">Capture invoice</button>
                   <button onclick="hqOpenIncomeModal()" class="ms-btn !text-[13px] border border-slate-200 dark:border-slate-700">Enter manually</button>
                 </div>
                 <div class="overflow-x-auto"><table class="w-full text-left">
