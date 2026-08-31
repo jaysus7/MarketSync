@@ -11,6 +11,12 @@ import { readFile } from 'node:fs/promises'
 
 const src = () => readFile(new URL('../routes/saas-admin.js', import.meta.url), 'utf8')
 
+// Full regex-metacharacter escape. The old `.replace(/\//g, '\\/')` only
+// handled the forward slash, so a path with any other regex meta character
+// would silently misinterpret. This also silences CodeQL's "incomplete
+// string escaping" alert on those replace calls.
+const reEscape = (s) => String(s).replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
+
 test('/saas/overview exposes the command-center KPI fields', async () => {
   const s = await src()
   // Route still registered.
@@ -53,10 +59,10 @@ test('Slice 2+3 endpoints are registered and gated', async () => {
   const s = await src()
   const routes = ['/saas/affiliates', '/saas/product-usage', '/saas/platform-health', '/saas/billing-summary']
   for (const path of routes) {
-    assert.match(s, new RegExp(`app\\.get\\('${path.replace(/\//g, '\\/')}'`),
+    assert.match(s, new RegExp(`app\\.get\\('${reEscape(path)}'`),
       `route missing: ${path}`)
     assert.match(s, new RegExp(
-      `app\\.get\\('${path.replace(/\//g, '\\/')}'[\\s\\S]{0,300}need\\('view_customers'\\)`),
+      `app\\.get\\('${reEscape(path)}'[\\s\\S]{0,300}need\\('view_customers'\\)`),
       `${path} must gate on view_customers`)
   }
 })
@@ -232,10 +238,10 @@ test('HQ mobile nav includes every Slice-2..5 destination', async () => {
 test('Receipt + invoice OCR endpoints exist, gate on manage_followups, cap image size', async () => {
   const s = await src()
   for (const path of ['/saas/accounting/expenses/scan', '/saas/accounting/income/scan']) {
-    assert.match(s, new RegExp(`app\\.post\\('${path.replace(/\//g, '\\/')}'`),
+    assert.match(s, new RegExp(`app\\.post\\('${reEscape(path)}'`),
       `OCR route missing: ${path}`)
     assert.match(s, new RegExp(
-      `app\\.post\\('${path.replace(/\//g, '\\/')}'[\\s\\S]{0,300}need\\('manage_followups'\\)`),
+      `app\\.post\\('${reEscape(path)}'[\\s\\S]{0,300}need\\('manage_followups'\\)`),
       `${path} must gate on manage_followups`)
   }
   // Uploaded images must be capped so a rogue caller cannot burn Anthropic
