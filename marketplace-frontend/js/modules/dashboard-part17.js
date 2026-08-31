@@ -570,6 +570,14 @@ function wsSetup() {
            <div class="flex justify-between"><span class="text-slate-500">Sitemap Index:</span> <span class="font-bold text-emerald-500">Auto-Generated</span></div>`,
           `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/20 text-slate-400">Expert</span>`
         )}
+
+        <!-- 14. Batch 9 Discoverability Kit -->
+        ${card('discoverability', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+          'Discoverability Kit', 'Automatically apply SEO, schema, and crawlability recommendations to boost search visibility.',
+          `<div class="flex justify-between"><span class="text-slate-500">Status:</span> <span class="font-bold text-slate-800 dark:text-slate-200">Ready to Apply</span></div>
+           <div class="flex justify-between"><span class="text-slate-500">Action:</span> <span class="font-bold text-emerald-500">One-Click Apply</span></div>`,
+          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Batch 9</span>`
+        )}
       </div>
     </div>
   `;
@@ -842,6 +850,27 @@ function openSetupModal(secId) {
           <input type="checkbox" id="m-site-pub" ${isPub ? 'checked' : ''} class="accent-indigo-600 w-4 h-4 rounded">
           <span>Website Published Live to Public</span>
         </label>
+      </div>
+    `;
+  } else if (secId === 'discoverability') {
+    title = 'Batch 9 Discoverability Kit';
+    desc = 'Apply automated SEO, schema, and crawlability recommendations to improve search visibility.';
+    bodyHtml = `
+      <div class="space-y-4">
+        <div class="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-900 dark:text-emerald-100 text-xs space-y-3">
+          <div class="flex items-start gap-2">
+            <svg class="w-5 h-5 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <div>
+              <div class="font-black text-sm mb-1">One-Click SEO Optimization</div>
+              <p class="text-[11px] leading-relaxed">Apply all safe, non-breaking recommendations at once: fix schema markup, optimize meta tags, improve crawlability, and enhance search visibility.</p>
+            </div>
+          </div>
+          <button type="button" onclick="if(typeof executeApplyAllSafePipeline === 'function') { document.getElementById('setup-modal-container')?.remove(); executeApplyAllSafePipeline(); } else { showToast('Discoverability module not loaded', 'error'); }" class="w-full px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-md cursor-pointer transition">Apply Batch 9 Recommendations Now</button>
+        </div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
+          <p><strong>What happens:</strong> MarketSync analyzes your website and automatically applies all safe recommendations including schema updates, meta tag fixes, and crawlability improvements.</p>
+          <p><strong>Rollback available:</strong> If needed, your website settings are backed up before any changes are applied.</p>
+        </div>
       </div>
     `;
   } else {
