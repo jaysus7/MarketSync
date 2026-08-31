@@ -154,6 +154,82 @@ export default function registerDiscoverabilityRoutes(app) {
     })
   })
 
+  // ── Action-First Dashboard ──────────────────────────────────────────
+  // Lead with what the user can do next, not just metrics
+  app.get('/discoverability/dashboard/actions', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) {
+      return res.status(403).json({ error: 'Discoverability entitlement required' })
+    }
+
+    try {
+      const recommendations = await fetchRecommendations(req.dealershipId)
+
+      const openRecs = recommendations.filter(r => r.status === 'open')
+      const autoFixable = openRecs.filter(r => r.execution_class === 'auto_fixable')
+      const needsApproval = openRecs.filter(r => r.execution_class === 'approval_required')
+      const manual = openRecs.filter(r => r.execution_class === 'manual')
+
+      // Prioritize by: confidence (high), pillar criticality, then effort
+      const sortByPriority = (recs) => {
+        return recs.sort((a, b) => {
+          // Higher confidence first
+          if ((b.confidence || 0) !== (a.confidence || 0)) {
+            return (b.confidence || 0) - (a.confidence || 0)
+          }
+          // SEO pillar before others
+          if (a.pillar === 'SEO' && b.pillar !== 'SEO') return -1
+          if (b.pillar === 'SEO' && a.pillar !== 'SEO') return 1
+          // Most recent first
+          return new Date(b.created_at) - new Date(a.created_at)
+        })
+      }
+
+      const actionPlan = {
+        status: 'ready',
+        timestamp: new Date().toISOString(),
+        quickWins: {
+          count: autoFixable.length,
+          recommendations: sortByPriority(autoFixable).slice(0, 5),
+          action: 'apply-all-safe',
+          impact: `Fix ${autoFixable.length} issue${autoFixable.length !== 1 ? 's' : ''} automatically`
+        },
+        needsReview: {
+          count: needsApproval.length,
+          recommendations: sortByPriority(needsApproval).slice(0, 5),
+          action: 'review-batch',
+          impact: `${needsApproval.length} issue${needsApproval.length !== 1 ? 's' : ''} waiting for your review`
+        },
+        manual: {
+          count: manual.length,
+          recommendations: sortByPriority(manual).slice(0, 5),
+          action: 'manual-list',
+          impact: `${manual.length} task${manual.length !== 1 ? 's' : ''} requires manual work`
+        },
+        summary: {
+          totalOpen: openRecs.length,
+          totalAuto: autoFixable.length,
+          totalApproval: needsApproval.length,
+          totalManual: manual.length,
+          potentialImpact: `${autoFixable.length + needsApproval.length} actionable issues across your online presence`,
+          nextStep: autoFixable.length > 0 ? 'Apply quick wins' : (needsApproval.length > 0 ? 'Review & approve changes' : 'Review manual tasks')
+        }
+      }
+
+      res.json({
+        success: true,
+        actionPlan,
+        _links: {
+          applyAllSafe: '/discoverability/recommendations/apply-all-safe',
+          revertBatch: '/discoverability/recommendations/revert-batch',
+          listAll: '/discoverability/recommendations'
+        }
+      })
+    } catch (err) {
+      console.error('[discoverability/dashboard/actions] error:', err.message)
+      res.status(500).json({ error: 'Failed to load action dashboard', detail: err.message })
+    }
+  })
+
   app.get('/discoverability/sxo/overview', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
     if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
     const since = req.query.since || new Date(Date.now() - 30 * 86400000).toISOString()

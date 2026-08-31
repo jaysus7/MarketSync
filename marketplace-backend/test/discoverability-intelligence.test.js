@@ -129,6 +129,24 @@ test('Discoverability Intelligence Overview endpoint returns composite score, 7 
   }
 })
 
+test('Discoverability Action-First Dashboard prioritizes recommendations by action', async () => {
+  const { baseUrl, authHeaders, close } = await createTestServer()
+  try {
+    const res = await fetch(`${baseUrl}/discoverability/dashboard/actions`, { headers: authHeaders })
+    assert.equal(res.status, 200)
+    const json = await res.json()
+    assert.equal(json.success, true)
+    assert.ok(json.actionPlan, 'Action plan should exist')
+    assert.ok(json.actionPlan.quickWins, 'Quick wins category should exist')
+    assert.ok(json.actionPlan.needsReview, 'Review category should exist')
+    assert.ok(json.actionPlan.manual, 'Manual category should exist')
+    assert.ok(json.actionPlan.summary, 'Summary should include next steps')
+    assert.equal(typeof json.actionPlan.summary.nextStep, 'string', 'Should provide next step guidance')
+  } finally {
+    await close()
+  }
+})
+
 test('Discoverability AEO endpoint returns Featured Snippets, PAA reach, and Voice Search', async () => {
   const { baseUrl, authHeaders, close } = await createTestServer()
   try {
