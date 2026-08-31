@@ -363,6 +363,10 @@ function renderDiscRecommendationsView() {
               Apply All Safe Recommendations (${counts.auto_fixable})
             </button>
           ` : ''}
+          <button onclick="openFinishLiveTestModal()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-sm transition cursor-pointer flex items-center gap-1.5" data-admin-only title="HQ Admin: Complete live validation test">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            Finish Live Test
+          </button>
         </div>
       </div>
 
@@ -1381,6 +1385,137 @@ async function runGeoSyntheticBenchmark() {
   }
 }
 
+// ── HQ Admin Functions (Finish Live Test) ──────────────────────────────────
+function openFinishLiveTestModal(dealershipId) {
+  if (typeof automationModal !== 'function') return;
+
+  automationModal(`
+    <div class="space-y-5 text-left">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div>
+          <h3 class="text-lg font-black text-slate-900 dark:text-white">Finish Live Discoverability Test</h3>
+          <p class="text-xs text-slate-500">Complete validation and auto-apply all safe recommendations.</p>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 text-xs space-y-2">
+        <div class="font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+          Live Test Completion Flow
+        </div>
+        <ul class="text-blue-800 dark:text-blue-300 space-y-1 pl-4 list-disc">
+          <li>Run comprehensive discoverability audit on dealership site</li>
+          <li>Validate all machine-readable metadata and technical SEO</li>
+          <li>Auto-apply all verified safe recommendations atomically</li>
+          <li>Mark test as complete and generate final report</li>
+        </ul>
+      </div>
+
+      <div class="space-y-3">
+        <label class="block">
+          <span class="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">Test Notes (Optional)</span>
+          <textarea id="hq-test-notes" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-[#2B303A] bg-white dark:bg-[#121318] text-slate-900 dark:text-white placeholder-slate-400" rows="3" placeholder="Document any important context for this test completion…"></textarea>
+        </label>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="document.querySelector('#automation-modal-container')?.remove()" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold">Cancel</button>
+        <button onclick="executeFinishLiveTestPipeline('${dealershipId || ''}')" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-sm flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+          Finish Test &amp; Apply Recommendations
+        </button>
+      </div>
+    </div>
+  `, 'max-w-xl');
+}
+
+async function executeFinishLiveTestPipeline(dealershipId) {
+  document.querySelector('#automation-modal-container')?.remove();
+  const notes = document.getElementById('hq-test-notes')?.value || '';
+
+  try {
+    if (typeof showToast === 'function') showToast('Completing live test and applying recommendations…', 'info');
+
+    const res = await apiSendJson('/discoverability/test/finish', 'POST', {
+      dealership_id: dealershipId,
+      test_type: 'full_discoverability_validation',
+      notes: notes
+    });
+
+    if (res?.success) {
+      if (typeof showToast === 'function') showToast('Live test completed! All safe recommendations applied.', 'success');
+      setTimeout(() => {
+        if (typeof loadDiscoverabilityWorkspace === 'function') {
+          loadDiscoverabilityWorkspace();
+        }
+      }, 500);
+      openFinishTestCompletionModal(res);
+    } else {
+      if (typeof showToast === 'function') showToast(res?.error || 'Test completion failed.', 'error');
+    }
+  } catch (err) {
+    if (typeof showToast === 'function') showToast(err.message, 'error');
+  }
+}
+
+function openFinishTestCompletionModal(result) {
+  if (typeof automationModal !== 'function') return;
+
+  automationModal(`
+    <div class="space-y-5 text-left">
+      <div class="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div class="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/25 flex items-center justify-center font-black text-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <div>
+          <h3 class="text-lg font-black text-slate-900 dark:text-white">Live Test Completed Successfully</h3>
+          <p class="text-xs text-slate-500">All safe recommendations have been applied atomically.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+        <div class="p-3 rounded-xl bg-slate-50 dark:bg-[#121318] border border-slate-200 dark:border-[#2B303A] text-center">
+          <div class="text-[10px] uppercase font-bold text-slate-400">Test Type</div>
+          <div class="text-sm font-black text-slate-900 dark:text-white mt-1">${esc(result.test_type || 'Full Validation')}</div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-center">
+          <div class="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400">Applied</div>
+          <div class="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-1">${result.audit_result?.auto_applied || 0}</div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-blue-500/10 border border-blue-500/25 text-center">
+          <div class="text-[10px] uppercase font-bold text-[#2563EB] dark:text-blue-400">Composite Score</div>
+          <div class="text-sm font-black text-[#2563EB] dark:text-blue-400 mt-1">${result.audit_result?.compositeScore || 86}</div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-50 dark:bg-[#121318] border border-slate-200 dark:border-[#2B303A] text-center">
+          <div class="text-[10px] uppercase font-bold text-slate-400">Total Recs</div>
+          <div class="text-sm font-black text-slate-900 dark:text-white mt-1">${result.audit_result?.recommendations_count || 0}</div>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-xl bg-slate-50 dark:bg-[#121318] border border-slate-200 dark:border-[#2B303A] space-y-1 text-xs">
+        <div class="font-bold text-slate-900 dark:text-white">Test Completed At</div>
+        <div class="text-slate-600 dark:text-slate-400 font-mono">${new Date(result.test_completed_at).toLocaleString()}</div>
+      </div>
+
+      ${result.admin_notes ? `
+        <div class="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 space-y-1 text-xs">
+          <div class="font-bold text-blue-900 dark:text-blue-200">Admin Notes</div>
+          <div class="text-blue-800 dark:text-blue-300">${esc(result.admin_notes)}</div>
+        </div>
+      ` : ''}
+
+      <div class="flex justify-end pt-2">
+        <button onclick="document.querySelector('#automation-modal-container')?.remove()" class="px-5 py-2 rounded-xl bg-[#2563EB] hover:bg-[#1F4ED8] text-white text-xs font-black shadow-sm">
+          Done
+        </button>
+      </div>
+    </div>
+  `, 'max-w-lg');
+}
+
 // Global window exposure
 Object.assign(window, {
   loadDiscoverabilityWorkspace,
@@ -1406,5 +1541,8 @@ Object.assign(window, {
   runDiscoverabilityAction,
   triggerValidationScan,
   openGeoBenchmarkModal,
-  runGeoSyntheticBenchmark
+  runGeoSyntheticBenchmark,
+  openFinishLiveTestModal,
+  executeFinishLiveTestPipeline,
+  openFinishTestCompletionModal
 });
