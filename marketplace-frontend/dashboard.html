@@ -258,32 +258,11 @@
        (0,3,1) which wins. All ID-selected chrome (dashboard-nav, dept-nav,
        dept-sidebar, dept-tabbar) uses doubled IDs = (2,0,0) which beats
        every existing rule in both themes. */
-    /* Kill the top workspace tab-bar AND the whole legacy top header in HQ
-       owner mode — the sidebar is the single source of navigation there.
-       Compensate main's top padding so content sits at the top of the
-       viewport, and drop the sidebar's sticky top offset back to a small
-       gap since there is no header above it any more. Dealer mode keeps
-       the header + tabbar as before. */
-    html[data-dash-owner="1"] #dept-tabbar,
-    html[data-dash-owner="1"] header.ms-chrome-glass{display:none!important}
-    html[data-dash-owner="1"] main{padding-top:1rem!important}
-    html[data-dash-owner="1"] #dept-sidebar{max-height:calc(100vh - 2rem)!important;top:1rem!important}
-    /* Small HQ brand strip at the top of the sidebar — replaces the top-header
-       logo so the workspace still has a recognisable MarketSync mark. */
-    html[data-dash-owner="1"] #dept-sidebar::before{
-      content:"MarketSync HQ";
-      display:block;
-      padding:.75rem 1rem;
-      margin:0 0 .5rem 0;
-      font-family:Manrope,sans-serif;
-      font-weight:900;
-      font-size:.95rem;
-      letter-spacing:.02em;
-      color:#0f172a;
-      background:linear-gradient(90deg,#eef2ff,#ffffff);
-      border-bottom:1px solid #e2e8f0;
-      border-radius:.75rem .75rem 0 0;
-    }
+    /* HQ owner mode: keep the top header (user asked for the colour only),
+       but kill the workspace tab-bar since the sidebar now flattens every
+       HQ page as a directly-clickable entry — no need to drill through
+       tabs. Dealer mode is untouched. */
+    html[data-dash-owner="1"] #dept-tabbar{display:none!important}
     header.ms-chrome-glass.ms-chrome-glass.ms-chrome-glass,
     #dashboard-nav#dashboard-nav,
     #dept-nav#dept-nav,

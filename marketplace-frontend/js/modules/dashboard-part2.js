@@ -1952,8 +1952,28 @@ function renderDeptNav(role) {
   const visible = Object.entries(registry).filter(([, d]) => deptVisible(d) && !d.hideFromSidebar);
   const departments = visible.filter(([, d]) => !d.system);
   const system = visible.filter(([, d]) => d.system);
-  host.innerHTML = departments.map(navBtn).join('')
-    + (system.length ? `<div class="my-1.5 border-t border-slate-200 dark:border-slate-800"></div>${system.map(navBtn).join('')}` : '');
+  // HQ owner mode flattens each workspace into a labelled group + one row per
+  // page, so every HQ destination (Trials, Billing, Affiliates, Product Usage,
+  // Onboarding, Announcements, Intelligence…) is one click from the sidebar —
+  // the top workspace tab-bar is hidden in this mode, so drill-down would
+  // otherwise be impossible.
+  if (marketsyncOwnerMode()) {
+    const groupBtn = ([id, d]) => {
+      const A = ENGINE_ACCENTS[d.accent] || ENGINE_ACCENTS.market || ENGINE_ACCENTS.indigo;
+      const header = `<button type="button" data-dept="${id}" onclick="deptOpen('${id}')" title="${esc(d.label)}" class="dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-black text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="${A.text} flex-shrink-0">${svgIcon(d.icon || 'dot', 'w-4 h-4')}</span><span>${esc(d.label)}</span></button>`;
+      const pages = (d.pages || []).filter(deptPageAllowed);
+      const subs = pages.map(p => {
+        const call = `deptGo('${esc(p.page)}'${p.tab ? `,'${esc(p.invmode || '')}','${esc(p.tab)}'` : (p.invmode ? `,'${esc(p.invmode)}'` : '')})`;
+        return `<button type="button" data-page="${esc(p.page)}"${p.tab ? ` data-tab="${esc(p.tab)}"` : ''} onclick="${call}" title="${esc(p.label)}" class="dept-nav-item w-full flex items-center gap-2 pl-9 pr-3 py-1.5 rounded text-[13px] font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0"></span>${esc(p.label)}</button>`;
+      }).join('');
+      return header + subs;
+    };
+    host.innerHTML = departments.map(groupBtn).join('')
+      + (system.length ? `<div class="my-1.5 border-t border-slate-200 dark:border-slate-800"></div>${system.map(groupBtn).join('')}` : '');
+  } else {
+    host.innerHTML = departments.map(navBtn).join('')
+      + (system.length ? `<div class="my-1.5 border-t border-slate-200 dark:border-slate-800"></div>${system.map(navBtn).join('')}` : '');
+  }
   navRoot.classList.add('dept-mode');
   __deptNavBuilt = true;
   if (__currentPage) highlightDeptNav(__currentPage);
