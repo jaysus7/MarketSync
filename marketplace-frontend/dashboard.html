@@ -252,10 +252,17 @@
 
        Icons + text inside the chrome are pinned to slate-900 so they read
        against the white surface, again even when .dark is set on <html>. */
-    header.ms-chrome-glass.ms-chrome-glass,
+    /* Header uses a THIRD class chain because
+       `html.dark header.ms-chrome-glass` in ms-phase3-global.css is (0,2,2)
+       and beats my earlier doubled-class (0,2,1). Triple-class lifts it to
+       (0,3,1) which wins. All ID-selected chrome (dashboard-nav, dept-nav,
+       dept-sidebar, dept-tabbar) uses doubled IDs = (2,0,0) which beats
+       every existing rule in both themes. */
+    header.ms-chrome-glass.ms-chrome-glass.ms-chrome-glass,
     #dashboard-nav#dashboard-nav,
     #dept-nav#dept-nav,
-    #dept-sidebar#dept-sidebar{
+    #dept-sidebar#dept-sidebar,
+    #dept-tabbar#dept-tabbar{
       background:#ffffff!important;
       background-color:#ffffff!important;
       background-image:none!important;
