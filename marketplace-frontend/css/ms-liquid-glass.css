@@ -18,6 +18,21 @@
 
 /* Reusable material primitives for future templates and generated sections. */
 .ms-glass-canvas { background: var(--ms-glass-canvas); background-attachment: fixed; }
+
+/* Solid, opaque surfaces — no blur. Use for forms, panels, inspector, content. */
+.ms-surface,
+.ms-surface-raised {
+  background: var(--ms-glass-light-strong);
+  border: 1px solid var(--ms-glass-line);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, .08);
+}
+.ms-surface { background: var(--ms-glass-light); }
+
+/* Glass surfaces — with blur. Use for navigation, floating panels, modals. */
+.ms-glass,
+.ms-glass-nav,
+.ms-glass-floating,
+.ms-glass-modal,
 .ms-glass-surface,
 .ms-glass-panel {
   background: var(--ms-glass-light);
@@ -31,6 +46,34 @@
   background: var(--ms-glass-dark);
   border-color: var(--ms-glass-line-dark);
   box-shadow: var(--ms-glass-shadow-dark);
+}
+
+/* Utility classes for builder — never blur inputs. */
+.liquid-glass-input {
+  background: rgba(255,255,255,.88);
+  border: 1px solid rgba(148,163,184,.32);
+  box-shadow: inset 0 1px 2px rgba(15,23,42,.04);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.dark .liquid-glass-input,
+[data-ws-theme="dark"] .liquid-glass-input {
+  background: rgba(7,20,38,.88);
+  border-color: rgba(148,190,230,.3);
+  color: #f8fafc;
+}
+.liquid-glass-btn {
+  background: rgba(255,255,255,.76);
+  border: 1px solid rgba(148,163,184,.32);
+  box-shadow: 0 2px 6px rgba(15,23,42,.06);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.dark .liquid-glass-btn,
+[data-ws-theme="dark"] .liquid-glass-btn {
+  background: rgba(31,61,96,.58);
+  border-color: rgba(148,190,230,.3);
+  color: #e2e8f0;
 }
 
 /* The public site is one materialized canvas. Semantic containers are selected
@@ -55,39 +98,52 @@ body.ms-glass-site :is(input,select,textarea) {
   box-shadow: inset 0 1px 2px rgba(15,23,42,.06), 0 1px 0 rgba(255,255,255,.55);
 }
 
-/* Dashboard-wide mode. This applies to current and future MarketSync views. */
+/* Dashboard-wide mode. Apply glass effects ONLY to explicitly marked elements.
+   Use .ms-glass-nav, .ms-glass-floating, .ms-glass-modal for intentional glass surfaces. */
 html[data-ms-glass="global"] body {
   background: var(--ms-glass-canvas) !important;
   background-attachment: fixed;
 }
-html[data-ms-glass="global"] :is(#dashboard-nav,#dept-tabbar,.ms-app-shell,.ms-glass-target),
-html[data-ms-glass="global"] :is(div,section,article,aside,form,details,header,footer,nav).rounded-xl.bg-white,
-html[data-ms-glass="global"] :is(div,section,article,aside,form,details,header,footer,nav).rounded-2xl.bg-white,
-html[data-ms-glass="global"] :is(div,section,article,aside,form,details,header,footer,nav).dark\:bg-slate-900 {
+/* Global glass effect is restricted to named architectural elements only.
+   Do NOT apply to generic divs/sections/forms — these should use explicit material classes. */
+html[data-ms-glass="global"] :is(#dashboard-nav,#dept-tabbar,.ms-app-shell,.ms-glass-target,.ms-glass-nav,.ms-glass-floating,.ms-glass-modal) {
   background: var(--ms-glass-light) !important;
   border-color: var(--ms-glass-line) !important;
   box-shadow: var(--ms-glass-shadow);
   backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
   -webkit-backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
 }
-html[data-ms-glass="global"] :is(input,select,textarea) {
-  background: rgba(255,255,255,.76) !important;
-  border-color: rgba(148,163,184,.48) !important;
-  color: #0f172a;
+/* Solid semantic surfaces (forms, panels, inspector) stay opaque, never blurred. */
+html[data-ms-glass="global"] :is(.ms-surface,.ms-surface-raised,.ms-inspector-panel,#ws-inspector-panel,form) {
+  background: var(--ms-glass-light-strong) !important;
+  border-color: var(--ms-glass-line) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
-html[data-ms-glass="global"] :is(button,a).bg-white { background: rgba(255,255,255,.82) !important; }
+html[data-ms-glass="global"] :is(input,select,textarea) {
+  background: rgba(255,255,255,.88) !important;
+  border-color: rgba(148,163,184,.48) !important;
+  color: #0f172a !important;
+  backdrop-filter: none !important;
+}
+html[data-ms-glass="global"] :is(button,a).bg-white { background: rgba(255,255,255,.88) !important; }
 html[data-ms-glass="global"].dark {
   --ms-glass-canvas: radial-gradient(circle at 8% 0%, rgba(22, 132, 190, .26), transparent 34%), radial-gradient(circle at 92% 8%, rgba(85, 64, 190, .24), transparent 36%), linear-gradient(135deg, #071426 0%, #0b1830 52%, #071d25 100%);
 }
-html[data-ms-glass="global"].dark :is(#dashboard-nav,#dept-tabbar,.ms-app-shell,.ms-glass-target),
-html[data-ms-glass="global"].dark :is(div,section,article,aside,form,details,header,footer,nav).rounded-xl.bg-white,
-html[data-ms-glass="global"].dark :is(div,section,article,aside,form,details,header,footer,nav).rounded-2xl.bg-white,
-html[data-ms-glass="global"].dark :is(div,section,article,aside,form,details,header,footer,nav).dark\:bg-slate-900 {
+html[data-ms-glass="global"].dark :is(#dashboard-nav,#dept-tabbar,.ms-app-shell,.ms-glass-target,.ms-glass-nav,.ms-glass-floating,.ms-glass-modal) {
   background: var(--ms-glass-dark) !important;
   border-color: var(--ms-glass-line-dark) !important;
   box-shadow: var(--ms-glass-shadow-dark);
+  backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
+  -webkit-backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
 }
-html[data-ms-glass="global"].dark :is(input,select,textarea) { background: rgba(7,20,38,.78) !important; color: #f8fafc; border-color: rgba(148,190,230,.3) !important; }
+html[data-ms-glass="global"].dark :is(.ms-surface,.ms-surface-raised,.ms-inspector-panel,#ws-inspector-panel,form) {
+  background: var(--ms-glass-dark-strong) !important;
+  border-color: var(--ms-glass-line-dark) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+html[data-ms-glass="global"].dark :is(input,select,textarea) { background: rgba(7,20,38,.88) !important; color: #f8fafc !important; border-color: rgba(148,190,230,.3) !important; backdrop-filter: none !important; }
 
 /* MarketSync's dark dashboard has intentionally dark semantic surfaces even
  * when its markup still carries light utility classes. Keep the glass layer
@@ -144,12 +200,20 @@ html[data-ms-glass="global"][data-dash-mode="marketsync"] :is(input,select,texta
   background: var(--ws-panel-raised) !important;
   border-color: var(--ws-border) !important;
 }
-.ws-studio-container :is(input,select,textarea) {
+.ws-studio-container input:not(.liquid-glass-input),
+.ws-studio-container select,
+.ws-studio-container textarea {
   background: var(--ws-input-bg) !important;
   border-color: var(--ws-input-border) !important;
   color: var(--ws-input-text, var(--ws-text)) !important;
-  backdrop-filter: blur(14px) saturate(130%);
-  -webkit-backdrop-filter: blur(14px) saturate(130%);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.ws-studio-container .liquid-glass-input {
+  background: var(--ws-input-bg) !important;
+  border-color: var(--ws-input-border) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* Generated hero CTAs share this contract. It prevents long labels from
