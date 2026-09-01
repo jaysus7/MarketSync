@@ -3814,6 +3814,7 @@ function openTemplatePicker() {
     }
   ];
 
+  const esc = t => (t || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const modalHtml = `
     <div class="p-6 space-y-4 max-w-4xl">
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
@@ -3821,31 +3822,31 @@ function openTemplatePicker() {
           <h2 class="text-xl font-black text-slate-900 dark:text-white">Choose Complete Dealership Template</h2>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Each template applies a full working layout, curated Pexels automotive imagery, typography, and rich copy customized with your dealership name.</p>
         </div>
-        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
+        <button type="button" class="modal-close-btn text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
 
       <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 max-h-[70vh] overflow-y-auto">
         ${templates.map(t => `
-          <button onclick="applyCompleteTemplate('${t.id}')" class="group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-200 flex flex-col cursor-pointer">
+          <button type="button" class="template-btn group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-200 flex flex-col cursor-pointer" data-template-id="${esc(t.id)}">
             <div class="h-28 relative overflow-hidden bg-slate-950 shrink-0">
-              <img src="${t.hero_img}" class="w-full h-full object-cover object-center group-hover:scale-105 transition duration-500">
+              <img src="${esc(t.hero_img)}" class="w-full h-full object-cover object-center group-hover:scale-105 transition duration-500" alt="Template preview">
               <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent"></div>
               <div class="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-                <span class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-black/60 backdrop-blur-md text-white border border-white/20">${t.preset}</span>
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-black/60 backdrop-blur-md text-white border border-white/20">${esc(t.preset)}</span>
               </div>
               <div class="absolute bottom-2 left-3 flex items-center gap-1">
-                <span class="w-3.5 h-3.5 rounded-full border border-white/40 shadow-sm" style="background:${t.primary}"></span>
-                <span class="w-3.5 h-3.5 rounded-full border border-white/40 shadow-sm" style="background:${t.secondary}"></span>
-                <span class="w-3.5 h-3.5 rounded-full border border-white/40 shadow-sm" style="background:${t.accent}"></span>
-                <span class="text-[10px] font-mono text-white/80 ml-1 drop-shadow">${t.heading_font}</span>
+                <span class="w-3.5 h-3.5 rounded-full border border-white/40 shadow-sm" style="background:${esc(t.primary)}"></span>
+                <span class="w-3.5 h-3.5 rounded-full border border-white/40 shadow-sm" style="background:${esc(t.secondary)}"></span>
+                <span class="w-3.5 h-3.5 rounded-full border border-white/40 shadow-sm" style="background:${esc(t.accent)}"></span>
+                <span class="text-[10px] font-mono text-white/80 ml-1 drop-shadow">${esc(t.heading_font)}</span>
               </div>
             </div>
             <div class="p-4 flex-1 flex flex-col justify-between space-y-2">
               <div>
-                <h3 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${t.name}</h3>
-                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-1">${t.desc}</p>
+                <h3 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${esc(t.name)}</h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-1">${esc(t.desc)}</p>
               </div>
               <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Full Suite Ready</span>
@@ -3858,7 +3859,11 @@ function openTemplatePicker() {
     </div>
   `;
 
-  crmOverlay(modalHtml, 'max-w-4xl');
+  const modal = crmOverlay(modalHtml, 'max-w-4xl');
+  modal?.querySelector('.modal-close-btn')?.addEventListener('click', e => e.target.closest('.fixed')?.remove());
+  modal?.querySelectorAll('.template-btn').forEach(btn => {
+    btn.addEventListener('click', e => applyCompleteTemplate(e.currentTarget.dataset.templateId));
+  });
 }
 
 function applyCompleteTemplate(templateId) {
@@ -4077,7 +4082,7 @@ function openDesignStudioTemplatePicker() {
           <h2 class="text-xl font-black text-slate-900 dark:text-white">Design Templates</h2>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose a template to start creating social media graphics, banners, and promotional materials.</p>
         </div>
-        <button type="button" onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
+        <button type="button" class="modal-close-btn text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
@@ -4103,6 +4108,7 @@ function openDesignStudioTemplatePicker() {
     </div>
   `;
   const modal = crmOverlay(modalHtml, 'max-w-4xl');
+  modal?.querySelector('.modal-close-btn')?.addEventListener('click', e => e.target.closest('.fixed')?.remove());
   const buttons = modal?.querySelectorAll('.studio-template-btn[data-template-type="design"]') || document.querySelectorAll('.studio-template-btn[data-template-type="design"]');
   buttons.forEach(btn => btn.addEventListener('click', e => applyDesignTemplate(e.currentTarget.dataset.templateId)));
 }
@@ -4123,7 +4129,7 @@ function openEmailSmsStudioTemplatePicker() {
           <h2 class="text-xl font-black text-slate-900 dark:text-white">Email & SMS Templates</h2>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose a campaign type to start building newsletters, promotions, and customer outreach.</p>
         </div>
-        <button type="button" onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
+        <button type="button" class="modal-close-btn text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
@@ -4149,6 +4155,7 @@ function openEmailSmsStudioTemplatePicker() {
     </div>
   `;
   const modal = crmOverlay(modalHtml, 'max-w-4xl');
+  modal?.querySelector('.modal-close-btn')?.addEventListener('click', e => e.target.closest('.fixed')?.remove());
   const buttons = modal?.querySelectorAll('.studio-template-btn[data-template-type="email-sms"]') || document.querySelectorAll('.studio-template-btn[data-template-type="email-sms"]');
   buttons.forEach(btn => btn.addEventListener('click', e => applyEmailSmsTemplate(e.currentTarget.dataset.templateId)));
 }
@@ -4169,7 +4176,7 @@ function openVideoStudioTemplatePicker() {
           <h2 class="text-xl font-black text-slate-900 dark:text-white">Video Templates</h2>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose a video type to create inventory showcases, testimonials, and promotional videos.</p>
         </div>
-        <button type="button" onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
+        <button type="button" class="modal-close-btn text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
@@ -4195,6 +4202,7 @@ function openVideoStudioTemplatePicker() {
     </div>
   `;
   const modal = crmOverlay(modalHtml, 'max-w-4xl');
+  modal?.querySelector('.modal-close-btn')?.addEventListener('click', e => e.target.closest('.fixed')?.remove());
   const buttons = modal?.querySelectorAll('.studio-template-btn[data-template-type="video"]') || document.querySelectorAll('.studio-template-btn[data-template-type="video"]');
   buttons.forEach(btn => btn.addEventListener('click', e => applyVideoTemplate(e.currentTarget.dataset.templateId)));
 }
@@ -4215,7 +4223,7 @@ function openAutomationsStudioTemplatePicker() {
           <h2 class="text-xl font-black text-slate-900 dark:text-white">Automation Templates</h2>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose an automation workflow to set up lead nurturing, service reminders, and customer engagement.</p>
         </div>
-        <button type="button" onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
+        <button type="button" class="modal-close-btn text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
@@ -4241,6 +4249,7 @@ function openAutomationsStudioTemplatePicker() {
     </div>
   `;
   const modal = crmOverlay(modalHtml, 'max-w-4xl');
+  modal?.querySelector('.modal-close-btn')?.addEventListener('click', e => e.target.closest('.fixed')?.remove());
   const buttons = modal?.querySelectorAll('.studio-template-btn[data-template-type="automation"]') || document.querySelectorAll('.studio-template-btn[data-template-type="automation"]');
   buttons.forEach(btn => btn.addEventListener('click', e => applyAutomationTemplate(e.currentTarget.dataset.templateId)));
 }
@@ -4767,20 +4776,22 @@ function openWebsiteScannerModal() {
           <h3 class="text-lg font-black text-white">Scan Existing Website ("Scan &amp; Paste")</h3>
           <p class="text-xs text-slate-400">Import your current store info, hours, phone, FAQs, and content into this template.</p>
         </div>
-        <button onclick="this.closest('.fixed').remove()" class="p-1.5 rounded-xl text-slate-400 hover:text-white">\u{2715}</button>
+        <button type="button" class="ws-close-btn p-1.5 rounded-xl text-slate-400 hover:text-white">\u{2715}</button>
       </div>
 
       <div class="space-y-3">
         <label class="block text-xs font-bold text-slate-300">Website URL</label>
         <div class="flex items-center gap-2">
           <input id="ws-scan-url" type="url" placeholder="https://www.yourdealership.com" class="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-white focus:outline-none focus:border-indigo-500">
-          <button onclick="wsRunScan(this)" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-black text-white transition shadow-md shrink-0 cursor-pointer">Scan Site</button>
+          <button type="button" class="ws-scan-btn px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-black text-white transition shadow-md shrink-0 cursor-pointer">Scan Site</button>
         </div>
         <div id="ws-scan-output"></div>
       </div>
     </div>
   `;
   document.body.appendChild(modal);
+  modal.querySelector('.ws-close-btn')?.addEventListener('click', e => e.currentTarget.closest('.fixed')?.remove());
+  modal.querySelector('.ws-scan-btn')?.addEventListener('click', e => wsRunScan(e.currentTarget));
 }
 window.openWebsiteScannerModal = openWebsiteScannerModal;
 
@@ -4806,9 +4817,13 @@ async function wsRunScan(btn) {
             <div>• <strong>Email:</strong> ${esc(res.email || 'Extracted')}</div>
             <div>• <strong>Hero Title:</strong> ${esc(res.website_template?.hero_title || '')}</div>
           </div>
-          <button onclick="this.closest('.fixed').remove(); loadWebsitePage();" class="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition cursor-pointer">Reload Builder With New Template</button>
+          <button type="button" class="ws-reload-btn w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition cursor-pointer">Reload Builder With New Template</button>
         </div>
       `;
+      out.querySelector('.ws-reload-btn')?.addEventListener('click', e => {
+        e.currentTarget.closest('.fixed')?.remove();
+        loadWebsitePage();
+      });
     }
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Scan Site'; }
