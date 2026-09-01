@@ -1059,11 +1059,24 @@ async function initializeDashboardEcosystem() {
       ? bootRoute.page
       : (typeof bootRoute === 'string' ? bootRoute : null);
     const settledWorkspace = typeof resolveWorkspaceContext === 'function' ? resolveWorkspaceContext() : null;
+    // In HQ owner mode, a dealer-page URL (a bookmark like #/w/sales/sales
+    // from before the mode was engaged) would drop the founder onto the
+    // dealer Sales workspace instead of HQ Pulse — the "pulse is dealer os"
+    // regression the screenshot showed. Force any bootPage that isn't a
+    // saas-* page (or an HQ-owner-owned page) back to HQ Pulse.
+    const isHqOwner = __dashMode === 'marketsync' && (
+      profileContext?.workspace === 'saas_admin' ||
+      document.documentElement.getAttribute('data-dash-owner') === '1'
+    );
+    const hqOwnedPage = (pg) => typeof pg === 'string' && (
+      pg.startsWith('saas-') || pg === 'owner-users' || pg === 'config'
+    );
+    const effectiveBoot = (isHqOwner && bootPage && !hqOwnedPage(bootPage)) ? 'saas-command' : bootPage;
     if (settledWorkspace?.type === 'website' || settledWorkspace === 'website') {
       switchPage('website');
-    } else if (bootPage) {
-      switchPage(bootPage);
-      if (bootRoute.tab && typeof engineTab === 'function' && typeof ENGINES !== 'undefined' && ENGINES[bootPage]) {
+    } else if (effectiveBoot) {
+      switchPage(effectiveBoot);
+      if (effectiveBoot === bootPage && bootRoute?.tab && typeof engineTab === 'function' && typeof ENGINES !== 'undefined' && ENGINES[bootPage]) {
         engineTab(bootPage, bootRoute.tab);
       }
     } else if (settledWorkspace?.type === 'marketing_suite') {
@@ -2422,8 +2435,14 @@ function msApplyRoute() {
     try { deptOpen(deptOnly[1]); } finally { __msRouting = false; }
     return;
   }
-  const pageId = msRouteFromHash();
+  let pageId = msRouteFromHash();
   if (!pageId || pageId === __currentPage) return;
+  // Same HQ-owner guard as the boot path: if the hash points at a dealer
+  // page while the user is in HQ owner mode, redirect to HQ Pulse.
+  const isHqOwner = __dashMode === 'marketsync' && document.documentElement.getAttribute('data-dash-owner') === '1';
+  if (isHqOwner && !(pageId.startsWith('saas-') || pageId === 'owner-users' || pageId === 'config')) {
+    pageId = 'saas-command';
+  }
   __msRouting = true;
   try { switchPage(pageId); } finally { __msRouting = false; }
 }

@@ -258,6 +258,11 @@
        (0,3,1) which wins. All ID-selected chrome (dashboard-nav, dept-nav,
        dept-sidebar, dept-tabbar) uses doubled IDs = (2,0,0) which beats
        every existing rule in both themes. */
+    /* Kill the top workspace tab-bar in HQ owner mode — the sidebar is the
+       single source of navigation there, so the tabbar was redundant and read
+       as a second dark strip in every screenshot. Dealer mode keeps it. */
+    html[data-dash-owner="1"] #dept-tabbar{display:none!important}
+    html[data-dash-owner="1"] main{padding-top:calc(112px + .5rem)!important}
     header.ms-chrome-glass.ms-chrome-glass.ms-chrome-glass,
     #dashboard-nav#dashboard-nav,
     #dept-nav#dept-nav,
