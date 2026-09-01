@@ -65,6 +65,7 @@
         { href: '/dealer-website.html', title: 'Dealer Website', desc: 'Website, live inventory & SEO' },
         { href: '/ai-chatbot.html', title: 'AI Customer Agent', desc: 'Always-on lead capture' },
         { href: '/marketsync-seo.html', title: 'MarketSync SEO', desc: 'Automated SEO & rank tracking' },
+        { href: '/discoverability.html', title: 'Discoverability', desc: 'Verified search, AI & conversion evidence' },
       ],
     },
   ];
@@ -86,6 +87,7 @@
       ['Campaigns', '/campaigns.html'],
       ['Dealer Website', '/dealer-website.html'],
       ['MarketSync SEO', '/marketsync-seo.html'],
+      ['Discoverability', '/discoverability.html'],
       ['AI Customer Agent', '/ai-chatbot.html'],
     ]],
     ['Suites & OS', [

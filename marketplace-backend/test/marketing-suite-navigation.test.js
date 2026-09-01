@@ -22,41 +22,67 @@ function suiteConfigs() {
 
 const labels = area => area.items.map(item => item.label);
 
-test('Sales, Service and Complete share the same DealerOS-style major-area shell', () => {
+// The shared Pulse/Marketing/Content/Academy shell was retired deliberately: the
+// departments behind each suite differ enough that a uniform four-area split did not
+// describe any of them well. Each suite is now a single area whose flat destination
+// list is the sidebar, which is also why the per-page tab strip stays hidden for them
+// (see the tab-strip test below).
+test('Sales, Service and Complete each present one flat suite area, not a four-area shell', () => {
   const configs = suiteConfigs();
-  const common = ['Pulse', 'Marketing', 'Content', 'Academy'];
-  assert.deepEqual(configs.sales.areas.map(area => area.label), common);
-  assert.deepEqual(configs.service.areas.map(area => area.label), common);
-  assert.deepEqual(configs.complete.areas.map(area => area.label), common);
+  for (const [suite, label] of [['sales', 'Sales Marketing Suite'], ['service', 'Service Marketing Suite'], ['complete', 'Complete Marketing Suite']]) {
+    assert.deepEqual(configs[suite].areas.map(area => area.label), [label]);
+    assert.equal(configs[suite].areas[0].id, 'suite');
+    assert.equal(configs[suite].areas[0].items[0].label, 'Pulse', 'Pulse stays the first destination');
+  }
+  // The retired shell must not creep back in as area labels.
+  for (const suite of ['sales', 'service', 'complete']) {
+    const ids = configs[suite].areas.map(area => area.id);
+    assert.deepEqual(ids.filter(id => ['marketing', 'content', 'academy'].includes(id)), []);
+  }
 });
 
 test('MarketSync Digital is a bespoke shell with one area per product, not the shared suite shell', () => {
   const configs = suiteConfigs();
   assert.deepEqual(configs.digital.areas.map(area => area.label), [
     'MarketSync Digital', 'Website', 'MarketSync SEO', 'AI Customer Agent',
-    'Design Studio', 'Social Studio & Scheduler', 'Facebook Marketplace', 'Video', 'Email, SMS & Campaigns'
+    'Facebook Auto Poster', 'Design Studio', 'Social Studio & Scheduler', 'Video', 'Campaigns'
   ]);
   assert.equal(configs.digital.areas[0].items[0].label, 'Pulse');
 });
 
-test('suite page headers expose canonical products without moving them into the sidebar', () => {
+test('each suite lists its canonical destinations in one flat sidebar', () => {
   const configs = suiteConfigs();
-  const area = (suite, id) => configs[suite].areas.find(candidate => candidate.id === id);
-  assert.deepEqual(labels(area('sales', 'marketing')), ['Sales Marketing', 'Campaigns', 'Automations', 'Email & SMS', 'Campaign Library']);
-  assert.deepEqual(labels(area('service', 'marketing')), ['Service Marketing', 'Campaigns', 'Automations', 'Email & SMS', 'Campaign Library']);
-  assert.deepEqual(labels(area('complete', 'marketing')), ['Sales Marketing', 'Service Marketing', 'Campaigns', 'Automations', 'Email & SMS', 'Campaign Library']);
+  const suiteItems = suite => labels(configs[suite].areas.find(area => area.id === 'suite'));
+
+  assert.deepEqual(suiteItems('sales'), [
+    'Pulse', 'Sales Marketing', 'Facebook Auto Poster', 'Automations', 'Campaigns',
+    'Templates', 'Audiences', 'Design Studio', 'Social Studio & Scheduler', 'Video', 'Academy'
+  ]);
+  assert.deepEqual(suiteItems('service'), [
+    'Pulse', 'Service Marketing', 'Facebook Auto Poster', 'Automations', 'Campaigns',
+    'Templates', 'Audiences', 'Design Studio', 'Social Studio & Scheduler', 'Video', 'Academy'
+  ]);
+
+  // Every suite keeps the shared content and campaign tooling.
   for (const suite of ['sales', 'service', 'complete']) {
-    assert.deepEqual(labels(area(suite, 'content')), ['Design Studio', 'Social Scheduler', 'Video']);
-    assert.equal(configs[suite].areas[0].items[0].label, 'Pulse');
+    for (const destination of ['Design Studio', 'Social Studio & Scheduler', 'Video', 'Campaigns', 'Academy']) {
+      assert.ok(suiteItems(suite).includes(destination), `${suite} must reach ${destination}`);
+    }
   }
-  assert.deepEqual(labels(area('digital', 'website')), ['Setup', 'Builder', 'Website Settings']);
+
+  const area = (suite, id) => configs[suite].areas.find(candidate => candidate.id === id);
+  assert.deepEqual(labels(area('digital', 'website')), ['Setup', 'Builder', 'Blog Post Tips', 'Discovery', 'Website Settings']);
   assert.equal(JSON.stringify(configs).includes('AI Setup'), false);
 });
 
 test('suite navigation reuses canonical routes and the shared accessible tabbar', () => {
   const configs = suiteConfigs();
-  const content = configs.sales.areas.find(area => area.id === 'content').items;
-  assert.deepEqual(content.map(item => item.page), ['studio', 'social-scheduler', 'video-studio']);
+  const items = configs.sales.areas.find(area => area.id === 'suite').items;
+  const pageFor = label => items.find(item => item.label === label)?.page;
+  // Content destinations still route to the canonical pages rather than suite-local copies.
+  assert.equal(pageFor('Design Studio'), 'studio');
+  assert.equal(pageFor('Social Studio & Scheduler'), 'social-scheduler');
+  assert.equal(pageFor('Video'), 'video-studio');
   assert.match(shellSource, /role="tablist"/);
   assert.match(shellSource, /aria-selected=/);
   assert.match(shellSource, /overflow-x-auto/);
@@ -144,16 +170,23 @@ function suiteConfigWithAccess(suiteKey, access) {
 // MarketSync SEO (marketsync-seo / marketsync_seo) is independently purchasable on top
 // of Sales/Service/Complete Marketing Suite even though it isn't bundled in — these
 // suites have no website concept at all, so it must never be folded into anything else.
-test('a suite dealer who separately owns MarketSync SEO gets it as its own area; one who does not, does not', () => {
+// SEO is purchasable on top of Sales/Service/Complete even though it is not bundled.
+// Under the flat suite shell it arrives as a destination in the one suite area rather
+// than as its own area, injected live by getMarketingSuiteConfig — MARKETING_SUITE_CONFIG
+// is built once at load, before window.__access exists, so it cannot carry it.
+test('a suite dealer who separately owns MarketSync SEO can reach it; one who does not, cannot', () => {
   const withSeo = suiteConfigWithAccess('sales', { products: ['design_studio', 'marketsync_seo'] });
-  const seoArea = withSeo.areas.find(area => area.id === 'seo');
-  assert.ok(seoArea, 'Sales Marketing Suite + owned SEO must expose an SEO area');
-  assert.equal(seoArea.label, 'MarketSync SEO');
-  assert.deepEqual(labels(seoArea), ['SEO Builder', 'Pulse']);
-  // Never combined with a "website" area — Sales/Service/Complete Marketing Suite sell
-  // no website product, so there is nothing to combine it with in the first place.
+  const items = withSeo.areas.find(area => area.id === 'suite').items;
+  const seo = items.find(item => item.page === 'seo');
+  assert.ok(seo, 'Sales Marketing Suite + owned SEO must expose a route to SEO');
+  assert.equal(seo.label, 'MarketSync SEO');
+  // Placed with the products, ahead of Academy, rather than appended after it.
+  assert.ok(items.findIndex(item => item.page === 'seo') < items.findIndex(item => item.page === 'academy'));
+  // Never combined with a "website" area — these suites sell no website product, so
+  // there is nothing to combine it with in the first place.
   assert.ok(!withSeo.areas.some(area => area.id === 'website' || area.id === 'digital-presence'));
 
   const withoutSeo = suiteConfigWithAccess('service', { products: ['design_studio'] });
-  assert.ok(!withoutSeo.areas.some(area => area.id === 'seo'), 'no SEO area without the entitlement');
+  const withoutItems = withoutSeo.areas.find(area => area.id === 'suite').items;
+  assert.ok(!withoutItems.some(item => item.page === 'seo'), 'no SEO route without the entitlement');
 });

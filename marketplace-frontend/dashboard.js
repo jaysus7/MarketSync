@@ -1572,7 +1572,10 @@ function navPagesForProductKey(key) {
     return one('ai-home', 'AI Customer Agent', 'sparkles', { tab: 'conversations' });
   }
   if (/design_studio/.test(only)) {
-    return one('studio', 'Design Studio', 'camera', { studioLaunch: true });
+    return [
+      { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
+      { page: 'studio', label: 'Scheduler', icon: 'calendar', studioSchedulerLaunch: true },
+    ];
   }
   if (/identity/.test(only)) {
     return one('crm', 'Customer Verification', 'shield');
@@ -1667,6 +1670,21 @@ function restrictedNavPages() {
     ];
   }
 
+  // Design Studio is the one single-product tier with TWO destinations. Its
+  // scheduler was merged into the Studio (openStudioSchedulerWithEntitlementCheck
+  // opens it as an overlay), so it is not the standalone `social-scheduler` page —
+  // routing there would land a Design-Studio-only account on the Marketing engine's
+  // scheduler dashboard, which it does not own and cannot render. Both rows carry
+  // `page: 'studio'` because both open the same surface; the launch flags, not the
+  // page id, decide what opens. Kept ahead of the generic single-product block below
+  // so the one-destination `one()` shape never claims this tier.
+  if (activeProducts.length === 1 && /design_studio/.test(product)) {
+    return [
+      { page: 'studio', label: 'Design Studio', icon: 'camera', studioLaunch: true },
+      { page: 'studio', label: 'Scheduler', icon: 'calendar', studioSchedulerLaunch: true },
+    ];
+  }
+
   // ── Single purchased product: exactly ONE nav destination ──────────────────
   // Header/product name is the product itself. No departments, no multi-page
   // sidebars. In-page tabs (Setup, Calendar, Builder, etc.) stay on the page.
@@ -1679,9 +1697,6 @@ function restrictedNavPages() {
     }
     if (/ai_chatbot|ai_dealer|ai$/.test(only)) {
       return one('ai-home', 'AI Customer Agent', 'sparkles', { tab: 'conversations' });
-    }
-    if (/design_studio/.test(only)) {
-      return one('studio', 'Design Studio', 'camera', { studioLaunch: true });
     }
     if (/marketsync_identity|identity_verify/.test(only)) {
       return one('crm', 'Customer Verification', 'shield');
@@ -1723,8 +1738,12 @@ function restrictedNavPages() {
     return ['marketing-overview', 'email-marketing', 'video-studio', 'website', 'ai-home', 'inventory', 'leaderboard']
       .filter(p => __productAllowedPages.has(p)).map(p => meta[p]);
   }
-  // Legacy pure fb_only accounts with no product set: the same two Facebook items.
-  if (__fbOnly) return [INV('Inventory'), LEADER];
+  // Legacy pure fb_only accounts with no product set: the same two Facebook items,
+  // with the per-role split the header comment above describes. A rep's Facebook
+  // surface is their own listings, so their nav says so; an owner/admin/manager sees
+  // the store's. (`canManageTeam` is declared for exactly this and had no other
+  // reader, which is how the distinction went missing.)
+  if (__fbOnly) return canManageTeam ? [INV('Inventory'), LEADER] : [INV('My Inventory'), LEADER];
   return null;
 }
 window.restrictedNavPages = restrictedNavPages;

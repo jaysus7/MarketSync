@@ -1679,9 +1679,17 @@ body.website-builder-mode {
   color: var(--ws-input-text) !important;
   border-color: var(--ws-input-border) !important;
 }
+/* #8fa2bd is 2.60:1 on a white field — picked for the dark drawer, not the light
+   one. Scoped per theme, same remedy as the CRM modal: slate-500 gives 4.76:1. */
 .website-builder-mode #ws-left-drawer-content input::placeholder,
 .website-builder-mode #ws-inspector-panel input::placeholder,
 .website-builder-mode #ws-inspector-panel textarea::placeholder {
+  color: #64748b !important;
+  opacity: 1 !important;
+}
+.dark .website-builder-mode #ws-left-drawer-content input::placeholder,
+.dark .website-builder-mode #ws-inspector-panel input::placeholder,
+.dark .website-builder-mode #ws-inspector-panel textarea::placeholder {
   color: #8fa2bd !important;
   opacity: 1 !important;
 }
@@ -3497,7 +3505,9 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 #ms-studio-master-modal .studio-gif-card span, #ms-studio-master-modal .studio-gif-result-title { display: block; overflow: hidden; padding: 6px 7px; color: #334155; font: 800 9px/1.1 ui-sans-serif, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
 #ms-studio-master-modal .studio-gif-search-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
 #ms-studio-master-modal .studio-gif-search-row input, #ms-studio-master-modal .studio-gif-search-row select, #ms-studio-master-modal .studio-gif-paste input { min-width: 0; height: 36px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: #0f172a; padding: 0 10px; font: 700 11px/1 ui-sans-serif, sans-serif; }
-#ms-studio-master-modal .studio-gif-search-row input::placeholder, #ms-studio-master-modal .studio-gif-paste input::placeholder { color: #94a3b8; }
+/* The field above is explicitly background:#fff, so this placeholder is always on
+   white: #94a3b8 was 2.56:1. slate-500 gives 4.76:1. */
+#ms-studio-master-modal .studio-gif-search-row input::placeholder, #ms-studio-master-modal .studio-gif-paste input::placeholder { color: #64748b; }
 #ms-studio-master-modal .studio-gif-search-row button, #ms-studio-master-modal .studio-gif-paste button { min-height: 36px; border: 0; border-radius: 10px; background: #2563eb; color: #fff; padding: 0 13px; font: 900 11px/1 ui-sans-serif, sans-serif; cursor: pointer; }
 #ms-studio-master-modal .studio-gif-search-row button:hover, #ms-studio-master-modal .studio-gif-paste button:hover { background: #1d4ed8; }
 #ms-studio-master-modal .studio-gif-quick-label { color: #64748b; font: 900 9px/1 ui-sans-serif, sans-serif; text-transform: uppercase; letter-spacing: .08em; }

@@ -20,11 +20,20 @@ describe('Email & SMS — Split Full-Screen Builders Architecture', () => {
     assert.ok(part18Content.includes("tabBtn('performance', 'Performance'"), 'Includes Performance tab');
   });
 
-  it('exposes the two top primary builder action buttons: Build Automation and Build Email / SMS', () => {
-    assert.ok(part18Content.includes('onclick="openVisualWorkflowBuilder()"'), 'Contains Build Automation button');
-    assert.ok(part18Content.includes("onclick=\"openEmailSmsBuilder({ mode: 'email' })\""), 'Contains Build Email / SMS button');
-    assert.ok(part18Content.includes('Build Automation'), 'Label Build Automation present');
-    assert.ok(part18Content.includes('Build Email / SMS'), 'Label Build Email / SMS present');
+  // Both buttons still sit in the page header; the email one was relabelled
+  // "Create Email" and now opens the builder as a new template that returns to the
+  // Templates tab, which is a fuller call than the bare `{ mode: 'email' }` this
+  // once pinned. Assert the two actions and where they go, not the wording.
+  it('exposes the two top primary builder action buttons in the page header', () => {
+    const header = part18Content.slice(
+      part18Content.indexOf('Email &amp; SMS Communication Engine'),
+      part18Content.indexOf('Core Navigation Launch Cards'));
+    assert.ok(header, 'the Email & SMS header block must exist');
+    assert.ok(header.includes('onclick="openVisualWorkflowBuilder()"'), 'Contains the automation builder button');
+    assert.ok(header.includes('Build Automation'), 'Label Build Automation present');
+    assert.match(header, /onclick="openEmailSmsBuilder\(\{ mode: 'email'[^"]*\}\)"/,
+      'Contains a button that opens the Email/SMS builder in email mode');
+    assert.ok(header.includes('Create Email'), 'the email builder button must be labelled');
   });
 
   it('implements openVisualWorkflowBuilder for n8n-style DAG logic and journeys', () => {

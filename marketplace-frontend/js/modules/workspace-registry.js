@@ -134,7 +134,17 @@ const MS_WORKSPACES = {
     pages: [
       { page: 'accounting-overview', label: 'Pulse' },
       { page: 'accounting', label: 'Overview' },
-      { page: 'commissions', label: 'Payroll' },
+      // Payroll's real surface is the Accounting engine's own `payroll` tab
+      // (accounting-workspace.js), which mounts the same commission engine and sits
+      // on `accounting`, gated on os.accounting. This row is `legacy` so the id stays
+      // a resolvable deep-link target without drawing a second button for that tab —
+      // and, critically, so deptVisible() ignores it: `commissions` is ungated (it is
+      // also Sales' "My Commission", a rep's own earnings, which no plan should
+      // withhold), and a non-legacy row would keep the whole Accounting department
+      // visible on plans that do not include accounting, showing a lone Payroll entry
+      // in an otherwise-empty workspace. Splitting the page id so each job has its own
+      // is still the cleaner end state, and is a product decision.
+      { page: 'commissions', label: 'Payroll', legacy: true },
     ],
   },
 

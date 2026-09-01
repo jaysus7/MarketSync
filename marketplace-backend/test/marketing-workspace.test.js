@@ -118,9 +118,19 @@ test('Marketing Pulse renders connected sources and never demo KPIs', () => {
   }
   const overviewStart = ws.indexOf('overview(body, d)')
   const pulseCall = ws.indexOf('mktPulseOverview(body, d, suite, cfg, caveat)', overviewStart)
+  assert.ok(pulseCall > overviewStart, 'overview() must render the connected Pulse')
+  // The legacy per-suite demo markup has since been deleted outright, which is
+  // stronger than the "unreachable" this originally asked for. Both readings stay
+  // valid: with the branch gone, the Pulse call must still return rather than fall
+  // through; if anyone re-introduces it, it must sit below the Pulse and behind that
+  // return. (indexOf returns -1 when absent, so the old `pulseCall < legacySalesBranch`
+  // failed precisely because the branch it objected to had been removed.)
   const legacySalesBranch = ws.indexOf("if (suite === 'sales')", overviewStart)
-  assert.ok(pulseCall > overviewStart && pulseCall < legacySalesBranch, 'connected Pulse must render before legacy suite markup')
-  assert.match(ws.slice(pulseCall, legacySalesBranch), /return;/, 'legacy demo markup must be unreachable')
+  const tail = legacySalesBranch === -1 ? ws.slice(pulseCall, pulseCall + 200) : ws.slice(pulseCall, legacySalesBranch)
+  if (legacySalesBranch !== -1) {
+    assert.ok(pulseCall < legacySalesBranch, 'connected Pulse must render before legacy suite markup')
+  }
+  assert.match(tail, /return;/, 'legacy demo markup must be unreachable')
 })
 
 test('Marketing Pulse preserves API failure separately from a real zero', () => {
@@ -136,16 +146,32 @@ test('Marketing Pulse preserves API failure separately from a real zero', () => 
 test('it composes existing endpoints and introduces none', () => {
   // '/marketing/attention' became '/my-day' in 6.10 — the same composition, widened across
   // departments and gated per source.
+  // Each of these is served by an existing route, which is the point of this test —
+  // it caught a call to '/websites', which no backend route serves at all.
+  //   /branding                  routes/vinsticker.js
+  //   /dealership/site           routes/site.js
+  //   /marketing/studio/designs  routes/marketing-studio.js
+  //   /marketing/studio/folders  routes/marketing-studio.js
   const KNOWN = ['/my-day', '/campaigns', '/social/accounts', '/social/posts',
-                 '/conversations', '/marketing/roi', '/marketing/assets', '/inventory', '/automation/campaigns']
+                 '/conversations', '/marketing/roi', '/marketing/assets', '/inventory',
+                 '/automation/campaigns', '/branding', '/dealership/site',
+                 '/marketing/studio/designs', '/marketing/studio/folders']
   for (const c of [...ws.matchAll(/apiGetJson\('([^'?]+)/g)].map(m => m[1])) {
     assert.ok(KNOWN.includes(c), `unexpected read endpoint: ${c}`)
   }
+  // Same rule for writes — every target below is an existing route:
+  //   PUT /branding                              routes/vinsticker.js
+  //   PUT|DELETE /marketing/studio/designs/:id   routes/marketing-studio.js
+  //   POST /marketing/studio/folders             routes/marketing-studio.js
+  //   PUT|DELETE /marketing/studio/folders/:id   routes/marketing-studio.js
   const WRITES = ['/campaigns/${id}/status', '/conversations/${conversationId}/takeover',
                   '/social/posts', '/social/posts/${postId}/publish', '/social/posts/${postId}',
                   '/social/posts/${postId}/approve', '/social/posts/${postId}/cancel', '/marketing/studio/render',
                   // Connecting a social account is a real, permissioned write the composer offers.
-                  '/social/accounts']
+                  '/social/accounts',
+                  // Brand and Studio project library, saved from the Studio panel.
+                  '/branding', '/marketing/studio/designs/${encodeURIComponent(designId)}',
+                  '/marketing/studio/folders', '/marketing/studio/folders/${encodeURIComponent(folderId)}']
   for (const w of [...ws.matchAll(/apiSendJson\([`']([^`']+)[`']/g)].map(m => m[1])) {
     assert.ok(WRITES.includes(w), `unexpected write target: ${w}`)
   }

@@ -24,6 +24,16 @@ test('mobile "More" menu always offers a way to sign out', () => {
   );
   const upgradeCalls = (body.match(/appendMobileUpgrade\(\);/g) || []).length;
   const signOutCalls = (body.match(/appendMobileSignOut\(\);/g) || []).length;
+  const revealCalls = (body.match(/menu\.classList\.remove\('hidden'\);/g) || []).length;
+
   assert.ok(upgradeCalls >= 3, 'sanity: the three known nav paths call appendMobileUpgrade');
-  assert.equal(signOutCalls, upgradeCalls, 'every nav path that offers the upgrade CTA must also offer sign out');
+  assert.ok(revealCalls >= 3, 'sanity: the builder has several paths that reveal the menu');
+
+  // The guarantee is about the way OUT, so it is anchored to every path that actually
+  // shows the sheet - not to the upgrade CTA, which a suite tenant deliberately never
+  // sees. Comparing against upgrade with equality got this backwards: it made a path
+  // that offers sign-out WITHOUT an upgrade CTA look like a defect, and it would have
+  // missed a new reveal path that forgot sign-out whenever upgrade grew alongside it.
+  assert.equal(signOutCalls, revealCalls, 'every path that reveals the More sheet must append sign out');
+  assert.ok(signOutCalls >= upgradeCalls, 'every nav path that offers the upgrade CTA must also offer sign out');
 });

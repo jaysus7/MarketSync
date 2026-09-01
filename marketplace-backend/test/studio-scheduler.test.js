@@ -11,12 +11,37 @@ const studioShell = readFileSync(new URL('../../marketplace-frontend/js/modules/
 const part2 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part2.js', import.meta.url), 'utf8')
 const dashboard = readFileSync(new URL('../../marketplace-frontend/dashboard.js', import.meta.url), 'utf8')
 
-test('studio-scheduler.js is registered as a script in dashboard.html, after fabric-adapter.js', () => {
-  const fabricIdx = dashboardHtml.indexOf('js/modules/studio/fabric-adapter.js')
-  const schedIdx = dashboardHtml.indexOf('js/modules/studio/studio-scheduler.js')
-  assert.ok(fabricIdx > -1, 'fabric-adapter.js must be present')
-  assert.ok(schedIdx > -1, 'studio-scheduler.js must be registered')
-  assert.ok(schedIdx > fabricIdx, 'studio-scheduler.js must load after fabric-adapter.js')
+// Studio no longer ships as static <script> tags. Its canvas stack is heavy and only
+// a fraction of accounts open it, so it is lazy-loaded on demand and the scheduler is
+// a standalone page module fetched when the social-scheduler page opens. The old
+// ordering constraint - scheduler after fabric-adapter in dashboard.html - described an
+// arrangement that no longer exists; the ordering that still matters is inside the
+// studio chain, where the canvas adapter must be in place before the shell that uses it.
+test('the studio stack is lazy-loaded, with the canvas adapter ahead of the shell', () => {
+  // Neither is a static tag any more: loading fabric on every dashboard boot is the
+  // cost this arrangement exists to avoid.
+  assert.equal(dashboardHtml.includes('<script src="js/modules/studio/fabric-adapter.js'), false)
+  assert.equal(dashboardHtml.includes('<script src="js/modules/studio/studio-scheduler.js'), false)
+
+  // Full paths: 'studio/studio-shell.js' alone also matches design-studio/studio-shell.js,
+  // a different file in the newer editor stack.
+  const FABRIC = 'js/modules/studio/fabric-adapter.js'
+  const SHELL = 'js/modules/studio/studio-shell.js'
+  const fabricAt = [...part2.matchAll(new RegExp(FABRIC.replace(/[/.]/g, '\\$&'), 'g'))].map((m) => m.index)
+  const shellAt = [...part2.matchAll(new RegExp(SHELL.replace(/[/.]/g, '\\$&'), 'g'))].map((m) => m.index)
+  assert.ok(fabricAt.length > 0, 'fabric-adapter.js must be lazy-loaded by the studio boot chain')
+  assert.ok(shellAt.length > 0, 'studio-shell.js must be lazy-loaded by the studio boot chain')
+  // Every chain that loads the shell must have put the canvas adapter in place first.
+  for (const shellIdx of shellAt) {
+    assert.ok(fabricAt.some((fabricIdx) => fabricIdx < shellIdx),
+      'the canvas adapter must load before the shell that draws on it')
+  }
+
+  // The scheduler loads on its own page and boots only once its script resolves.
+  assert.match(part2, /pageId === 'social-scheduler'/)
+  assert.match(part2, /msLoadScript\('js\/modules\/studio\/studio-scheduler\.js/)
+  assert.match(part2, /\.then\(bootSched\)\.catch\(bootSched\)/,
+    'the scheduler must boot after its script resolves, and still boot if it was already loaded')
 })
 
 test('the studio scheduler never reuses ENGINE_DATA/mktReload/engineTab — those assume the Marketing engine page is mounted', () => {

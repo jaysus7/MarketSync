@@ -9,7 +9,10 @@ const part17 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashb
 const dashboardHtml = readFileSync(new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8')
 
 test('Content → Video paints immediately and refreshes its library without blocking navigation', () => {
-  const loadFn = videoStudio.match(/function loadVideoStudioPage\(\) \{[\s\S]*?\n\}/)?.[0] || ''
+  // It takes a container argument now (callers pass their own host element), so match
+  // any parameter list. What matters is that it is not `async` and never awaits —
+  // asserted below and by the absence of an `async` keyword here.
+  const loadFn = videoStudio.match(/(?<!async )function loadVideoStudioPage\([^)]*\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(loadFn, 'loadVideoStudioPage must be synchronous so navigation can paint immediately')
   assert.match(loadFn, /root\.innerHTML = renderVideoStudioWorkspace\(__videoLibraryVideos\)/,
     'cached or demo videos render before the network refresh')

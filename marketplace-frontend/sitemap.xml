@@ -24,12 +24,10 @@
   </url>
 
   <!-- Public Facing Pages -->
-  <url>
-    <loc>https://marketsync.link/upgrade.html</loc>
-    <lastmod>2026-07-01</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
+  <!-- upgrade.html is deliberately absent: it duplicates the canonical pricing page
+       (pricing.html), nothing links to it, and it now canonicalises there. Listing a
+       URL that canonicalises elsewhere asks Google to index a page it is also told
+       not to index. -->
 
   <url>
     <loc>https://marketsync.link/faq.html</loc>
@@ -60,12 +58,8 @@
     <priority>0.7</priority>
   </url>
 
-  <url>
-    <loc>https://marketsync.link/login.html</loc>
-    <lastmod>2026-07-01</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
+  <!-- login.html is deliberately absent: it is an authentication page with nothing to
+       rank for. register.html stays — it is the trial signup landing page. -->
 
   <!-- Legal & Compliance -->
   <url>
@@ -223,8 +217,16 @@
   <url><loc>https://marketsync.link/marketing-suites.html</loc><lastmod>2026-08-23</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://marketsync.link/ai-chatbot.html</loc><lastmod>2026-08-23</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://marketsync.link/design-studio.html</loc><lastmod>2026-08-23</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://marketsync.link/social-scheduler.html</loc><lastmod>2026-08-23</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <!-- social-scheduler.html is deliberately absent: the product merged into Design
+       Studio, and the page is now a redirect stub that canonicalises to
+       design-studio.html. The destination is listed above. -->
   <url><loc>https://marketsync.link/video-studio.html</loc><lastmod>2026-08-23</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://marketsync.link/campaigns.html</loc><lastmod>2026-08-23</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <!-- The AutoPoster product page: carries both plans (Salesperson and Dealer) and
+       their prices. facebook-marketplace-poster.html is the long-form explainer for
+       the same product; both are self-canonical because they answer different
+       questions, and they link to each other so the relationship is explicit. -->
+  <url><loc>https://marketsync.link/facebook-autoposter.html</loc><lastmod>2026-09-01</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://marketsync.link/discoverability.html</loc><lastmod>2026-09-01</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
   <url><loc>https://marketsync.link/marketsync-seo.html</loc><lastmod>2026-08-23</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
 </urlset>

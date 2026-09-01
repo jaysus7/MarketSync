@@ -38,8 +38,8 @@ Counted from source, not from memory. Refresh with the commands in
 |---|---|
 | Pulse engines | 9 |
 | Registered engines (all tabs) | 19 |
-| Dashboard page containers | 82 |
-| Public HTML pages | 59 |
+| Dashboard page containers | 86 |
+| Public HTML pages | 60 |
 | Roles with distinct navigation | 8 |
 | Dashboard modes | 3 |
 
@@ -61,7 +61,7 @@ it is — they are not decoration, and two of them change the plan.
 | Fact | Count |
 |---|---|
 | HTML pages loading `ms-design-system.css` | **2** (`dashboard.html`, `training.html`) |
-| HTML pages not loading it | **57** |
+| HTML pages not loading it | **58** |
 | Public pages loading `marketsync-theme.css` | 3 |
 | Public pages on `/site-marketing.css` | 19 |
 | Public pages pulling a stylesheet from a third-party CDN | 24 |
@@ -82,7 +82,7 @@ away from the Tailwind Play CDN, and is worth folding into the same phase.
 | Primitive | Uses in markup |
 |---|---|
 | `.ms-board` | 3 |
-| `.ms-c--*` (card variants) | 71 |
+| `.ms-c--*` (card variants) | 74 |
 | `.ms-span-*` | 0 |
 | `.ms-surface--*` | 0 |
 | `.ms-touch` | 0 |

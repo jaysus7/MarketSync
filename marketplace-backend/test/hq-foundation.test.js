@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { isHqUser, isHqOwner, requireHqAuth, requireHqOwner, requireHqPermission } from '../hq-auth.js'
 import { logHqAudit, getHqAuditLogs } from '../hq-audit.js'
 
@@ -59,7 +59,15 @@ test('Phase 1 Foundation: HQ Auth guards work correctly', () => {
 })
 
 test('Phase 1 Foundation: HQ Migrations exist and contain required tables', () => {
-  const mig1Path = new URL('../../supabase/migrations/20260828000001_hq_website_control_plane.sql', import.meta.url)
+  // Resolved by slug, not by timestamp: a migration's version is realigned whenever it
+  // is applied and the local history is reconciled, and this assertion is about the
+  // migration existing and creating the right tables, not about when it was authored.
+  const migrationsDir = new URL('../../supabase/migrations/', import.meta.url)
+  const bySlug = (slug) => {
+    const match = readdirSync(migrationsDir).filter((name) => name.endsWith(slug)).sort().pop()
+    return match ? new URL(match, migrationsDir) : new URL(slug, migrationsDir)
+  }
+  const mig1Path = bySlug('_hq_website_control_plane.sql')
   const mig2Path = new URL('../../supabase/migrations/20260828000002_hq_crm_attribution.sql', import.meta.url)
   const mig3Path = new URL('../../supabase/migrations/20260828000003_hq_finance_ledger.sql', import.meta.url)
 

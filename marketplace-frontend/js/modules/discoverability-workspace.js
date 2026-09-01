@@ -32,24 +32,23 @@ async function loadDiscoverabilityWorkspace(initialTab) {
   `;
 
   try {
-    const res = await apiGetJson('/discoverability/overview').catch(() => null);
-    __discData = res || {
-      compositeScore: 86,
-      standardsVersion: 'MarketSync Discoverability Standards — 2026',
-      pillars: {
-        seo: { score: 88, organicClicks: 1420, organicImpressions: 28400, averagePosition: 11.8, clickThroughRate: '5.0%', keywordTiers: { top3: 14, top10: 48, top100: 186 }, cwvStatus: 'Good', indexationStatus: 'Healthy' },
-        aeo: { score: 88, featuredSnippets: { activeCount: 6, potentialCount: 14, winRate: '42.8%', recentWins: ['What is the towing capacity of 2025 Silverado 1500?'], recentLosses: ['Best trade-in value near Welland'] }, peopleAlsoAsk: { coveredQuestions: 19, totalTracked: 32, reachPercent: '59.3%' }, schemaValidation: { autoDealerSchema: 'Valid', vehicleSchema: 'Valid', faqSchema: 'Valid', localBusinessSchema: 'Valid' }, voiceSearchOptimization: { conversationalReadinessScore: 86, longTailQueryMatchCount: 24 } },
-        geo: { score: 82, brandMentionRate: '68.5%', urlCitationRate: '41.2%', citationShareOfVoice: '24.8%', sentimentBreakdown: { positive: '76%', neutral: '21%', negative: '3%' }, hallucinationCount: 0, modelCoverage: [] },
-        sxo: { score: 87, conversionRate: '3.4%', bounceRate: '28.6%', mobileVsDesktop: { mobileTrafficShare: '68%', mobileConversionRate: '3.2%', desktopTrafficShare: '32%', desktopConversionRate: '3.8%' }, topLandingPages: [], funnel: [] },
-        aso: { score: 92, stores: [{ store: 'Chrome Web Store', listingName: 'MarketSync Dealer Extension', status: 'Published', rating: '4.9', reviewCount: 38, weeklyImpressions: 1420, weeklyInstalls: 116, installConversionRate: '8.17%' }] },
-        validation: { score: 90, criticalCount: 0, highCount: 1, mediumCount: 1, lowCount: 1, issues: [] }
-      },
-      recommendations: [],
-      history: { dates: ['7d', '6d', '5d', '4d', '3d', '2d', 'Today'], searchSovTrend: [18, 19, 21, 20, 22, 23, 24], aiSovTrend: [12, 14, 15, 18, 19, 21, 25], compositeScoreTrend: [81, 82, 83, 84, 84, 85, 86] }
-    };
+    // No fabricated fallback: Discoverability reports measured evidence or it reports
+    // nothing. A failed load renders an error state, never placeholder scores.
+    const res = await apiGetJson('/discoverability/overview');
+    __discData = res;
+    if (!__discData) {
+      root.innerHTML = renderDiscUnavailableState();
+      return;
+    }
+    if (__discData.entitled === false) {
+      root.innerHTML = renderDiscUpgradeState(__discData);
+      return;
+    }
     renderDiscoverabilityWorkspace();
+    return;
   } catch (err) {
     root.innerHTML = `<div class="p-6 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-400 text-sm font-bold">Failed to load Discoverability Intelligence: ${esc(err.message)}</div>`;
+    return;
   }
 }
 
@@ -79,13 +78,105 @@ function setPillarFilter(pillar) {
   renderDiscoverabilityWorkspace();
 }
 
+// A metric is measured or it is not. Never substitute a plausible-looking number.
+function discMetricHtml(value) {
+  if (value === null || value === undefined || value === '') {
+    return '<span class="text-sm font-bold text-slate-400 dark:text-slate-500">Not measured</span>';
+  }
+  return esc(String(value));
+}
+
+// A score is a measurement or it is absent. null/undefined must never render as 0,
+// and must never fall back to a placeholder number.
+function discScoreValue(value) {
+  return (typeof value === 'number' && Number.isFinite(value)) ? value : null;
+}
+
+function discScoreHtml(value, { suffix = '/ 100' } = {}) {
+  const score = discScoreValue(value);
+  if (score === null) {
+    return `<span class="text-sm font-bold text-slate-400 dark:text-slate-500">Not measured</span>`;
+  }
+  return `${score} <span class="text-xs font-medium text-slate-400">${suffix}</span>`;
+}
+
+function renderDiscUnavailableState() {
+  return `
+    <div class="p-6 rounded-2xl border border-slate-200 dark:border-[#2B303A] bg-white dark:bg-[#1A1D24] text-center">
+      <div class="text-sm font-black text-slate-900 dark:text-white">Discoverability evidence is unavailable</div>
+      <p class="mt-2 text-xs text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+        No verified crawl or provider evidence could be loaded for this dealership. Nothing is shown rather than an estimated score.
+      </p>
+    </div>
+  `;
+}
+
+function renderDiscUpgradeState(data) {
+  const price = data && typeof data.price === 'number' ? data.price : null;
+  const currency = (data && data.currency) || '';
+  const label = (data && data.label) || 'MarketSync Discoverability Intelligence';
+  const message = (data && data.message) || '';
+  return `
+    <div class="p-6 rounded-2xl border border-blue-500/25 bg-[#2563EB]/5 text-center">
+      <div class="text-sm font-black text-slate-900 dark:text-white">${esc(label)}</div>
+      ${message ? `<p class="mt-2 text-xs text-slate-600 dark:text-slate-300 max-w-md mx-auto leading-relaxed">${esc(message)}</p>` : ''}
+      ${price !== null ? `<div class="mt-3 text-lg font-black text-[#2563EB] dark:text-blue-400">$${price}${currency ? `/mo ${esc(currency)}` : ''}</div>` : ''}
+    </div>
+  `;
+}
+
+// Verified 100 is never a badge derived from one number. Each requirement is rendered
+// independently as passed / failing / not measured.
+function renderDiscVerified100Card(d) {
+  const validation = (d.pillars && d.pillars.validation) || {};
+  const quality = discScoreValue(d.qualityScore);
+  const coverage = discScoreValue(d.evidenceCoverage);
+  const critical = discScoreValue(validation.criticalCount);
+  const high = discScoreValue(validation.highCount);
+  const failures = discScoreValue(validation.validationFailures);
+
+  const rows = [
+    ['Quality = 100', quality === null ? null : quality === 100],
+    ['Evidence Coverage = 100', coverage === null ? null : coverage === 100],
+    ['Critical = 0', critical === null ? null : critical === 0],
+    ['High = 0', high === null ? null : high === 0],
+    ['Validation failures = 0', failures === null ? null : failures === 0]
+  ];
+
+  const state = (ok) => ok === null
+    ? '<span class="text-[10px] font-black uppercase tracking-wider text-slate-400">Not measured</span>'
+    : ok
+      ? '<span class="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Passed</span>'
+      : '<span class="text-[10px] font-black uppercase tracking-wider text-red-600 dark:text-red-400">Failing</span>';
+
+  const verified = d.verified100 === true && rows.every(([, ok]) => ok === true);
+
+  return `
+    <section class="rounded-2xl border ${verified ? 'border-emerald-500/30' : 'border-slate-200 dark:border-[#2B303A]'} bg-white dark:bg-[#1A1D24] p-5 shadow-sm">
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="text-sm font-black text-slate-900 dark:text-white">Verified 100</h2>
+        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${verified ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : 'bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-500/20'}">
+          ${verified ? 'Verified' : 'Not verified'}
+        </span>
+      </div>
+      <ul class="mt-3 space-y-1.5">
+        ${rows.map(([labelText, ok]) => `
+          <li class="flex items-center justify-between gap-3 text-xs">
+            <span class="text-slate-700 dark:text-slate-300 font-semibold">${labelText}</span>
+            ${state(ok)}
+          </li>
+        `).join('')}
+      </ul>
+    </section>
+  `;
+}
+
 function renderDiscoverabilityWorkspace() {
   const container = document.getElementById('disc-workspace-container') || document.getElementById('ms-discoverability-root');
   if (!container || !__discData) return;
 
   const d = __discData;
   const isAdv = __discMode === 'advanced';
-  const score = d.compositeScore || 86;
   const recs = d.recommendations || [];
   const openSafeCount = recs.filter(r => r.execution_class === 'auto_fixable' && r.status === 'open').length;
 
@@ -109,9 +200,14 @@ function renderDiscoverabilityWorkspace() {
 
       <!-- Right Controls: Score Badge + Basic/Advanced Toggle -->
       <div class="flex items-center gap-3 flex-shrink-0">
+        <!-- Quality and Evidence Coverage are reported separately and never combined. -->
         <div class="text-right hidden sm:block">
-          <div class="text-[10px] uppercase font-bold text-slate-400">Composite Score</div>
-          <div class="text-xl font-black text-emerald-600 dark:text-emerald-400">${score} <span class="text-xs font-medium text-slate-400">/ 100</span></div>
+          <div class="text-[10px] uppercase font-bold text-slate-400">Quality</div>
+          <div class="text-xl font-black text-slate-900 dark:text-white">${discScoreHtml(d.qualityScore)}</div>
+        </div>
+        <div class="text-right hidden sm:block">
+          <div class="text-[10px] uppercase font-bold text-slate-400">Evidence Coverage</div>
+          <div class="text-xl font-black text-slate-900 dark:text-white">${discScoreHtml(d.evidenceCoverage)}</div>
         </div>
         <div class="inline-flex rounded-xl border border-slate-200 dark:border-[#2B303A] p-1 bg-slate-50 dark:bg-[#121318] gap-1">
           <button onclick="setDiscMode('basic')" class="px-3.5 py-1.5 rounded-lg transition cursor-pointer text-xs font-bold ${!isAdv ? 'bg-[#2563EB] text-white shadow-sm' : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'}">Basic</button>
@@ -174,11 +270,13 @@ function renderDiscOverviewView() {
   const safeCount = recs.filter(r => r.execution_class === 'auto_fixable' && r.status === 'open').length;
 
   return `
+    ${renderDiscVerified100Card(d)}
+
     <!-- Executive KPI Deck -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div onclick="setDiscTab('seo')" class="p-4 rounded-2xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-[#2B303A] shadow-sm cursor-pointer hover:border-[#2563EB] transition">
         <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Organic Clicks</div>
-        <div class="text-2xl font-black text-slate-900 dark:text-white mt-1">${p.seo?.organicClicks?.toLocaleString() || '1,420'}</div>
+        <div class="text-2xl font-black text-slate-900 dark:text-white mt-1">${discMetricHtml(p.seo?.organicClicks?.toLocaleString())}</div>
         <div class="text-xs text-emerald-600 dark:text-emerald-400 font-bold mt-1">↑ +14% vs last mo</div>
       </div>
 
@@ -190,13 +288,13 @@ function renderDiscOverviewView() {
 
       <div onclick="setDiscTab('aeo')" class="p-4 rounded-2xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-[#2B303A] shadow-sm cursor-pointer hover:border-[#2563EB] transition">
         <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Answer Visibility</div>
-        <div class="text-2xl font-black text-slate-900 dark:text-white mt-1">${p.aeo?.peopleAlsoAsk?.reachPercent || '59.3%'}</div>
+        <div class="text-2xl font-black text-slate-900 dark:text-white mt-1">${discMetricHtml(p.aeo?.peopleAlsoAsk?.reachPercent)}</div>
         <div class="text-xs text-slate-500">${p.aeo?.featuredSnippets?.activeCount || 6} Featured Snippets</div>
       </div>
 
       <div onclick="setDiscTab('geo')" class="p-4 rounded-2xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-[#2B303A] shadow-sm cursor-pointer hover:border-[#2563EB] transition">
         <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">AI Citation Share</div>
-        <div class="text-2xl font-black text-slate-900 dark:text-white mt-1">${p.geo?.citationShareOfVoice || '24.8%'}</div>
+        <div class="text-2xl font-black text-slate-900 dark:text-white mt-1">${discMetricHtml(p.geo?.citationShareOfVoice)}</div>
         <div class="text-xs text-emerald-600 dark:text-emerald-400 font-bold mt-1">6/6 Engines Active</div>
       </div>
     </div>
@@ -523,13 +621,13 @@ function renderDiscAeoView() {
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div class="p-5 rounded-2xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-[#2B303A] shadow-sm space-y-2">
         <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Featured Snippet Win Rate</div>
-        <div class="text-3xl font-black text-slate-900 dark:text-white">${aeo.featuredSnippets?.winRate || '42.8%'}</div>
+        <div class="text-3xl font-black text-slate-900 dark:text-white">${discMetricHtml(aeo.featuredSnippets?.winRate)}</div>
         <div class="text-xs text-slate-500">${aeo.featuredSnippets?.activeCount || 6} Active Snippets won of ${aeo.featuredSnippets?.potentialCount || 14} tracked opportunities.</div>
       </div>
 
       <div class="p-5 rounded-2xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-[#2B303A] shadow-sm space-y-2">
         <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">People Also Ask (PAA) Reach</div>
-        <div class="text-3xl font-black text-slate-900 dark:text-white">${aeo.peopleAlsoAsk?.reachPercent || '59.3%'}</div>
+        <div class="text-3xl font-black text-slate-900 dark:text-white">${discMetricHtml(aeo.peopleAlsoAsk?.reachPercent)}</div>
         <div class="text-xs text-slate-500">${aeo.peopleAlsoAsk?.coveredQuestions || 19} of ${aeo.peopleAlsoAsk?.totalTracked || 32} core buying questions covered.</div>
       </div>
 
@@ -595,19 +693,19 @@ function renderDiscGeoView() {
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
       <div class="p-4 rounded-2xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-[#2B303A] shadow-sm space-y-1">
         <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Brand Mention Rate</div>
-        <div class="text-2xl font-black text-slate-900 dark:text-white">${geo.brandMentionRate || '68.5%'}</div>
+        <div class="text-2xl font-black text-slate-900 dark:text-white">${discMetricHtml(geo.brandMentionRate)}</div>
         <div class="text-xs text-emerald-600 dark:text-emerald-400 font-bold">6/6 Models Tested</div>
       </div>
 
       <div class="p-4 rounded-2xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-[#2B303A] shadow-sm space-y-1">
         <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">URL Citation Rate</div>
-        <div class="text-2xl font-black text-slate-900 dark:text-white">${geo.urlCitationRate || '41.2%'}</div>
+        <div class="text-2xl font-black text-slate-900 dark:text-white">${discMetricHtml(geo.urlCitationRate)}</div>
         <div class="text-xs text-slate-500">Backlinks to VDP &amp; Finance</div>
       </div>
 
       <div class="p-4 rounded-2xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-[#2B303A] shadow-sm space-y-1">
         <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Citation SOV</div>
-        <div class="text-2xl font-black text-slate-900 dark:text-white">${geo.citationShareOfVoice || '24.8%'}</div>
+        <div class="text-2xl font-black text-slate-900 dark:text-white">${discMetricHtml(geo.citationShareOfVoice)}</div>
         <div class="text-xs text-blue-500 font-bold">#1 in Local Radius</div>
       </div>
 
@@ -690,19 +788,19 @@ function renderDiscSxoView() {
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div class="p-5 rounded-2xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-[#2B303A] shadow-sm space-y-2">
         <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Search Conversion Rate</div>
-        <div class="text-3xl font-black text-slate-900 dark:text-white">${sxo.conversionRate || '3.4%'}</div>
+        <div class="text-3xl font-black text-slate-900 dark:text-white">${discMetricHtml(sxo.conversionRate)}</div>
         <div class="text-xs text-slate-500">From search landing page to lead submission.</div>
       </div>
 
       <div class="p-5 rounded-2xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-[#2B303A] shadow-sm space-y-2">
         <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Mobile Traffic Share</div>
-        <div class="text-3xl font-black text-slate-900 dark:text-white">${sxo.mobileVsDesktop?.mobileTrafficShare || '68%'}</div>
-        <div class="text-xs text-slate-500">Mobile CVR: <b>${sxo.mobileVsDesktop?.mobileConversionRate || '3.2%'}</b> vs Desktop: <b>${sxo.mobileVsDesktop?.desktopConversionRate || '3.8%'}</b></div>
+        <div class="text-3xl font-black text-slate-900 dark:text-white">${discMetricHtml(sxo.mobileVsDesktop?.mobileTrafficShare)}</div>
+        <div class="text-xs text-slate-500">Mobile CVR: <b>${discMetricHtml(sxo.mobileVsDesktop?.mobileConversionRate)}</b> vs Desktop: <b>${discMetricHtml(sxo.mobileVsDesktop?.desktopConversionRate)}</b></div>
       </div>
 
       <div class="p-5 rounded-2xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-[#2B303A] shadow-sm space-y-2">
         <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Search Bounce Rate</div>
-        <div class="text-3xl font-black text-slate-900 dark:text-white">${sxo.bounceRate || '28.6%'}</div>
+        <div class="text-3xl font-black text-slate-900 dark:text-white">${discMetricHtml(sxo.bounceRate)}</div>
         <div class="text-xs text-emerald-600 dark:text-emerald-400 font-bold">Healthy engagement score</div>
       </div>
     </div>
@@ -922,12 +1020,6 @@ function openApplyAllSafeModal() {
   const approvalCount = recs.filter(r => r.execution_class === 'approval_required' && r.status === 'open').length;
   const manualCount = recs.filter(r => r.execution_class === 'manual' && r.status === 'open').length;
 
-  let totalScoreGain = 0;
-  safeRecs.forEach(r => {
-    const g = parseInt(String(r.estimated_score_gain || '0').replace(/[^0-9]/g, ''), 10) || 2;
-    totalScoreGain += g;
-  });
-
   automationModal(`
     <div class="space-y-5 text-left">
       <div class="flex justify-between items-center pb-3 border-b border-slate-200 dark:border-slate-800">
@@ -952,9 +1044,9 @@ function openApplyAllSafeModal() {
         </div>
 
         <div class="p-3 rounded-xl bg-blue-500/10 border border-blue-500/25">
-          <div class="text-[10px] uppercase font-bold text-[#2563EB] dark:text-blue-400">Est. Score Gain</div>
-          <div class="text-xl font-black text-[#2563EB] dark:text-blue-400 mt-1">+${totalScoreGain}</div>
-          <div class="text-[10px] text-slate-500 mt-0.5">Composite lift</div>
+          <div class="text-[10px] uppercase font-bold text-[#2563EB] dark:text-blue-400">Score Impact</div>
+          <div class="text-sm font-black text-[#2563EB] dark:text-blue-400 mt-1">Re-measured</div>
+          <div class="text-[10px] text-slate-500 mt-0.5 leading-snug">Applying a fix awards no points. The score moves only when the next crawl no longer observes the issue on the public site.</div>
         </div>
       </div>
 

@@ -1,40 +1,87 @@
 # MarketSync
 
-> MarketSync is a web app and Chrome extension that helps car dealerships and independent auto sales reps post their entire vehicle inventory to Facebook Marketplace in about 60 seconds per vehicle. It auto-syncs inventory from the dealer's existing website, auto-fills every Facebook Marketplace listing field (title, price, photos, description), tracks which rep sold which vehicle, and ranks the sales team on a gamified leaderboard. There is a free 7-day trial with no credit card required.
+> MarketSync is a dealership operating system and growth platform for car dealerships in
+> Canada and the United States. It connects three pillars: MarketSync Digital to grow
+> customer demand, DealerOS to run the store, and Intelligence to measure what happened.
+> Free trials run 7 days for individual products, 14 days for marketing suites, and
+> 30 days for MarketSync Digital and DealerOS.
 
-## What MarketSync does
+## How this file is maintained
 
-- **Inventory sync**: Reads a dealer's website inventory feed automatically (Schema.org structured data or a smart detector) — no manual setup or code.
-- **One-click Facebook Marketplace posting**: The Chrome extension fills in the year, make, model, price, mileage, color, photos, and description for each vehicle. The user only clicks "Post". MarketSync never auto-posts or spams — a human always clicks Post, so it stays within Facebook's rules.
-- **Sold tracking (three ways)**: "I Sold It" (the rep closed the deal, +500 points), "Sold by Other" (a teammate closed it, tracked with no points), and Facebook Auto-Detect (the extension notices when Facebook marks a listing sold).
-- **Tracked link clicks**: Each listing includes a tracked link so the dashboard reports how many buyers clicked through to the dealer's vehicle page.
-- **Gamified leaderboard**: Reps earn 100 points per vehicle posted and 500 points per vehicle they sell, climbing tiers — Bronze, Silver, Gold, Platinum, Diamond, Legend.
-- **Dashboard insights**: Available inventory, listings posted, sold counts, sell-through rate, average time to sell, active days, per-rep contribution charts, and team trends.
+Prices are not listed here. They change per product, per currency and per plan, and a
+duplicated number goes stale silently. The pricing page below is the single canonical
+source; every figure a person or model needs is there.
 
-## Who it is for
+## The three pillars
 
-- Car dealerships (new, used, fleet) that want their whole lot on Facebook Marketplace without hours of manual data entry.
-- Independent / individual auto sales reps whose dealership has not adopted a tool yet.
-- Both United States and Canadian dealerships are supported.
+- **MarketSync Digital** — the demand side: dealership website, SEO, AI Customer Agent,
+  social, video and campaigns, sold as one package.
+- **DealerOS** — the operating side: sales CRM, inventory intelligence, deal desk and F&I,
+  service and parts, accounting and commissions, a dealer website, and executive
+  reporting. Sold as Core, Pro and Complete.
+- **Intelligence** — reporting and attribution across both.
 
-## Pricing
+## Products
 
-- **Dealer Plan — $499/month**: One subscription covers the whole dealership, including unlimited sales reps, auto-sync, the team leaderboard, insights, and rep management. Reps do not pay; the dealer pays once.
-- **Individual Sales Rep Plan — $79/month**: For a single rep working alone — personal extension license, posting automation, personal dashboard, and sold tracking.
-- Every account starts with a **7-day free trial, no credit card required**, and can be cancelled anytime.
-
-## Supported dealer website platforms
-
-LeadBox, EDealer, Dealer.com, Sincro, DealerOn, CDK Global, Strathcom, Vicimus, SM360, DealerFire, Dealer Inspire, UX Auto, plus a smart detector for any site using Schema.org structured data.
+- [DealerOS](https://marketsync.link/dealer-os.html): Runs the whole store from one login
+  — sales CRM, inventory intelligence, deal desk and F&I, service and parts, accounting,
+  commissions, a dealer website and executive reporting.
+- [MarketSync Digital](https://marketsync.link/marketsync-digital.html): The full demand
+  package — website, SEO, AI Customer Agent, social, video and campaigns.
+- [Marketing suites](https://marketsync.link/marketing-suites.html): Sales Marketing,
+  Service Marketing and Complete Marketing bundles.
+- [Dealer Website](https://marketsync.link/dealer-website.html): Drag-and-drop dealership
+  website with live inventory, self-building VIN pages, model and offer pages, lead forms
+  wired to the CRM, an AI sales chat, SEO, and a custom domain on Cloudflare.
+- [AI Customer Agent](https://marketsync.link/ai-chatbot.html): A customer-facing AI
+  salesperson on the dealership website. Answers questions, shows live vehicle cards from
+  real inventory, books the appointment and captures the lead. Formerly the AI ChatBot.
+- [Discoverability](https://marketsync.link/discoverability.html): Crawls the live public
+  dealership website, turns what it finds into evidence-backed findings, fixes what is safe
+  to fix, and validates each fix against the public page. Reports Quality and Evidence
+  Coverage separately and never counts synthetic or missing provider data as measured.
+  Included with MarketSync SEO, MarketSync Digital and DealerOS Complete.
+- [MarketSync SEO](https://marketsync.link/marketsync-seo.html): Automotive AI SEO — a
+  daily audit, a safe auto-fix engine, local and AutoDealer schema, inventory SEO
+  lifecycle rules, competitor and keyword tracking, AI-search readiness, and CRM revenue
+  attribution.
+- [Design Studio](https://marketsync.link/design-studio.html): Dealership design workspace
+  for branded graphics, social assets and marketing collateral, with AI generation and a
+  social scheduler built in. The former standalone Social Scheduler is now part of it.
+- [Video](https://marketsync.link/video-studio.html): Vehicle walkaround recording,
+  branded video overlays, and video email and SMS messaging.
+- [Campaigns](https://marketsync.link/campaigns.html): Targeted email and SMS marketing
+  with intelligent audience segmentation.
+- [Facebook AutoPoster](https://marketsync.link/facebook-marketplace-poster.html): Turns
+  dealership inventory into Facebook Marketplace listings in one click, with a sales
+  leaderboard. Sold for an individual salesperson or for a dealership sales team. A human
+  always clicks Post — MarketSync does not auto-post.
+- [Intelligence](https://marketsync.link/intelligence.html): Reporting and attribution
+  across the dealership.
 
 ## Key pages
 
-- [Home](https://marketsync.link/): Product overview, how it works, leaderboard, and pricing.
-- [Pricing & plans](https://marketsync.link/upgrade.html): Dealer Plan and Individual Sales Rep Plan details.
-- [FAQ](https://marketsync.link/faq.html): Common questions about the trial, Facebook's rules, supported platforms, and billing.
-- [Support](https://marketsync.link/support.html): How to get help and contact the team.
-- [Sign up](https://marketsync.link/register.html): Start the free 7-day trial.
-- [Log in](https://marketsync.link/login.html): Access the dashboard.
+- [Home](https://marketsync.link/): What MarketSync is and who it is for.
+- [Pricing and plans](https://marketsync.link/pricing.html): **The canonical source for
+  every price, plan and trial length.**
+- [Compare plans](https://marketsync.link/compare.html): MarketSync Digital and the
+  DealerOS tiers, feature by feature.
+- [Features by pillar](https://marketsync.link/features.html): What each pillar includes.
+- [Workflow](https://marketsync.link/workflow.html): Every stage a vehicle travels, from
+  arriving on the lot to being delivered.
+- [FAQ](https://marketsync.link/faq.html): Products, suites, trial lengths, security,
+  pricing, and Canada/U.S. availability.
+- [Guide](https://marketsync.link/guide.html): Step-by-step documentation.
+- [Blog](https://marketsync.link/blog.html): Guides and playbooks for dealers.
+- [Security](https://marketsync.link/security.html): How dealership data is protected.
+- [Support](https://marketsync.link/support.html): How to get help.
+- [Affiliates](https://marketsync.link/affiliates.html): Referral program.
+- [Sign up](https://marketsync.link/register.html): Start a free trial.
+
+## Who it is for
+
+Franchise and independent car dealerships in Canada and the United States, and individual
+sales representatives whose dealership has not adopted a platform yet.
 
 ## Legal
 

@@ -19,8 +19,21 @@ test('independent programs hide chat, while Facebook Dealer and full DealerOS ke
   }
   // The staff-chat dock mounts itself + polls, so it must be told to tear down.
   assert.match(block, /window\.disableStaffChatDock === 'function'\) window\.disableStaffChatDock\(\)/)
-  assert.match(fn, /if \(products\.dealer_os\) \{[\s\S]*?window\.__teamChatAllowed = true;[\s\S]*?window\.enableStaffChatDock/,
-    'the reachable DealerOS branch must restore Team Chat before returning')
+  // The DealerOS branch must restore Team Chat before returning — but Team
+  // Messaging is an os.team entitlement (Complete / paid Team), not something every
+  // DealerOS account carries. Core and Pro do not sell it, which
+  // dealer-os-demo-navigation.test.js pins independently. So this asserts the
+  // entitlement is resolved and BOTH outcomes are handled, rather than an
+  // unconditional `= true` that would hand Team Chat to every Core dealership.
+  const osBranch = fn.match(/if \(products\.dealer_os\) \{[\s\S]*?\n {2}\}/)?.[0] || ''
+  assert.ok(osBranch, 'the reachable DealerOS branch must exist')
+  assert.match(osBranch, /pageFeatureOk\('people-overview'\)/,
+    'the branch must resolve the os.team entitlement rather than assuming it')
+  assert.match(osBranch, /window\.__teamChatAllowed = !!teamOk;/)
+  assert.match(osBranch, /if \(teamOk\) \{[\s\S]*?window\.enableStaffChatDock\(\)/,
+    'an entitled DealerOS dealership must get Team Chat back')
+  assert.match(osBranch, /\} else \{[\s\S]*?window\.disableStaffChatDock\(\)[\s\S]*?window\.__teamChatAllowed = false;/,
+    'a DealerOS dealership without os.team must have the dock torn down, not merely hidden')
 })
 
 test('the staff-chat dock refuses to run on independent programs and can be torn down', () => {

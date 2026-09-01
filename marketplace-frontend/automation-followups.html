@@ -29,7 +29,7 @@
     <meta property="og:url" content="https://marketsync.link/automation-followups.html">
     <meta property="og:image" content="https://marketsync.link/img/automation.png">
     <meta name="twitter:card" content="summary_large_image">
-    <script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"MarketSync — Follow-ups that <span class=gradient-text>fire themselves</span>.","description":"Automated email and SMS sequences plus rep tasks across the whole customer journey — new leads, unsold follow-up, delivery, reviews, referrals, service reminders and holidays. Prebuilt templates you can turn on in a click.","brand":{"@type":"Brand","name":"MarketSync"},"url":"https://marketsync.link/automation-followups.html","offers":{"@type":"Offer","priceCurrency":"USD","price":"299","availability":"https://schema.org/InStock","url":"https://marketsync.link/register.html"}}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"MarketSync — Follow-ups that <span class=gradient-text>fire themselves</span>.","description":"Automated email and SMS sequences plus rep tasks across the whole customer journey — new leads, unsold follow-up, delivery, reviews, referrals, service reminders and holidays. Prebuilt templates you can turn on in a click.","brand":{"@type":"Brand","name":"MarketSync"},"url":"https://marketsync.link/automation-followups.html"}</script>
     <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Do I have to write the emails?","acceptedAnswer":{"@type":"Answer","text":"No — start from the prebuilt template packs and turn them on. Intelligence by MarketSync can rewrite anything in your store’s voice."}},{"@type":"Question","name":"Will it text customers who opted out?","acceptedAnswer":{"@type":"Answer","text":"Never. Every automated email and SMS checks consent, DNC and quiet hours before sending."}},{"@type":"Question","name":"Can I build my own sequences?","acceptedAnswer":{"@type":"Answer","text":"Yes. The drag-and-drop builder lets you create custom cadences with your own triggers, delays and channels."}}]}</script>
     <!-- Automatic OS dark/light before first paint (no flash) -->
     <script>(function(){try{if(window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.classList.add('dark');}catch(e){}})();</script>
@@ -161,9 +161,9 @@
         </div>
         <form id="msc-lead" hidden>
           <p class="msc-lead-t">Great — leave your details and the team will reach out.</p>
-          <input name="name" placeholder="Your name" autocomplete="name" required>
-          <input name="email" type="email" placeholder="Work email" autocomplete="email" required>
-          <input name="company" placeholder="Dealership name" autocomplete="organization">
+          <input name="name" placeholder="Your name" aria-label="Your name" autocomplete="name" required>
+          <input name="email" type="email" placeholder="Work email" aria-label="Work email" autocomplete="email" required>
+          <input name="company" placeholder="Dealership name" aria-label="Dealership name" autocomplete="organization">
           <label class="msc-demo"><input type="checkbox" name="demo"> I'd like to book a demo</label>
           <button type="submit">Send to MarketSync</button>
         </form>

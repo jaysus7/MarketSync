@@ -1,0 +1,448 @@
+/**
+ * MarketSync Discoverability — Batch 8B: publish → validation orchestration.
+ *
+ * Batch 8A persisted findings, recommendations, the autopilot queue and validation
+ * jobs, but nothing connected them: a publish never created validation work, no
+ * recrawl compared expected state to observed state, and findings were never closed
+ * from public evidence. This module is that connective tissue.
+ *
+ * The governing rule: a deployment response, a database mutation or an internal
+ * state transition never counts as success. Only the public website does. Every
+ * validator below is action-specific — there is deliberately no generic "it
+ * published, therefore it worked" path.
+ *
+ * Reuses existing primitives (crawlUrl, the 8A queue/validation-job persistence,
+ * recommendationEngine rollback snapshots). It introduces no second crawler, no
+ * second queue, and no parallel scoring.
+ */
+
+import { crawlUrl } from './discoverabilityCrawlerService.js'
+import {
+  createValidationJob,
+  recordValidationResult,
+  transitionQueue
+} from './discoverabilityAutopilotService.js'
+
+const text = (value) => (value === null || value === undefined ? null : String(value).trim())
+
+/** Case/whitespace-insensitive compare. Null expectation is never a pass. */
+function matches(expected, observed) {
+  const a = text(expected)
+  const b = text(observed)
+  if (a === null) return null
+  if (b === null) return false
+  return a.toLowerCase() === b.toLowerCase()
+}
+
+function check(field, expected, observed, note = null) {
+  return { field, expected: text(expected), observed: text(observed), matched: matches(expected, observed), note }
+}
+
+/**
+ * A result passes only when it carries at least one check and every check matched.
+ * `null` (nothing expected, so nothing proven) is not a pass.
+ */
+function summarize(action, checks, extra = {}) {
+  // Structural checks (reachable, parses, well-formed) are necessary but never
+  // sufficient: "the page loaded and nothing was expected" is not proof of a fix.
+  const substantive = checks.filter((entry) => !entry.structural)
+  const passed = substantive.length > 0 && checks.every((entry) => entry.matched === true)
+  const unproven = checks.filter((entry) => entry.matched === null).map((entry) => entry.field)
+  return {
+    action,
+    passed,
+    checks,
+    unproven,
+    reason: passed
+      ? null
+      : substantive.length === 0
+        ? 'no_expected_state_to_verify'
+        : unproven.length
+          ? `nothing expected for: ${unproven.join(', ')}`
+          : `live site does not match expected state for: ${checks.filter((c) => c.matched === false).map((c) => c.field).join(', ')}`,
+    ...extra
+  }
+}
+
+/** Live document must be reachable before any field can be trusted. */
+function reachability(observed) {
+  const status = observed?.statusCode ?? null
+  return {
+    field: 'http_status',
+    expected: '2xx',
+    observed: status === null ? null : String(status),
+    matched: status !== null && status >= 200 && status < 300,
+    note: observed?.error || null,
+    structural: true
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Action-specific validators. Each proves one kind of public truth.
+// ---------------------------------------------------------------------------
+
+export function validateMetadata(expected = {}, observed = {}) {
+  const html = observed.html || {}
+  const checks = [reachability(observed)]
+  if (expected.title !== undefined) checks.push(check('title', expected.title, html.title))
+  if (expected.metaDescription !== undefined) checks.push(check('metaDescription', expected.metaDescription, html.metaDescription))
+  if (expected.canonical !== undefined) checks.push(check('canonical', expected.canonical, html.canonical))
+  if (expected.robots !== undefined) checks.push(check('robots', expected.robots, html.robots))
+  return summarize('metadata', checks)
+}
+
+export function validateCanonical(expected = {}, observed = {}) {
+  const html = observed.html || {}
+  const checks = [reachability(observed), check('canonical', expected.canonical, html.canonical)]
+  // A page advertising several conflicting canonicals is not fixed, even if one matches.
+  const canonicals = Array.isArray(html.canonicals) ? html.canonicals : []
+  checks.push({
+    field: 'canonical_uniqueness',
+    expected: '1',
+    observed: String(canonicals.length),
+    matched: canonicals.length === 1,
+    note: canonicals.length > 1 ? 'multiple canonical tags present' : null,
+    structural: true
+  })
+  return summarize('canonical', checks)
+}
+
+function schemaNodes(observed) {
+  const raw = observed?.html?.schema
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : []
+  const flat = []
+  for (const entry of list) {
+    const node = typeof entry === 'string' ? safeJson(entry) : entry
+    if (!node) continue
+    if (Array.isArray(node['@graph'])) flat.push(...node['@graph'])
+    else flat.push(node)
+  }
+  return flat
+}
+
+function safeJson(value) {
+  try { return JSON.parse(value) } catch { return null }
+}
+
+export function validateSchema(expected = {}, observed = {}) {
+  const checks = [reachability(observed)]
+  const nodes = schemaNodes(observed)
+
+  // Malformed JSON-LD is a hard failure: it is the exact regression auto-fixes cause.
+  const rawList = Array.isArray(observed?.html?.schema) ? observed.html.schema : []
+  const malformed = rawList.filter((entry) => typeof entry === 'string' && safeJson(entry) === null).length
+  checks.push({ field: 'schema_parses', expected: 'valid JSON-LD', observed: malformed ? `${malformed} malformed block(s)` : 'valid', matched: malformed === 0, note: null, structural: true })
+
+  if (expected.entityType !== undefined) {
+    const found = nodes.find((node) => text(node?.['@type'])?.toLowerCase() === text(expected.entityType)?.toLowerCase())
+    checks.push({ field: 'entityType', expected: text(expected.entityType), observed: found ? text(found['@type']) : null, matched: Boolean(found), note: found ? null : 'expected entity not present' })
+    for (const [field, value] of Object.entries(expected.properties || {})) {
+      checks.push(check(`schema.${field}`, value, found ? found[field] : null))
+    }
+  }
+  return summarize('schema', checks)
+}
+
+export function validateInternalLink(expected = {}, observed = {}, destination = null) {
+  const links = observed?.html?.links || []
+  const target = text(expected.destination)
+  const found = links.find((link) => text(link.url) === target || text(link.href) === target)
+  const checks = [
+    reachability(observed),
+    { field: 'link_present', expected: target, observed: found ? text(found.url) : null, matched: Boolean(found && target), note: found ? null : 'link not found in live source' }
+  ]
+  if (expected.anchor !== undefined) checks.push(check('anchor', expected.anchor, found ? found.anchor : null))
+  // The destination must actually resolve; a link to a 404 is not a repaired link.
+  if (destination) {
+    const status = destination.statusCode
+    checks.push({ field: 'destination_resolves', expected: '2xx', observed: status === null || status === undefined ? null : String(status), matched: typeof status === 'number' && status >= 200 && status < 300, note: destination.error || null })
+  }
+  return summarize('internal_link', checks)
+}
+
+export function validateSitemap(expected = {}, observed = {}) {
+  const body = observed?.body || ''
+  const checks = [reachability(observed)]
+  checks.push({ field: 'is_xml', expected: 'xml', observed: /<urlset|<sitemapindex/i.test(body) ? 'xml' : 'not xml', matched: /<urlset|<sitemapindex/i.test(body), note: null, structural: true })
+  for (const url of expected.mustContain || []) {
+    checks.push({ field: `contains:${url}`, expected: url, observed: body.includes(url) ? url : null, matched: body.includes(url), note: null })
+  }
+  for (const url of expected.mustNotContain || []) {
+    checks.push({ field: `excludes:${url}`, expected: `absent: ${url}`, observed: body.includes(url) ? 'present' : 'absent', matched: !body.includes(url), note: null })
+  }
+  return summarize('sitemap', checks)
+}
+
+export function validateLlmsTxt(expected = {}, observed = {}) {
+  const body = observed?.body || ''
+  const checks = [reachability(observed)]
+  for (const phrase of expected.mustContain || []) {
+    checks.push({ field: `contains:${phrase}`, expected: phrase, observed: body.includes(phrase) ? phrase : null, matched: body.includes(phrase), note: null })
+  }
+  // Stale identity claims must be gone, not merely outnumbered by new ones.
+  for (const phrase of expected.mustNotContain || []) {
+    checks.push({ field: `excludes:${phrase}`, expected: `absent: ${phrase}`, observed: body.includes(phrase) ? 'present' : 'absent', matched: !body.includes(phrase), note: null })
+  }
+  return summarize('llms_txt', checks)
+}
+
+export function validateInventory(expected = {}, observed = {}) {
+  const nodes = schemaNodes(observed)
+  const vehicle = nodes.find((node) => ['vehicle', 'car', 'product'].includes(text(node?.['@type'])?.toLowerCase() || ''))
+  const offer = vehicle?.offers && (Array.isArray(vehicle.offers) ? vehicle.offers[0] : vehicle.offers)
+  const checks = [reachability(observed)]
+  if (expected.vin !== undefined) checks.push(check('vin', expected.vin, vehicle?.vehicleIdentificationNumber ?? vehicle?.sku))
+  if (expected.price !== undefined) checks.push(check('price', expected.price, offer?.price))
+  if (expected.availability !== undefined) checks.push(check('availability', expected.availability, offer?.availability))
+  if (expected.canonical !== undefined) checks.push(check('canonical', expected.canonical, observed?.html?.canonical))
+  checks.push({ field: 'vehicle_schema', expected: 'present', observed: vehicle ? 'present' : null, matched: Boolean(vehicle), note: null, structural: true })
+  return summarize('inventory', checks)
+}
+
+export function validateLocal(expected = {}, observed = {}) {
+  const nodes = schemaNodes(observed)
+  const business = nodes.find((node) => /localbusiness|autodealer|organization/i.test(text(node?.['@type']) || ''))
+  const address = business?.address || {}
+  const checks = [reachability(observed)]
+  if (expected.name !== undefined) checks.push(check('name', expected.name, business?.name))
+  if (expected.phone !== undefined) checks.push(check('phone', expected.phone, business?.telephone))
+  if (expected.streetAddress !== undefined) checks.push(check('streetAddress', expected.streetAddress, address.streetAddress))
+  if (expected.postalCode !== undefined) checks.push(check('postalCode', expected.postalCode, address.postalCode))
+  if (expected.hours !== undefined) {
+    const hours = Array.isArray(business?.openingHours) ? business.openingHours.join('; ') : business?.openingHours
+    checks.push(check('hours', expected.hours, hours))
+  }
+  return summarize('local', checks)
+}
+
+const VALIDATORS = Object.freeze({
+  metadata: validateMetadata,
+  canonical: validateCanonical,
+  schema: validateSchema,
+  internal_link: validateInternalLink,
+  sitemap: validateSitemap,
+  llms_txt: validateLlmsTxt,
+  inventory: validateInventory,
+  local: validateLocal
+})
+
+export const VALIDATION_ACTIONS = Object.freeze(Object.keys(VALIDATORS))
+
+/**
+ * Dispatch to the action-specific validator. An unrecognised action can never pass:
+ * "we don't know how to check this" is not evidence that it worked.
+ */
+export function validateAction(action, expected = {}, observed = {}, extra = null) {
+  const validator = VALIDATORS[action]
+  if (!validator) {
+    return { action: action || null, passed: false, checks: [], unproven: [], reason: 'unsupported_validation_action' }
+  }
+  return validator(expected, observed, extra)
+}
+
+// ---------------------------------------------------------------------------
+// Orchestration
+// ---------------------------------------------------------------------------
+
+/**
+ * A Website Builder publish reporting success is the START of validation, not the end.
+ * Creates the persisted validation job and moves the queue item to
+ * published_pending_validation so nothing depends on a human remembering to recrawl.
+ */
+export async function orchestratePublishValidation({
+  dealershipId,
+  queueId = null,
+  recommendationId = null,
+  deploymentId = null,
+  revisionId = null,
+  affectedUrls = [],
+  expectedState = {},
+  actorId = null
+}) {
+  if (!dealershipId) throw new Error('dealershipId is required to create a validation job')
+  if (!Array.isArray(affectedUrls) || affectedUrls.length === 0) {
+    throw new Error('A publish must name the affected public URLs before it can be validated')
+  }
+
+  const job = await createValidationJob({
+    dealershipId,
+    deploymentId,
+    revisionId,
+    affectedUrls,
+    expectedState,
+    recommendationId
+  })
+  if (queueId) {
+    await transitionQueue({ dealershipId, queueId, to: 'published_pending_validation', evidence: { validationJobId: job.id }, actorId })
+  }
+  return job
+}
+
+/**
+ * Fetch the live public URL(s) and compare observed state against what the change
+ * claimed it would produce. Never reads a local render or a draft.
+ */
+export async function runValidationJob({
+  dealershipId,
+  job,
+  queueId = null,
+  actorId = null,
+  fetcher = crawlUrl
+}) {
+  const expected = job.expected_state || job.expectedState || {}
+  const action = expected.action || null
+  const urls = job.affected_urls || job.affectedUrls || []
+
+  if (queueId) {
+    await transitionQueue({ dealershipId, queueId, to: 'validating', evidence: { validationJobId: job.id }, actorId })
+  }
+
+  const results = []
+  for (const url of urls) {
+    const observed = await fetcher(url)
+    // An internal-link fix also has to prove its destination resolves.
+    let extra = null
+    if (action === 'internal_link' && expected.destination) {
+      extra = await fetcher(expected.destination)
+    }
+    results.push({ url, observed, result: validateAction(action, expected, observed, extra) })
+  }
+
+  const passed = results.length > 0 && results.every((entry) => entry.result.passed)
+  const observedState = {
+    action,
+    checkedAt: new Date().toISOString(),
+    urls: results.map((entry) => ({
+      url: entry.url,
+      statusCode: entry.observed?.statusCode ?? null,
+      finalUrl: entry.observed?.finalUrl ?? null,
+      bodyHash: entry.observed?.bodyHash ?? null,
+      passed: entry.result.passed,
+      reason: entry.result.reason,
+      checks: entry.result.checks
+    }))
+  }
+
+  const record = await recordValidationResult({
+    dealershipId,
+    jobId: job.id,
+    passed,
+    observedState,
+    errorMessage: passed ? null : results.map((entry) => entry.result.reason).filter(Boolean).join(' | ') || 'validation failed'
+  })
+
+  if (queueId) {
+    await transitionQueue({
+      dealershipId,
+      queueId,
+      to: passed ? 'validated' : 'validation_failed',
+      evidence: { validationJobId: job.id, observedState },
+      actorId
+    })
+  }
+
+  return { passed, job: record, observedState, results }
+}
+
+/**
+ * Findings close on public evidence alone. A failed validation deliberately leaves the
+ * finding open — the issue is still live on the website regardless of what we deployed.
+ */
+export function findingResolutionFromValidation(finding = {}, validation = {}) {
+  if (!validation.passed) {
+    return {
+      status: finding.status === 'resolved' ? 'regressed' : (finding.status || 'open'),
+      resolvedAt: null,
+      reason: 'public evidence does not show the issue resolved'
+    }
+  }
+  return {
+    status: 'resolved',
+    resolvedAt: new Date().toISOString(),
+    validationJobId: validation.job?.id || validation.jobId || null,
+    reason: 'public evidence confirms the issue is gone'
+  }
+}
+
+/**
+ * A recurring crawl that re-observes a previously resolved issue reopens the SAME
+ * logical finding rather than creating a disconnected duplicate.
+ */
+export function applyRegression(finding = {}, { observedAt = new Date().toISOString(), evidence = null } = {}) {
+  const previouslyResolved = finding.status === 'resolved'
+  return {
+    ...finding,
+    status: previouslyResolved ? 'regressed' : (finding.status || 'open'),
+    recurrenceCount: previouslyResolved
+      ? Number(finding.recurrence_count ?? finding.recurrenceCount ?? 0) + 1
+      : Number(finding.recurrence_count ?? finding.recurrenceCount ?? 0),
+    firstDetectedAt: finding.detected_at || finding.detectedAt || finding.firstDetectedAt || null,
+    previouslyResolvedAt: previouslyResolved ? (finding.resolved_at || finding.resolvedAt || null) : (finding.previouslyResolvedAt || null),
+    reappearedAt: previouslyResolved ? observedAt : (finding.reappearedAt || null),
+    lastObservedAt: observedAt,
+    evidence: evidence ?? finding.evidence ?? null
+  }
+}
+
+/**
+ * Automatic rollback stays conservative: MarketSync must own the change, a snapshot
+ * must exist, validation must actually have failed, and the change must not touch
+ * protected business or legal facts. Anything else waits for a human.
+ */
+export function rollbackEligibility({
+  ownedByMarketSync = false,
+  snapshot = null,
+  validationFailed = false,
+  riskLevel = 'low',
+  touchesProtectedFields = false
+} = {}) {
+  if (!validationFailed) return { eligible: false, state: null, reason: 'validation did not fail' }
+  if (!ownedByMarketSync) return { eligible: false, state: 'manual_required', reason: 'MarketSync does not own this website' }
+  if (!snapshot) return { eligible: false, state: 'manual_required', reason: 'no rollback snapshot exists' }
+  if (touchesProtectedFields || riskLevel === 'high') {
+    return { eligible: false, state: 'rollback_pending', reason: 'high-risk or protected content requires approval before rollback' }
+  }
+  return { eligible: true, state: 'rolling_back', reason: 'low-risk MarketSync-owned change with a restorable snapshot' }
+}
+
+/**
+ * Restoring a revision and republishing is not a completed rollback. Only a public
+ * recrawl showing the original state restored closes it.
+ */
+export async function verifyRollback({ dealershipId, job, queueId = null, actorId = null, fetcher = crawlUrl }) {
+  const outcome = await runValidationJob({ dealershipId, job, queueId: null, actorId, fetcher })
+  if (queueId) {
+    await transitionQueue({
+      dealershipId,
+      queueId,
+      to: outcome.passed ? 'rollback_validated' : 'validation_failed',
+      evidence: { rollbackValidationJobId: job.id, observedState: outcome.observedState },
+      actorId
+    })
+  }
+  return { ...outcome, rollbackValidated: outcome.passed }
+}
+
+/**
+ * IndexNow is only ever earned: the URL must be public, deployed, validated and
+ * eligible. A submission is never evidence of indexing.
+ */
+export function indexNowEligibility({ validated = false, isPublic = true, isDraft = false, deploymentSucceeded = false } = {}) {
+  if (!deploymentSucceeded) return { eligible: false, reason: 'deployment did not succeed' }
+  if (isDraft) return { eligible: false, reason: 'draft URLs are never submitted' }
+  if (!isPublic) return { eligible: false, reason: 'private URLs are never submitted' }
+  if (!validated) return { eligible: false, reason: 'public validation has not passed' }
+  return { eligible: true, reason: 'validated public change' }
+}
+
+/**
+ * A Search-pillar fix that validated may open a Search Impact measurement, but only
+ * when real provider evidence exists. Without a connected provider the record stays
+ * unmeasurable rather than being invented.
+ */
+export function searchImpactEligibility({ pillar = null, validated = false, providerConnected = false } = {}) {
+  if (!validated) return { eligible: false, status: null, reason: 'change has not been publicly validated' }
+  if (pillar !== 'search') return { eligible: false, status: null, reason: 'not a Search-pillar change' }
+  if (!providerConnected) return { eligible: false, status: 'not_connected', reason: 'no connected Search provider to measure against' }
+  return { eligible: true, status: 'waiting_for_data', reason: 'baseline can be measured from provider evidence' }
+}

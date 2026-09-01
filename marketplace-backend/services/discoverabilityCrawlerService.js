@@ -26,8 +26,16 @@ export async function assertSafeUrl(input, { resolveDns = true, allowPrivateForT
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Only http(s) crawl URLs are allowed')
   if (url.username || url.password) throw new Error('Credentialed crawl URLs are not allowed')
   const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, '')
-  if (!allowPrivateForTests && (PRIVATE_HOSTS.has(hostname) || isPrivateIp(hostname))) throw new Error('Private or internal crawl targets are blocked')
-  if (resolveDns && net.isIP(hostname) === 0) {
+  // isPrivateIp() fails closed for anything that is not a valid IP literal, so it must
+  // only ever be handed an actual address. Passing a hostname here classified EVERY
+  // domain as private and blocked the crawler from reaching any real website.
+  // Hostnames are instead vetted below, against the addresses they resolve to.
+  const isLiteralIp = net.isIP(hostname) !== 0
+  if (!allowPrivateForTests && (PRIVATE_HOSTS.has(hostname) || (isLiteralIp && isPrivateIp(hostname)))) throw new Error('Private or internal crawl targets are blocked')
+  if (!isLiteralIp) {
+    // A hostname is never trusted unverified: without DNS we cannot know where it
+    // points, so refuse rather than assume it is public.
+    if (!resolveDns) throw new Error('Crawl target hostname cannot be verified without DNS resolution')
     const records = await dns.lookup(hostname, { all: true })
     if (!records.length || (!allowPrivateForTests && records.some(record => isPrivateIp(record.address)))) throw new Error('Crawl target resolves to a private or internal address')
   }

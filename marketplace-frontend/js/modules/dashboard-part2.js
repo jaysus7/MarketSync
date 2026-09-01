@@ -1309,7 +1309,6 @@ const PAGE_FEATURE = {
   appraisal: 'os.crm', equity: 'os.crm',
   inventory: 'os.inventory', recon: 'os.automations',
   accounting: 'os.accounting',
-  commissions: 'os.accounting',
   'acct-insights': 'os.accounting', 'acct-reconciliation': 'os.accounting', 'acct-bank': 'os.accounting',
   'acct-expenses': 'os.accounting', 'acct-budget': 'os.accounting', 'acct-tax': 'os.accounting',
   'acct-reports': 'os.accounting', 'acct-settings': 'os.accounting',
@@ -1324,9 +1323,12 @@ const PAGE_FEATURE = {
   'api-keys': 'os.integrations',
   'owner-users': 'os.team', 'sales-team': 'os.team', 'people-compliance': 'os.team', hr: 'os.team', people: 'os.team',
   'people-overview': 'os.team',
-  // `academy`, `launch`, and `ai-inbox` are deliberately ABSENT: an unmapped page is always allowed.
+  // `academy`, `launch`, `ai-inbox` and `commissions` are deliberately ABSENT: an unmapped page is always allowed.
   // Required compliance training and messaging are not plan upsells, and gating SETUP behind an entitlement
-  // would stop a dealership configuring the product it just bought.
+  // would stop a dealership configuring the product it just bought. `commissions` is a rep's own earnings
+  // ("My Commission" in Sales) — withholding a rep's pay from them is not an upsell either. Accounting's
+  // Payroll administration is a different surface: it is the Accounting engine's `payroll` tab, which sits
+  // on `accounting` and is gated there. Do not re-add a `commissions` gate to reach it.
   config: 'os.settings',
 };
 // 'website' is product-gated (not just feature-gated) to mirror the backend exactly:

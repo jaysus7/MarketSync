@@ -93,7 +93,7 @@ ENGINES['people-overview'] = {
     overview: 'Pulse',
     people: 'People',
     work: 'Staff',
-    insights: 'Insights', time: 'Time & Docs', reports: 'Reports',
+    insights: 'Insights', reports: 'Reports',
     time: 'Time',
     hiring: 'Hiring',
     compliance: 'Compliance',
@@ -816,7 +816,7 @@ async function pplOffboard(staffId) {
   const lines = Object.entries(owned?.owned || owned || {})
     .filter(([, v]) => Number(v) > 0).map(([k, v]) => `${v} ${k.replace(/_/g, ' ')}`);
   const warning = lines.length
-    ? `They still own:\n\n${lines.join('\n')}\n\nArchiving revokes access but keeps their employee file. Reassign this work first.\n\nArchive anyway?`
+    ? `They still own:\n\n${lines.join('\n')}\n\nArchiving revokes access but keeps their employee file. Reassign this work first, or it becomes nobody's.\n\nArchive anyway?`
     : 'They own no open work. Archiving revokes access and keeps the employee file. Nothing is deleted.\n\nContinue?';
   if (!confirm(warning)) return;
   const reason = prompt('Why are they leaving? (recorded on the employment record)');

@@ -71,8 +71,15 @@ const HANDLER_ATTR = /\bon([a-z]+)\s*=\s*(["'])([\s\S]*?)\2/gi
 
 function calleesOf(expr) {
   const names = new Set()
-  for (const m of expr.matchAll(CALL)) names.add(m[2])
-  for (const m of expr.matchAll(OPTIONAL_CALL)) names.add(m[2])
+  // A handler whose name is composed in a template literal - e.g.
+  // addLibrary${isVideo ? 'Video' : 'Image'}ToCanvas(...) - cannot be resolved
+  // statically: the `}` reads as a name boundary and yields the fragment
+  // "ToCanvas", which is not a real function and never was. Skipping the fragment
+  // keeps this audit honest; the composed variants are asserted by name in
+  // "dynamically composed handlers resolve to real functions" below, so they stay
+  // covered rather than escaping the check.
+  for (const m of expr.matchAll(CALL)) { if (m[1] !== '}') names.add(m[2]) }
+  for (const m of expr.matchAll(OPTIONAL_CALL)) { if (m[1] !== '}') names.add(m[2]) }
   for (const b of BUILTIN) names.delete(b)
   return names
 }
@@ -136,6 +143,14 @@ test('the handlers fixed in this pass stay defined', () => {
     'requestDesktopPermission', 'refreshWsRightInspector',
   ]) {
     assert.ok(defined.has(name), `${name} must be defined — an inline handler calls it`)
+  }
+})
+
+test('dynamically composed handlers resolve to real functions', () => {
+  // These are named explicitly because their call sites build the identifier at
+  // render time, so the static scan above cannot see them.
+  for (const name of ['addLibraryImageToCanvas', 'addLibraryVideoToCanvas']) {
+    assert.ok(defined.has(name), `${name} must be defined — a composed inline handler calls it`)
   }
 })
 
