@@ -322,6 +322,57 @@ test('every indexable public page carries a complete social card', () => {
   assert.deepEqual(bad, [], bad.join('\n'))
 })
 
+// ── Accessibility of the public pages (Batch 9 STEP 20) ────────────────────────────
+
+// `named` mirrors how a browser actually resolves an accessible name, because a
+// looser check invents work and a stricter one hides it. Three ways count: an
+// explicit aria-label/labelledby, an id a <label for> can point at, or sitting
+// inside an open <label>. A placeholder is NOT one of them — it disappears the
+// moment someone types, and that was the real gap on the lead form.
+const isNamed = (html, tag, at) => {
+  if (/aria-label|aria-labelledby|\bid\s*=/.test(tag)) return true
+  if (/type\s*=\s*["'](hidden|submit|button|image)["']/.test(tag)) return true
+  const before = html.slice(0, at)
+  return before.lastIndexOf('<label') > before.lastIndexOf('</label>')
+}
+
+test('every form control on a public page has an accessible name', () => {
+  const pages = [...read('sitemap.xml').matchAll(/<loc>[^<]*\/([^</]*)<\/loc>/g)].map((m) => m[1] || 'index.html')
+  const unnamed = []
+  for (const p of pages) {
+    if (!existsSync(path.join(FE, p))) continue
+    const body = read(p).replace(/<script[\s\S]*?<\/script>/g, '')
+    for (const m of body.matchAll(/<(?:input|select|textarea)\b[^>]*>/g)) {
+      if (!isNamed(body, m[0], m.index)) unnamed.push(`${p}: ${m[0].slice(0, 90)}`)
+    }
+  }
+  assert.deepEqual(unnamed, [], `controls a screen reader cannot name:\n${unnamed.join('\n')}`)
+})
+
+test('a placeholder alone does not count as an accessible name', () => {
+  // Guards the check itself: if `named` ever accepted a placeholder, the test above
+  // would pass on a page full of unlabelled inputs.
+  const bare = '<form><input name="email" placeholder="Work email"></form>'
+  assert.equal(isNamed(bare, '<input name="email" placeholder="Work email">', bare.indexOf('<input')), false)
+  const wrapped = '<label>Work email <input name="email"></label>'
+  assert.equal(isNamed(wrapped, '<input name="email">', wrapped.indexOf('<input')), true)
+  const labelled = '<input aria-label="Work email">'
+  assert.equal(isNamed(labelled, labelled, 0), true)
+})
+
+test('every public page declares a document language and exactly one h1', () => {
+  const pages = [...read('sitemap.xml').matchAll(/<loc>[^<]*\/([^</]*)<\/loc>/g)].map((m) => m[1] || 'index.html')
+  const problems = []
+  for (const p of pages) {
+    if (!existsSync(path.join(FE, p))) continue
+    const html = read(p)
+    if (!/<html[^>]+lang=/.test(html)) problems.push(`${p}: no lang on <html>`)
+    const h1 = (html.replace(/<script[\s\S]*?<\/script>/g, '').match(/<h1\b/g) || []).length
+    if (h1 !== 1) problems.push(`${p}: ${h1} <h1> elements`)
+  }
+  assert.deepEqual(problems, [], problems.join('\n'))
+})
+
 // ── 19–20. AEO and GEO: measured, or not counted ────────────────────────────────────
 
 test('an AEO answer that contradicts the canonical fact is a finding', () => {
