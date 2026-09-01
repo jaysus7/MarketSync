@@ -613,10 +613,12 @@ function openSetupModal(secId) {
             <input type="text" id="m-site-legal" value="${esc(c.legal_name || '')}" placeholder="Premier Automotive Group Inc." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white" />
           </div>
         </div>
+
         <div>
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Tagline / Slogan</label>
           <input type="text" id="m-site-tagline" value="${esc(c.tagline || 'Niagara’s Premier Truck Destination')}" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white" />
         </div>
+
         <div>
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Dealership Story / About</label>
           <textarea id="m-site-about" rows="3" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white">${esc(c.about || '')}</textarea>
@@ -993,6 +995,9 @@ async function uploadSiteImage(targetId, file) {
 // ── Shared 3-tab image picker — Upload, Inventory photos, and Pexels library ──
 let __wsPhotoPickCallback = null;
 let __wsPhotoActiveTab = 'pexels';
+let __wsMediaQuery = '';
+let __wsMediaFolder = 'all';
+let __wsMediaCache = [];
 
 function openWsPhotoPicker(onPick) {
   __wsPhotoPickCallback = onPick;
@@ -1074,7 +1079,7 @@ function renderWsPhotoTabBody() {
     `;
   }
   if (__wsPhotoActiveTab === 'media') {
-    return `<div class="space-y-3"><div class="flex items-center justify-between"><div class="text-xs text-slate-500 dark:text-slate-400">Uploaded images are reusable across every page.</div><button type="button" onclick="setWsPhotoTab('upload')" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-black">Upload new</button></div><div id="ws-media-grid" class="grid grid-cols-3 gap-2"><div class="col-span-3 py-10 text-center text-xs text-slate-400">Loading your media…</div></div></div>`;
+    return `<div class="space-y-3"><div class="flex items-center justify-between gap-2 flex-wrap"><div class="text-xs text-slate-500 dark:text-slate-400">Uploaded images are reusable across every page.</div><button type="button" onclick="setWsPhotoTab('upload')" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-black">Upload new</button></div><div class="flex gap-2"><input id="ws-media-query" type="search" value="${esc(__wsMediaQuery)}" oninput="filterWsMedia(this.value)" placeholder="Search filename or alt text…" class="min-w-0 flex-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-medium focus:outline-none focus:border-indigo-500"><select id="ws-media-folder" onchange="filterWsMediaFolder(this.value)" class="w-32 px-2 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-bold"><option value="all">All folders</option></select></div><div id="ws-media-grid" class="grid grid-cols-3 gap-2"><div class="col-span-3 py-10 text-center text-xs text-slate-400">Loading your media…</div></div></div>`;
   }
   // Pexels
   return `
@@ -1146,16 +1151,55 @@ async function loadWsMediaLibrary() {
   if (!box) return;
   try {
     const data = await apiGetJson('/dealership/site-media', { retries: 1 });
-    const media = data?.media || [];
-    box.innerHTML = media.length ? media.map(m => `<div class="group relative aspect-video rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 hover:border-indigo-500 transition"><button type="button" onclick="pickWsPhoto('${esc(m.public_url)}')" class="w-full h-full"><img src="${esc(m.public_url)}" loading="lazy" class="w-full h-full object-cover"></button><div class="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/80 to-transparent text-[10px] text-white font-bold truncate">${esc(m.filename || 'Website image')}</div><button type="button" onclick="deleteWsMedia('${m.id}')" class="absolute top-1 right-1 hidden group-hover:block rounded-md bg-black/70 px-1.5 py-1 text-[10px] text-white">Delete</button></div>`).join('') : '<div class="col-span-3 py-10 text-center text-xs text-slate-400 italic">No uploaded website media yet.</div>';
+    __wsMediaCache = data?.media || [];
+    const folderSelect = document.getElementById('ws-media-folder');
+    if (folderSelect) folderSelect.innerHTML = ['all', ...new Set(__wsMediaCache.map(m => m.folder || 'Library'))].map(folder => `<option value="${esc(folder)}" ${folder === __wsMediaFolder ? 'selected' : ''}>${folder === 'all' ? 'All folders' : esc(folder)}</option>`).join('');
+    renderWsMediaGrid();
   } catch { box.innerHTML = '<div class="col-span-3 py-10 text-center text-xs text-rose-500">Could not load your media library.</div>'; }
+}
+function filterWsMedia(query) { __wsMediaQuery = String(query || ''); renderWsMediaGrid(); }
+function filterWsMediaFolder(folder) { __wsMediaFolder = String(folder || 'all'); renderWsMediaGrid(); }
+function wsMediaUsageCount(url) {
+  const needle = String(url || ''); if (!needle) return 0;
+  try {
+    const documentText = JSON.stringify({ config: __siteCfg?.content || {}, home: __homeSections || [], pages: __sitePages || [] });
+    return documentText.split(needle).length - 1;
+  } catch { return 0; }
+}
+function renderWsMediaGrid() {
+  const box = document.getElementById('ws-media-grid'); if (!box) return;
+  const q = __wsMediaQuery.toLowerCase().trim();
+  const media = __wsMediaCache.filter(m => (__wsMediaFolder === 'all' || (m.folder || 'Library') === __wsMediaFolder) && (!q || `${m.filename || ''} ${m.alt_text || ''}`.toLowerCase().includes(q)));
+  box.innerHTML = media.length ? media.map(m => { const usage = wsMediaUsageCount(m.public_url); return `<div class="group relative aspect-video rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 hover:border-indigo-500 transition"><button type="button" onclick="pickWsPhoto('${esc(m.public_url)}')" class="w-full h-full"><img src="${esc(m.public_url)}" alt="${esc(m.alt_text || m.filename || 'Website image')}" loading="lazy" class="w-full h-full object-cover"></button><div class="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/85 to-transparent text-[10px] text-white font-bold truncate">${esc(m.filename || 'Website image')} · ${esc(m.folder || 'Library')} ${m.width && m.height ? `· ${m.width}×${m.height}` : ''} ${m.file_size_bytes ? `· ${(Number(m.file_size_bytes) / 1024).toFixed(0)} KB` : ''} · ${usage ? `${usage} use${usage === 1 ? '' : 's'}` : 'Unused'}</div><input aria-label="Alt text" value="${esc(m.alt_text || '')}" placeholder="Alt text" onkeydown="event.stopPropagation()" onchange="updateWsMediaAlt('${m.id}', this.value)" class="absolute left-1 right-1 bottom-7 hidden group-hover:block rounded bg-black/75 border border-white/30 px-1.5 py-1 text-[10px] text-white placeholder:text-white/60"><div class="absolute top-1 left-1 hidden group-hover:flex gap-1"><button type="button" onclick="moveWsMedia('${m.id}','${esc(m.folder || 'Library')}')" class="rounded-md bg-black/75 px-1.5 py-1 text-[10px] text-white">Move</button><button type="button" onclick="replaceWsMedia('${m.id}')" class="rounded-md bg-indigo-600/90 px-1.5 py-1 text-[10px] text-white">Replace</button></div><button type="button" onclick="deleteWsMedia('${m.id}')" class="absolute top-1 right-1 hidden group-hover:block rounded-md bg-black/70 px-1.5 py-1 text-[10px] text-white">Delete</button></div>`; }).join('') : `<div class="col-span-3 py-10 text-center text-xs text-slate-400 italic">${q ? 'No media matches this search.' : 'No uploaded website media yet.'}</div>`;
 }
 async function deleteWsMedia(id) {
   if (!confirm('Delete this uploaded image from the media library?')) return;
   try { await apiSendJson(`/dealership/site-media/${encodeURIComponent(id)}`, 'DELETE', {}); loadWsMediaLibrary(); showToast('Media deleted', 'success'); } catch (e) { showToast(e.message || 'Could not delete media', 'error'); }
 }
+async function updateWsMediaAlt(id, altText) {
+  try { await apiSendJson(`/dealership/site-media/${encodeURIComponent(id)}`, 'PATCH', { alt_text: altText }); showToast('Alt text saved', 'success'); }
+  catch (e) { showToast(e.message || 'Could not save alt text', 'error'); }
+}
+async function moveWsMedia(id, currentFolder) {
+  const folder = prompt('Folder name', currentFolder || 'Library');
+  if (folder == null) return;
+  const next = String(folder).trim().replace(/\s+/g, ' ').slice(0, 80);
+  if (!next) return showToast('Enter a folder name', 'error');
+  try { await apiSendJson(`/dealership/site-media/${encodeURIComponent(id)}`, 'PATCH', { folder: next }); await loadWsMediaLibrary(); showToast('Media moved', 'success'); }
+  catch (e) { showToast(e.message || 'Could not move media', 'error'); }
+}
+function replaceWsMedia(id) {
+  const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
+  input.onchange = async () => { const file = input.files?.[0]; if (!file) return; showToast('Replacing image…', 'info'); try { const fd = new FormData(); fd.append('image', file); const r = await fetch(`${API}/dealership/site-media/${encodeURIComponent(id)}/replace`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd }); const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Replace failed'); await loadWsMediaLibrary(); showToast('Media replaced', 'success'); } catch (e) { showToast(e.message || 'Could not replace media', 'error'); } };
+  input.click();
+}
 window.loadWsMediaLibrary = loadWsMediaLibrary;
+window.filterWsMedia = filterWsMedia;
+window.filterWsMediaFolder = filterWsMediaFolder;
 window.deleteWsMedia = deleteWsMedia;
+window.updateWsMediaAlt = updateWsMediaAlt;
+window.moveWsMedia = moveWsMedia;
+window.replaceWsMedia = replaceWsMedia;
 
 window.openWsPhotoPicker = openWsPhotoPicker;
 
@@ -1523,6 +1567,64 @@ function templateBuiltinSections() {
     contact: [psHero('Get in touch', 'Questions, a test drive, or just want to talk numbers? We’d love to hear from you.', 'Call us', 'inquiry', 'g7')],
   };
 }
+
+// ── Studio-Specific One-Click Templates ──────────────────────────────────
+// Each studio (Design, Email/SMS, Video, Automations) gets curated template options
+function getStudioTemplates(studioKey) {
+  const templates = {
+    // Design Studio templates: social media, graphics, banners
+    'design-studio': [
+      { id: 'social_sq', name: 'Instagram Post', desc: 'Square social media post (1080x1080)', size: '1080x1080px', category: 'social' },
+      { id: 'social_story', name: 'Instagram Story', desc: 'Vertical story format', size: '1080x1920px', category: 'social' },
+      { id: 'social_fb', name: 'Facebook Cover', desc: 'Facebook cover photo', size: '820x312px', category: 'social' },
+      { id: 'email_hero', name: 'Email Hero Header', desc: 'Email campaign header', size: '600x300px', category: 'email' },
+      { id: 'banner_web', name: 'Website Banner', desc: 'Website top banner', size: '1200x400px', category: 'web' },
+      { id: 'flyer', name: 'Event Flyer', desc: 'Promotional flyer', size: '1000x1500px', category: 'print' },
+      { id: 'ad_google', name: 'Google Ad Banner', desc: 'Google Display Ad', size: '300x250px', category: 'ads' },
+    ],
+    // Email/SMS Studio templates: campaigns, newsletters, promotions
+    'email-sms-studio': [
+      { id: 'email_newsletter', name: 'Monthly Newsletter', desc: 'Regular dealership newsletter', template: 'newsletter' },
+      { id: 'email_promo', name: 'Promotion Campaign', desc: 'Limited-time offer email', template: 'promotion' },
+      { id: 'email_welcome', name: 'Welcome Series', desc: 'New subscriber welcome sequence', template: 'welcome' },
+      { id: 'email_service', name: 'Service Reminder', desc: 'Vehicle service appointment reminder', template: 'service' },
+      { id: 'email_abandonment', name: 'Cart Recovery', desc: 'Abandoned vehicle interest follow-up', template: 'recovery' },
+      { id: 'sms_promo', name: 'SMS Promotion', desc: 'Text message special offer', template: 'sms_promo' },
+      { id: 'sms_appointment', name: 'SMS Appointment', desc: 'Appointment confirmation/reminder', template: 'sms_appt' },
+    ],
+    // Video Studio templates: video types and styles
+    'video-studio': [
+      { id: 'inventory_showcase', name: 'Vehicle Showcase', desc: 'High-quality inventory video', duration: '30-60s' },
+      { id: 'testimonial', name: 'Customer Testimonial', desc: 'Customer review video', duration: '15-30s' },
+      { id: 'process_finance', name: 'Financing Explained', desc: 'How financing works at your dealership', duration: '45-90s' },
+      { id: 'process_trade', name: 'Trade-In Process', desc: 'Step-by-step trade appraisal video', duration: '45-90s' },
+      { id: 'team_intro', name: 'Team Introduction', desc: 'Meet your sales team video', duration: '2-3 min' },
+      { id: 'promo_seasonal', name: 'Seasonal Promotion', desc: 'Holiday or seasonal offer video', duration: '15-30s' },
+    ],
+    // Automations Studio templates: workflow templates
+    'automations-studio': [
+      { id: 'lead_nurture', name: 'Lead Nurturing', desc: 'Automatically nurture hot leads with follow-up emails' },
+      { id: 'service_reminder', name: 'Service Reminders', desc: 'Send service due reminders to past customers' },
+      { id: 'feedback_survey', name: 'Feedback Survey', desc: 'Request customer feedback after purchase', },
+      { id: 'birthday_offer', name: 'Birthday Offers', desc: 'Send special offers on customer birthdays' },
+      { id: 'reengagement', name: 'Re-engagement', desc: 'Re-engage dormant leads with targeted offers' },
+      { id: 'sales_task', name: 'Sales Task Assignment', desc: 'Auto-assign follow-up tasks to sales reps' },
+    ],
+    // Website Studio - builder templates (sections)
+    'website-studio': [
+      { id: 'hero', name: 'Hero Section', desc: 'Large eye-catching header with call-to-action', type: 'section' },
+      { id: 'inventory', name: 'Inventory Showcase', desc: 'Display featured vehicles', type: 'section' },
+      { id: 'finance', name: 'Finance Calculator', desc: 'Payment calculator widget', type: 'section' },
+      { id: 'testimonials', name: 'Customer Testimonials', desc: 'Social proof section with reviews', type: 'section' },
+      { id: 'faq', name: 'FAQ Section', desc: 'Frequently asked questions', type: 'section' },
+      { id: 'contact', name: 'Contact Form', desc: 'Lead capture form', type: 'section' },
+    ],
+  };
+  return templates[studioKey] || [];
+}
+
+window.getStudioTemplates = getStudioTemplates;
+
 // Only offer presets the dealer hasn't already added (matched by title). Blank always available.
 function wsAddPageOptions() {
   const presets = PAGE_PRESETS();
@@ -1620,6 +1722,9 @@ window.uploadSiteImage = uploadSiteImage;
 // __siteSections = the ACTIVE editing buffer. __wsTarget = 'home' or a page index.
 // The home layout lives in __homeSections; each page's layout in __sitePages[i].sections.
 let __siteCfg = null, __siteSections = [], __homeSections = [], __wsTarget = 'home', __wsTab = 'builder';
+// Governance is loaded separately from the site document so brand locks remain
+// an administrative control, rather than editable page content.
+let __wsGovernance = { locked_fields: [], can_manage: false };
 const SEC_META = {
   hero:               { label: 'Hero', fields: [['bg','Background style','herobg'],['image','Or upload a photo','image'],['headline','Headline','text'],['subheadline','Subheadline','text'],['badge_text','Top Badge Pill','text'],['button_label','Primary Button Label','text'],['button_target','Primary Button Target','target'],['button_link','Primary Button Custom Link','text'],['button2_label','Secondary Button Label','text'],['button2_target','Secondary Button Target','target'],['button2_link','Secondary Button Custom Link','text'],['overlay','Image Darkness (%)','range'],['height','Section Height','height'],['show_trust_strip','Display Trust Badges','bool'],['trust_1_title','Trust Badge 1 Title','text'],['trust_1_sub','Trust Badge 1 Subtitle','text'],['trust_2_title','Trust Badge 2 Title','text'],['trust_2_sub','Trust Badge 2 Subtitle','text'],['trust_3_title','Trust Badge 3 Title','text'],['trust_3_sub','Trust Badge 3 Subtitle','text'],['trust_4_title','Trust Badge 4 Title','text'],['trust_4_sub','Trust Badge 4 Subtitle','text']] },
   feature_cards:      { label: 'Feature cards (Inventory / Finance / Contact)', fields: [['title','Heading (optional)','text']] },
@@ -1662,6 +1767,8 @@ async function loadWebsitePage() {
   if (!root) return;
   root.innerHTML = '<div class="py-16 text-center text-sm text-slate-400 italic">Loading…</div>';
   try { __siteCfg = await apiGetJson('/dealership/site'); } catch (e) { root.innerHTML = `<div class="py-16 text-center text-sm text-slate-500">Couldn't load: ${esc(e.message)}</div>`; return; }
+  try { __wsGovernance = await apiGetJson('/dealership/site/governance', { retries: 1 }); }
+  catch (e) { __wsGovernance = { locked_fields: [], can_manage: false }; }
   __homeSections = normalizeWsSections(__siteCfg.content?.sections);
   __sitePages = Array.isArray(__siteCfg.content?.pages) ? __siteCfg.content.pages.map(p => ({ id: p.id || ('pg' + Math.random().toString(36).slice(2, 9)), ...p, sections: normalizeWsSections(p.sections) })) : [];
   __menuOrder = Array.isArray(__siteCfg.content?.menu_order) ? __siteCfg.content.menu_order.slice() : [];
@@ -1847,8 +1954,6 @@ function renderWebsitePage() {
   const isBuilder = (__wsTab === 'builder');
   document.documentElement.classList.toggle('website-builder-mode', isBuilder);
   document.body.classList.toggle('website-builder-mode', isBuilder);
-  document.documentElement.classList.toggle('website-workspace-mode', isBuilder);
-  document.body.classList.toggle('website-workspace-mode', isBuilder);
   const root = document.getElementById('website-root'); if (!root) return;
 
   // Setup renders directly into the contained layout without redundant top navigation
@@ -1857,46 +1962,35 @@ function renderWebsitePage() {
     return;
   }
 
+  // Builder mode renders its own complete UI with integrated header via renderLiveBuilder
+  if (isBuilder) {
+    root.innerHTML = `<div id="ws-body" class="flex-1 min-h-0 overflow-hidden flex flex-col w-full h-full"></div>`;
+    renderWsBody();
+    return;
+  }
+
+  // Non-builder tabs (blog, seo, pages, design, etc.) get the standard workspace header
   const c = __siteCfg?.content || {};
   const url = __siteCfg?.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(__siteCfg.site_slug)}` : null;
 
   root.innerHTML = `
-    <div class="flex flex-col ${isBuilder ? 'h-full' : 'min-h-0'} w-full ${isBuilder ? 'bg-[var(--ws-bg)] text-[var(--ws-text)]' : 'bg-transparent'}">
-      <!-- TOP APPLICATION HEADER (Dedicated Website Workspace Header). Uses the
-           same --ws-* variables the rest of the builder chrome follows (set by
-           applyBuilderTheme()/[data-ws-theme]) rather than hardcoded dark-only
-           colors, so it never goes half-dark against a light body or vice versa. -->
-      <div class="ws-builder-header flex items-center justify-between px-4 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex-shrink-0 flex-wrap gap-2 text-slate-900 dark:text-white z-20">
-        <div class="flex items-center gap-3">
-          <button onclick="closeWebsiteBuilder()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[var(--ws-panel-raised)] hover:bg-[var(--ws-hover-bg)] text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-black transition cursor-pointer shadow-xs" title="Exit Website Builder & Return to Website Workspace">
-            <svg class="w-3.5 h-3.5 text-[var(--ws-text-muted)]" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
-            <span>Exit Builder</span>
-          </button>
-          <div class="h-5 w-px bg-[var(--ws-border)]"></div>
-          <div class="w-7 h-7 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-black border border-indigo-500/40">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zM2.25 12h19.5M12 2.25a15.3 15.3 0 014.5 9.75 15.3 15.3 0 01-4.5 9.75 15.3 15.3 0 01-4.5-9.75A15.3 15.3 0 0112 2.25z"/></svg>
-          </div>
-          <div>
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-black tracking-tight text-[var(--ws-text)]">MarketSync Website Builder</span>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${__siteCfg.site_published ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40'}">
-                ${__siteCfg.site_published ? 'Live' : 'Draft'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- TOP RIGHT ACTION CONTROLS -->
+    <div class="flex flex-col min-h-0 w-full bg-transparent">
+      <!-- WORKSPACE TABS HEADER (Non-builder tabs only) -->
+      <div class="ws-workspace-header flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 flex-shrink-0 flex-wrap gap-2 z-20">
         <div class="flex items-center gap-2">
-          ${url ? `<a href="${url}" target="_blank" class="text-xs font-black bg-[var(--ws-panel-raised)] text-[var(--ws-text-muted)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl transition">View Site ↗</a>` : ''}
-          <button onclick="wsOpenRevisions()" class="text-xs font-black bg-[var(--ws-panel-raised)] hover:bg-[var(--ws-hover-bg)] text-[var(--ws-text)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl transition">History</button>
-          <button onclick="saveWebsite(this,'draft')" class="text-xs font-black bg-[var(--ws-panel-raised)] hover:bg-[var(--ws-hover-bg)] text-[var(--ws-text)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl transition">Save Draft</button>
+          <span class="text-sm font-black text-slate-900 dark:text-white">Website Studio</span>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${__siteCfg.site_published ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40'}">
+            ${__siteCfg.site_published ? 'Live' : 'Draft'}
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          ${url ? `<a href="${url}" target="_blank" class="text-xs font-black bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl transition">View Site ↗</a>` : ''}
           <button onclick="saveWebsite(this,'publish')" class="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-xl transition shadow-md cursor-pointer">Publish</button>
         </div>
       </div>
 
-      <!-- WORKSPACE CONTENT BODY (Sub-Layout dynamically mounted based on active tab) -->
-      <div id="ws-body" class="${isBuilder ? 'flex-1 min-h-0 overflow-hidden' : 'w-full'}"></div>
+      <!-- WORKSPACE CONTENT BODY -->
+      <div id="ws-body" class="flex-1 min-h-0 overflow-y-auto w-full"></div>
     </div>`;
   renderWsBody();
 }
@@ -1944,6 +2038,7 @@ window.setBuilderMode = setBuilderMode;
 // postMessage and render instantly (never saved until "Save"). Clicking a section in
 let __livePreviewReady = false, __liveMsgWired = false, __livePushTimer = null;
 let __livePreviewToken = null, __livePreviewOrigin = null;
+let __draftPreviewWindow = null, __draftPreviewReady = false, __draftPreviewToken = null;
 let __wsUndoStack = [], __wsRedoStack = [], __wsHistoryTimer = null, __wsHistoryMute = false, __wsLastSnapshot = null;
 let __wsAutosaveTimer = null;
 
@@ -2012,6 +2107,31 @@ function wsAuditPageName(target, home = false) {
 }
 function wsRunAudit() {
   const c = __siteCfg?.content || {}, issues = [];
+  const builtInTargets = new Set(['home', 'inventory', 'vehicle', 'service', 'finance', 'trade', 'about', 'contact', 'blog', 'parts', 'privacy', 'terms', 'inquiry']);
+  (__sitePages || []).forEach((p, i) => {
+    const slug = String(p?.slug || slugifyTitle(p?.title || '')).replace(/^\//, '').trim();
+    if (slug) builtInTargets.add(slug);
+  });
+  const hexColor = value => {
+    const raw = String(value || '').trim().replace(/^#/, '');
+    if (/^[0-9a-f]{3}$/i.test(raw)) return raw.split('').map(x => x + x).join('').match(/../g).map(x => parseInt(x, 16));
+    if (/^[0-9a-f]{6}$/i.test(raw)) return raw.match(/../g).map(x => parseInt(x, 16));
+    return null;
+  };
+  const luminance = value => {
+    const rgb = hexColor(value); if (!rgb) return null;
+    return rgb.reduce((sum, channel, i) => {
+      const n = channel / 255; const linear = n <= 0.03928 ? n / 12.92 : Math.pow((n + 0.055) / 1.055, 2.4);
+      return sum + linear * [0.2126, 0.7152, 0.0722][i];
+    }, 0);
+  };
+  const asLink = value => String(value || '').trim();
+  const checkLink = (value, page, location, target, sectionIndex) => {
+    const link = asLink(value); if (!link || /^(https?:|mailto:|tel:|#|javascript:)/i.test(link) || link.includes('{{')) return;
+    const path = link.split(/[?#]/)[0].replace(/^\//, '').replace(/\/$/, '').toLowerCase();
+    if (!path || path === 'index.html' || builtInTargets.has(path)) return;
+    issues.push({ id: `link-${target}-${sectionIndex}-${path.replace(/[^a-z0-9]+/g, '-')}`, type: 'link', page, location, field: 'Internal link', message: `This link points to “/${path}”, which does not match a published page or supported website route.`, sectionIndex, target });
+  };
   const checkMeta = (record, page, target, home = false) => {
     const title = String(record?.seo_title || '').trim(), desc = String(record?.seo_description || '').trim();
     if (!title) issues.push({ id: `title-${target}`, type: 'title', page, location: home ? 'Website Settings → SEO' : 'Pages → page SEO', field: 'SEO title', message: 'Search engines have no page title to use in results.', target, home });
@@ -2021,10 +2141,19 @@ function wsRunAudit() {
   };
   checkMeta(c, 'Home Page', 'home', true);
   (__sitePages || []).forEach((p, i) => checkMeta(p, wsAuditPageName(i), i));
-  const scan = (sections, target, page) => (sections || []).forEach((s, i) => {
-    const v = s?.settings || {}, label = SEC_META?.[s?.type]?.label || s?.type || 'Section';
-    for (const key of ['image', 'image_url', 'background_image']) if (v[key] && !v[`${key}_alt`] && !v.alt) issues.push({ id: `alt-${target}-${i}-${key}`, type: 'alt', page, location: `Builder → ${label}`, field: `${key.replace(/_/g, ' ')} alt text`, message: 'This image has no descriptive alternative text.', sectionIndex: i, sectionKey: key, target });
-    if (s?.type === 'html') issues.push({ id: `html-${target}-${i}`, type: 'html', page, location: `Builder → ${label}`, field: 'Custom HTML', message: 'Custom HTML should be reviewed before publishing.', sectionIndex: i, target });
+  const scan = (sections, target, page, parent = '') => (sections || []).forEach((s, i) => {
+    const v = s?.settings || {}, styles = s?.styles || {}, label = SEC_META?.[s?.type]?.label || s?.type || 'Section', location = `Builder → ${label}`;
+    const sectionIndex = parent ? `${parent}.${i}` : i;
+    for (const key of ['image', 'image_url', 'background_image']) {
+      if (v[key] && !v[`${key}_alt`] && !v.alt) issues.push({ id: `alt-${target}-${sectionIndex}-${key}`, type: 'alt', page, location, field: `${key.replace(/_/g, ' ')} alt text`, message: 'This image has no descriptive alternative text.', sectionIndex: i, sectionKey: key, target });
+      if (v[key] && /https?:\/\//i.test(String(v[key])) && !/[?&](w|width|resize|format)=/i.test(String(v[key])) && !/\.(svg|gif)(\?|$)/i.test(String(v[key]))) issues.push({ id: `image-${target}-${sectionIndex}-${key}`, type: 'performance', page, location, field: 'Image optimization', message: 'This remote image has no responsive size or format hint; it may serve a larger file than needed.', sectionIndex: i, sectionKey: key, target });
+    }
+    for (const key of ['href', 'link', 'button_link', 'primary_button_link', 'secondary_button_link', 'custom_link', 'url']) checkLink(v[key], page, location, target, i);
+    const bg = styles.background_color || v.background_color, fg = styles.text_color || v.text_color || styles.color || v.color;
+    const bgLum = luminance(bg), fgLum = luminance(fg);
+    if (bgLum !== null && fgLum !== null && (Math.max(bgLum, fgLum) + 0.05) / (Math.min(bgLum, fgLum) + 0.05) < 4.5) issues.push({ id: `contrast-${target}-${sectionIndex}`, type: 'contrast', page, location, field: 'Text contrast', message: 'The configured text and background colors may fail WCAG AA contrast for normal text. Review the section colors.', sectionIndex: i, target });
+    if (s?.type === 'html') issues.push({ id: `html-${target}-${sectionIndex}`, type: 'html', page, location, field: 'Custom HTML', message: 'Custom HTML should be reviewed before publishing.', sectionIndex: i, target });
+    scan(s?.children || s?.content?.children, target, page, String(sectionIndex));
   });
   scan(__homeSections, 'home', 'Home Page');
   (__sitePages || []).forEach((p, i) => scan(p.sections, i, wsAuditPageName(i)));
@@ -2036,7 +2165,10 @@ function wsRunAudit() {
 function wsShowAuditPanel() {
   document.getElementById('ws-audit-panel')?.remove();
   const modal = document.createElement('div'); modal.id = 'ws-audit-panel'; modal.className = 'fixed inset-0 z-[1000] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4';
-  modal.innerHTML = `<div class="w-full max-w-3xl max-h-[88vh] overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 text-white shadow-2xl"><div class="p-5 border-b border-slate-800 flex items-start justify-between gap-4"><div><div class="text-[10px] uppercase tracking-[.16em] font-black text-amber-400">Website audit</div><h2 class="text-xl font-black mt-1">${__wsAuditIssues.length} publish issue${__wsAuditIssues.length === 1 ? '' : 's'} to resolve</h2><p class="text-xs text-slate-400 mt-1">Each finding includes the page, exact control, and an AI-assisted fix. Changes stay in your draft until you publish.</p></div><button onclick="document.getElementById('ws-audit-panel')?.remove()" class="text-slate-400 hover:text-white text-2xl">×</button></div><div class="p-4 space-y-2 overflow-y-auto max-h-[68vh]">${__wsAuditIssues.map(issue => `<div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><span class="text-sm font-black text-white">${esc(issue.field)}</span><span class="rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase px-2 py-0.5">${esc(issue.page)}</span></div><div class="text-xs text-indigo-300 font-semibold mt-2">${esc(issue.location)}</div><p class="text-xs text-slate-400 mt-1">${esc(issue.message)}</p></div><span class="shrink-0 text-[10px] uppercase font-black text-rose-300">${issue.type === 'html' ? 'Review' : 'Fixable'}</span></div><div class="flex flex-wrap gap-2 mt-3"><button onclick="wsFocusAuditIssue('${issue.id}')" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 text-xs font-bold">Show me</button>${issue.type !== 'html' ? `<button data-audit-fix="${issue.id}" onclick="wsAiFixAuditIssue('${issue.id}', this)" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black">Fix with AI</button>` : ''}</div></div>`).join('')}</div><div class="p-4 border-t border-slate-800 flex justify-end"><button onclick="document.getElementById('ws-audit-panel')?.remove()" class="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold text-slate-200">Close</button></div></div>`;
+  const counts = __wsAuditIssues.reduce((out, issue) => { out[issue.type] = (out[issue.type] || 0) + 1; return out; }, {});
+  const summary = Object.entries(counts).map(([type, count]) => `${count} ${type === 'alt' ? 'accessibility' : type}`).join(' · ');
+  const aiFixable = new Set(['title', 'description', 'alt']);
+  modal.innerHTML = `<div class="w-full max-w-3xl max-h-[88vh] overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 text-white shadow-2xl"><div class="p-5 border-b border-slate-800 flex items-start justify-between gap-4"><div><div class="text-[10px] uppercase tracking-[.16em] font-black text-amber-400">Website audit</div><h2 class="text-xl font-black mt-1">${__wsAuditIssues.length} finding${__wsAuditIssues.length === 1 ? '' : 's'} to review</h2><p class="text-xs text-slate-400 mt-1">${esc(summary)}. Changes stay in your draft until you publish.</p></div><button onclick="document.getElementById('ws-audit-panel')?.remove()" class="text-slate-400 hover:text-white text-2xl">×</button></div><div class="p-4 space-y-2 overflow-y-auto max-h-[68vh]">${__wsAuditIssues.map(issue => `<div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><span class="text-sm font-black text-white">${esc(issue.field)}</span><span class="rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase px-2 py-0.5">${esc(issue.page)}</span></div><div class="text-xs text-indigo-300 font-semibold mt-2">${esc(issue.location)}</div><p class="text-xs text-slate-400 mt-1">${esc(issue.message)}</p></div><span class="shrink-0 text-[10px] uppercase font-black text-rose-300">${aiFixable.has(issue.type) ? 'Fixable' : 'Review'}</span></div><div class="flex flex-wrap gap-2 mt-3"><button onclick="wsFocusAuditIssue('${issue.id}')" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 text-xs font-bold">Show me</button>${aiFixable.has(issue.type) ? `<button data-audit-fix="${issue.id}" onclick="wsAiFixAuditIssue('${issue.id}', this)" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black">Fix with AI</button>` : ''}</div></div>`).join('')}</div><div class="p-4 border-t border-slate-800 flex justify-end"><button onclick="document.getElementById('ws-audit-panel')?.remove()" class="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold text-slate-200">Close</button></div></div>`;
   document.body.appendChild(modal);
 }
 async function wsAiFixAuditIssue(id, btn) {
@@ -2111,35 +2243,53 @@ function markWsSaved() {
 }
 window.markWsSaved = markWsSaved;
 
+function wsLivePreviewPayload() {
+  wsFlushTarget();
+  const c = __siteCfg?.content || {};
+  const site = {
+    sections: __homeSections, pages: __sitePages, builtins: __siteBuiltins, staff: __siteStaff,
+    design_theme: c.design_theme || 'modern', quick_palette: c.quick_palette || 'chevy_blue',
+    primary_color: c.primary_color || '#1e3a8a', secondary_color: c.secondary_color || '#3b82f6',
+    accent_color: c.accent_color || '#f59e0b', heading_font: c.heading_font || 'Inter', body_font: c.body_font || 'Inter',
+    tagline: c.tagline, about: c.about, hero_url: c.hero_url, logo_url: c.logo_url,
+  };
+  let view = 'home';
+  if (typeof __wsTarget === 'string' && __wsTarget.startsWith('b:')) {
+    const k = __wsTarget.slice(2); view = k === 'contact' ? 'inquiry' : k;
+  } else if (typeof __wsTarget === 'number' && __sitePages[__wsTarget]) {
+    const p = __sitePages[__wsTarget];
+    const pslug = p.slug || slugifyTitle(p.title || p.id || ('page-' + __wsTarget));
+    p.slug = pslug; view = 'page:' + pslug;
+  }
+  return { site, view };
+}
+
+function wsOpenDraftPreview() {
+  const slug = __siteCfg?.site_slug;
+  if (!slug) { showToast('Save a site address before opening preview', 'error'); return; }
+  try { __draftPreviewToken = crypto.randomUUID(); } catch { __draftPreviewToken = Math.random().toString(36).slice(2); }
+  __draftPreviewReady = false;
+  __draftPreviewWindow = window.open(`${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1&draft_preview=1&builder_v=20260829_draft_preview_v1`, '_blank');
+  if (!__draftPreviewWindow) { showToast('Preview was blocked by the browser. Allow pop-ups for this site and try again.', 'error'); return; }
+  setTimeout(() => { if (__draftPreviewWindow && !__draftPreviewWindow.closed) livePreviewPush(); }, 250);
+}
+window.wsOpenDraftPreview = wsOpenDraftPreview;
+
 function livePreviewPush() {
   const ifr = document.getElementById('ws-preview-frame');
-  if (!ifr || !ifr.contentWindow || !__livePreviewReady) return;
+  if ((!ifr || !ifr.contentWindow || !__livePreviewReady) && (!__draftPreviewWindow || __draftPreviewWindow.closed || !__draftPreviewReady)) return;
   clearTimeout(__livePushTimer);
   __livePushTimer = setTimeout(() => {
     try {
-      wsFlushTarget();
-      const c = __siteCfg?.content || {};
-      const site = {
-        sections: __homeSections, pages: __sitePages, builtins: __siteBuiltins, staff: __siteStaff,
-        design_theme: c.design_theme || 'modern',
-        quick_palette: c.quick_palette || 'chevy_blue',
-        primary_color: c.primary_color || '#1e3a8a',
-        secondary_color: c.secondary_color || '#3b82f6',
-        accent_color: c.accent_color || '#f59e0b',
-        heading_font: c.heading_font || 'Inter',
-        body_font: c.body_font || 'Inter',
-        tagline: c.tagline, about: c.about, hero_url: c.hero_url, logo_url: c.logo_url,
-      };
-      if (typeof __wsTarget === 'string' && __wsTarget.startsWith('b:')) { const k = __wsTarget.slice(2); view = k === 'contact' ? 'inquiry' : k; }
-      else if (typeof __wsTarget === 'number' && __sitePages[__wsTarget]) {
-        const p = __sitePages[__wsTarget];
-        const pslug = p.slug || slugifyTitle(p.title || p.id || ('page-' + __wsTarget));
-        p.slug = pslug;
-        view = 'page:' + pslug;
-      }
+      const { site, view } = wsLivePreviewPayload();
       if (!__livePreviewToken) { try { __livePreviewToken = crypto.randomUUID(); } catch { __livePreviewToken = Math.random().toString(36).slice(2); } }
-      __livePreviewOrigin = new URL(ifr.src, location.href).origin;
-      ifr.contentWindow.postMessage({ type: 'ms-preview-apply', session: __livePreviewToken, site, view }, __livePreviewOrigin);
+      if (ifr && ifr.contentWindow && __livePreviewReady) {
+        __livePreviewOrigin = new URL(ifr.src, location.href).origin;
+        ifr.contentWindow.postMessage({ type: 'ms-preview-apply', session: __livePreviewToken, site, view }, __livePreviewOrigin);
+      }
+      if (__draftPreviewWindow && !__draftPreviewWindow.closed && __draftPreviewReady) {
+        __draftPreviewWindow.postMessage({ type: 'ms-preview-apply', session: __draftPreviewToken, site, view }, location.origin);
+      }
     } catch {}
   }, 40);
 }
@@ -2383,8 +2533,13 @@ function wireLiveMessages() {
   window.addEventListener('message', (ev) => {
     const frame = document.getElementById('ws-preview-frame');
     const allowedOrigin = __livePreviewOrigin || (frame ? new URL(frame.src, location.href).origin : location.origin);
-    if (!frame || ev.source !== frame.contentWindow || ev.origin !== allowedOrigin) return;
+    const isDraftPreview = __draftPreviewWindow && !__draftPreviewWindow.closed && ev.source === __draftPreviewWindow && ev.origin === location.origin;
+    if ((!frame || ev.source !== frame.contentWindow || ev.origin !== allowedOrigin) && !isDraftPreview) return;
     const m = ev.data || {};
+    if (isDraftPreview) {
+      if (m.type === 'ms-preview-ready') { __draftPreviewReady = true; livePreviewPush(); }
+      return;
+    }
     if (m.session && m.session !== __livePreviewToken) return;
     if (m.type === 'ms-preview-ready') { __livePreviewReady = true; livePreviewPush(); }
     else if (m.type === 'ms-preview-click' && typeof m.index === 'number') {
@@ -2428,6 +2583,7 @@ let __wsSelectedSecIdx = 0;
 let __wsInspectorTab = 'content';
 let __wsActiveDeviceView = 'desktop'; // 'desktop' (100%), 'tablet' (768px), 'mobile' (375px)
 let __wsActiveLeftNav = 'layers'; // 'layers', 'blocks', 'pages', 'design', 'ai'
+let __wsComponents = [], __wsComponentsLoaded = false;
 let __wsLeftDockCollapsed = false;
 let __wsRightDockCollapsed = false;
 
@@ -2594,6 +2750,7 @@ function setWsDeviceView(view) {
   __wsActiveDeviceView = view;
   const frameWrap = document.getElementById('ws-frame-wrapper');
   if (frameWrap) {
+    frameWrap.dataset.wsDevice = view;
     if (view === 'mobile') {
       frameWrap.className = 'w-[375px] h-[82vh] mx-auto rounded-3xl border-4 border-slate-700 bg-white shadow-2xl transition-all duration-300 overflow-hidden relative z-0';
     } else if (view === 'tablet') {
@@ -2694,11 +2851,12 @@ function renderWsLayersTreeHtml() {
               <div data-layer-idx="${idx}" onclick="selectWsSection(${idx})" style="${isSel ? 'background-color:#4f46e5 !important;color:#ffffff !important;border-color:#4338ca !important;font-weight:800 !important;box-shadow:0 4px 6px -1px rgba(79,70,229,0.25);' : 'color:var(--ws-text,#0f172a) !important;font-weight:700 !important;'}" class="p-2.5 rounded-xl border ${isSel ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400'} cursor-pointer flex items-center justify-between transition group shadow-xs">
                 <div class="flex items-center gap-2 min-w-0">
                   <span class="w-4 text-[10px] font-mono ${isSel ? 'text-indigo-200' : 'text-slate-700 dark:text-slate-400'} font-bold">${idx + 1}</span>
-                  <span class="truncate font-extrabold ${isSel ? 'text-white' : 'text-slate-900 dark:text-slate-100'}">${esc(meta.label || sec.type)}</span>
+                  <span class="truncate font-extrabold ${isSel ? 'text-white' : 'text-slate-900 dark:text-slate-100'}">${esc(meta.label || sec.type)}</span>${__wsGovernance?.locked_section_ids?.includes(String(sec.id)) ? '<span class="text-[10px] font-black uppercase text-amber-500" title="Protected by website governance">Locked</span>' : ''}
                 </div>
                 <div class="flex items-center gap-1 opacity-90 group-hover:opacity-100">
                   <button type="button" onclick="event.stopPropagation(); moveSection(${idx},-1)" ${idx === 0 ? 'disabled' : ''} class="p-1 ${isSel ? 'text-white' : 'text-slate-700 dark:text-slate-300'} hover:text-black dark:hover:text-white disabled:opacity-20 font-bold" title="Move Up">↑</button>
                   <button type="button" onclick="event.stopPropagation(); moveSection(${idx},1)" ${idx === __siteSections.length - 1 ? 'disabled' : ''} class="p-1 ${isSel ? 'text-white' : 'text-slate-700 dark:text-slate-300'} hover:text-black dark:hover:text-white disabled:opacity-20 font-bold" title="Move Down">↓</button>
+                  <button type="button" onclick="event.stopPropagation(); saveWsComponent(${idx})" class="p-1 ${isSel ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'} hover:text-indigo-800 font-bold" title="Save as reusable section">＋</button>
                   <button type="button" onclick="event.stopPropagation(); delSection(${idx})" class="p-1 text-rose-500 hover:text-rose-700 font-black" title="Delete">×</button>
                 </div>
               </div>
@@ -3053,6 +3211,46 @@ function repaintWsPalette() {
   const pal = document.getElementById('ws-palette');
   if (pal) pal.outerHTML = renderElementorPalette();
 }
+
+async function loadWsComponents() {
+  try {
+    const data = await apiGetJson('/dealership/site-components', { retries: 1 });
+    __wsComponents = Array.isArray(data?.components) ? data.components : [];
+    __wsComponentsLoaded = true;
+    repaintWsPalette();
+  } catch (e) { showToast(e.message || 'Could not load reusable components', 'error'); }
+}
+function addReusableComponent(id) {
+  const source = __wsComponents.find(c => c.id === id)?.section;
+  if (!source || typeof source !== 'object') return;
+  wsQueueHistory();
+  const copy = JSON.parse(JSON.stringify(source));
+  const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  const rekey = (node, parentId = null) => {
+    node.id = `s${suffix}${Math.random().toString(36).slice(2, 6)}`;
+    if (parentId) node.parent_id = parentId;
+    if (Array.isArray(node.children)) node.children.forEach(child => rekey(child, node.id));
+    return node;
+  };
+  rekey(copy);
+  if (__pendingInsertAt != null && __pendingInsertAt >= 0 && __pendingInsertAt <= __siteSections.length) { __siteSections.splice(__pendingInsertAt, 0, copy); __pendingInsertAt = null; }
+  else __siteSections.push(copy);
+  markWsUnsaved(); renderWsSections(); showToast('Reusable section added', 'success');
+}
+async function saveWsComponent(i) {
+  const section = __siteSections?.[i]; if (!section) return;
+  const name = prompt('Name this reusable section');
+  if (!name || !name.trim()) return;
+  try {
+    await apiSendJson('/dealership/site-components', 'POST', { name: name.trim(), description: SEC_META[section.type]?.label || section.type, section: JSON.parse(JSON.stringify(section)) });
+    __wsComponentsLoaded = false; showToast('Reusable section saved', 'success');
+    if (__wsActiveLeftNav === 'blocks') { const drawer = document.getElementById('ws-left-drawer-content'); if (drawer) drawer.innerHTML = renderWsLeftDrawerHtml(); }
+  } catch (e) { showToast(e.message || 'Could not save reusable section', 'error'); }
+}
+window.saveWsComponent = saveWsComponent;
+window.loadWsComponents = loadWsComponents;
+window.addReusableComponent = addReusableComponent;
+
 function setWsPaletteCat(cat) {
   __wsPaletteCat = cat;
   repaintWsPalette();
@@ -3099,6 +3297,10 @@ function renderElementorPalette() {
       <div class="flex items-center justify-between">
         <div class="text-xs font-black uppercase tracking-wider text-slate-400">MarketSync Block Library</div>
         <button onclick="aiBuildPageLayout()" class="text-[11px] font-extrabold text-violet-400 hover:text-violet-300 flex items-center gap-1">AI Build</button>
+      </div>
+      <div class="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-2.5">
+        <div class="flex items-center justify-between gap-2 mb-1.5"><span class="text-[11px] font-black uppercase tracking-wider text-indigo-300">Reusable sections</span><button type="button" onclick="loadWsComponents()" class="text-[10px] font-bold text-indigo-300 hover:text-white">${__wsComponentsLoaded ? 'Refresh' : 'Load'}</button></div>
+        ${__wsComponentsLoaded ? (__wsComponents.length ? `<div class="space-y-1.5">${__wsComponents.map(c => `<button type="button" onclick="addReusableComponent('${esc(c.id)}')" class="w-full text-left rounded-lg border border-indigo-500/30 bg-slate-900/70 px-2 py-1.5 hover:border-indigo-400"><div class="text-[11px] font-bold text-slate-100 truncate">${esc(c.name)}</div><div class="text-[10px] text-slate-400 truncate">${esc(c.description || SEC_META[c.section?.type]?.label || 'Saved section')}</div></button>`).join('')}</div>` : '<div class="text-[10px] text-slate-400 italic">No saved sections yet.</div>') : '<div class="text-[10px] text-slate-400">Load saved sections from your component library.</div>'}
       </div>
 
       <!-- Search Bar -->
@@ -3161,30 +3363,43 @@ function renderLiveBuilder(body) {
 
   body.innerHTML = `
     <div class="ws-studio-container flex flex-col flex-1 h-full w-full bg-[var(--ws-bg)] text-[var(--ws-text)] overflow-hidden">
-      <!-- Top Visual Workspace Action Bar -->
-      <div class="ws-top-action-bar flex items-center justify-between gap-3 py-1.5 px-4 bg-[var(--ws-panel)] border-b border-[var(--ws-border)] flex-shrink-0 z-20 flex-wrap">
-        <div class="flex items-center gap-2">
-          <span class="text-xs font-bold text-[var(--ws-text-muted)]">Editing Page:</span>
-          <select onchange="wsSetTarget(this.value)" class="text-xs font-bold bg-[var(--ws-input-bg)] text-[var(--ws-input-text)] border border-[var(--ws-input-border)] rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer">
-            <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>Home Page</option>
-            ${(__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}>${esc(p.title || 'Untitled Page')}</option>`).join('')}
-          </select>
+      <!-- Top Visual Workspace Action Bar (Integrated Header with Exit + Status) -->
+      <div class="ws-top-action-bar flex items-center justify-between gap-3 py-2 px-4 bg-[var(--ws-panel)] border-b border-[var(--ws-border)] flex-shrink-0 z-20 flex-wrap">
+        <!-- LEFT: Exit Button + Title + Status -->
+        <div class="flex items-center gap-3 min-w-0">
+          <button onclick="closeWebsiteBuilder()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--ws-panel-raised)] hover:bg-[var(--ws-hover-bg)] text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-black transition cursor-pointer flex-shrink-0" title="Exit Website Builder & Return to Website Workspace">
+            <svg class="w-3.5 h-3.5 text-[var(--ws-text-muted)]" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
+            <span>Exit</span>
+          </button>
+          <div class="h-5 w-px bg-[var(--ws-border)]"></div>
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-xs font-bold text-[var(--ws-text-muted)] truncate">Editing:</span>
+            <select onchange="wsSetTarget(this.value)" class="text-xs font-bold bg-[var(--ws-input-bg)] text-[var(--ws-input-text)] border border-[var(--ws-input-border)] rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer">
+              <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>Home Page</option>
+              ${(__sitePages || []).map((p, i) => `<option value="${i}" ${__wsTarget === i ? 'selected' : ''}>${esc(p.title || 'Untitled Page')}</option>`).join('')}
+            </select>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${__siteCfg.site_published ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40'} flex-shrink-0">
+              ${__siteCfg.site_published ? 'Live' : 'Draft'}
+            </span>
+          </div>
         </div>
 
-        <!-- Device Viewport Switcher -->
-        <div class="flex items-center bg-[var(--ws-panel-raised)] rounded-lg p-1 border border-[var(--ws-border)]">
-          <button onclick="setWsDeviceView('desktop')" data-view="desktop" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'desktop' ? 'bg-indigo-600 text-white shadow-sm' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer">Desktop</button>
-          <button onclick="setWsDeviceView('tablet')" data-view="tablet" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'tablet' ? 'bg-indigo-600 text-white shadow-sm' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer">Tablet</button>
-          <button onclick="setWsDeviceView('mobile')" data-view="mobile" class="ws-device-btn px-2.5 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'mobile' ? 'bg-indigo-600 text-white shadow-sm' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer">Mobile</button>
+        <!-- MIDDLE: Device Viewport Switcher -->
+        <div class="flex items-center bg-[var(--ws-panel-raised)] rounded-lg p-1 border border-[var(--ws-border)] flex-shrink-0">
+          <button onclick="setWsDeviceView('desktop')" data-view="desktop" class="ws-device-btn px-2 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'desktop' ? 'bg-indigo-600 text-white shadow-sm' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer">Desktop</button>
+          <button onclick="setWsDeviceView('tablet')" data-view="tablet" class="ws-device-btn px-2 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'tablet' ? 'bg-indigo-600 text-white shadow-sm' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer">Tablet</button>
+          <button onclick="setWsDeviceView('mobile')" data-view="mobile" class="ws-device-btn px-2 py-1 text-xs font-bold rounded-lg ${__wsActiveDeviceView === 'mobile' ? 'bg-indigo-600 text-white shadow-sm' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer">Mobile</button>
         </div>
 
-        <div class="flex items-center gap-2">
-          <button onclick="wsUndo()" class="px-2.5 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] border border-[var(--ws-border)] text-xs font-bold transition cursor-pointer" title="Undo (⌘/Ctrl+Z)">↶</button>
-          <button onclick="wsRedo()" class="px-2.5 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] border border-[var(--ws-border)] text-xs font-bold transition cursor-pointer" title="Redo (⌘/Ctrl+Shift+Z)">↷</button>
-          <button onclick="wsRunAudit()" class="px-2.5 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] border border-[var(--ws-border)] text-xs font-bold transition cursor-pointer" title="Run SEO and accessibility audit">Audit</button>
+        <!-- RIGHT: Actions + Save/Publish -->
+        <div class="flex items-center gap-2 flex-wrap justify-end">
+          <button onclick="wsUndo()" class="px-2 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] border border-[var(--ws-border)] text-xs font-bold transition cursor-pointer" title="Undo (⌘/Ctrl+Z)">↶</button>
+          <button onclick="wsRedo()" class="px-2 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] border border-[var(--ws-border)] text-xs font-bold transition cursor-pointer" title="Redo (⌘/Ctrl+Shift+Z)">↷</button>
+          <button onclick="wsRunAudit()" class="px-2 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] border border-[var(--ws-border)] text-xs font-bold transition cursor-pointer" title="Run SEO and accessibility audit">Audit</button>
           <span class="ws-saved-badge px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40">SAVED</span>
-          <a href="${SITE_BASE}?d=${encodeURIComponent(slug)}" target="_blank" class="px-3 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-bold transition">Preview ↗</a>
-          <button onclick="saveWebsite(this)" class="px-4 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md transition cursor-pointer">Publish Site</button>
+          <button type="button" onclick="wsOpenDraftPreview()" class="px-3 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-bold transition">Preview ↗</button>
+          <button onclick="saveWebsite(this,'draft')" class="px-3 py-1 rounded-lg bg-[var(--ws-panel-raised)] hover:bg-[var(--ws-hover-bg)] text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-bold transition cursor-pointer">Save</button>
+          <button onclick="saveWebsite(this,'publish')" class="px-4 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md transition cursor-pointer">Publish</button>
         </div>
       </div>
 
@@ -3192,7 +3407,7 @@ function renderLiveBuilder(body) {
       <div class="relative flex-1 w-full h-full bg-[var(--ws-bg)] overflow-hidden">
         <!-- Center Full-Screen Live Web Canvas -->
         <main class="w-full h-full flex items-center justify-center p-0 overflow-hidden relative z-0">
-          <div id="ws-frame-wrapper" class="${__wsActiveDeviceView === 'mobile' ? 'w-[375px] h-[92%]' : (__wsActiveDeviceView === 'tablet' ? 'w-[768px] h-[92%]' : 'w-full h-full')} ${__wsActiveDeviceView === 'desktop' ? 'border-0' : 'rounded-3xl border-4 border-slate-500 dark:border-slate-700 shadow-2xl'} bg-white transition-all duration-300 overflow-hidden relative z-0">
+          <div id="ws-frame-wrapper" data-ws-device="${__wsActiveDeviceView}" class="${__wsActiveDeviceView === 'mobile' ? 'w-[375px] h-[92%]' : (__wsActiveDeviceView === 'tablet' ? 'w-[768px] h-[92%]' : 'w-full h-full')} ${__wsActiveDeviceView === 'desktop' ? 'border-0' : 'rounded-3xl border-4 border-slate-500 dark:border-slate-700 shadow-2xl'} bg-white transition-all duration-300 overflow-hidden relative z-0">
             <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1&builder_v=20260825_builder_click_edit_v1" onload="window.livePreviewLoaded && window.livePreviewLoaded()" class="w-full h-full border-0 pointer-events-auto" title="Live Website Canvas"></iframe>
           </div>
         </main>
@@ -3347,8 +3562,10 @@ function secDrop(e, i) {
   const from = __secDragIdx; __secDragIdx = null;
   document.querySelectorAll('#ws-sections .ws-sec').forEach(el => el.classList.remove('opacity-40', 'ring-2', 'ring-indigo-400'));
   if (from === null || from === i || from < 0 || from >= __siteSections.length) return;
+  wsQueueHistory();
   const [s] = __siteSections.splice(from, 1);
   __siteSections.splice(i, 0, s);
+  markWsUnsaved();
   renderWsSections();
 }
 window.secDragStart = secDragStart; window.secDragEnd = secDragEnd; window.secDragOver = secDragOver; window.secDragLeave = secDragLeave; window.secDrop = secDrop;
@@ -3401,7 +3618,7 @@ function wsField(i, sec, [key, label, type]) {
   if (type === 'textarea' || type === 'html') input = `<textarea rows="3" oninput="setSec(${i},'${key}',this.value)" class="${cls} font-medium text-xs">${esc(v || '')}</textarea>`;
   else if (type === 'range') input = `<div class="flex items-center gap-2"><input type="range" min="0" max="95" value="${v == null ? 75 : v}" oninput="setSec(${i},'${key}',+this.value); document.getElementById('rng-val-${i}-${key}').innerText = this.value + '%';" class="w-full accent-indigo-600 cursor-pointer"><span id="rng-val-${i}-${key}" class="text-xs font-mono font-bold text-slate-700 dark:text-slate-300 w-10 text-right">${v == null ? 75 : v}%</span></div>`;
   else if (type === 'number') input = `<input type="number" value="${esc(v == null ? 6 : v)}" oninput="setSec(${i},'${key}',+this.value)" class="${cls}">`;
-  else if (type === 'target') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['inquiry','Contact form'],['inventory','Inventory'],['build','Build & Price'],['trade','Trade-in'],['finance','Financing'],['team','Team'],['link','Custom link']].map(o => `<option value="${o[0]}" ${v === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
+  else if (type === 'target') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['inquiry','Contact form'],['inventory','Inventory'],['build','Build & Price'],['trade','Trade-in'],['finance','Financing'],['service','Service appointment'],['team','Team'],['link','Custom link']].map(o => `<option value="${o[0]}" ${v === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
   else if (type === 'herobg') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['','None (solid brand)'],['g1','Indigo glow'],['g2','Sky wave'],['g3','Teal depth'],['g4','Violet dusk'],['g5','Amber warmth'],['g6','Rose accent'],['g7','Emerald'],['g8','Cyan drift']].map(o => `<option value="${o[0]}" ${(v||'')===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select>`;
   else if (type === 'cond') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['all','All'],['new','New'],['used','Used']].map(o => `<option value="${o[0]}" ${v === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
   else if (type === 'height') input = `<select onchange="setSec(${i},'${key}',this.value)" class="${cls}">${[['sm','Short'],['md','Medium'],['lg','Tall'],['screen','Full screen']].map(o => `<option value="${o[0]}" ${(v || 'md') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
@@ -3420,7 +3637,13 @@ function wsField(i, sec, [key, label, type]) {
 }
 function getSecResponsive(i, key) { const s = __siteSections?.[i]; return s?.responsive?.[__wsActiveDeviceView]?.[key] ?? s?.responsive?.desktop?.[key] ?? ''; }
 function setSecResponsive(i, key, val) { const s = __siteSections?.[i]; if (!s) return; s.responsive = s.responsive || { desktop: {}, tablet: {}, mobile: {} }; s.responsive[__wsActiveDeviceView] = s.responsive[__wsActiveDeviceView] || {}; s.responsive[__wsActiveDeviceView][key] = val; refreshWebsitePreview(); refreshWsRightInspector(); }
-function setSec(i, key, val) { if (__siteSections[i]) { __siteSections[i].settings = __siteSections[i].settings || {}; __siteSections[i].settings[key] = val; refreshWebsitePreview(); } }
+function wsSectionEditable(i) {
+  const section = __siteSections?.[i];
+  if (!section || !__wsGovernance?.locked_section_ids?.includes(String(section.id)) || __wsGovernance?.can_manage) return true;
+  showToast('This section is protected by website governance', 'info');
+  return false;
+}
+function setSec(i, key, val) { if (wsSectionEditable(i)) { __siteSections[i].settings = __siteSections[i].settings || {}; __siteSections[i].settings[key] = val; refreshWebsitePreview(); } }
 function setSecFaq(i, key, text) { const items = text.split('\n').map(l => { const [q, ...a] = l.split('::'); return { q: (q || '').trim(), a: a.join('::').trim() }; }).filter(x => x.q); setSec(i, key, items); }
 function setSecReviews(i, key, text) { const items = text.split('\n').map(l => { const p = l.split('::'); const author = (p[0] || '').trim(); const rating = Math.max(1, Math.min(5, parseInt(p[1]) || 5)); const body = p.slice(2).join('::').trim(); return { author, rating, text: body }; }).filter(x => x.author || x.text); setSec(i, key, items); }
 function setSecCards(i, key, text) { const items = text.split('\n').map(l => { const [t, ...d] = l.split('::'); return { title: (t || '').trim(), text: d.join('::').trim() }; }).filter(x => x.title || x.text); setSec(i, key, items); }
@@ -3444,6 +3667,7 @@ let __pendingInsertAt = null;   // live builder: insert the next-added section a
 // Photos" picker use, so a new site never starts with empty photo holes.
 const WS_DEFAULT_IMAGE_TYPES = { hero: 'image', text_image: 'image', ad_banner: 'image' };
 function addSection(type) {
+  wsQueueHistory();
   let settings = {};
   if (type === 'hero') {
     const c = __siteCfg?.content || {};
@@ -3485,12 +3709,13 @@ function addSection(type) {
   } else {
     __siteSections.push(sec);
   }
+  markWsUnsaved();
   renderWsSections();
 }
-function moveSection(i, dir) { const j = i + dir; if (j < 0 || j >= __siteSections.length) return; const [s] = __siteSections.splice(i, 1); __siteSections.splice(j, 0, s); renderWsSections(); }
-function dupSection(i) { __siteSections.splice(i + 1, 0, JSON.parse(JSON.stringify(__siteSections[i]))); renderWsSections(); }
-function addChildSection(i) { const parent = __siteSections?.[i]; if (!parent) return; parent.children = Array.isArray(parent.children) ? parent.children : []; parent.children.push(normalizeWsSection({ id: `child_${Date.now()}`, type: 'text_image', settings: { title: 'Nested component', body: 'Add supporting content here.' } }, parent.id)); renderWsSections(); }
-function delSection(i) { __siteSections.splice(i, 1); renderWsSections(); }
+function moveSection(i, dir) { const j = i + dir; if (j < 0 || j >= __siteSections.length || !wsSectionEditable(i)) return; wsQueueHistory(); const [s] = __siteSections.splice(i, 1); __siteSections.splice(j, 0, s); markWsUnsaved(); renderWsSections(); }
+function dupSection(i) { const source = __siteSections?.[i]; if (!source || !wsSectionEditable(i)) return; wsQueueHistory(); const copy = JSON.parse(JSON.stringify(source)); copy.id = `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`; __siteSections.splice(i + 1, 0, copy); markWsUnsaved(); renderWsSections(); }
+function addChildSection(i) { const parent = __siteSections?.[i]; if (!parent || !wsSectionEditable(i)) return; wsQueueHistory(); parent.children = Array.isArray(parent.children) ? parent.children : []; parent.children.push(normalizeWsSection({ id: `child_${Date.now()}`, type: 'text_image', settings: { title: 'Nested component', body: 'Add supporting content here.' } }, parent.id)); markWsUnsaved(); renderWsSections(); }
+function delSection(i) { const section = __siteSections?.[i]; if (!section || !wsSectionEditable(i)) return; if (!confirm(`Delete the ${SEC_META[section.type]?.label || section.type} section? This can be undone.`)) return; wsQueueHistory(); __siteSections.splice(i, 1); markWsUnsaved(); renderWsSections(); }
 const WS_PALETTES = [
   ['Chevy Blue', '#0b2a5b', '#0a1a33', '#d4af37'],
   ['GMC Red', '#c8102e', '#1a1a1a', '#9ea2a2'],
@@ -3838,14 +4063,279 @@ function applyCompleteTemplate(templateId) {
   showToast(`Applied "${selected.preset.toUpperCase()}" template with Pexels imagery & full copy — Save to publish`, 'success');
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Studio-specific template pickers (Design, Email/SMS, Video, Automations)
+// ──────────────────────────────────────────────────────────────────────────────
+
+function openDesignStudioTemplatePicker() {
+  const templates = getStudioTemplates('design-studio');
+  const modalHtml = `
+    <div class="p-6 space-y-4 max-w-4xl">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div>
+          <h2 class="text-xl font-black text-slate-900 dark:text-white">Design Templates</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose a template to start creating social media graphics, banners, and promotional materials.</p>
+        </div>
+        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 max-h-[70vh] overflow-y-auto">
+        ${templates.map(t => `
+          <button onclick="applyDesignTemplate('${t.id}')" class="group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-200 flex flex-col cursor-pointer p-4">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center border border-indigo-500/30">
+                <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V5z"/></svg>
+              </div>
+              <div>
+                <h3 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${t.name}</h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">${t.size}</p>
+              </div>
+            </div>
+            <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed mb-3">${t.desc}</p>
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition inline-block">Create from Template →</span>
+            </div>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  crmOverlay(modalHtml, 'max-w-4xl');
+}
+
+function applyDesignTemplate(templateId) {
+  showToast(`Creating design from template: ${templateId}`, 'info');
+  // Design Studio template application would go here
+  // This would initialize the design canvas with the selected template configuration
+}
+
+function openEmailSmsStudioTemplatePicker() {
+  const templates = getStudioTemplates('email-sms-studio');
+  const modalHtml = `
+    <div class="p-6 space-y-4 max-w-4xl">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div>
+          <h2 class="text-xl font-black text-slate-900 dark:text-white">Email & SMS Templates</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose a campaign type to start building newsletters, promotions, and customer outreach.</p>
+        </div>
+        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 max-h-[70vh] overflow-y-auto">
+        ${templates.map(t => `
+          <button onclick="applyEmailSmsTemplate('${t.id}')" class="group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-200 flex flex-col cursor-pointer p-4">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center border border-blue-500/30">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+              </div>
+              <div>
+                <h3 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${t.name}</h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">${t.template}</p>
+              </div>
+            </div>
+            <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed mb-3">${t.desc}</p>
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition inline-block">Create Campaign →</span>
+            </div>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  crmOverlay(modalHtml, 'max-w-4xl');
+}
+
+function applyEmailSmsTemplate(templateId) {
+  showToast(`Creating email/SMS campaign from template: ${templateId}`, 'info');
+  // Email/SMS Studio template application would go here
+  // This would initialize the campaign builder with the selected template
+}
+
+function openVideoStudioTemplatePicker() {
+  const templates = getStudioTemplates('video-studio');
+  const modalHtml = `
+    <div class="p-6 space-y-4 max-w-4xl">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div>
+          <h2 class="text-xl font-black text-slate-900 dark:text-white">Video Templates</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose a video type to create inventory showcases, testimonials, and promotional videos.</p>
+        </div>
+        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 max-h-[70vh] overflow-y-auto">
+        ${templates.map(t => `
+          <button onclick="applyVideoTemplate('${t.id}')" class="group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-200 flex flex-col cursor-pointer p-4">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500/20 to-orange-500/20 flex items-center justify-center border border-red-500/30">
+                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+              <div>
+                <h3 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${t.name}</h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">${t.duration}</p>
+              </div>
+            </div>
+            <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed mb-3">${t.desc}</p>
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition inline-block">Create Video →</span>
+            </div>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  crmOverlay(modalHtml, 'max-w-4xl');
+}
+
+function applyVideoTemplate(templateId) {
+  showToast(`Creating video from template: ${templateId}`, 'info');
+  // Video Studio template application would go here
+  // This would initialize the video builder with the selected template
+}
+
+function openAutomationsStudioTemplatePicker() {
+  const templates = getStudioTemplates('automations-studio');
+  const modalHtml = `
+    <div class="p-6 space-y-4 max-w-4xl">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div>
+          <h2 class="text-xl font-black text-slate-900 dark:text-white">Automation Templates</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose an automation workflow to set up lead nurturing, service reminders, and customer engagement.</p>
+        </div>
+        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 max-h-[70vh] overflow-y-auto">
+        ${templates.map(t => `
+          <button onclick="applyAutomationTemplate('${t.id}')" class="group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-200 flex flex-col cursor-pointer p-4">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-yellow-500/20 flex items-center justify-center border border-amber-500/30">
+                <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              </div>
+              <div>
+                <h3 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${t.name}</h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">Workflow</p>
+              </div>
+            </div>
+            <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed mb-3">${t.desc}</p>
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition inline-block">Create Automation →</span>
+            </div>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  crmOverlay(modalHtml, 'max-w-4xl');
+}
+
+function applyAutomationTemplate(templateId) {
+  showToast(`Creating automation workflow from template: ${templateId}`, 'info');
+  // Automations Studio template application would go here
+  // This would initialize the workflow builder with the selected template
+}
+
+window.openDesignStudioTemplatePicker = openDesignStudioTemplatePicker;
+window.openEmailSmsStudioTemplatePicker = openEmailSmsStudioTemplatePicker;
+window.openVideoStudioTemplatePicker = openVideoStudioTemplatePicker;
+window.openAutomationsStudioTemplatePicker = openAutomationsStudioTemplatePicker;
+
 window.openTemplatePicker = openTemplatePicker;
 window.applyCompleteTemplate = applyCompleteTemplate;
 window.applyTemplate = applyCompleteTemplate;
 
+async function wsSubmitChangeSet(btn) {
+  const revisionId = __siteCfg?.revision?.id;
+  if (!revisionId) { showToast('Save the draft before requesting approval', 'error'); return; }
+  const original = btn?.textContent || '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
+  try {
+    const result = await apiSendJson('/dealership/site/change-sets', 'POST', {
+      revision_id: revisionId,
+      name: `Website update · revision ${__siteCfg.revision.number || ''}`.replace(/\s+$/, ''),
+      description: 'Submitted from the Website Builder for owner or administrator review.',
+    });
+    showToast(`Approval requested${result?.change_set?.version_tag ? ` · ${result.change_set.version_tag}` : ''}`, 'success');
+  } catch (e) { showToast(e.message || 'Could not request approval', 'error'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = original; } }
+}
+window.wsSubmitChangeSet = wsSubmitChangeSet;
 function wsFontOpts(sel) { return `<option value="">— Use preset —</option>` + WS_FONTS.map(f => `<option value="${f}" ${sel === f ? 'selected' : ''}>${f}</option>`).join(''); }
+function wsFieldLocked(field) {
+  return Array.isArray(__wsGovernance?.locked_fields) && __wsGovernance.locked_fields.includes(field);
+}
+function wsGovernanceFieldLabel(field) {
+  return ({
+    logo_url: 'Logo',
+    primary_color: 'Primary color',
+    secondary_color: 'Secondary color',
+    accent_color: 'Accent color',
+    heading_font: 'Heading font',
+    body_font: 'Body font',
+    seo_title: 'SEO title',
+    seo_description: 'SEO description',
+    head_html: 'Custom head code',
+  })[field] || field;
+}
+async function wsSaveGovernance(btn) {
+  if (!__wsGovernance?.can_manage) return;
+  const fields = [...document.querySelectorAll('[data-ws-governance-lock]:checked')].map(el => el.value);
+  const visibleSectionIds = new Set((__siteSections || []).map(section => String(section.id)));
+  const sectionIds = [...new Set([...( __wsGovernance.local_locked_section_ids || []).filter(id => !visibleSectionIds.has(String(id))), ...document.querySelectorAll('[data-ws-section-lock]:checked')].map(el => typeof el === 'string' ? el : el.value))];
+  const approvalRequired = !!document.querySelector('[data-ws-approval-required]')?.checked;
+  const original = btn?.textContent || '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const result = await apiSendJson('/dealership/site/governance', 'PATCH', { locked_fields: fields, locked_section_ids: sectionIds, approval_required: approvalRequired });
+    __wsGovernance = { ...__wsGovernance, ...result, locked_fields: Array.isArray(result?.locked_fields) ? result.locked_fields : fields };
+    renderWsBody();
+    showToast('Brand protection updated', 'success');
+  } catch (e) {
+    showToast(e.message || 'Could not update brand protection', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = original; }
+  }
+}
+window.wsSaveGovernance = wsSaveGovernance;
+async function wsSaveGroupGovernance(btn) {
+  if (!__wsGovernance?.can_manage_group) return;
+  const fields = [...document.querySelectorAll('[data-ws-group-lock]:checked')].map(el => el.value);
+  const visibleSectionIds = new Set((__siteSections || []).map(section => String(section.id)));
+  const sectionIds = [...new Set([...( __wsGovernance.inherited_locked_section_ids || []).filter(id => !visibleSectionIds.has(String(id))), ...document.querySelectorAll('[data-ws-group-section-lock]:checked')].map(el => typeof el === 'string' ? el : el.value))];
+  const approvalRequired = !!document.querySelector('[data-ws-group-approval-required]')?.checked;
+  const original = btn?.textContent || '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const result = await apiSendJson('/dealership/site/group-governance', 'PATCH', { locked_fields: fields, locked_section_ids: sectionIds, approval_required: approvalRequired });
+    __wsGovernance = { ...__wsGovernance, inherited_locked_fields: result.locked_fields || fields, inherited_locked_section_ids: result.locked_section_ids || sectionIds, inherited_approval_required: result.approval_required === true, locked_fields: [...new Set([...(result.locked_fields || fields), ...(__wsGovernance.local_locked_fields || [])])], locked_section_ids: [...new Set([...(result.locked_section_ids || sectionIds), ...(__wsGovernance.local_locked_section_ids || [])])], approval_required: result.approval_required === true || __wsGovernance.approval_required === true };
+    renderWsBody();
+    showToast('Group website controls updated', 'success');
+  } catch (e) { showToast(e.message || 'Could not update group website controls', 'error'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = original; } }
+}
+window.wsSaveGroupGovernance = wsSaveGroupGovernance;
+async function wsOpenGroupApprovalQueue() {
+  if (!__wsGovernance?.can_manage_group) return;
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4';
+  modal.innerHTML = '<div class="w-full max-w-2xl max-h-[85vh] overflow-hidden rounded-2xl border border-[var(--ws-border)] bg-[var(--ws-panel)] text-[var(--ws-text)] shadow-2xl"><div class="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-[var(--ws-border)]"><div><h3 class="font-black">Group website approval queue</h3><p class="text-xs text-[var(--ws-text-muted)] mt-0.5">Review rooftop website changes without leaving this workspace.</p></div><button type="button" class="text-2xl leading-none text-[var(--ws-text-muted)]" data-close>&times;</button></div><div class="p-4 sm:p-5 overflow-y-auto max-h-[calc(85vh-76px)] text-sm text-[var(--ws-text-muted)]">Loading…</div></div>';
+  document.body.appendChild(modal); modal.querySelector('[data-close]').onclick = () => modal.remove();
+  try {
+    const data = await apiGetJson('/groups/website/change-sets', { retries: 1 });
+    const rows = (data?.change_sets || []).filter(cs => cs.status === 'review');
+    const body = modal.querySelector('.overflow-y-auto');
+    body.innerHTML = rows.length ? rows.map(cs => `<div class="rounded-xl border border-[var(--ws-border)] p-3 mb-2"><div class="flex flex-wrap items-start justify-between gap-2"><div><div class="font-black text-[var(--ws-text)]">${esc(cs.dealership_name || 'Rooftop')} · ${esc(cs.name)}</div><div class="text-xs mt-1">Requested by ${esc(cs.created_by || 'team member')} · ${new Date(cs.created_at).toLocaleString()}</div>${cs.description ? `<div class="text-xs mt-1">${esc(cs.description)}</div>` : ''}</div><div class="flex gap-1.5 shrink-0"><button type="button" data-group-approve="${esc(cs.id)}" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-black">Approve</button><button type="button" data-group-reject="${esc(cs.id)}" class="px-2.5 py-1.5 rounded-lg border border-rose-400/50 text-rose-300 text-[11px] font-black">Reject</button></div></div></div>`).join('') : '<div class="py-8 text-center">No rooftop change sets are waiting for review.</div>';
+    body.querySelectorAll('[data-group-approve]').forEach(btn => btn.onclick = async () => { btn.disabled = true; btn.textContent = 'Approving…'; try { await apiSendJson(`/groups/website/change-sets/${encodeURIComponent(btn.dataset.groupApprove)}/approve`, 'POST', {}); showToast('Rooftop change set approved', 'success'); modal.remove(); wsOpenGroupApprovalQueue(); } catch (e) { btn.disabled = false; btn.textContent = 'Approve'; showToast(e.message || 'Approval failed', 'error'); } });
+    body.querySelectorAll('[data-group-reject]').forEach(btn => btn.onclick = async () => { const feedback = prompt('What needs to change before this rooftop update can be approved?'); if (!feedback?.trim()) return; btn.disabled = true; btn.textContent = 'Rejecting…'; try { await apiSendJson(`/groups/website/change-sets/${encodeURIComponent(btn.dataset.groupReject)}/reject`, 'POST', { feedback }); showToast('Rooftop change set returned with feedback', 'success'); modal.remove(); wsOpenGroupApprovalQueue(); } catch (e) { btn.disabled = false; btn.textContent = 'Reject'; showToast(e.message || 'Rejection failed', 'error'); } });
+  } catch (e) { modal.querySelector('.overflow-y-auto').innerHTML = '<div class="py-8 text-center text-rose-400">Could not load the group approval queue.</div>'; }
+}
+window.wsOpenGroupApprovalQueue = wsOpenGroupApprovalQueue;
 function wsDesign() {
   const c = __siteCfg.content || {};
-  const swatch = (id, label, val) => `<div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">${label}</label><input id="${id}" type="color" value="${esc(val || '#1e3a8a')}" class="w-full h-10 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg"></div>`;
+  const swatch = (id, label, val, lockField) => `<div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1 flex items-center justify-between"><span>${label}</span>${wsFieldLocked(lockField) ? '<span class="text-[10px] font-black uppercase text-amber-600">Locked</span>' : ''}</label><input id="${id}" type="color" value="${esc(val || '#1e3a8a')}" ${wsFieldLocked(lockField) ? 'disabled title="This brand field is locked by an administrator"' : ''} class="w-full h-10 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg ${wsFieldLocked(lockField) ? 'opacity-50 cursor-not-allowed' : ''}"></div>`;
   const typos = [['modern','Modern'],['luxury','Luxury'],['bold','Bold'],['corporate','Corporate'],['minimal','Minimal']];
   const sel = 'w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm';
   const themes = [
@@ -3882,15 +4372,15 @@ function wsDesign() {
     </div>
     <div>
       <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Brand colours</div>
-      <div class="grid grid-cols-3 gap-2">${swatch('ws-c1', 'Primary', c.primary_color)}${swatch('ws-c2', 'Secondary / hero', c.secondary_color)}${swatch('ws-c3', 'Accent', c.accent_color)}</div>
+      <div class="grid grid-cols-3 gap-2">${swatch('ws-c1', 'Primary', c.primary_color, 'primary_color')}${swatch('ws-c2', 'Secondary / hero', c.secondary_color, 'secondary_color')}${swatch('ws-c3', 'Accent', c.accent_color, 'accent_color')}</div>
     </div>
     <div>
       <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Typography</div>
       <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Font preset</label>
       <select id="ws-typo" class="${sel}">${typos.map(t => `<option value="${t[0]}" ${(c.typography || 'modern') === t[0] ? 'selected' : ''}>${t[1]}</option>`).join('')}</select>
       <div class="grid grid-cols-2 gap-2 mt-2">
-        <div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Heading font</label><select id="ws-hfont" class="${sel}">${wsFontOpts(c.heading_font)}</select></div>
-        <div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Body font</label><select id="ws-bfont" class="${sel}">${wsFontOpts(c.body_font)}</select></div>
+        <div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1 flex items-center justify-between"><span>Heading font</span>${wsFieldLocked('heading_font') ? '<span class="text-[10px] font-black uppercase text-amber-600">Locked</span>' : ''}</label><select id="ws-hfont" class="${sel}" ${wsFieldLocked('heading_font') ? 'disabled' : ''}>${wsFontOpts(c.heading_font)}</select></div>
+        <div><label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1 flex items-center justify-between"><span>Body font</span>${wsFieldLocked('body_font') ? '<span class="text-[10px] font-black uppercase text-amber-600">Locked</span>' : ''}</label><select id="ws-bfont" class="${sel}" ${wsFieldLocked('body_font') ? 'disabled' : ''}>${wsFontOpts(c.body_font)}</select></div>
       </div>
       <p class="text-[11px] text-slate-400 mt-1">Pick any Google Font for headings/body — they override the preset. Leave on “Use preset” to keep the preset pairing.</p>
     </div>
@@ -3899,6 +4389,17 @@ function wsDesign() {
       <p class="text-[11px] text-slate-400 mt-1">On: each hero shows a real vehicle from your lot (a different one per page). Off: the built-in gradient art. Upload a photo on any individual hero to override either way.</p>
     </div>
     <p class="text-[11px] text-slate-400">Logo comes from your branding (Settings). Colours &amp; fonts update the whole site automatically.</p>
+    ${__wsGovernance?.can_manage ? `<div class="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-3">
+      <div>
+        <div class="text-sm font-black text-slate-900 dark:text-white">Brand protection</div>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Lock brand-critical fields so local editors can build pages without changing approved dealership identity or SEO controls.</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${['logo_url','primary_color','secondary_color','accent_color','heading_font','body_font','seo_title','seo_description','head_html'].map(field => `<label class="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300"><input type="checkbox" value="${field}" data-ws-governance-lock ${wsFieldLocked(field) ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">${wsGovernanceFieldLabel(field)}</label>`).join('')}</div>
+      ${__siteSections?.length ? `<div><div class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Protected sections on this page</div><div class="space-y-1.5">${__siteSections.map((section, index) => `<label class="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300"><input type="checkbox" value="${esc(section.id)}" data-ws-section-lock ${__wsGovernance.locked_section_ids?.includes(String(section.id)) ? 'checked' : ''} class="accent-indigo-600 w-4 h-4"><span>${index + 1}. ${esc(SEC_META[section.type]?.label || section.type)}</span></label>`).join('')}</div></div>` : ''}
+      <label class="flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/20 px-2.5 py-2.5 text-xs font-semibold text-amber-800 dark:text-amber-300"><input type="checkbox" data-ws-approval-required ${__wsGovernance.approval_required ? 'checked' : ''} class="accent-amber-600 w-4 h-4 mt-0.5"><span>Require approval before publishing<div class="font-normal text-[11px] mt-0.5 text-amber-700 dark:text-amber-400">Editors can save drafts and request review, but only an approved change set can reach production.</div></span></label>
+      <button type="button" onclick="wsSaveGovernance(this)" class="w-full rounded-xl bg-slate-900 dark:bg-indigo-600 hover:bg-slate-800 dark:hover:bg-indigo-500 text-white text-xs font-bold px-3 py-2.5 transition">Save brand protection</button>
+      ${__wsGovernance?.can_manage_group && __wsGovernance?.group_id ? `<div class="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-3"><div><div class="text-sm font-black text-slate-900 dark:text-white">Dealer-group controls</div><p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">These protections inherit across every rooftop in group ${esc(__wsGovernance.group_id)}. Local controls can only add protection.</p></div><button type="button" onclick="wsOpenGroupApprovalQueue()" class="w-full rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 text-amber-700 dark:text-amber-300 text-xs font-black px-3 py-2.5 transition">Open group approval queue</button><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${['logo_url','primary_color','secondary_color','accent_color','heading_font','body_font','seo_title','seo_description','head_html'].map(field => `<label class="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300"><input type="checkbox" value="${field}" data-ws-group-lock ${__wsGovernance.inherited_locked_fields?.includes(field) ? 'checked' : ''} class="accent-indigo-600 w-4 h-4">${wsGovernanceFieldLabel(field)}</label>`).join('')}</div>${__siteSections?.length ? `<div><div class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Protected sections across the group</div><div class="space-y-1.5">${__siteSections.map((section, index) => `<label class="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300"><input type="checkbox" value="${esc(section.id)}" data-ws-group-section-lock ${__wsGovernance.inherited_locked_section_ids?.includes(String(section.id)) ? 'checked' : ''} class="accent-indigo-600 w-4 h-4"><span>${index + 1}. ${esc(SEC_META[section.type]?.label || section.type)}</span></label>`).join('')}</div></div>` : ''}<label class="flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/20 px-2.5 py-2.5 text-xs font-semibold text-amber-800 dark:text-amber-300"><input type="checkbox" data-ws-group-approval-required ${__wsGovernance.inherited_approval_required ? 'checked' : ''} class="accent-amber-600 w-4 h-4 mt-0.5"><span>Require approval across the group<div class="font-normal text-[11px] mt-0.5">Every rooftop publish must use an approved change set.</div></span></label><button type="button" onclick="wsSaveGroupGovernance(this)" class="w-full rounded-xl border border-indigo-500/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/10 text-xs font-bold px-3 py-2.5 transition">Save group controls</button></div>` : ''}
+    </div>` : (Array.isArray(__wsGovernance?.locked_fields) && __wsGovernance.locked_fields.length || __wsGovernance?.approval_required ? `<div class="border-t border-slate-100 dark:border-slate-800 pt-4"><div class="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/20 px-3 py-3"><div class="text-xs font-black text-amber-800 dark:text-amber-300">Enterprise website controls are active</div>${__wsGovernance.approval_required ? '<p class="text-[11px] text-amber-700 dark:text-amber-400 mt-1">Publishing requires an approved change set. Save a draft, then use Request Approval.</p>' : ''}${__wsGovernance.locked_fields?.length ? `<p class="text-[11px] text-amber-700 dark:text-amber-400 mt-1">Protected fields: ${__wsGovernance.locked_fields.map(wsGovernanceFieldLabel).join(', ')}. Contact an administrator to change them.</p>` : ''}</div></div>` : '')}
   </div>`;
 }
 // Pages tab: extra content pages + auto-built model/offer pages (moved here from Settings).
@@ -3976,7 +4477,7 @@ async function uploadStaffPhoto(i, file) {
     __siteStaff[i].photo = d.url; renderSiteStaff(); showToast('Photo added', 'success');
   } catch (e) { showToast(e.message, 'error'); }
 }
-async function saveWebsite(btn) {
+async function saveWebsite(btn, action = 'draft') {
   // Collect design values if on that tab (they persist across tabs via __siteCfg.content).
   const c = __siteCfg.content || (__siteCfg.content = {});
   if (document.getElementById('ws-c1')) { c.primary_color = document.getElementById('ws-c1').value; c.secondary_color = document.getElementById('ws-c2').value; c.accent_color = document.getElementById('ws-c3').value; c.typography = document.getElementById('ws-typo').value; c.heading_font = document.getElementById('ws-hfont')?.value || ''; c.body_font = document.getElementById('ws-bfont')?.value || ''; c.hero_photos = !!document.getElementById('ws-heroimg')?.checked; }
@@ -3990,6 +4491,7 @@ async function saveWebsite(btn) {
     builtins: Object.keys(__siteBuiltins).length ? __siteBuiltins : defaultBuiltins(),
     menu_order: __menuOrder,
     builder_action: action,
+    base_revision_id: __siteCfg.revision?.id || null,
     change_summary: action === 'publish' ? 'Published website builder changes' : 'Saved website builder draft',
     site_published: action === 'publish',
     primary_color: c.primary_color, secondary_color: c.secondary_color, accent_color: c.accent_color, typography: c.typography,
@@ -3997,8 +4499,35 @@ async function saveWebsite(btn) {
     theme: c.theme || 'classic',
   };
   const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
-  try { const result = await apiSendJson('/dealership/site', 'PUT', body); try { localStorage.removeItem(`ms_ws_recovery:${__siteCfg.site_slug}`); } catch {} if (action === 'publish') __siteCfg.site_published = true; markWsSaved(); showToast(action === 'publish' ? 'Website published' : `Draft saved${result?.revision?.number ? ` · revision ${result.revision.number}` : ''}`, 'success'); btn.disabled = false; btn.textContent = orig; }
-  catch (e) { btn.disabled = false; btn.textContent = orig; showToast(e.message, 'error'); }
+  try {
+    const result = await apiSendJson('/dealership/site', 'PUT', body);
+    if (result?.revision) __siteCfg.revision = { ...result.revision };
+    if (action === 'publish') {
+      // A successful write is not enough to claim production is live. Read the
+      // published control-plane record back and require the exact revision we
+      // just created before showing a success toast.
+      const verified = await apiGetJson('/dealership/site', { retries: 1 });
+      const expectedRevision = result?.revision?.id;
+      const liveRevision = verified?.published_revision?.id;
+      if (!verified?.site_published || (expectedRevision && liveRevision !== expectedRevision)) throw new Error('Publish verification failed — production was not confirmed.');
+      __siteCfg.site_published = true;
+    }
+    try { localStorage.removeItem(`ms_ws_recovery:${__siteCfg.site_slug}`); } catch {}
+    markWsSaved();
+    showToast(action === 'publish' ? 'Website published and verified' : `Draft saved${result?.revision?.number ? ` · revision ${result.revision.number}` : ''}`, 'success');
+    btn.disabled = false; btn.textContent = orig;
+  }
+  catch (e) {
+    btn.disabled = false; btn.textContent = orig;
+    const message = e?.message || 'Could not save website changes.';
+    const conflict = /changed in another session|latest draft|concurrent|conflict/i.test(message);
+    if (conflict) {
+      showToast('This draft changed elsewhere. Reloading keeps the newest saved version.', 'error');
+      if (confirm('This website draft changed in another session. Reload the latest saved draft now?')) await loadWebsitePage();
+    } else if (/publish verification failed|production was not confirmed/i.test(message)) {
+      showToast('Publish was not confirmed. Production was left unchanged; reload and try again.', 'error');
+    } else showToast(message, 'error');
+  }
 }
 async function wsOpenRevisions() {
   const modal = document.createElement('div');
@@ -4007,11 +4536,25 @@ async function wsOpenRevisions() {
   document.body.appendChild(modal);
   modal.querySelector('[data-close]').onclick = () => modal.remove();
   try {
-    const data = await apiGetJson('/dealership/site/revisions', { retries: 1 });
+    const [data, changeSetData, auditData] = await Promise.all([
+      apiGetJson('/dealership/site/revisions', { retries: 1 }),
+      apiGetJson('/dealership/site/change-sets', { retries: 1 }).catch(() => ({ change_sets: [] })),
+      apiGetJson('/dealership/site/audit-log', { retries: 1 }).catch(() => ({ events: [] })),
+    ]);
     const rows = data?.revisions || [];
+    const changeSets = changeSetData?.change_sets || [];
+    const auditEvents = auditData?.events || [];
     const body = modal.querySelector('.p-5');
-    body.innerHTML = rows.length ? rows.map(r => `<div class="flex items-center justify-between gap-3 py-3 border-b border-[var(--ws-border)] last:border-0"><div><div class="font-bold">Revision ${r.revision_number} <span class="text-[10px] uppercase tracking-wider opacity-70">${r.state}</span></div><div class="text-xs text-[var(--ws-text-muted)]">${esc(r.change_summary || 'Website update')} · ${new Date(r.created_at).toLocaleString()}</div></div>${r.state === 'published' ? '<span class="text-[10px] font-black uppercase text-emerald-400">Production</span>' : `<button type="button" data-restore="${r.id}" class="px-3 py-1.5 rounded-lg border border-[var(--ws-border)] text-xs font-black hover:bg-[var(--ws-hover-bg)]">Restore draft</button>`}</div>`).join('') : '<div class="py-8 text-center">No saved revisions yet.</div>';
+    const approvalHtml = changeSets.length ? `<div class="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3"><div class="text-[10px] uppercase tracking-wider font-black text-amber-400 mb-1">Approval requests</div>${changeSets.slice(0, 5).map(cs => `<div class="flex items-center justify-between gap-2 py-1.5 text-xs"><span><strong>${esc(cs.name)}</strong><span class="opacity-70"> · ${new Date(cs.created_at).toLocaleString()}</span>${cs.review_feedback ? `<span class="block text-[11px] text-rose-300 mt-0.5">Feedback: ${esc(cs.review_feedback)}</span>` : ''}</span><span class="flex items-center gap-2 font-bold ${cs.status === 'approved' ? 'text-emerald-400' : cs.status === 'review' ? 'text-amber-300' : cs.status === 'rejected' ? 'text-rose-300' : 'text-slate-400'}">${esc(cs.status)}${cs.status === 'review' && __wsGovernance?.can_manage ? ` <button type="button" data-approve-change-set="${esc(cs.id)}" class="px-2 py-1 rounded border border-emerald-400/40 hover:bg-emerald-400/20 text-[10px]">Approve</button><button type="button" data-reject-change-set="${esc(cs.id)}" class="px-2 py-1 rounded border border-rose-400/40 hover:bg-rose-400/20 text-[10px]">Reject</button>` : ''}</span></div>`).join('')}</div>` : '';
+    const revisionHtml = rows.length ? rows.map(r => `<div class="flex items-center justify-between gap-3 py-3 border-b border-[var(--ws-border)] last:border-0"><div><div class="font-bold">Revision ${r.revision_number} <span class="text-[10px] uppercase tracking-wider opacity-70">${r.state}</span></div><div class="text-xs text-[var(--ws-text-muted)]">${esc(r.change_summary || 'Website update')} · ${new Date(r.created_at).toLocaleString()}</div></div>${r.state === 'published' ? '<span class="text-[10px] font-black uppercase text-emerald-400">Production</span>' : `<button type="button" data-restore="${r.id}" class="px-3 py-1.5 rounded-lg border border-[var(--ws-border)] text-xs font-black hover:bg-[var(--ws-hover-bg)]">Restore draft</button>`}</div>`).join('') : '<div class="py-8 text-center">No saved revisions yet.</div>';
+    const auditHtml = auditEvents.length ? `<div class="mb-3 rounded-xl border border-[var(--ws-border)] bg-[var(--ws-panel-raised)] p-3"><div class="text-[10px] uppercase tracking-wider font-black text-[var(--ws-text-muted)] mb-1">Website audit trail</div>${auditEvents.slice(0, 6).map(ev => `<div class="flex items-center justify-between gap-2 py-1 text-[11px]"><span class="font-semibold">${esc(ev.action)}</span><span class="text-[var(--ws-text-muted)]">${esc(ev.actor_email || 'Team member')} · ${new Date(ev.created_at).toLocaleString()}</span></div>`).join('')}</div>` : '';
+    body.innerHTML = approvalHtml + auditHtml + revisionHtml;
+    if (data?.deployments?.length) body.insertAdjacentHTML('afterbegin', `<div class="mb-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3"><div class="text-[10px] uppercase tracking-wider font-black text-emerald-400 mb-1">Recent deployments</div>${data.deployments.slice(0, 5).map(d => `<div class="flex items-center justify-between gap-2 py-1.5 text-xs"><span>${esc(d.published_summary?.change_summary || 'Website publish')}</span><span class="flex items-center gap-2 text-emerald-400 font-bold">${esc(d.status)} · ${new Date(d.verified_at || d.created_at).toLocaleString()} <button type="button" data-verify="${esc(d.id)}" class="px-2 py-1 rounded border border-emerald-400/40 hover:bg-emerald-400/20 text-[10px]">Verify</button> <button type="button" data-rollback="${esc(d.id)}" class="px-2 py-1 rounded border border-emerald-400/40 hover:bg-emerald-400/20 text-[10px]">Rollback</button></span></div>`).join('')}</div>`);
+    body.querySelectorAll('[data-verify]').forEach(btn => btn.onclick = async () => { btn.disabled = true; btn.textContent = 'Checking…'; try { const result = await apiSendJson(`/dealership/site/deployments/${encodeURIComponent(btn.dataset.verify)}/verify`, 'POST', {}); btn.textContent = 'Verified'; showToast(result?.deployment?.verified_status || 'Production verified', 'success'); } catch (e) { btn.disabled = false; btn.textContent = 'Verify'; showToast(e.message || 'Production verification failed', 'error'); } });
+    body.querySelectorAll('[data-approve-change-set]').forEach(btn => btn.onclick = async () => { btn.disabled = true; btn.textContent = 'Approving…'; try { await apiSendJson(`/dealership/site/change-sets/${encodeURIComponent(btn.dataset.approveChangeSet)}/approve`, 'POST', {}); modal.remove(); wsOpenRevisions(); showToast('Change set approved', 'success'); } catch (e) { btn.disabled = false; btn.textContent = 'Approve'; showToast(e.message || 'Approval failed', 'error'); } });
+    body.querySelectorAll('[data-reject-change-set]').forEach(btn => btn.onclick = async () => { const feedback = prompt('What needs to change before this website update can be approved?'); if (!feedback?.trim()) return; btn.disabled = true; btn.textContent = 'Rejecting…'; try { await apiSendJson(`/dealership/site/change-sets/${encodeURIComponent(btn.dataset.rejectChangeSet)}/reject`, 'POST', { feedback }); modal.remove(); wsOpenRevisions(); showToast('Change set returned with feedback', 'success'); } catch (e) { btn.disabled = false; btn.textContent = 'Reject'; showToast(e.message || 'Rejection failed', 'error'); } });
     body.querySelectorAll('[data-restore]').forEach(btn => btn.onclick = async () => { btn.disabled = true; btn.textContent = 'Restoring…'; try { await apiSendJson(`/dealership/site/revisions/${btn.dataset.restore}/restore`, 'POST', {}); modal.remove(); await loadWebsitePage(); showToast('Revision restored as a draft', 'success'); } catch (e) { btn.disabled = false; btn.textContent = 'Restore draft'; showToast(e.message, 'error'); } });
+    body.querySelectorAll('[data-rollback]').forEach(btn => btn.onclick = async () => { if (!confirm('Roll production back to this deployment? This creates a new published revision.')) return; btn.disabled = true; btn.textContent = 'Rolling back…'; try { await apiSendJson(`/dealership/site/deployments/${encodeURIComponent(btn.dataset.rollback)}/rollback`, 'POST', {}); modal.remove(); await loadWebsitePage(); showToast('Production rolled back and verified', 'success'); } catch (e) { btn.disabled = false; btn.textContent = 'Rollback'; showToast(e.message || 'Rollback failed', 'error'); } });
   } catch (e) { modal.querySelector('.p-5').innerHTML = `<div class="py-8 text-center text-rose-400">Could not load version history.</div>`; }
 }
 window.wsOpenRevisions = wsOpenRevisions;
@@ -4278,14 +4821,20 @@ function renderDealerBlog() {
   const rows = (__dealerBlog || []).map(p => `<div class="flex items-center gap-3 px-3 py-3 border-t border-slate-100 dark:border-slate-800/60 first:border-0">
       ${p.cover_image_url ? `<img src="${esc(p.cover_image_url)}" class="w-16 h-11 object-cover rounded-md flex-shrink-0">` : '<div class="w-16 h-11 rounded-md bg-slate-100 dark:bg-slate-800 flex-shrink-0"></div>'}
       <div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">${esc(p.title)}</div>
-        <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">/${esc(p.slug)}${p.excerpt ? ' · ' + esc(p.excerpt) : ''}</div></div>
-      <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${p.status === 'published' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'} flex-shrink-0">${p.status === 'published' ? 'Published' : 'Draft'}</span>
+        <div class="text-[12px] text-slate-500 dark:text-slate-400 truncate">/${esc(p.slug)}${p.category ? ' · ' + esc(p.category) : ''}${p.author ? ' · ' + esc(p.author) : ''}${p.excerpt ? ' · ' + esc(p.excerpt) : ''}</div></div>
+      ${p.automation_id || p.source === 'automation' || p.generated_by ? '<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 flex-shrink-0">Automated</span>' : ''}
+      <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${p.status === 'published' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : (p.status === 'scheduled' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800')} flex-shrink-0">${p.status === 'published' ? 'Published' : (p.status === 'scheduled' ? `Scheduled${p.scheduled_at ? ' · ' + esc(new Date(p.scheduled_at).toLocaleDateString()) : ''}` : 'Draft')}</span>
       <button onclick="dealerBlogEdit('${p.id}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[12px] font-bold flex-shrink-0">Edit</button>
       <button onclick="dealerBlogDelete('${p.id}')" class="text-[12px] font-bold text-rose-500 flex-shrink-0">Delete</button>
     </div>`).join('');
-  root.innerHTML = `<div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
-      <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-2xl">Posts show on your public site at <b>/blog</b> — each gets its own page, and you can drop a “Latest posts” section on any page. Great for SEO and specials.</p>
-      <button onclick="dealerBlogEdit(null)" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold flex-shrink-0">＋ New post</button></div>
+  root.innerHTML = `<div class="ms-blog-workspace space-y-4">
+    <div class="flex items-start justify-between gap-4 flex-wrap rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-5 shadow-sm">
+      <div><div class="text-[11px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Content Studio</div>
+        <h2 class="text-xl font-black text-slate-900 dark:text-white mt-1">Automated Blog Posts &amp; Tips</h2>
+        <p class="text-[13px] text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">Review, edit, and publish automated dealership articles, or write a new post. Posts appear at <b>/blog</b> and can power a Latest Articles section on your website.</p></div>
+      <div class="flex gap-2 flex-wrap"><button onclick="dealerBlogEdit(null)" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold">＋ Write a blog post</button><button onclick="if(typeof wsTab==='function')wsTab('builder')" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold">Open Website Builder</button></div>
+    </div>
+    <div class="flex items-center justify-between gap-3 flex-wrap"><p class="text-xs font-bold text-slate-500 dark:text-slate-400">${(__dealerBlog || []).length} post${(__dealerBlog || []).length === 1 ? '' : 's'} · Select Edit to revise automated content before publishing.</p></div>
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1">${rows || '<div class="text-sm text-slate-400 italic py-8 text-center">No posts yet — write your first to start ranking.</div>'}</div>`;
 }
 function dealerBlogModal(p) {
@@ -4332,6 +4881,30 @@ function dealerBlogModal(p) {
         <div>
           <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1">Article Excerpt <span class="text-slate-400 font-normal text-[11px]">— Summary for search engines &amp; cards</span></label>
           <textarea id="bp-excerpt" rows="2" placeholder="Brief summary of the article..." class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">${esc(p.excerpt || '')}</textarea>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1">Category</label>
+            <input id="bp-category" value="${esc(p.category || 'General')}" placeholder="Service, Inventory, Community" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1">Author</label>
+            <input id="bp-author" value="${esc(p.author || '')}" placeholder="Dealer team or author name" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-1">Schedule publishing <span class="font-normal text-[11px] normal-case">(optional)</span></label>
+            <input id="bp-scheduled-at" type="datetime-local" value="${p.scheduled_at ? esc(new Date(p.scheduled_at).toISOString().slice(0, 16)) : ''}" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <details class="rounded-xl border border-slate-200 dark:border-slate-800 p-3">
+            <summary class="cursor-pointer text-xs font-black uppercase tracking-wider text-slate-500">Search appearance</summary>
+            <div class="space-y-2 mt-3">
+              <input id="bp-seo-title" value="${esc(p.seo_title || '')}" placeholder="SEO title (optional)" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+              <input id="bp-seo-description" value="${esc(p.seo_description || '')}" placeholder="Meta description (optional)" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500">
+            </div>
+          </details>
         </div>
 
         <!-- Visual Article Builder -->
@@ -4383,6 +4956,7 @@ function dealerBlogModal(p) {
         <div class="flex items-center gap-2">
           <button data-close class="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition">Cancel</button>
           <button onclick="dealerBlogSave('${p.id || ''}','draft')" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-black hover:bg-slate-200 dark:hover:bg-slate-700 transition">Save Draft</button>
+          <button onclick="dealerBlogSave('${p.id || ''}','scheduled')" class="px-4 py-2 rounded-xl bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-xs font-black hover:bg-violet-200 dark:hover:bg-violet-900/60 transition">Schedule</button>
           <button onclick="dealerBlogSave('${p.id || ''}','published')" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition shadow-md">${p.status === 'published' ? 'Update &amp; Publish' : 'Publish Article'}</button>
         </div>
       </div>
@@ -4518,6 +5092,11 @@ window.dealerBlogSave = async (id, status) => {
     title: document.getElementById('bp-title').value.trim(),
     slug: document.getElementById('bp-slug').value.trim(),
     excerpt: document.getElementById('bp-excerpt').value.trim(),
+    author: document.getElementById('bp-author')?.value.trim() || null,
+    category: document.getElementById('bp-category')?.value.trim() || null,
+    seo_title: document.getElementById('bp-seo-title')?.value.trim() || null,
+    seo_description: document.getElementById('bp-seo-description')?.value.trim() || null,
+    scheduled_at: document.getElementById('bp-scheduled-at')?.value ? new Date(document.getElementById('bp-scheduled-at').value).toISOString() : null,
     content_html: contentHtml,
     cover_image_url: document.getElementById('bp-cover').value || null,
     tags: document.getElementById('bp-tags').value.split(',').map(s => s.trim()).filter(Boolean),
@@ -4529,7 +5108,7 @@ window.dealerBlogSave = async (id, status) => {
     else await apiSendJson('/dealership/blog', 'POST', payload);
     document.getElementById('blog-modal')?.remove();
     await loadDealerBlog();
-    showToast(status === 'published' ? 'Post published' : 'Draft saved', 'success');
+    showToast(status === 'published' ? 'Post published' : (status === 'scheduled' ? 'Post scheduled' : 'Draft saved'), 'success');
   } catch (e) { showToast(e.message || 'Could not save', 'error'); }
 };
 window.dealerBlogDelete = async (id) => {

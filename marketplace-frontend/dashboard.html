@@ -24,12 +24,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260826_b1_v1">
+  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260830_light_rail_v1">
   <link rel="stylesheet" href="css/dashboard-nav.css">
   <link rel="stylesheet" href="css/dashboard-brand-repaint.css">
   <link rel="stylesheet" href="css/tailwind-built.css?v=20260825_header_spacing_v1">
   <link rel="stylesheet" href="css/ms-phase3-global.css?v=20260827_p4_v1">
   <link rel="stylesheet" href="css/ms-phase4-routes.css?v=20260827_p4_s3">
+  <link rel="stylesheet" href="css/ms-liquid-glass.css?v=20260828_global_v3">
   <link rel="stylesheet" href="css/ms-design-system.css?v=20260826_b1_v1">
   <meta name="color-scheme" content="light dark">
   <!-- Chart.js / QR / WebAuthn load on demand via msLoadScript — they blocked first paint when in <head>. -->
@@ -186,6 +187,147 @@
     /* The mode switch sits on a stronger blue in MarketSync mode. */
     html[data-dash-mode="marketsync"] #ms-mode-switch{background:#dbeafe}
     html[data-dash-mode="marketsync"].dark #ms-mode-switch{background:#172554}
+    /* ─── HQ command-center page CSS ───────────────────────────────────────
+       Pin the theme tokens for the new HQ pages (Trials, Billing, Affiliates,
+       Product Usage, Platform Health, Staff Onboarding, Announcements, HQ
+       Intelligence). Their bodies render dynamically from JS, so we can't
+       rely on Tailwind's dark:* utilities always winning against the
+       MarketSync-mode `!important` overrides declared further down.
+
+       Rules:
+       - Every HQ page's outermost content div gets vertical rhythm.
+       - Card surfaces stay solid (never transparent) so text stays readable
+         against the tinted MarketSync body background.
+       - Text tones always win against the mode override for the same reason.
+       - Table headers keep their contrast in dark mode.
+
+       Scoped by `[data-page-content^="saas-"]` so no dealer-side page can
+       accidentally get MarketSync HQ styling. */
+    [data-page-content^="saas-"]:not(.hidden){display:block}
+    [data-page-content^="saas-"] > *:not(:last-child){margin-bottom:1.5rem}
+    /* Solid card + border tokens — light. */
+    [data-page-content^="saas-"] .ms-hq-card,
+    [data-page-content^="saas-"] .rounded-2xl.bg-white,
+    [data-page-content^="saas-"] .rounded-xl.bg-white{background-color:#ffffff;border-color:#e2e8f0;color:#0f172a}
+    /* Solid card + border tokens — dark. `.dark` wins because it targets the
+       html element that has both `.dark` and the descendant tree. */
+    .dark [data-page-content^="saas-"] .ms-hq-card,
+    .dark [data-page-content^="saas-"] .rounded-2xl.dark\:bg-slate-900,
+    .dark [data-page-content^="saas-"] .rounded-xl.dark\:bg-slate-900{background-color:#0f172a;border-color:#1e293b;color:#f1f5f9}
+    /* Table zebra + hover. */
+    [data-page-content^="saas-"] table thead tr{background-color:#f8fafc}
+    .dark [data-page-content^="saas-"] table thead tr{background-color:#0b1220}
+    [data-page-content^="saas-"] table tbody tr:hover{background-color:#f1f5f9}
+    .dark [data-page-content^="saas-"] table tbody tr:hover{background-color:#111827}
+    /* KPI card border stays crisp in both themes. */
+    [data-page-content^="saas-"] .ms-c{border:1px solid #e2e8f0}
+    .dark [data-page-content^="saas-"] .ms-c{border-color:#1e293b}
+    /* Sub-links inside the Operate MarketSync command groups — keep contrast
+       in MarketSync mode where the mode override tries to pull bg-slate-100
+       toward blue. */
+    html[data-dash-mode="marketsync"] [data-page-content="saas-command"] .bg-slate-100{background-color:#eff6ff}
+    html[data-dash-mode="marketsync"].dark [data-page-content="saas-command"] .dark\:bg-slate-800{background-color:#0f2445}
+    /* The sidebar HQ nav items must not read as disabled in either mode. */
+    #dashboard-nav [id^="nav-saas-"]{color:#0f172a}
+    .dark #dashboard-nav [id^="nav-saas-"]{color:#e2e8f0}
+    #dashboard-nav [id^="nav-saas-"][aria-current="page"],
+    #dashboard-nav [id^="nav-saas-"].is-active{background-color:#eef2ff;color:#3730a3}
+    .dark #dashboard-nav [id^="nav-saas-"][aria-current="page"],
+    .dark #dashboard-nav [id^="nav-saas-"].is-active{background-color:#1e1b4b;color:#c7d2fe}
+    /* Money-ring unfilled arc: light = slate-200, dark = slate-800. Falls back
+       to slate-200 if the token is missing (older glass builds without it). */
+    :root{--ms-ring-track:#e2e8f0}
+    .dark{--ms-ring-track:#1e293b}
+    /* Chrome (top bar + sidebars) is ALWAYS light — regardless of the .dark
+       class on <html>. Line-19 script auto-toggles .dark from the OS pref,
+       so a plain rule with lower specificity than
+       `marketsync-theme.css: .dark #dept-sidebar {background:var(--ms-surface-solid)}`
+       (1,1,0) got clobbered on macOS/iOS Night Shift. Doubling the ID in the
+       selector lifts the specificity to (2,0,0) which beats every existing
+       chrome-painting rule in both themes.
+
+       Also disables backdrop-filter — the translucent rgba(...,0.72) from
+       ms-phase3-global.css was mixing with the body colour underneath and
+       reading muddy. Solid #ffffff kills that mixing entirely.
+
+       Icons + text inside the chrome are pinned to slate-900 so they read
+       against the white surface, again even when .dark is set on <html>. */
+    /* Header uses a THIRD class chain because
+       `html.dark header.ms-chrome-glass` in ms-phase3-global.css is (0,2,2)
+       and beats my earlier doubled-class (0,2,1). Triple-class lifts it to
+       (0,3,1) which wins. All ID-selected chrome (dashboard-nav, dept-nav,
+       dept-sidebar, dept-tabbar) uses doubled IDs = (2,0,0) which beats
+       every existing rule in both themes. */
+    /* HQ owner mode: keep the top header (user asked for the colour only),
+       but kill the workspace tab-bar since the sidebar now flattens every
+       HQ page as a directly-clickable entry — no need to drill through
+       tabs. Dealer mode is untouched. */
+    html[data-dash-owner="1"] #dept-tabbar{display:none!important}
+    header.ms-chrome-glass.ms-chrome-glass.ms-chrome-glass,
+    #dashboard-nav#dashboard-nav,
+    #dept-nav#dept-nav,
+    #dept-sidebar#dept-sidebar,
+    #dept-tabbar#dept-tabbar{
+      background:#ffffff!important;
+      background-color:#ffffff!important;
+      background-image:none!important;
+      color:#0f172a!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+      border-color:#e2e8f0!important;
+      box-shadow:0 1px 2px rgba(15,23,42,.04)!important;
+    }
+    html body header.ms-chrome-glass *,
+    html body #dashboard-nav *,
+    html body #dept-nav *,
+    html body #dept-sidebar *{
+      /* only override text tokens — leave utility bg/border classes intact
+         so buttons, active-state pills and coloured icons still show. */
+      --tw-text-opacity:1;
+    }
+    html body header.ms-chrome-glass a,
+    html body header.ms-chrome-glass button,
+    html body header.ms-chrome-glass span,
+    html body #dashboard-nav a,
+    html body #dashboard-nav button,
+    html body #dashboard-nav span,
+    html body #dept-nav a,
+    html body #dept-nav button,
+    html body #dept-nav span{color:inherit}
+    /* Restore the intentional coloured icons (violet, sky, emerald, etc.) so
+       we don't paint everything monochrome. Icons carry their own text-* class
+       already; this rule just makes sure that class wins over the inherit. */
+    html body header.ms-chrome-glass svg[class*="text-"],
+    html body #dashboard-nav svg[class*="text-"],
+    html body #dept-nav svg[class*="text-"]{color:revert}
+    /* Mobile nav on HQ: `#dashboard-nav` uses `bg-white dark:bg-slate-900`
+       Tailwind utilities but on tenants with `data-ms-glass="global"` the
+       .ms-glass surface token (rgba .85) can bleed through and read as a
+       translucent bar sitting on top of the header art. Force it opaque
+       below md so icons + labels stay crisp. `#mobile-quickrow-dyn` uses
+       `display:contents` and cannot paint a background — it should not have
+       one — so the rule targets the parent nav instead. */
+    @media (max-width: 767px){
+      #dashboard-nav{background-color:#ffffff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border-color:#e2e8f0!important}
+      .dark #dashboard-nav{background-color:#0b1220!important;border-color:#1e293b!important}
+    }
+    /* Customer 360 drawer + HQ modal windows: opaque backgrounds so the
+       Liquid-Glass semi-transparent surface token doesn't make the drawer
+       body read as dim/muddy over the page underneath (the screenshot bug
+       where labels went invisible in dark mode). */
+    #saas-cust-drawer > div,
+    #hq-acct-modal > div,
+    #acc-receipt-scan-modal > div{background-color:#ffffff!important;color:#0f172a}
+    .dark #saas-cust-drawer > div,
+    .dark #hq-acct-modal > div,
+    .dark #acc-receipt-scan-modal > div{background-color:#0f172a!important;color:#f1f5f9}
+    #saas-cust-drawer [class*="text-slate-8"],
+    #saas-cust-drawer [class*="text-slate-9"]{color:#0f172a}
+    .dark #saas-cust-drawer [class*="text-slate-8"],
+    .dark #saas-cust-drawer [class*="text-slate-9"],
+    .dark #saas-cust-drawer [class*="dark\\:text-white"]{color:#f1f5f9}
+    /* End HQ command-center CSS ──────────────────────────────────────────── */
+
     /* Both logo PNGs contain substantial transparent canvas. Crop that canvas in every
        dashboard mode so the visible MarketSync mark—not its empty image box—is large. */
     #dashboard-brand{width:15rem;height:4rem;overflow:hidden;position:relative}
@@ -248,7 +390,6 @@
        renders nothing) so space-y-10 doesn't leave big blank gaps between cards. */
     #reports-overview > div:empty { display: none; }
   </style>
-  <link rel="stylesheet" href="css/ms-liquid-glass.css?v=20260828_global_v3">
   <style id="ms-font-bump">html{font-size:17px}@media (max-width:640px){html{font-size:16px}}</style>
   <style>.chip{display:inline-flex;align-items:center;font-size:0.7rem;padding:1px 7px;border-radius:999px;background:rgb(241 245 249);color:rgb(71 85 105);border:1px solid rgb(226 232 240);white-space:nowrap}.dark .chip{background:rgb(30 41 59);color:rgb(148 163 184);border-color:rgb(51 65 85)}.scrollbar-none{-ms-overflow-style:none;scrollbar-width:none}.scrollbar-none::-webkit-scrollbar{display:none}.dark img[src*="logo.png"]{filter:brightness(0) invert(1);}</style>
   <!-- DealerOS department layer: order the desktop sidebar top-to-bottom by department
@@ -1217,30 +1358,78 @@
           </button>
 
           <!-- ─── Customer Pipeline (owner) — SaaS retention board ─── -->
-          <button type="button" id="nav-saas-customers" data-page="saas-customers" title="Customer Pipeline" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <button type="button" id="nav-saas-customers" data-page="saas-customers" title="Customer Pipeline" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
             <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>
             <span>Customer Pipeline</span>
           </button>
 
-          <button type="button" id="nav-saas-followups" data-page="saas-followups" title="Follow-ups" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <button type="button" id="nav-saas-followups" data-page="saas-followups" title="Follow-ups" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
             <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a3 3 0 016 0M9 12h6m-6 4h6"/></svg>
             <span>Follow-ups</span>
           </button>
 
           <!-- ─── Funnel (checkout / abandoned carts) ─── -->
-          <button type="button" id="nav-saas-funnel" data-page="saas-funnel" title="Funnel" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <button type="button" id="nav-saas-funnel" data-page="saas-funnel" title="Funnel" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
             <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4h18l-7 8v6l-4 2v-8L3 4z"/></svg>
             <span>Funnel</span>
           </button>
 
           <!-- ─── Automation & Email (editable drips + templates) ─── -->
-          <button type="button" id="nav-saas-automation" data-page="saas-automation" title="Automation" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <button type="button" id="nav-saas-automation" data-page="saas-automation" title="Automation" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
             <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             <span>Automation</span>
           </button>
 
+          <!-- ─── Trials (owner) — pipeline + conversion ─── -->
+          <button type="button" id="nav-saas-trials" data-page="saas-trials" title="Trials" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3M12 3a9 9 0 100 18 9 9 0 000-18z"/></svg>
+            <span>Trials</span>
+          </button>
+
+          <!-- ─── Announcements (owner) — customer + staff broadcasts ─── -->
+          <button type="button" id="nav-saas-announcements" data-page="saas-announcements" title="Announcements" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
+            <span>Announcements</span>
+          </button>
+
+          <!-- ─── Staff Onboarding (owner) — per-staff checklist ─── -->
+          <button type="button" id="nav-saas-onboarding" data-page="saas-onboarding" title="Staff Onboarding" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>Staff Onboarding</span>
+          </button>
+
+          <!-- ─── HQ Intelligence (owner) — ask questions of MarketSync data ─── -->
+          <button type="button" id="nav-saas-intelligence" data-page="saas-intelligence" title="HQ Intelligence" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            <span>HQ Intelligence</span>
+          </button>
+
+          <!-- ─── Billing (owner) — subscriptions + receivables ─── -->
+          <button type="button" id="nav-saas-billing" data-page="saas-billing" title="Billing" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M5 6h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z"/></svg>
+            <span>Billing</span>
+          </button>
+
+          <!-- ─── Affiliates (owner) — program overview + top performers ─── -->
+          <button type="button" id="nav-saas-affiliates" data-page="saas-affiliates" title="Affiliates" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 5.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            <span>Affiliates</span>
+          </button>
+
+          <!-- ─── Product Usage (owner) — adoption per product namespace ─── -->
+          <button type="button" id="nav-saas-product-usage" data-page="saas-product-usage" title="Product Usage" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
+            <span>Product Usage</span>
+          </button>
+
+          <!-- ─── Platform Health (owner) — dunning + integration failures ─── -->
+          <button type="button" id="nav-saas-health" data-page="saas-health" title="Platform Health" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>Platform Health</span>
+          </button>
+
           <!-- ─── Employees (owner) — MarketSync staff + permissions ─── -->
-          <button type="button" id="nav-saas-employees" data-page="saas-employees" title="Employees" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <button type="button" id="nav-saas-employees" data-page="saas-employees" title="Employees" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
             <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
             <span>Employees</span>
           </button>
@@ -1252,7 +1441,7 @@
           </button>
 
           <!-- ─── Platform admin (MarketSync owner only) — all accounts + billing/engines ─── -->
-          <button type="button" id="nav-owner-users" data-page="owner-users" title="All Users (owner)" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <button type="button" id="nav-owner-users" data-page="owner-users" title="All Users (owner)" class="nav-item hidden w-full items-center gap-2.5 px-3 py-2 rounded font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
             <svg class="w-4 h-4 flex-shrink-0 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
             <span>All Users</span>
           </button>
@@ -1702,6 +1891,20 @@
       </div>
 
       <div data-page-content="video-studio" class="page-content hidden space-y-6">
+        <section class="ms-glass rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/85 dark:bg-slate-900/75 p-7 md:p-9 shadow-sm">
+          <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div class="min-w-0 flex items-start gap-4">
+              <div class="w-14 h-14 rounded-2xl bg-red-600/10 text-red-700 dark:text-red-300 border border-red-500/25 flex items-center justify-center flex-shrink-0">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+              <div class="min-w-0">
+                <h2 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none">Video Studio</h2>
+                <p class="text-base text-slate-600 dark:text-slate-300 mt-2 max-w-3xl leading-relaxed">Create inventory showcases, testimonials, and promotional videos to engage customers.</p>
+              </div>
+            </div>
+            <button type="button" onclick="openVideoStudioTemplatePicker()" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black shadow-md shrink-0">Browse Templates →</button>
+          </div>
+        </section>
         <div id="video-studio-root"></div>
       </div>
 
@@ -1710,6 +1913,20 @@
       </div>
 
       <div data-page-content="studio" class="page-content hidden space-y-6">
+        <section class="ms-glass rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/85 dark:bg-slate-900/75 p-7 md:p-9 shadow-sm">
+          <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div class="min-w-0 flex items-start gap-4">
+              <div class="w-14 h-14 rounded-2xl bg-indigo-600/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/25 flex items-center justify-center flex-shrink-0">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V5z"/></svg>
+              </div>
+              <div class="min-w-0">
+                <h2 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none">Design Studio</h2>
+                <p class="text-base text-slate-600 dark:text-slate-300 mt-2 max-w-3xl leading-relaxed">Create stunning graphics, social media posts, banners, and promotional materials.</p>
+              </div>
+            </div>
+            <button type="button" onclick="openDesignStudioTemplatePicker()" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black shadow-md shrink-0">Browse Templates →</button>
+          </div>
+        </section>
         <div id="studio-root"></div>
       </div>
 
@@ -1762,6 +1979,20 @@
       </div>
 
       <div data-page-content="email-marketing" class="page-content hidden space-y-6">
+        <section class="ms-glass rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/85 dark:bg-slate-900/75 p-7 md:p-9 shadow-sm">
+          <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div class="min-w-0 flex items-start gap-4">
+              <div class="w-14 h-14 rounded-2xl bg-blue-600/10 text-blue-700 dark:text-blue-300 border border-blue-500/25 flex items-center justify-center flex-shrink-0">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+              </div>
+              <div class="min-w-0">
+                <h2 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none">Email/SMS Studio</h2>
+                <p class="text-base text-slate-600 dark:text-slate-300 mt-2 max-w-3xl leading-relaxed">Build newsletters, promotions, and customer outreach campaigns via email and SMS.</p>
+              </div>
+            </div>
+            <button type="button" onclick="openEmailSmsStudioTemplatePicker()" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black shadow-md shrink-0">Browse Templates →</button>
+          </div>
+        </section>
         <div id="dealer-email-root"></div>
       </div>
 
@@ -1810,6 +2041,38 @@
       <div data-page-content="saas-billing" class="page-content hidden space-y-6"><div id="saas-billing-root"></div></div>
       <div data-page-content="saas-accounting" class="page-content hidden space-y-6">
         <div id="saas-accounting-root"></div>
+      </div>
+
+      <div data-page-content="saas-billing" class="page-content hidden space-y-6">
+        <div id="saas-billing-root"></div>
+      </div>
+
+      <div data-page-content="saas-affiliates" class="page-content hidden space-y-6">
+        <div id="saas-affiliates-root"></div>
+      </div>
+
+      <div data-page-content="saas-product-usage" class="page-content hidden space-y-6">
+        <div id="saas-product-usage-root"></div>
+      </div>
+
+      <div data-page-content="saas-health" class="page-content hidden space-y-6">
+        <div id="saas-health-root"></div>
+      </div>
+
+      <div data-page-content="saas-trials" class="page-content hidden space-y-6">
+        <div id="saas-trials-root"></div>
+      </div>
+
+      <div data-page-content="saas-onboarding" class="page-content hidden space-y-6">
+        <div id="saas-onboarding-root"></div>
+      </div>
+
+      <div data-page-content="saas-announcements" class="page-content hidden space-y-6">
+        <div id="saas-announcements-root"></div>
+      </div>
+
+      <div data-page-content="saas-intelligence" class="page-content hidden space-y-6">
+        <div id="saas-intelligence-root"></div>
       </div>
 
       <div data-page-content="owner-users" class="page-content hidden space-y-6">
@@ -3057,15 +3320,16 @@
         <section class="ms-glass rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/85 dark:bg-slate-900/75 p-7 md:p-9 shadow-sm">
           <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div class="min-w-0 flex items-start gap-4">
-              <div class="w-14 h-14 rounded-2xl bg-indigo-600/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/25 flex items-center justify-center flex-shrink-0">
-                <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+              <div class="w-14 h-14 rounded-2xl bg-amber-600/10 text-amber-700 dark:text-amber-300 border border-amber-500/25 flex items-center justify-center flex-shrink-0">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
               </div>
               <div class="min-w-0">
-                <h2 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none">Email, SMS &amp; Campaigns</h2>
-                <p class="text-base text-slate-600 dark:text-slate-300 mt-2 max-w-3xl leading-relaxed">Automations and broadcasts — lead response, service retention, reviews, and journeys.</p>
+                <h2 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none">Automations Studio</h2>
+                <p class="text-base text-slate-600 dark:text-slate-300 mt-2 max-w-3xl leading-relaxed">Build automated workflows for lead response, service retention, reviews, and customer journeys.</p>
               </div>
             </div>
             <div class="flex items-center gap-2 flex-wrap shrink-0">
+              <button type="button" onclick="openAutomationsStudioTemplatePicker()" class="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-black shadow-md">Browse Templates →</button>
               <button type="button" onclick="typeof openVisualWorkflowBuilder==='function' && openVisualWorkflowBuilder()" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black shadow-md">Build Automation</button>
               <button type="button" onclick="typeof openEmailSmsBuilder==='function' && openEmailSmsBuilder({mode:'email'})" class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-sm font-black">New Campaign</button>
             </div>
@@ -4099,14 +4363,14 @@
   <!-- Workspace registry: SINGLE SOURCE OF TRUTH for sidebar, workspace tabs and
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
   <script src="js/modules/workspace-registry.js?v=20260824_inventory_accuracy_v1"></script>
-  <script src="dashboard.js?v=20260826_hq_menu_v1"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260830_rep_sync_v1"></script>
+  <script src="dashboard.js?v=20260901_hq_chrome_v1"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260901_hq_chrome_v1"></script>
   <script src="js/modules/dashboard-part3.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part4.js?v=20260827_p4_crm_v1"></script>
   <script src="js/modules/dashboard-part5.js?v=20260826_hq_menu_v1"></script>
   <script src="js/modules/dashboard-part6.js?v=20260826_desk_glass_v1"></script>
   <script src="js/modules/dashboard-part7.js?v=20260814_v12"></script>
-  <script src="js/modules/dashboard-part8.js?v=20260826_staff_appr_v1"></script>
+  <script src="js/modules/dashboard-part8.js?v=20260829_pinterest_v1"></script>
   <script src="js/modules/dashboard-part9.js?v=20260825_settings_masonry_v1"></script>
   <script src="js/modules/hq-workspace.js?v=20260827_p4_hq_v1"></script>
   <script src="js/modules/dashboard-part10.js?v=20260827_p4_eng_v1"></script>
@@ -4141,7 +4405,7 @@
   <script src="js/modules/accounting-views.js?v=20260817_simple_internal"></script>
   <script src="js/modules/accounting-workspace.js?v=20260826_lb_dept_v1"></script>
   <script src="js/modules/video-studio.js?v=20260826_video_fix_v2"></script>
-  <script src="js/modules/marketing-workspace.js?v=20260826_sched_load_v1"></script>
+  <script src="js/modules/marketing-workspace.js?v=20260830_studio_projects_v1"></script>
   <script src="js/modules/discoverability-workspace.js?v=20260827_discoverability_v1"></script>
   <script src="js/modules/launch-workspace.js?v=20260824_ai_panel_contrast_v1"></script>
   <script src="js/modules/academy-workspace.js?v=20260824_ai_panel_contrast_v1"></script>
