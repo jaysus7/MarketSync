@@ -1016,8 +1016,8 @@ function openWsPhotoPicker(onPick) {
 function renderWsPhotoPickerModal() {
   const modal = document.getElementById('ws-photo-picker-modal');
   if (!modal) return;
-  
-  const tabBtn = (id, label) => `<button type="button" onclick="setWsPhotoTab('${id}')" class="px-4 py-2 text-xs font-black rounded-xl transition ${__wsPhotoActiveTab === id ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">${label}</button>`;
+
+  const tabBtn = (id, label) => `<button type="button" class="ws-photo-tab px-4 py-2 text-xs font-black rounded-xl transition ${__wsPhotoActiveTab === id ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}" data-tab-id="${esc(id)}">${label}</button>`;
 
   modal.innerHTML = `
     <div class="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800">
@@ -1044,6 +1044,11 @@ function renderWsPhotoPickerModal() {
         ${__wsPhotoActiveTab === 'media' ? 'Your uploaded website media library' : (__wsPhotoActiveTab === 'pexels' ? 'High-quality royalty-free photography provided by Pexels' : (__wsPhotoActiveTab === 'inventory' ? 'Live lot vehicle photos from your inventory' : 'Supported formats: JPG, PNG, WEBP'))}
       </div>
     </div>`;
+
+  // Setup event listeners for photo picker tab buttons
+  modal.querySelectorAll('.ws-photo-tab').forEach(btn => {
+    btn.addEventListener('click', e => setWsPhotoTab(e.currentTarget.dataset.tabId));
+  });
 
   if (__wsPhotoActiveTab === 'pexels') searchWsPhotoLibrary('car dealership');
   else if (__wsPhotoActiveTab === 'inventory') loadWsInventoryPhotos();
@@ -1171,7 +1176,24 @@ function renderWsMediaGrid() {
   const box = document.getElementById('ws-media-grid'); if (!box) return;
   const q = __wsMediaQuery.toLowerCase().trim();
   const media = __wsMediaCache.filter(m => (__wsMediaFolder === 'all' || (m.folder || 'Library') === __wsMediaFolder) && (!q || `${m.filename || ''} ${m.alt_text || ''}`.toLowerCase().includes(q)));
-  box.innerHTML = media.length ? media.map(m => { const usage = wsMediaUsageCount(m.public_url); return `<div class="group relative aspect-video rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 hover:border-indigo-500 transition"><button type="button" onclick="pickWsPhoto('${esc(m.public_url)}')" class="w-full h-full"><img src="${esc(m.public_url)}" alt="${esc(m.alt_text || m.filename || 'Website image')}" loading="lazy" class="w-full h-full object-cover"></button><div class="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/85 to-transparent text-[10px] text-white font-bold truncate">${esc(m.filename || 'Website image')} · ${esc(m.folder || 'Library')} ${m.width && m.height ? `· ${m.width}×${m.height}` : ''} ${m.file_size_bytes ? `· ${(Number(m.file_size_bytes) / 1024).toFixed(0)} KB` : ''} · ${usage ? `${usage} use${usage === 1 ? '' : 's'}` : 'Unused'}</div><input aria-label="Alt text" value="${esc(m.alt_text || '')}" placeholder="Alt text" onkeydown="event.stopPropagation()" onchange="updateWsMediaAlt('${m.id}', this.value)" class="absolute left-1 right-1 bottom-7 hidden group-hover:block rounded bg-black/75 border border-white/30 px-1.5 py-1 text-[10px] text-white placeholder:text-white/60"><div class="absolute top-1 left-1 hidden group-hover:flex gap-1"><button type="button" onclick="moveWsMedia('${m.id}','${esc(m.folder || 'Library')}')" class="rounded-md bg-black/75 px-1.5 py-1 text-[10px] text-white">Move</button><button type="button" onclick="replaceWsMedia('${m.id}')" class="rounded-md bg-indigo-600/90 px-1.5 py-1 text-[10px] text-white">Replace</button></div><button type="button" onclick="deleteWsMedia('${m.id}')" class="absolute top-1 right-1 hidden group-hover:block rounded-md bg-black/70 px-1.5 py-1 text-[10px] text-white">Delete</button></div>`; }).join('') : `<div class="col-span-3 py-10 text-center text-xs text-slate-400 italic">${q ? 'No media matches this search.' : 'No uploaded website media yet.'}</div>`;
+  box.innerHTML = media.length ? media.map(m => { const usage = wsMediaUsageCount(m.public_url); return `<div class="group relative aspect-video rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 hover:border-indigo-500 transition"><button type="button" class="pick-photo-btn w-full h-full" data-photo-url="${esc(m.public_url)}"><img src="${esc(m.public_url)}" alt="${esc(m.alt_text || m.filename || 'Website image')}" loading="lazy" class="w-full h-full object-cover"></button><div class="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/85 to-transparent text-[10px] text-white font-bold truncate">${esc(m.filename || 'Website image')} · ${esc(m.folder || 'Library')} ${m.width && m.height ? `· ${m.width}×${m.height}` : ''} ${m.file_size_bytes ? `· ${(Number(m.file_size_bytes) / 1024).toFixed(0)} KB` : ''} · ${usage ? `${usage} use${usage === 1 ? '' : 's'}` : 'Unused'}</div><input aria-label="Alt text" value="${esc(m.alt_text || '')}" placeholder="Alt text" data-media-id="${esc(m.id)}" class="update-media-alt-input absolute left-1 right-1 bottom-7 hidden group-hover:block rounded bg-black/75 border border-white/30 px-1.5 py-1 text-[10px] text-white placeholder:text-white/60" onkeydown="event.stopPropagation()"><div class="absolute top-1 left-1 hidden group-hover:flex gap-1"><button type="button" class="move-media-btn rounded-md bg-black/75 px-1.5 py-1 text-[10px] text-white" data-media-id="${esc(m.id)}" data-media-folder="${esc(m.folder || 'Library')}">Move</button><button type="button" class="replace-media-btn rounded-md bg-indigo-600/90 px-1.5 py-1 text-[10px] text-white" data-media-id="${esc(m.id)}">Replace</button></div><button type="button" class="delete-media-btn absolute top-1 right-1 hidden group-hover:block rounded-md bg-black/70 px-1.5 py-1 text-[10px] text-white" data-media-id="${esc(m.id)}">Delete</button></div>`; }).join('') : `<div class="col-span-3 py-10 text-center text-xs text-slate-400 italic">${q ? 'No media matches this search.' : 'No uploaded website media yet.'}</div>`;
+
+  // Setup event listeners for media grid buttons
+  box.querySelectorAll('.pick-photo-btn').forEach(btn => {
+    btn.addEventListener('click', e => pickWsPhoto(e.currentTarget.dataset.photoUrl));
+  });
+  box.querySelectorAll('.update-media-alt-input').forEach(input => {
+    input.addEventListener('change', e => updateWsMediaAlt(e.currentTarget.dataset.mediaId, e.currentTarget.value));
+  });
+  box.querySelectorAll('.move-media-btn').forEach(btn => {
+    btn.addEventListener('click', e => moveWsMedia(e.currentTarget.dataset.mediaId, e.currentTarget.dataset.mediaFolder));
+  });
+  box.querySelectorAll('.replace-media-btn').forEach(btn => {
+    btn.addEventListener('click', e => replaceWsMedia(e.currentTarget.dataset.mediaId));
+  });
+  box.querySelectorAll('.delete-media-btn').forEach(btn => {
+    btn.addEventListener('click', e => deleteWsMedia(e.currentTarget.dataset.mediaId));
+  });
 }
 async function deleteWsMedia(id) {
   if (!confirm('Delete this uploaded image from the media library?')) return;
@@ -1334,8 +1356,8 @@ function menuRow(it, i, n) {
   const indent = menuVal ? 'style="margin-left:1.75rem"' : '';
   const childMark = menuVal ? `<span class="text-slate-400 shrink-0 text-xs" title="Nested under ${esc(menuVal)}">↳</span>` : '';
   const handle = `<span class="menu-drag cursor-grab select-none text-slate-400 shrink-0 text-lg leading-none" draggable="true" title="Drag up/down to reorder, right to nest">⠿</span>
-    <div class="flex flex-col shrink-0 -my-1"><button type="button" onclick="menuMove('${it.token}',-1)" ${i === 0 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-25 leading-none text-[10px]">▲</button><button type="button" onclick="menuMove('${it.token}',1)" ${i === n - 1 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-25 leading-none text-[10px]">▼</button></div>
-    <div class="flex flex-col shrink-0 -my-1"><button type="button" onclick="menuIndent('${it.token}',1)" class="text-slate-400 hover:text-indigo-600 leading-none text-[11px]" title="Nest under the item above">→</button><button type="button" onclick="menuIndent('${it.token}',-1)" ${menuVal ? '' : 'disabled'} class="text-slate-400 hover:text-indigo-600 disabled:opacity-25 leading-none text-[11px]" title="Move to top level">←</button></div>${childMark}`;
+    <div class="flex flex-col shrink-0 -my-1"><button type="button" class="menu-move-btn" data-token="${esc(it.token)}" data-direction="-1" ${i === 0 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-25 leading-none text-[10px]">▲</button><button type="button" class="menu-move-btn" data-token="${esc(it.token)}" data-direction="1" ${i === n - 1 ? 'disabled' : ''} class="text-slate-400 hover:text-slate-700 disabled:opacity-25 leading-none text-[10px]">▼</button></div>
+    <div class="flex flex-col shrink-0 -my-1"><button type="button" class="menu-indent-btn" data-token="${esc(it.token)}" data-indent="1" class="text-slate-400 hover:text-indigo-600 leading-none text-[11px]" title="Nest under the item above">→</button><button type="button" class="menu-indent-btn" data-token="${esc(it.token)}" data-indent="-1" ${menuVal ? '' : 'disabled'} class="text-slate-400 hover:text-indigo-600 disabled:opacity-25 leading-none text-[11px]" title="Move to top level">←</button></div>${childMark}`;
   if (it.kind === 'builtin') {
     const b = it.b;
     return `<div class="menu-row flex items-center gap-2 flex-wrap border border-slate-200 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-900 ${b.enabled ? '' : 'opacity-60'}" ${indent} data-token="${it.token}" data-bi="${it.key}">
@@ -1353,8 +1375,8 @@ function menuRow(it, i, n) {
       ${handle}${MENU_SWITCH('pg-nav', p.nav !== false)}
       <input class="pg-title flex-1 min-w-[110px] bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs font-semibold" placeholder="Page title" value="${esc(p.title || '')}">${badge}
       <input class="pg-menu ${grp}" list="menu-grp-opts" value="${esc(p.menu || '')}" placeholder="Submenu" onchange="collectMenu();renderMenuList()">
-      <button type="button" onclick="wsCustomizeById('${p.id}')" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap shrink-0"> Customize${(p.sections && p.sections.length) ? ' (' + p.sections.length + ')' : ''}</button>
-      <button type="button" onclick="removeSitePageById('${p.id}')" class="text-rose-500 text-xs font-bold shrink-0"></button>
+      <button type="button" class="customize-page-btn text-[11px] font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap shrink-0" data-page-id="${esc(p.id)}"> Customize${(p.sections && p.sections.length) ? ' (' + p.sections.length + ')' : ''}</button>
+      <button type="button" class="remove-page-btn text-rose-500 text-xs font-bold shrink-0" data-page-id="${esc(p.id)}"></button>
     </div>
     ${showBody ? `<textarea class="pg-body w-full text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1" rows="2" placeholder="${p.kind === 'model' ? 'Intro blurb — inventory lists automatically below it.' : 'Page content — plain text or basic HTML'}">${esc(p.body_html || '')}</textarea>` : ''}
     <details class="pt-1"><summary class="cursor-pointer text-[11px] font-black uppercase tracking-wider text-slate-400">SEO &amp; Discovery</summary><div class="grid sm:grid-cols-2 gap-2 pt-2"><input class="pg-seo-title w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs" placeholder="SEO title (about 60 characters)" value="${esc(p.seo_title || '')}"><textarea class="pg-seo-desc w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs" rows="2" placeholder="Meta description (about 155 characters)">${esc(p.seo_description || '')}</textarea></div></details>
@@ -1365,6 +1387,21 @@ function renderMenuList() {
   const menus = [...new Set(Object.values(__siteBuiltins).map(b => b.menu).concat((__sitePages || []).map(p => p.menu)).filter(Boolean))];
   const items = menuDescriptors();
   box.innerHTML = `<datalist id="menu-grp-opts">${['New Vehicles', 'Pre-Owned', 'Service', 'Offers', 'About', 'Financing'].concat(menus).filter((v, i, a) => a.indexOf(v) === i).map(m => `<option value="${esc(m)}">`).join('')}</datalist>` + (items.map((it, i) => menuRow(it, i, items.length)).join('') || '<div class="text-[11px] text-slate-400 italic">No menu items.</div>');
+
+  // Setup event listeners for menu buttons
+  box.querySelectorAll('.menu-move-btn').forEach(btn => {
+    btn.addEventListener('click', e => menuMove(e.currentTarget.dataset.token, parseInt(e.currentTarget.dataset.direction)));
+  });
+  box.querySelectorAll('.menu-indent-btn').forEach(btn => {
+    btn.addEventListener('click', e => menuIndent(e.currentTarget.dataset.token, parseInt(e.currentTarget.dataset.indent)));
+  });
+  box.querySelectorAll('.customize-page-btn').forEach(btn => {
+    btn.addEventListener('click', e => wsCustomizeById(e.currentTarget.dataset.pageId));
+  });
+  box.querySelectorAll('.remove-page-btn').forEach(btn => {
+    btn.addEventListener('click', e => removeSitePageById(e.currentTarget.dataset.pageId));
+  });
+
   wsMenuDragWire();
 }
 // Drag from the ⠿ handle; the row is moved. collectMenu() on drop re-reads order.
@@ -2169,8 +2206,19 @@ function wsShowAuditPanel() {
   const counts = __wsAuditIssues.reduce((out, issue) => { out[issue.type] = (out[issue.type] || 0) + 1; return out; }, {});
   const summary = Object.entries(counts).map(([type, count]) => `${count} ${type === 'alt' ? 'accessibility' : type}`).join(' · ');
   const aiFixable = new Set(['title', 'description', 'alt']);
-  modal.innerHTML = `<div class="w-full max-w-3xl max-h-[88vh] overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 text-white shadow-2xl"><div class="p-5 border-b border-slate-800 flex items-start justify-between gap-4"><div><div class="text-[10px] uppercase tracking-[.16em] font-black text-amber-400">Website audit</div><h2 class="text-xl font-black mt-1">${__wsAuditIssues.length} finding${__wsAuditIssues.length === 1 ? '' : 's'} to review</h2><p class="text-xs text-slate-400 mt-1">${esc(summary)}. Changes stay in your draft until you publish.</p></div><button onclick="document.getElementById('ws-audit-panel')?.remove()" class="text-slate-400 hover:text-white text-2xl">×</button></div><div class="p-4 space-y-2 overflow-y-auto max-h-[68vh]">${__wsAuditIssues.map(issue => `<div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><span class="text-sm font-black text-white">${esc(issue.field)}</span><span class="rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase px-2 py-0.5">${esc(issue.page)}</span></div><div class="text-xs text-indigo-300 font-semibold mt-2">${esc(issue.location)}</div><p class="text-xs text-slate-400 mt-1">${esc(issue.message)}</p></div><span class="shrink-0 text-[10px] uppercase font-black text-rose-300">${aiFixable.has(issue.type) ? 'Fixable' : 'Review'}</span></div><div class="flex flex-wrap gap-2 mt-3"><button onclick="wsFocusAuditIssue('${issue.id}')" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 text-xs font-bold">Show me</button>${aiFixable.has(issue.type) ? `<button data-audit-fix="${issue.id}" onclick="wsAiFixAuditIssue('${issue.id}', this)" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black">Fix with AI</button>` : ''}</div></div>`).join('')}</div><div class="p-4 border-t border-slate-800 flex justify-end"><button onclick="document.getElementById('ws-audit-panel')?.remove()" class="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold text-slate-200">Close</button></div></div>`;
+  modal.innerHTML = `<div class="w-full max-w-3xl max-h-[88vh] overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 text-white shadow-2xl"><div class="p-5 border-b border-slate-800 flex items-start justify-between gap-4"><div><div class="text-[10px] uppercase tracking-[.16em] font-black text-amber-400">Website audit</div><h2 class="text-xl font-black mt-1">${__wsAuditIssues.length} finding${__wsAuditIssues.length === 1 ? '' : 's'} to review</h2><p class="text-xs text-slate-400 mt-1">${esc(summary)}. Changes stay in your draft until you publish.</p></div><button class="ws-audit-close-btn text-slate-400 hover:text-white text-2xl" data-panel-id="ws-audit-panel">×</button></div><div class="p-4 space-y-2 overflow-y-auto max-h-[68vh]">${__wsAuditIssues.map(issue => `<div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-4"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><span class="text-sm font-black text-white">${esc(issue.field)}</span><span class="rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase px-2 py-0.5">${esc(issue.page)}</span></div><div class="text-xs text-indigo-300 font-semibold mt-2">${esc(issue.location)}</div><p class="text-xs text-slate-400 mt-1">${esc(issue.message)}</p></div><span class="shrink-0 text-[10px] uppercase font-black text-rose-300">${aiFixable.has(issue.type) ? 'Fixable' : 'Review'}</span></div><div class="flex flex-wrap gap-2 mt-3"><button class="audit-focus-btn px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 text-xs font-bold" data-issue-id="${esc(issue.id)}">Show me</button>${aiFixable.has(issue.type) ? `<button class="audit-fix-btn px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black" data-issue-id="${esc(issue.id)}">Fix with AI</button>` : ''}</div></div>`).join('')}</div><div class="p-4 border-t border-slate-800 flex justify-end"><button class="ws-audit-close-btn px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold text-slate-200" data-panel-id="ws-audit-panel">Close</button></div></div>`;
   document.body.appendChild(modal);
+
+  // Setup event listeners for audit panel buttons
+  modal.querySelectorAll('.ws-audit-close-btn').forEach(btn => {
+    btn.addEventListener('click', e => document.getElementById(e.currentTarget.dataset.panelId)?.remove());
+  });
+  modal.querySelectorAll('.audit-focus-btn').forEach(btn => {
+    btn.addEventListener('click', e => wsFocusAuditIssue(e.currentTarget.dataset.issueId));
+  });
+  modal.querySelectorAll('.audit-fix-btn').forEach(btn => {
+    btn.addEventListener('click', e => wsAiFixAuditIssue(e.currentTarget.dataset.issueId, e.currentTarget));
+  });
 }
 async function wsAiFixAuditIssue(id, btn) {
   const issue = __wsAuditIssues.find(x => x.id === id); if (!issue) return;
@@ -2403,12 +2451,12 @@ function wsDesign() {
         <div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Design Theme</div>
         <div class="grid grid-cols-1 gap-1.5">
           ${themes.map(t => `
-            <button type="button" onclick="setWsTheme('${t.id}')" class="p-2.5 rounded-xl border text-left transition cursor-pointer ${theme === t.id ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700'}">
+            <button type="button" class="ws-theme-btn p-2.5 rounded-xl border text-left transition cursor-pointer ${theme === t.id ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700'}" data-theme-id="${esc(t.id)}">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-bold">${t.label}</span>
+                <span class="text-xs font-bold">${esc(t.label)}</span>
                 ${theme === t.id ? '<span class="text-[10px] text-indigo-400 font-black">ACTIVE</span>' : ''}
               </div>
-              <div class="text-[10px] text-slate-400 mt-0.5">${t.desc}</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">${esc(t.desc)}</div>
             </button>
           `).join('')}
         </div>
@@ -2418,12 +2466,12 @@ function wsDesign() {
         <div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Quick Palettes</div>
         <div class="grid grid-cols-2 gap-1.5">
           ${Object.entries(PALETTES).map(([k, p]) => `
-            <button type="button" onclick="setWsPalette('${k}')" class="p-2 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${palette === k ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700'}">
-              <span class="text-[11px] font-bold truncate">${p.label}</span>
+            <button type="button" class="ws-palette-btn p-2 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${palette === k ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700'}" data-palette-key="${esc(k)}">
+              <span class="text-[11px] font-bold truncate">${esc(p.label)}</span>
               <div class="flex items-center -space-x-1 shrink-0 ml-1">
-                <div class="w-3 h-3 rounded-full border border-black/30" style="background-color:${p.primary}"></div>
-                <div class="w-3 h-3 rounded-full border border-black/30" style="background-color:${p.secondary}"></div>
-                <div class="w-3 h-3 rounded-full border border-black/30" style="background-color:${p.accent}"></div>
+                <div class="w-3 h-3 rounded-full border border-black/30" style="background-color:${esc(p.primary)}"></div>
+                <div class="w-3 h-3 rounded-full border border-black/30" style="background-color:${esc(p.secondary)}"></div>
+                <div class="w-3 h-3 rounded-full border border-black/30" style="background-color:${esc(p.accent)}"></div>
               </div>
             </button>
           `).join('')}
@@ -2849,7 +2897,7 @@ function renderWsLayersTreeHtml() {
             const isSel = __wsSelectedSecIdx === idx;
             const meta = SEC_META[sec.type] || {};
             return `
-              <div data-layer-idx="${idx}" onclick="selectWsSection(${idx})" style="${isSel ? 'background-color:#4f46e5 !important;color:#ffffff !important;border-color:#4338ca !important;font-weight:800 !important;box-shadow:0 4px 6px -1px rgba(79,70,229,0.25);' : 'color:var(--ws-text,#0f172a) !important;font-weight:700 !important;'}" class="p-2.5 rounded-xl border ${isSel ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400'} cursor-pointer flex items-center justify-between transition group shadow-xs">
+              <div class="ws-section-select" data-section-idx="${idx}" data-layer-idx="${idx}" style="${isSel ? 'background-color:#4f46e5 !important;color:#ffffff !important;border-color:#4338ca !important;font-weight:800 !important;box-shadow:0 4px 6px -1px rgba(79,70,229,0.25);' : 'color:var(--ws-text,#0f172a) !important;font-weight:700 !important;'}" class="p-2.5 rounded-xl border ${isSel ? 'border-indigo-500 bg-indigo-600 text-white font-bold' : 'border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 hover:border-slate-400'} cursor-pointer flex items-center justify-between transition group shadow-xs">
                 <div class="flex items-center gap-2 min-w-0">
                   <span class="w-4 text-[10px] font-mono ${isSel ? 'text-indigo-200' : 'text-slate-700 dark:text-slate-400'} font-bold">${idx + 1}</span>
                   <span class="truncate font-extrabold ${isSel ? 'text-white' : 'text-slate-900 dark:text-slate-100'}">${esc(meta.label || sec.type)}</span>${__wsGovernance?.locked_section_ids?.includes(String(sec.id)) ? '<span class="text-[10px] font-black uppercase text-amber-500" title="Protected by website governance">Locked</span>' : ''}
@@ -2880,6 +2928,11 @@ function renderWsLayersTree() {
   temp.innerHTML = renderWsLayersTreeHtml();
   const inner = temp.firstElementChild?.innerHTML;
   if (inner) treeEl.innerHTML = inner;
+
+  // Setup event listeners for section selection
+  treeEl.querySelectorAll('.ws-section-select').forEach(el => {
+    el.addEventListener('click', e => selectWsSection(parseInt(e.currentTarget.dataset.sectionIdx)));
+  });
 }
 
 function renderWsLeftDrawerHtml() {
@@ -3522,6 +3575,15 @@ function renderWsBody() {
   if (__wsTab === 'design') {
     body.className = 'flex-1 min-h-0 overflow-y-auto w-full bg-slate-50 dark:bg-slate-950 p-6';
     body.innerHTML = wsDesign();
+
+    // Setup event listeners for design theme and palette buttons
+    body.querySelectorAll('.ws-theme-btn').forEach(btn => {
+      btn.addEventListener('click', e => setWsTheme(e.currentTarget.dataset.themeId));
+    });
+    body.querySelectorAll('.ws-palette-btn').forEach(btn => {
+      btn.addEventListener('click', e => setWsPalette(e.currentTarget.dataset.paletteKey));
+    });
+
     return;
   }
   if (__wsTab === 'pages') {
