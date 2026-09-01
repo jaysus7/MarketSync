@@ -1690,6 +1690,8 @@ const SAAS_DEPARTMENTS = {
     { page: 'saas-automation', label: 'Email, SMS & Automations' },
     { page: 'saas-email-marketing', label: 'Campaigns' },
     { page: 'saas-announcements', label: 'Announcements' },
+  ] },
+  marketing:      { label: 'Marketing',      icon: 'megaphone', accent: 'market', always: true, pages: [
     { page: 'saas-studio', label: 'Design Studio' },
     { page: 'saas-website', label: 'Website' },
   ] },

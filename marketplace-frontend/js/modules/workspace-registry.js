@@ -138,21 +138,44 @@ const MS_WORKSPACES = {
     ],
   },
 
-  marketing: {
-    label: 'Marketing', icon: 'megaphone', accent: 'market', mgr: true,
+  'website-studio': {
+    label: 'Website Studio', icon: 'globe', accent: 'market', mgr: true,
     pages: [
-      { page: 'marketing-overview', label: 'Pulse' },
-      { page: 'social-scheduler', label: 'Social Scheduler' },
-      { page: 'studio', label: 'Design Studio' },
-      { page: 'email-marketing', label: 'Campaigns' },
-      { page: 'website', label: 'Website' },
+      { page: 'website', label: 'Website Studio' },
       { page: 'discoverability', label: 'Discoverability' },
       { page: 'seo', label: 'AI SEO', legacy: true },
+      { page: 'blog', label: 'Blog Posts', legacy: true },
+    ],
+  },
+
+  'video-studio': {
+    label: 'Video Studio', icon: 'film', accent: 'market', mgr: true,
+    pages: [
       { page: 'video-studio', label: 'Video Studio' },
-      { page: 'ai-home', tab: 'conversations', label: 'AI Chat' },
-      { page: 'ai-home', tab: 'setup', label: 'AI Setup' },
-      { page: 'ai-inbox', label: 'AI Inbox' },
-      { page: 'inventory', label: 'Publish to Facebook', invmode: 'facebook' },
+    ],
+  },
+
+  'design-studio': {
+    label: 'Design Studio', icon: 'palette', accent: 'market', mgr: true,
+    pages: [
+      { page: 'studio', label: 'Design Studio' },
+      { page: 'social-scheduler', label: 'Scheduler' },
+    ],
+  },
+
+  'email-sms-studio': {
+    label: 'Email/SMS Studio', icon: 'mail', accent: 'market', mgr: true,
+    pages: [
+      { page: 'email-marketing', label: 'Email/SMS Studio' },
+      { page: 'audience-manager', label: 'Audiences' },
+    ],
+  },
+
+  'automations-studio': {
+    label: 'Automations Studio', icon: 'zap', accent: 'market', mgr: true,
+    pages: [
+      { page: 'automation-builder', label: 'Automations' },
+      { page: 'api-keys', label: 'Integrations', legacy: true },
     ],
   },
 
@@ -194,9 +217,9 @@ const MS_WORKSPACES = {
   settings: {
     label: 'Settings', icon: 'shield', accent: 'market', system: true, hideFromSidebar: true,
     pages: [
-      // The primary Settings surface is Configuration; Automations and Integrations
-      // remain deep links (legacy) so they don't render competing primary tabs.
+      // The primary Settings surface is Configuration
       { page: 'config', label: 'Settings' },
+      // Automations and Integrations are now in their own studios; kept as legacy deep links
       { page: 'automation-builder', label: 'Automations', mgr: true, legacy: true },
       { page: 'api-keys', label: 'Integrations', mgr: true, legacy: true },
     ],
@@ -221,9 +244,9 @@ const MS_ROLE_MOBILE_NAV = {
   SERVICE:      ['service-ros', 'service-appointments', 'crm', 'tasks'],
   CLEANUP:      ['recon', 'taskboard'],
   ACCOUNTING:   ['accounting', 'commissions', 'crm', 'tasks'],
-  MANAGER:      ['command', 'sales', 'inventory-overview'],
-  OWNER:        ['command', 'sales', 'inventory-overview'],
-  DEALER_ADMIN: ['command', 'sales', 'inventory-overview'],
+  MANAGER:      ['command', 'sales', 'inventory-overview', 'design-studio'],
+  OWNER:        ['command', 'sales', 'inventory-overview', 'design-studio'],
+  DEALER_ADMIN: ['command', 'sales', 'inventory-overview', 'design-studio'],
 };
 const MS_MOBILE_NAV_DEFAULT = ['sales', 'crm', 'tasks'];
 
