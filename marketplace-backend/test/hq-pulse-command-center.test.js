@@ -11,6 +11,12 @@ import { readFile } from 'node:fs/promises'
 
 const src = () => readFile(new URL('../routes/saas-admin.js', import.meta.url), 'utf8')
 
+// Full regex-metacharacter escape. The old `.replace(/\//g, '\\/')` only
+// handled the forward slash, so a path with any other regex meta character
+// would silently misinterpret. This also silences CodeQL's "incomplete
+// string escaping" alert on those replace calls.
+const reEscape = (s) => String(s).replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
+
 test('/saas/overview exposes the command-center KPI fields', async () => {
   const s = await src()
   // Route still registered.
@@ -53,10 +59,10 @@ test('Slice 2+3 endpoints are registered and gated', async () => {
   const s = await src()
   const routes = ['/saas/affiliates', '/saas/product-usage', '/saas/platform-health', '/saas/billing-summary']
   for (const path of routes) {
-    assert.match(s, new RegExp(`app\\.get\\('${path.replace(/\//g, '\\/')}'`),
+    assert.match(s, new RegExp(`app\\.get\\('${reEscape(path)}'`),
       `route missing: ${path}`)
     assert.match(s, new RegExp(
-      `app\\.get\\('${path.replace(/\//g, '\\/')}'[\\s\\S]{0,300}need\\('view_customers'\\)`),
+      `app\\.get\\('${reEscape(path)}'[\\s\\S]{0,300}need\\('view_customers'\\)`),
       `${path} must gate on view_customers`)
   }
 })
@@ -195,6 +201,23 @@ test('hq_announcements migration exists and restricts staff announcements to pla
     'profiles.hq_onboarding jsonb column must be added')
 })
 
+test('HQ desktop nav (SAAS_DEPARTMENTS) includes every Slice 2..5 page', async () => {
+  const part2 = await readFile(
+    new URL('../../marketplace-frontend/js/modules/dashboard-part2.js', import.meta.url), 'utf8'
+  )
+  const block = part2.match(/const SAAS_DEPARTMENTS = \{[\s\S]*?^\};/m)
+  assert.ok(block, 'SAAS_DEPARTMENTS block must exist')
+  // The desktop sidebar renders from SAAS_DEPARTMENTS. A page missing here is
+  // silently invisible on desktop even though it exists as a page-content
+  // container — the exact "I can't see the nav" bug from the last screenshot.
+  for (const page of ['saas-billing', 'saas-trials', 'saas-affiliates',
+                       'saas-product-usage', 'saas-health', 'saas-onboarding',
+                       'saas-announcements', 'saas-intelligence']) {
+    assert.match(block[0], new RegExp(`'${page}'`),
+      `HQ desktop nav (SAAS_DEPARTMENTS) is missing "${page}"`)
+  }
+})
+
 test('HQ mobile nav includes every Slice-2..5 destination', async () => {
   const dashJs = await readFile(
     new URL('../../marketplace-frontend/dashboard.js', import.meta.url), 'utf8'
@@ -215,10 +238,10 @@ test('HQ mobile nav includes every Slice-2..5 destination', async () => {
 test('Receipt + invoice OCR endpoints exist, gate on manage_followups, cap image size', async () => {
   const s = await src()
   for (const path of ['/saas/accounting/expenses/scan', '/saas/accounting/income/scan']) {
-    assert.match(s, new RegExp(`app\\.post\\('${path.replace(/\//g, '\\/')}'`),
+    assert.match(s, new RegExp(`app\\.post\\('${reEscape(path)}'`),
       `OCR route missing: ${path}`)
     assert.match(s, new RegExp(
-      `app\\.post\\('${path.replace(/\//g, '\\/')}'[\\s\\S]{0,300}need\\('manage_followups'\\)`),
+      `app\\.post\\('${reEscape(path)}'[\\s\\S]{0,300}need\\('manage_followups'\\)`),
       `${path} must gate on manage_followups`)
   }
   // Uploaded images must be capped so a rogue caller cannot burn Anthropic
@@ -268,6 +291,36 @@ test('Money ring uses a themeable CSS token for the unfilled arc', async () => {
     'saasMoneyRing must reference --ms-ring-track for the unfilled arc')
   assert.match(html, /--ms-ring-track:#e2e8f0/, 'light theme must define ring track')
   assert.match(html, /\.dark\{--ms-ring-track:#1e293b\}/, 'dark theme must override ring track')
+})
+
+test('Header + sidebar chrome is ALWAYS light, regardless of OS dark mode', async () => {
+  const html = await readFile(
+    new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8'
+  )
+  // Line-19 auto-adds .dark from prefers-color-scheme, so a split "light vs
+  // dark chrome" rule made the sidebar go slate-900 for anyone on macOS/iOS
+  // Night Shift — the exact "should not be dark" bug the screenshot showed.
+  // The design intent is a light chrome always; content can go dark
+  // independently. This rule pins #ffffff for chrome under both modes.
+  // The chrome selector must use DOUBLED IDs so its specificity (2,0,0)
+  // beats marketsync-theme.css's `.dark #dept-sidebar` (1,1,0). A plain
+  // `html body #dept-sidebar` (1,0,2) loses on class count and the sidebar
+  // turned dark on any OS with dark-mode preference — the exact regression
+  // the last screenshot showed.
+  assert.match(html,
+    /header\.ms-chrome-glass\.ms-chrome-glass,[\s\S]{0,120}#dashboard-nav#dashboard-nav,[\s\S]{0,80}#dept-nav#dept-nav,[\s\S]{0,80}#dept-sidebar#dept-sidebar\{[\s\S]{0,300}background:#ffffff!important/,
+    'chrome must use doubled-ID selectors to beat .dark #dept-sidebar specificity')
+  // A regression that puts .dark back into the chrome selector would
+  // reintroduce the OS-dark-mode bug. The test explicitly forbids it.
+  const chromeBlock = html.match(/header\.ms-chrome-glass\.ms-chrome-glass,[\s\S]{0,900}background:#ffffff!important/)
+  assert.ok(chromeBlock, 'chrome block must exist')
+  assert.doesNotMatch(chromeBlock[0], /\.dark/,
+    'chrome selector must NOT branch on .dark — the OS dark auto-toggle would darken it')
+  // backdrop-filter must be disabled — the translucent surface mixing with
+  // the body colour is the whole source of the "too dark in light" complaint.
+  assert.match(html,
+    /header\.ms-chrome-glass\.ms-chrome-glass,[\s\S]{0,900}backdrop-filter:none!important/,
+    'chrome fix must disable backdrop-filter to prevent Liquid-Glass mixing')
 })
 
 test('HQ page CSS block pins solid card + border tokens in both themes', async () => {

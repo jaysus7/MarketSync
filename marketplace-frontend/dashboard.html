@@ -238,6 +238,56 @@
        to slate-200 if the token is missing (older glass builds without it). */
     :root{--ms-ring-track:#e2e8f0}
     .dark{--ms-ring-track:#1e293b}
+    /* Chrome (top bar + sidebars) is ALWAYS light — regardless of the .dark
+       class on <html>. Line-19 script auto-toggles .dark from the OS pref,
+       so a plain rule with lower specificity than
+       `marketsync-theme.css: .dark #dept-sidebar {background:var(--ms-surface-solid)}`
+       (1,1,0) got clobbered on macOS/iOS Night Shift. Doubling the ID in the
+       selector lifts the specificity to (2,0,0) which beats every existing
+       chrome-painting rule in both themes.
+
+       Also disables backdrop-filter — the translucent rgba(...,0.72) from
+       ms-phase3-global.css was mixing with the body colour underneath and
+       reading muddy. Solid #ffffff kills that mixing entirely.
+
+       Icons + text inside the chrome are pinned to slate-900 so they read
+       against the white surface, again even when .dark is set on <html>. */
+    header.ms-chrome-glass.ms-chrome-glass,
+    #dashboard-nav#dashboard-nav,
+    #dept-nav#dept-nav,
+    #dept-sidebar#dept-sidebar{
+      background:#ffffff!important;
+      background-color:#ffffff!important;
+      background-image:none!important;
+      color:#0f172a!important;
+      backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;
+      border-color:#e2e8f0!important;
+      box-shadow:0 1px 2px rgba(15,23,42,.04)!important;
+    }
+    html body header.ms-chrome-glass *,
+    html body #dashboard-nav *,
+    html body #dept-nav *,
+    html body #dept-sidebar *{
+      /* only override text tokens — leave utility bg/border classes intact
+         so buttons, active-state pills and coloured icons still show. */
+      --tw-text-opacity:1;
+    }
+    html body header.ms-chrome-glass a,
+    html body header.ms-chrome-glass button,
+    html body header.ms-chrome-glass span,
+    html body #dashboard-nav a,
+    html body #dashboard-nav button,
+    html body #dashboard-nav span,
+    html body #dept-nav a,
+    html body #dept-nav button,
+    html body #dept-nav span{color:inherit}
+    /* Restore the intentional coloured icons (violet, sky, emerald, etc.) so
+       we don't paint everything monochrome. Icons carry their own text-* class
+       already; this rule just makes sure that class wins over the inherit. */
+    html body header.ms-chrome-glass svg[class*="text-"],
+    html body #dashboard-nav svg[class*="text-"],
+    html body #dept-nav svg[class*="text-"]{color:revert}
     /* Mobile nav on HQ: `#dashboard-nav` uses `bg-white dark:bg-slate-900`
        Tailwind utilities but on tenants with `data-ms-glass="global"` the
        .ms-glass surface token (rgba .85) can bleed through and read as a
