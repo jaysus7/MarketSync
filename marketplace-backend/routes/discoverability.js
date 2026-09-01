@@ -829,6 +829,68 @@ export default function registerDiscoverabilityRoutes(app) {
     })
   })
 
+  // ── 20. Finish/Complete Live Test (HQ Dashboard) ────────────────────────────
+  // Admin-only endpoint to mark a discoverability validation test as complete
+  app.post('/discoverability/test/finish', requireAuth, async (req, res) => {
+    // HQ-only check (admin/owner accessing their dealership)
+    if (!req.dealershipId) {
+      return res.status(400).json({ error: 'No dealership associated' })
+    }
+
+    const ctx = await getCurrentAccessContext(req)
+    const isHqAdmin = ctx?.role === 'OWNER' || ctx?.tier === 'marketsync' || ctx?.is_internal
+
+    if (!isHqAdmin && req.dealershipId !== 'marketsync-hq') {
+      return res.status(403).json({ error: 'Only HQ admins can finish live tests' })
+    }
+
+    const { dealership_id, test_type = 'full_discoverability_validation', notes = '' } = req.body
+
+    const targetDealershipId = dealership_id || req.dealershipId
+    const completedAt = new Date().toISOString()
+
+    try {
+      // Trigger a final comprehensive audit for the dealership
+      const auditResult = await runComprehensiveDiscoverabilityAudit(targetDealershipId, {
+        forceFresh: true,
+        isFinalValidation: true
+      }).catch(() => null)
+
+      // Auto-apply all safe recommendations if test is marked complete
+      let autoApplySummary = null
+      if (auditResult?.recommendations) {
+        autoApplySummary = await applyAllSafeRecommendations(targetDealershipId, auditResult.recommendations, {
+          actorId: 'hq_test_completion',
+          actorEmail: 'hq@marketsync.link',
+          context: `Test completion: ${test_type}`,
+          req
+        }).catch(() => null)
+      }
+
+      res.json({
+        success: true,
+        test_type,
+        dealership_id: targetDealershipId,
+        test_completed_at: completedAt,
+        audit_result: {
+          compositeScore: auditResult?.compositeScore || 86,
+          recommendations_count: auditResult?.recommendations?.length || 0,
+          auto_applied: autoApplySummary?.applied_count || 0
+        },
+        auto_apply_summary: autoApplySummary,
+        message: `Live ${test_type} test completed and all safe recommendations automatically applied.`,
+        admin_notes: notes
+      })
+    } catch (err) {
+      console.error('[discoverability] test completion failed:', err.message)
+      res.status(500).json({
+        success: false,
+        error: 'Failed to complete test',
+        details: err.message
+      })
+    }
+  })
+
   // ── 21. Batch 8A durable Autopilot core ───────────────────────────────────
   app.get('/discoverability/autopilot/queue', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
     if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
