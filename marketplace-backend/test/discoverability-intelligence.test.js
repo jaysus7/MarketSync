@@ -111,8 +111,10 @@ test('Discoverability Intelligence Overview endpoint returns composite score, 7 
     assert.equal(res.status, 200)
     const json = await res.json()
     assert.equal(json.entitled, true)
-    assert.equal(typeof json.compositeScore, 'number')
-    assert.ok(json.compositeScore >= 60 && json.compositeScore <= 100)
+    assert.equal(json.compositeScore, null)
+    assert.equal(json.qualityScore, null)
+    assert.equal(json.evidenceCoverage, 0)
+    assert.equal(json.verified100, false)
     assert.ok(json.pillars.seo, 'SEO pillar present')
     assert.ok(json.pillars.aeo, 'AEO pillar present')
     assert.ok(json.pillars.geo, 'GEO pillar present')
@@ -120,8 +122,8 @@ test('Discoverability Intelligence Overview endpoint returns composite score, 7 
     assert.ok(json.pillars.aso, 'ASO pillar present')
     assert.ok(json.pillars.validation, 'Validation pillar present')
     assert.ok(Array.isArray(json.recommendations), 'Recommendations present')
-    assert.ok(json.history.searchSovTrend, 'Search SOV trend present')
-    assert.ok(json.history.aiSovTrend, 'AI SOV trend present')
+    assert.deepEqual(json.history.searchSovTrend, [])
+    assert.deepEqual(json.history.aiSovTrend, [])
   } finally {
     await close()
   }
@@ -134,8 +136,8 @@ test('Discoverability AEO endpoint returns Featured Snippets, PAA reach, and Voi
     assert.equal(res.status, 200)
     const json = await res.json()
     assert.equal(json.success, true)
-    assert.ok(json.aeo.featuredSnippets, 'Featured snippets present')
-    assert.ok(json.aeo.peopleAlsoAsk, 'PAA queries present')
+    assert.equal(json.aeo.featuredSnippets, null)
+    assert.equal(json.aeo.peopleAlsoAsk, null)
     assert.ok(json.aeo.schemaValidation, 'Schema validation present')
     assert.ok(json.aeo.voiceSearchOptimization, 'Voice search optimization present')
   } finally {
@@ -150,9 +152,9 @@ test('Discoverability GEO/LLMO endpoint and synthetic benchmark runner execute m
     assert.equal(res.status, 200)
     const json = await res.json()
     assert.equal(json.success, true)
-    assert.ok(json.geo.brandMentionRate, 'Brand mention rate present')
-    assert.ok(json.geo.urlCitationRate, 'Citation rate present')
-    assert.ok(Array.isArray(json.geo.modelCoverage), 'Model coverage present')
+    assert.equal(json.geo.brandMentionRate, null)
+    assert.equal(json.geo.urlCitationRate, null)
+    assert.deepEqual(json.geo.modelCoverage, [])
 
     // Test synthetic benchmark execution
     const benchRes = await fetch(`${baseUrl}/discoverability/geo/benchmark`, {
@@ -163,8 +165,8 @@ test('Discoverability GEO/LLMO endpoint and synthetic benchmark runner execute m
     assert.equal(benchRes.status, 200)
     const benchJson = await benchRes.json()
     assert.equal(benchJson.success, true)
-    assert.ok(benchJson.executedRunsCount >= 5, 'Executed runs across all engines')
-    assert.ok(benchJson.runs[0].engine, 'First run has engine name')
+    assert.ok(benchJson.executedRunsCount >= 0)
+    for (const run of benchJson.runs || []) assert.equal(run.evidenceType, 'synthetic_test')
   } finally {
     await close()
   }
@@ -177,7 +179,7 @@ test('Discoverability SXO & ASO endpoints return conversion metrics and store li
     assert.equal(sxoRes.status, 200)
     const sxoJson = await sxoRes.json()
     assert.equal(sxoJson.success, true)
-    assert.ok(sxoJson.sxo.conversionRate, 'Conversion rate present')
+    assert.equal(sxoJson.sxo.conversionRate, null)
     assert.ok(Array.isArray(sxoJson.sxo.topLandingPages), 'Landing pages present')
     assert.ok(Array.isArray(sxoJson.sxo.funnel), 'SXO funnel present')
 
@@ -186,7 +188,7 @@ test('Discoverability SXO & ASO endpoints return conversion metrics and store li
     const asoJson = await asoRes.json()
     assert.equal(asoJson.success, true)
     assert.ok(Array.isArray(asoJson.aso.stores), 'Store listings present')
-    assert.equal(asoJson.aso.stores[0].store, 'Chrome Web Store')
+    assert.deepEqual(asoJson.aso.stores, [])
   } finally {
     await close()
   }

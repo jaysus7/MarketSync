@@ -34,6 +34,7 @@ class StudioFabricAdapter {
     this.isRendering = false;
     this.activeBreakpoint = 'desktop';
     this.activePageId = null;
+    this.animationFrame = null;
   }
 
   async init(scene, vehicle = null) {
@@ -55,11 +56,55 @@ class StudioFabricAdapter {
 
     this.bindEvents();
     await this.renderScene(this.currentScene);
+    this.startAnimationLoop();
+  }
+
+  startAnimationLoop() {
+    if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
+    const tick = (time) => {
+      const objects = this.fabricCanvas?.getObjects?.() || [];
+      objects.forEach(object => {
+        const animation = object.msData?.animation;
+        if (!animation || animation === 'none') return;
+        object.__animationBase ||= { left: object.left || 0, top: object.top || 0, angle: object.angle || 0, opacity: object.opacity ?? 1, scaleX: object.scaleX || 1, scaleY: object.scaleY || 1 };
+        const base = object.__animationBase;
+        const duration = Number(animation.duration || 1600);
+        const phase = (time % duration) / duration;
+        const wave = Math.sin(phase * Math.PI * 2);
+        if (animation.type === 'float') object.set({ top: base.top + wave * 12 });
+        else if (animation.type === 'pulse') object.set({ opacity: base.opacity * (0.78 + (wave + 1) * 0.11), scaleX: base.scaleX * (1 + wave * 0.035), scaleY: base.scaleY * (1 + wave * 0.035) });
+        else if (animation.type === 'spin') object.set({ angle: base.angle + phase * 360 });
+        else if (animation.type === 'bounce') object.set({ top: base.top - Math.max(0, wave) * 24 });
+        else if (animation.type === 'fade') object.set({ opacity: 0.45 + (wave + 1) * 0.25 });
+      });
+      this.fabricCanvas?.requestRenderAll();
+      this.animationFrame = requestAnimationFrame(tick);
+    };
+    this.animationFrame = requestAnimationFrame(tick);
+  }
+
+  setSelectedAnimation(type = 'none', duration = 1600) {
+    const object = this.fabricCanvas?.getActiveObject();
+    if (!object) return false;
+    if (type === 'none') { delete object.msData.animation; delete object.__animationBase; }
+    else { object.msData = { ...(object.msData || {}), animation: { type, duration: Math.max(300, Number(duration) || 1600) } }; object.__animationBase = { left: object.left || 0, top: object.top || 0, angle: object.angle || 0, opacity: object.opacity ?? 1, scaleX: object.scaleX || 1, scaleY: object.scaleY || 1 }; }
+    this.saveHistory(); this.fabricCanvas.requestRenderAll(); return true;
+  }
+
+  nudgeSelected(dx = 0, dy = 0) {
+    const active = this.fabricCanvas?.getActiveObject();
+    if (!active || active.lockMovementX || active.lockMovementY) return false;
+    active.set({ left: (active.left || 0) + dx, top: (active.top || 0) + dy });
+    active.setCoords();
+    this.fabricCanvas.requestRenderAll();
+    this.saveHistory();
+    return true;
   }
 
   bindEvents() {
     if (!this.fabricCanvas) return;
 
+    this.fabricCanvas.on('object:moving', event => this.snapMovingObject(event.target));
     this.fabricCanvas.on('object:modified', () => this.saveHistory());
     this.fabricCanvas.on('object:added', () => { if (!this.isRendering) this.saveHistory(); });
     this.fabricCanvas.on('object:removed', () => { if (!this.isRendering) this.saveHistory(); });
@@ -77,6 +122,20 @@ class StudioFabricAdapter {
     if (typeof this.options.onSelection === 'function') {
       this.options.onSelection(selected);
     }
+  }
+
+  snapMovingObject(object) {
+    if (!object || object.msData?.repeaterPreview || object.msData?.snapDisabled) return;
+    const width = this.fabricCanvas?.getWidth?.() || 0;
+    const height = this.fabricCanvas?.getHeight?.() || 0;
+    const objectWidth = object.getScaledWidth?.() || object.width || 0;
+    const objectHeight = object.getScaledHeight?.() || object.height || 0;
+    const left = object.left || 0;
+    const top = object.top || 0;
+    const targetsX = [0, width / 2 - objectWidth / 2, width - objectWidth];
+    const targetsY = [0, height / 2 - objectHeight / 2, height - objectHeight];
+    const snap = (value, targets) => { const match = targets.find(target => Math.abs(value - target) <= 8); return match == null ? value : match; };
+    object.set({ left: snap(left, targetsX), top: snap(top, targetsY) });
   }
 
   saveHistory() {
@@ -108,6 +167,7 @@ class StudioFabricAdapter {
     this.isRendering = true;
     this.currentScene = scene;
     const fabric = window.fabric;
+    const shadowFor = (value) => value ? new fabric.Shadow({ color: value.color || 'rgba(15,23,42,.28)', blur: Number(value.blur ?? 18), offsetX: Number(value.offsetX ?? 0), offsetY: Number(value.offsetY ?? 8) }) : null;
 
     this.fabricCanvas.setDimensions({ width: scene.width || 1080, height: scene.height || 1080 });
 
@@ -147,9 +207,14 @@ class StudioFabricAdapter {
           fill: el.fill || '#FFFFFF',
           angle: el.rotation || 0,
           opacity: el.opacity ?? 1,
-          fontFamily: el.fontFamily || 'Manrope, sans-serif'
+          fontFamily: el.fontFamily || 'Manrope, sans-serif',
+          lineHeight: el.lineHeight || 1.08,
+          charSpacing: el.charSpacing || 0,
+          textAlign: el.textAlign || 'left'
         });
+        if (el.shadow) txt.set('shadow', shadowFor(el.shadow));
         txt.msData = el;
+        txt.set({ selectable: el.locked !== true, evented: el.locked !== true, visible: el.visible !== false, lockMovementX: el.locked === true, lockMovementY: el.locked === true, lockScalingX: el.locked === true, lockScalingY: el.locked === true, lockRotation: el.locked === true });
         this.fabricCanvas.add(txt);
       } else if (el.type === 'shape') {
         let shapeObj;
@@ -179,7 +244,8 @@ class StudioFabricAdapter {
             ry: el.rx || 16
           });
         }
-        shapeObj.set({ angle: el.rotation || 0, opacity: el.opacity ?? 1 });
+        shapeObj.set({ angle: el.rotation || 0, opacity: el.opacity ?? 1, selectable: el.locked !== true, evented: el.locked !== true, visible: el.visible !== false, lockMovementX: el.locked === true, lockMovementY: el.locked === true, lockScalingX: el.locked === true, lockScalingY: el.locked === true, lockRotation: el.locked === true });
+        if (el.shadow) shapeObj.set('shadow', shadowFor(el.shadow));
         if (el.gradient?.colors?.length >= 2) {
           shapeObj.set('fill', new fabric.Gradient({ type: 'linear', gradientUnits: 'pixels', coords: { x1: 0, y1: 0, x2: shapeObj.width || el.width || 300, y2: shapeObj.height || el.height || 200 }, colorStops: el.gradient.colors.map((color, index, all) => ({ offset: index / (all.length - 1), color })) }));
         }
@@ -205,6 +271,9 @@ class StudioFabricAdapter {
                 img.scaleToWidth(500);
               }
               img.msData = el;
+              if (el.shadow) img.set('shadow', shadowFor(el.shadow));
+              img.set({ selectable: el.locked !== true, evented: el.locked !== true, visible: el.visible !== false, flipX: el.flipX === true, flipY: el.flipY === true, lockMovementX: el.locked === true, lockMovementY: el.locked === true, lockScalingX: el.locked === true, lockScalingY: el.locked === true, lockRotation: el.locked === true });
+              this.applyImageAdjustments(img, el.adjustments || {});
               this.fabricCanvas.add(img);
             }
             resolve();
@@ -244,21 +313,37 @@ class StudioFabricAdapter {
         path: obj.path ? obj.path.map(command => command.slice()) : undefined,
         rx: obj.rx || ms.rx || 0,
         z: idx + 1,
-        name: ms.name || `Object ${idx + 1}`
-        ,responsive: ms.responsive || undefined,
+        name: ms.name || `Object ${idx + 1}`,
+        responsive: ms.responsive || undefined,
+        binding: ms.binding || undefined,
+        constraints: ms.constraints || undefined,
+        locked: obj.lockMovementX === true || ms.locked === true,
+        visible: obj.visible !== false,
+        flipX: obj.flipX === true,
+        flipY: obj.flipY === true,
+        adjustments: ms.adjustments || undefined,
+        animation: ms.animation || undefined,
+        fontFamily: obj.fontFamily || ms.fontFamily || undefined,
+        lineHeight: obj.lineHeight || ms.lineHeight || undefined,
+        charSpacing: obj.charSpacing || ms.charSpacing || undefined,
+        textAlign: obj.textAlign || ms.textAlign || undefined,
+        shadow: obj.shadow ? { color: obj.shadow.color, blur: Number(obj.shadow.blur || 0), offsetX: Number(obj.shadow.offsetX || 0), offsetY: Number(obj.shadow.offsetY || 0) } : (ms.shadow || undefined),
         children: obj.type === 'group' ? obj.getObjects().map(child => ({ type: child.type, text: child.text || '', name: child.msData?.name || child.type })) : undefined
       };
     });
 
     return {
-      version: 1,
+      version: Math.max(3, Number(this.currentScene.version) || 0),
       format_key: this.currentScene.format_key || 'square',
       width: this.fabricCanvas.width,
       height: this.fabricCanvas.height,
       background: { color: this.fabricCanvas.backgroundColor || '#0F172A' },
       elements,
       pages: this.currentScene.pages ? this.currentScene.pages.map(page => page.id === this.activePageId ? { ...page, objects: elements } : page) : undefined,
-      breakpoint: this.activeBreakpoint
+      breakpoint: this.activeBreakpoint,
+      metadata: this.currentScene.metadata || {},
+      components: this.currentScene.components || [],
+      assets: this.currentScene.assets || []
     };
   }
 
@@ -286,7 +371,12 @@ class StudioFabricAdapter {
       fontSize: options.fontSize || 36,
       fontWeight: options.fontWeight || '800',
       fill: options.fill || '#FFFFFF',
-      fontFamily: options.fontFamily || 'Manrope, sans-serif'
+      fontFamily: options.fontFamily || 'Manrope, sans-serif',
+      textAlign: options.textAlign || 'left',
+      lineHeight: options.lineHeight || 1.08,
+      charSpacing: options.charSpacing || 0,
+      originX: options.originX || 'left',
+      originY: options.originY || 'top'
     });
     txt.msData = { type: 'text', name: text.slice(0, 20) };
     this.fabricCanvas.add(txt);
@@ -317,6 +407,73 @@ class StudioFabricAdapter {
     this.saveHistory();
     this.onSelectionChange([active]);
     return true;
+  }
+
+  setSelectedShadow(preset = 'none') {
+    const active = this.fabricCanvas?.getActiveObject();
+    if (!active || !window.fabric?.Shadow) return false;
+    const presets = {
+      soft: { color: 'rgba(15,23,42,.24)', blur: 20, offsetX: 0, offsetY: 9 },
+      lift: { color: 'rgba(15,23,42,.32)', blur: 34, offsetX: 0, offsetY: 18 },
+      glow: { color: 'rgba(37,99,235,.52)', blur: 26, offsetX: 0, offsetY: 0 }
+    };
+    const value = presets[preset] || null;
+    active.set('shadow', value ? new window.fabric.Shadow(value) : null);
+    active.msData = { ...(active.msData || {}), shadow: value || undefined };
+    active.setCoords(); this.fabricCanvas.requestRenderAll(); this.saveHistory(); this.onSelectionChange([active]);
+    return true;
+  }
+
+  toggleSelectedLock(force) {
+    const active = this.fabricCanvas?.getActiveObject(); if (!active) return false;
+    const locked = typeof force === 'boolean' ? force : !active.lockMovementX;
+    active.set({ lockMovementX: locked, lockMovementY: locked, lockScalingX: locked, lockScalingY: locked, lockRotation: locked, selectable: !locked, evented: !locked });
+    active.msData = { ...(active.msData || {}), locked };
+    if (locked) this.fabricCanvas.discardActiveObject();
+    this.fabricCanvas.requestRenderAll(); this.saveHistory(); return locked;
+  }
+
+  toggleSelectedVisibility(force) {
+    const active = this.fabricCanvas?.getActiveObject(); if (!active) return false;
+    const visible = typeof force === 'boolean' ? force : active.visible === false;
+    active.set({ visible }); active.msData = { ...(active.msData || {}), visible };
+    this.fabricCanvas.discardActiveObject(); this.fabricCanvas.requestRenderAll(); this.saveHistory(); return visible;
+  }
+
+  alignSelected(axis = 'center') {
+    const active = this.fabricCanvas?.getActiveObject(); if (!active) return false;
+    const cw = this.fabricCanvas.getWidth(), ch = this.fabricCanvas.getHeight();
+    const w = active.getScaledWidth(), h = active.getScaledHeight();
+    const patch = axis === 'left' ? { left: 0 } : axis === 'right' ? { left: cw - w } : axis === 'top' ? { top: 0 } : axis === 'bottom' ? { top: ch - h } : axis === 'middle' ? { top: (ch - h) / 2 } : { left: (cw - w) / 2 };
+    active.set(patch); active.setCoords(); this.fabricCanvas.requestRenderAll(); this.saveHistory(); return true;
+  }
+
+  distributeSelected(axis = 'horizontal') {
+    const active = this.fabricCanvas?.getActiveObject();
+    const objects = active?.type === 'activeSelection' ? active.getObjects() : [];
+    if (objects.length < 3) return false;
+    const horizontal = axis === 'horizontal';
+    const sorted = objects.slice().sort((a, b) => (horizontal ? a.left - b.left : a.top - b.top));
+    const start = horizontal ? sorted[0].left : sorted[0].top;
+    const end = horizontal ? sorted.at(-1).left : sorted.at(-1).top;
+    sorted.forEach((object, index) => object.set(horizontal ? { left: start + (end - start) * index / (sorted.length - 1) } : { top: start + (end - start) * index / (sorted.length - 1) }));
+    this.fabricCanvas.requestRenderAll(); this.saveHistory(); return true;
+  }
+
+  applyImageAdjustments(image, adjustments = {}) {
+    if (!image || image.type !== 'image' || !window.fabric?.Image?.filters) return false;
+    const f = window.fabric.Image.filters, filters = [];
+    if (Number(adjustments.brightness)) filters.push(new f.Brightness({ brightness: Math.max(-1, Math.min(1, Number(adjustments.brightness))) }));
+    if (Number(adjustments.contrast)) filters.push(new f.Contrast({ contrast: Math.max(-1, Math.min(1, Number(adjustments.contrast))) }));
+    if (Number(adjustments.saturation)) filters.push(new f.Saturation({ saturation: Math.max(-1, Math.min(1, Number(adjustments.saturation))) }));
+    if (Number(adjustments.blur)) filters.push(new f.Blur({ blur: Math.max(0, Math.min(1, Number(adjustments.blur))) }));
+    image.filters = filters; image.applyFilters(); image.msData = { ...(image.msData || {}), adjustments: { ...adjustments } }; return true;
+  }
+
+  adjustSelectedImage(adjustments = {}) {
+    const image = this.fabricCanvas?.getActiveObject(); if (!image || image.type !== 'image') return false;
+    this.applyImageAdjustments(image, { ...(image.msData?.adjustments || {}), ...adjustments });
+    this.fabricCanvas.requestRenderAll(); this.saveHistory(); return true;
   }
 
   setDrawingMode(tool = 'pencil', options = {}) {
@@ -467,22 +624,25 @@ class StudioFabricAdapter {
   }
 
   addImage(url, name = 'Image') {
-    if (!this.fabricCanvas) return;
+    if (!this.fabricCanvas || !url) return Promise.resolve(null);
     const fabric = window.fabric;
     const center = this.fabricCanvas.getCenter();
-    fabric.Image.fromURL(url, (img) => {
-      if (!img) return;
-      img.set({
-        left: center.left - 200,
-        top: center.top - 150
-      });
-      if (img.width > 400) img.scaleToWidth(400);
-      img.msData = { type: 'image', src: url, name };
-      this.fabricCanvas.add(img);
-      this.fabricCanvas.setActiveObject(img);
-      this.fabricCanvas.renderAll();
-      this.saveHistory();
-    }, { crossOrigin: 'anonymous' });
+    return new Promise((resolve) => {
+      fabric.Image.fromURL(url, (img) => {
+        if (!img) { resolve(null); return; }
+        img.set({
+          left: center.left - 200,
+          top: center.top - 150
+        });
+        if (img.width > 400) img.scaleToWidth(400);
+        img.msData = { type: 'image', src: url, name };
+        this.fabricCanvas.add(img);
+        this.fabricCanvas.setActiveObject(img);
+        this.fabricCanvas.renderAll();
+        this.saveHistory();
+        resolve(img);
+      }, { crossOrigin: 'anonymous' });
+    });
   }
 
   async addVideo(url, name = 'Video', options = {}) {

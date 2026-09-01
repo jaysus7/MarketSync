@@ -246,7 +246,9 @@ test('Public generated endpoints /robots.txt, /sitemap.xml, /llms.txt', async ()
 test('SEO Frontend Suite: Pulse analytics and Builder settings are defined and exposed', async () => {
   const fs = await import('node:fs')
   const path = await import('node:path')
-  const part17Path = path.resolve(process.cwd(), '../marketplace-frontend/js/modules/dashboard-part17.js')
+  // Resolve from this test file, not process.cwd(). CI and local runs often
+  // invoke the suite from different directories.
+  const part17Path = new URL('../../marketplace-frontend/js/modules/dashboard-part17.js', import.meta.url)
   const code = fs.readFileSync(part17Path, 'utf8')
 
   // 1. setSeoMainTab definition and intentional window attachment

@@ -58,6 +58,7 @@ export const PERMISSIONS = [
   'service.view',
   'service.write_repair_order',
   'settings.manage',
+  'site.approve',
   'site.manage',
   'staff.assets.manage',
   'staff.assets.view',

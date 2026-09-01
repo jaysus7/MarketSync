@@ -1,0 +1,1 @@
+(function () { window.msDesignStudioPropertiesPanel = { render: selected => window.renderStudioInspectorHtml?.(selected), setStyle: (property, value) => window.studioSetObjectStyle?.(property, value), setAnimation: value => window.studioSetAnimation?.(value) }; })();

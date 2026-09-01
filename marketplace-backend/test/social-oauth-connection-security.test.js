@@ -109,7 +109,7 @@ test('capabilities are derived authoritatively and cannot be arbitrarily fabrica
   assert.equal(fbCaps.pages, true)
 
   const tiktokCaps = deriveProviderCapabilities('tiktok')
-  assert.equal(tiktokCaps.publish, true)
+  assert.equal(tiktokCaps.publish, false, 'do not advertise publishing until a production adapter exists')
   assert.equal(tiktokCaps.schedule, false, 'tiktok does not support scheduling')
 
   const unknownCaps = deriveProviderCapabilities('unknown')
@@ -133,7 +133,7 @@ test('OAuth selection is one-time, dealership-scoped, and keeps candidate creden
 test('provider capabilities expose explicit text/image/video/comment/insight decisions', () => {
   const providers = read('../providers/social-providers.js')
   for (const key of ['can_publish_text', 'can_publish_image', 'can_publish_video', 'can_read_comments', 'can_read_insights']) assert.match(providers, new RegExp(key))
-  assert.match(providers, /tiktok: \{ can_publish_text: false, can_publish_image: false, can_publish_video: true/)
+  assert.match(providers, /tiktok: \{ can_publish_text: false, can_publish_image: false, can_publish_video: false/)
   assert.match(providers, /socialOAuthRefreshToken/)
   assert.match(providers, /socialOAuthRevokeToken/)
 })

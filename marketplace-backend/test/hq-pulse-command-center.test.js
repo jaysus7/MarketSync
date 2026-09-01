@@ -1,0 +1,383 @@
+// HQ Pulse — SaaS Command Center overview contract.
+// Locks in the shape /saas/overview must return, and enforces rule #25:
+// unavailable data becomes an explicit null (rendered as "Not connected"),
+// never a fabricated zero.
+//
+// This suite reads the source file rather than booting the app so it stays
+// runnable without SUPABASE_* env (same pattern as hq-owner-admin.test.js).
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+
+const src = () => readFile(new URL('../routes/saas-admin.js', import.meta.url), 'utf8')
+
+// Full regex-metacharacter escape. The old `.replace(/\//g, '\\/')` only
+// handled the forward slash, so a path with any other regex meta character
+// would silently misinterpret. This also silences CodeQL's "incomplete
+// string escaping" alert on those replace calls.
+const reEscape = (s) => String(s).replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
+
+test('/saas/overview exposes the command-center KPI fields', async () => {
+  const s = await src()
+  // Route still registered.
+  assert.match(s, /app\.get\('\/saas\/overview'/)
+  // New Slice 1 fields must appear in the response payload.
+  for (const key of ['past_due', 'revenue_this_month', 'trials_expiring_5d', 'affiliate', 'health']) {
+    assert.match(s, new RegExp('\\b' + key + '\\s*[:,]'), `overview payload missing "${key}"`)
+  }
+})
+
+test('/saas/overview treats missing affiliate table as null, not fabricated zero', async () => {
+  const s = await src()
+  // Affiliate promise must swallow the failure to null so the UI can render
+  // "Not connected". A silent `.catch(() => ({data: []}))` would be a fake zero.
+  assert.match(s, /affiliate_commissions[\s\S]{0,400}data:\s*null/,
+    'affiliate_commissions read must resolve to data:null on error')
+  // And the response must set `affiliate = null` before any assignment when the
+  // read did not succeed — the code initialises `let affiliate = null` up front.
+  assert.match(s, /let\s+affiliate\s*=\s*null/,
+    'affiliate must default to null so a missing table becomes "Not connected"')
+})
+
+test('/saas/overview derives platform health from observable HQ signals', async () => {
+  const s = await src()
+  assert.match(s, /health\s*=\s*\{\s*status:\s*pastDue\s*>\s*0\s*\?\s*'degraded'\s*:\s*'ok'/,
+    'health.status must derive from past-due dealers, not a hard-coded value')
+})
+
+test('/saas/overview keeps permission gate (view_customers) — no HQ data leak', async () => {
+  const s = await src()
+  // The overview must remain behind the same gate as before. If this line is
+  // removed, any authenticated user could read HQ-wide MRR / customer counts.
+  assert.match(s,
+    /app\.get\('\/saas\/overview',\s*requireAuth,[\s\S]{0,120}need\('view_customers'\)/,
+    'view_customers permission gate must not be removed')
+})
+
+// ── Slice 2 endpoints: Affiliates, Product Usage, Platform Health ────────────
+test('Slice 2+3 endpoints are registered and gated', async () => {
+  const s = await src()
+  const routes = ['/saas/affiliates', '/saas/product-usage', '/saas/platform-health', '/saas/billing-summary']
+  for (const path of routes) {
+    assert.match(s, new RegExp(`app\\.get\\('${reEscape(path)}'`),
+      `route missing: ${path}`)
+    assert.match(s, new RegExp(
+      `app\\.get\\('${reEscape(path)}'[\\s\\S]{0,300}need\\('view_customers'\\)`),
+      `${path} must gate on view_customers`)
+  }
+})
+
+test('/saas/billing-summary marks stripe_connected=false when subscriptions unreadable', async () => {
+  const s = await src()
+  // Same rule as everywhere else: unreadable → "Not connected", never a fake 0.
+  assert.match(s, /stripe_connected:\s*subs\s*!==\s*null/,
+    'stripe_connected must be false when the subscriptions table cannot be read')
+  assert.match(s, /subscriptions:\s*subs\s*===\s*null\s*\?\s*null/,
+    'subscriptions field must be null (not empty counts) when unreadable')
+})
+
+// ── Slice 4: Trends, Expenses, Job-health signals ──────────────────────────
+test('/saas/trends returns connected:false when hq_daily_snapshots is empty', async () => {
+  const s = await src()
+  assert.match(s, /app\.get\('\/saas\/trends'/, '/saas/trends must be registered')
+  assert.match(s, /hq_daily_snapshots/, 'trends endpoint must read hq_daily_snapshots')
+  assert.match(s, /!data\s*\|\|\s*data\.length\s*===\s*0[\s\S]{0,80}connected:\s*false/,
+    'empty snapshot set must render as "not measured", never fake data points')
+})
+
+test('/cron/hq-snapshot is protected by the shared cron secret', async () => {
+  const s = await src()
+  assert.match(s, /app\.post\('\/cron\/hq-snapshot'/, 'hq-snapshot cron must be registered')
+  // Same authenticator every /cron/* route already uses. Without the guard, the
+  // cron endpoint would let any anonymous request write a snapshot row.
+  assert.match(s, /\/cron\/hq-snapshot'[\s\S]{0,200}requestHasCronSecret\(req\)/,
+    'hq-snapshot cron must check requestHasCronSecret before touching the DB')
+})
+
+test('HQ expense endpoints are registered and gate writes on manage_followups', async () => {
+  const s = await src()
+  for (const path of [
+    /app\.get\('\/saas\/accounting\/expenses'/,
+    /app\.post\('\/saas\/accounting\/expenses'/,
+    /app\.patch\('\/saas\/accounting\/expenses\/:id'/,
+    /app\.delete\('\/saas\/accounting\/expenses\/:id'/,
+    /app\.patch\('\/saas\/accounting\/categories\/:key'/,
+  ]) assert.match(s, path, `expense route missing: ${path}`)
+  // All three write endpoints must gate on manage_followups so a viewer role
+  // can read but cannot record, edit, or delete expenses.
+  assert.match(s, /app\.post\('\/saas\/accounting\/expenses'[\s\S]{0,300}need\('manage_followups'\)/,
+    'POST /saas/accounting/expenses must gate on manage_followups')
+  assert.match(s, /app\.patch\('\/saas\/accounting\/expenses\/:id'[\s\S]{0,300}need\('manage_followups'\)/,
+    'PATCH expense must gate on manage_followups')
+  assert.match(s, /app\.delete\('\/saas\/accounting\/expenses\/:id'[\s\S]{0,300}need\('manage_followups'\)/,
+    'DELETE expense must gate on manage_followups')
+})
+
+test('/saas/platform-health emits null (not 0) for job + webhook counts when tables are empty', async () => {
+  const s = await src()
+  assert.match(s, /failedJobs\s*=\s*null[\s\S]*jRes\.data\s*!==\s*null/,
+    'failed_jobs_24h must be null until the hq_job_runs table has data')
+  assert.match(s, /failedWebhooks\s*=\s*null[\s\S]*wRes\.data\s*!==\s*null/,
+    'failed_webhooks_24h must be null until the hq_webhook_events table has data')
+})
+
+// ── Slice 5: Trials, health score, automation diagnostics, staff onboarding,
+//    announcements, HQ Intelligence surface ─────────────────────────────────
+test('/saas/customers/:id emits a health score with factors', async () => {
+  const s = await src()
+  assert.match(s, /const\s+healthScore\s*=/, 'health score must be computed on customer 360')
+  assert.match(s, /factors:\s*\[/, 'health.factors array must accompany the score')
+  // The formula must be the same one /saas/customers uses, or the number
+  // shown on the drawer will disagree with the pipeline.
+  for (const point of ['adoptionPoints', 'recencyPoints', 'billingPoints']) {
+    assert.match(s, new RegExp('\\b' + point + '\\b'),
+      `health formula missing "${point}" — customer 360 must reuse the pipeline formula`)
+  }
+})
+
+test('/saas/trials returns explicit stages and honest conversion rate', async () => {
+  const s = await src()
+  assert.match(s, /app\.get\('\/saas\/trials'/, 'trials pipeline route must be registered')
+  // Stages must not silently drop; missing an expected value would collapse
+  // rows into a bucket that looked empty and healthy.
+  for (const stage of ['new', 'onboarding', 'active', 'engaged', 'low_engagement', 'expiring', 'expired']) {
+    assert.match(s, new RegExp(`'${stage}'`), `stage "${stage}" must be classified`)
+  }
+  // Conversion rate must fall to null when we can't compute — never a fake 0%.
+  assert.match(s, /conversionRate\s*=\s*allNew30d\s*>\s*0\s*\?[\s\S]{0,80}:\s*null/,
+    'conversion_rate_30d must be null when no accounts qualified')
+})
+
+test('/saas/automation/diagnostics gates on view_customers and reports runs_connected honestly', async () => {
+  const s = await src()
+  assert.match(s, /app\.get\('\/saas\/automation\/diagnostics'[\s\S]{0,200}need\('view_customers'\)/,
+    'diagnostics must gate on view_customers')
+  assert.match(s, /runs_connected:\s*runRows\s*!==\s*null/,
+    'runs_connected must be false when the step-runs table is unreadable')
+})
+
+test('/saas/staff/onboarding is owner-only (both read + write)', async () => {
+  const s = await src()
+  for (const path of [/app\.get\('\/saas\/staff\/onboarding'/, /app\.patch\('\/saas\/staff\/:id\/onboarding'/]) {
+    assert.match(s, path, `route missing: ${path}`)
+  }
+  // Both must go through the ownerOnly-style saasRoleOf check. A view_customers
+  // gate would let any HQ staff view every teammate's checklist.
+  const readMatch = s.match(/app\.get\('\/saas\/staff\/onboarding'[\s\S]{0,400}/)
+  const writeMatch = s.match(/app\.patch\('\/saas\/staff\/:id\/onboarding'[\s\S]{0,400}/)
+  assert.match(readMatch[0], /saasRoleOf\(req\)\s*!==\s*'owner'/,
+    'staff onboarding read must be owner-only')
+  assert.match(writeMatch[0], /saasRoleOf\(req\)\s*!==\s*'owner'/,
+    'staff onboarding write must be owner-only')
+})
+
+test('/saas/announcements: read gated on view, write gated on manage_followups', async () => {
+  const s = await src()
+  assert.match(s, /app\.get\('\/saas\/announcements'[\s\S]{0,300}need\('view_customers'\)/,
+    'GET /saas/announcements must gate on view_customers')
+  assert.match(s, /app\.post\('\/saas\/announcements'[\s\S]{0,300}need\('manage_followups'\)/,
+    'POST /saas/announcements must gate on manage_followups')
+  assert.match(s, /app\.delete\('\/saas\/announcements\/:id'[\s\S]{0,300}need\('manage_followups'\)/,
+    'DELETE /saas/announcements/:id must gate on manage_followups')
+  // The audience whitelist must reject arbitrary values — otherwise a caller
+  // could post a "staff" announcement while asking for customer audience.
+  assert.match(s, /audience\s*=\s*b\.audience\s*===\s*'staff'\s*\?\s*'staff'\s*:\s*'customer'/,
+    'audience must be forcibly normalised to staff|customer')
+})
+
+test('hq_announcements migration exists and restricts staff announcements to platform staff', async () => {
+  const migSrc = await readFile(
+    new URL('../../supabase/migrations/20260831181500_hq_announcements_and_onboarding.sql', import.meta.url),
+    'utf8'
+  )
+  assert.match(migSrc, /create table if not exists public\.hq_announcements/)
+  assert.match(migSrc, /alter table public\.hq_announcements enable row level security/)
+  // The read policy must let customers see customer announcements but restrict
+  // staff ones to platform_owner/platform_admin. Removing the audience check
+  // would let any signed-in user read internal staff broadcasts.
+  assert.match(migSrc, /audience\s*=\s*'customer'\s*or\s*exists[\s\S]{0,300}platform_owner['", ]+['", ]*platform_admin/,
+    'hq_announcements SELECT policy must gate staff audience on platform role')
+  assert.match(migSrc, /alter table public\.profiles[\s\S]{0,120}hq_onboarding jsonb/,
+    'profiles.hq_onboarding jsonb column must be added')
+})
+
+test('HQ desktop nav (SAAS_DEPARTMENTS) includes every Slice 2..5 page', async () => {
+  const part2 = await readFile(
+    new URL('../../marketplace-frontend/js/modules/dashboard-part2.js', import.meta.url), 'utf8'
+  )
+  const block = part2.match(/const SAAS_DEPARTMENTS = \{[\s\S]*?^\};/m)
+  assert.ok(block, 'SAAS_DEPARTMENTS block must exist')
+  // The desktop sidebar renders from SAAS_DEPARTMENTS. A page missing here is
+  // silently invisible on desktop even though it exists as a page-content
+  // container — the exact "I can't see the nav" bug from the last screenshot.
+  for (const page of ['saas-billing', 'saas-trials', 'saas-affiliates',
+                       'saas-product-usage', 'saas-health', 'saas-onboarding',
+                       'saas-announcements', 'saas-intelligence']) {
+    assert.match(block[0], new RegExp(`'${page}'`),
+      `HQ desktop nav (SAAS_DEPARTMENTS) is missing "${page}"`)
+  }
+})
+
+test('HQ mobile nav includes every Slice-2..5 destination', async () => {
+  const dashJs = await readFile(
+    new URL('../../marketplace-frontend/dashboard.js', import.meta.url), 'utf8'
+  )
+  const mobileBlock = dashJs.match(/function marketsyncInternalNavPages\(\)[\s\S]*?^\}/m)
+  assert.ok(mobileBlock, 'marketsyncInternalNavPages must exist')
+  // Every operating destination the sidebar exposes must also be reachable
+  // from the mobile bottom nav / "More" sheet. A missing entry means the
+  // phone silently loses the page.
+  for (const page of ['saas-billing', 'saas-trials', 'saas-affiliates',
+                       'saas-product-usage', 'saas-health', 'saas-onboarding',
+                       'saas-announcements', 'saas-intelligence']) {
+    assert.match(mobileBlock[0], new RegExp(`'${page}'`),
+      `mobile HQ nav is missing "${page}"`)
+  }
+})
+
+test('Receipt + invoice OCR endpoints exist, gate on manage_followups, cap image size', async () => {
+  const s = await src()
+  for (const path of ['/saas/accounting/expenses/scan', '/saas/accounting/income/scan']) {
+    assert.match(s, new RegExp(`app\\.post\\('${reEscape(path)}'`),
+      `OCR route missing: ${path}`)
+    assert.match(s, new RegExp(
+      `app\\.post\\('${reEscape(path)}'[\\s\\S]{0,300}need\\('manage_followups'\\)`),
+      `${path} must gate on manage_followups`)
+  }
+  // Uploaded images must be capped so a rogue caller cannot burn Anthropic
+  // vision tokens by shipping a 50MB payload.
+  assert.match(s, /data\.length\s*>\s*8_000_000/,
+    'receipt/invoice OCR must reject images over ~8MB')
+})
+
+test('HQ income endpoints exist and gate write on manage_followups', async () => {
+  const s = await src()
+  for (const p of [
+    /app\.get\('\/saas\/accounting\/income'/,
+    /app\.post\('\/saas\/accounting\/income'/,
+    /app\.delete\('\/saas\/accounting\/income\/:id'/,
+  ]) assert.match(s, p, `income route missing: ${p}`)
+  assert.match(s, /app\.post\('\/saas\/accounting\/income'[\s\S]{0,300}need\('manage_followups'\)/,
+    'POST /saas/accounting/income must gate on manage_followups')
+  // Postgres text columns should not carry raw base64 image blobs — the
+  // route stores only user-provided invoice URLs. A regression here would
+  // put megabytes of image data into every ledger row.
+  assert.match(s, /invoice_url:\s*b\.invoice_url\s*\?\s*String\(b\.invoice_url\)\.slice\(0,\s*2000\)\s*:\s*null/,
+    'income row must persist invoice_url as a bounded string, never inline bytes')
+})
+
+test('hq_income_entries migration exists with RLS scoped to platform staff', async () => {
+  const migSrc = await readFile(
+    new URL('../../supabase/migrations/20260831183000_hq_income_and_receipts.sql', import.meta.url),
+    'utf8'
+  )
+  assert.match(migSrc, /create table if not exists public\.hq_income_entries/)
+  assert.match(migSrc, /alter table public\.hq_income_entries enable row level security/)
+  assert.match(migSrc, /platform_owner['", ]+['", ]*platform_admin/,
+    'income ledger SELECT policy must gate on platform staff only')
+})
+
+test('Money ring uses a themeable CSS token for the unfilled arc', async () => {
+  const part11 = await readFile(
+    new URL('../../marketplace-frontend/js/modules/dashboard-part11.js', import.meta.url),
+    'utf8'
+  )
+  const html = await readFile(
+    new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8'
+  )
+  // The old hard-coded #1e293b made a $0 arc render as a solid dark disc
+  // even in light mode. A CSS variable lets each theme override the track.
+  assert.match(part11, /conic-gradient\(\$\{color\}\s*\$\{pct\}%,var\(--ms-ring-track\)/,
+    'saasMoneyRing must reference --ms-ring-track for the unfilled arc')
+  assert.match(html, /--ms-ring-track:#e2e8f0/, 'light theme must define ring track')
+  assert.match(html, /\.dark\{--ms-ring-track:#1e293b\}/, 'dark theme must override ring track')
+})
+
+test('Header + sidebar chrome is ALWAYS light, regardless of OS dark mode', async () => {
+  const html = await readFile(
+    new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8'
+  )
+  // Line-19 auto-adds .dark from prefers-color-scheme, so a split "light vs
+  // dark chrome" rule made the sidebar go slate-900 for anyone on macOS/iOS
+  // Night Shift — the exact "should not be dark" bug the screenshot showed.
+  // The design intent is a light chrome always; content can go dark
+  // independently. This rule pins #ffffff for chrome under both modes.
+  // The chrome selector must use DOUBLED IDs so its specificity (2,0,0)
+  // beats marketsync-theme.css's `.dark #dept-sidebar` (1,1,0). A plain
+  // `html body #dept-sidebar` (1,0,2) loses on class count and the sidebar
+  // turned dark on any OS with dark-mode preference — the exact regression
+  // the last screenshot showed.
+  assert.match(html,
+    /header\.ms-chrome-glass\.ms-chrome-glass,[\s\S]{0,120}#dashboard-nav#dashboard-nav,[\s\S]{0,80}#dept-nav#dept-nav,[\s\S]{0,80}#dept-sidebar#dept-sidebar\{[\s\S]{0,300}background:#ffffff!important/,
+    'chrome must use doubled-ID selectors to beat .dark #dept-sidebar specificity')
+  // A regression that puts .dark back into the chrome selector would
+  // reintroduce the OS-dark-mode bug. The test explicitly forbids it.
+  const chromeBlock = html.match(/header\.ms-chrome-glass\.ms-chrome-glass,[\s\S]{0,900}background:#ffffff!important/)
+  assert.ok(chromeBlock, 'chrome block must exist')
+  assert.doesNotMatch(chromeBlock[0], /\.dark/,
+    'chrome selector must NOT branch on .dark — the OS dark auto-toggle would darken it')
+  // backdrop-filter must be disabled — the translucent surface mixing with
+  // the body colour is the whole source of the "too dark in light" complaint.
+  assert.match(html,
+    /header\.ms-chrome-glass\.ms-chrome-glass,[\s\S]{0,900}backdrop-filter:none!important/,
+    'chrome fix must disable backdrop-filter to prevent Liquid-Glass mixing')
+})
+
+test('HQ page CSS block pins solid card + border tokens in both themes', async () => {
+  const html = await readFile(
+    new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8'
+  )
+  // The block must scope to `[data-page-content^="saas-"]` so it does not
+  // leak into dealer pages. And both a light and a dark rule must exist —
+  // shipping only one would leave the other theme broken.
+  assert.match(html, /\[data-page-content\^="saas-"\][\s\S]{0,300}background-color:#ffffff/,
+    'HQ pages need a light card background rule')
+  assert.match(html, /\.dark\s+\[data-page-content\^="saas-"\][\s\S]{0,300}background-color:#0f172a/,
+    'HQ pages need a dark card background rule')
+  assert.match(html, /#dashboard-nav \[id\^="nav-saas-"\]/,
+    'HQ nav items need explicit contrast rules for both themes')
+})
+
+test('HQ command-center migration exists with RLS and HQ-only policies', async () => {
+  const migSrc = await readFile(
+    new URL('../../supabase/migrations/20260831180000_hq_command_center_tables.sql', import.meta.url),
+    'utf8'
+  )
+  for (const table of ['hq_daily_snapshots', 'hq_expense_categories', 'hq_vendor_expenses',
+                       'hq_job_runs', 'hq_webhook_events']) {
+    assert.match(migSrc, new RegExp(`create table if not exists public\\.${table}\\b`),
+      `migration must create ${table}`)
+    assert.match(migSrc, new RegExp(`alter table public\\.${table} enable row level security`),
+      `RLS must be enabled on ${table}`)
+  }
+  // The policy loop must restrict SELECT to platform_owner/platform_admin. A
+  // policy that used auth.role() = 'authenticated' would let any signed-in
+  // dealer read HQ metrics.
+  assert.match(migSrc, /system_role in \('platform_owner','platform_admin'\)/,
+    'HQ tables must be readable only by platform_owner or platform_admin')
+})
+
+test('/saas/affiliates returns {connected:false} when the affiliates table is missing', async () => {
+  const s = await src()
+  // The endpoint must resolve to connected:false rather than empty arrays when
+  // the affiliates table cannot be read — otherwise the UI would render "0
+  // affiliates" as if the program were empty, which is a fabricated fact.
+  assert.match(s, /if\s*\(!affRes\.data\)\s*return\s+res\.json\(\{\s*connected:\s*false/,
+    'affiliates route must return connected:false on unreadable table')
+})
+
+test('/saas/product-usage returns {connected:false} when the events spine is unreadable', async () => {
+  const s = await src()
+  assert.match(s, /if\s*\(!evtRes\.data\)\s*return\s+res\.json\(\{\s*connected:\s*false/,
+    'product-usage route must return connected:false on unreadable events')
+})
+
+test('/saas/platform-health leaves failed_integrations as null when the table is absent', async () => {
+  const s = await src()
+  // A null (rather than 0) makes the UI render "Not connected" for the
+  // integrations signal, which is the honest state when we cannot read.
+  // failedIntegrations is set to `null` up front and only overwritten with a
+  // count when the read succeeded — so the response emits null for "unknown".
+  assert.match(s, /failedIntegrations\s*=\s*integrationsConnected\s*\?[\s\S]*?:\s*null/,
+    'failed_integrations must fall back to null when the table cannot be read')
+})

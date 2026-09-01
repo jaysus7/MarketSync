@@ -6,6 +6,7 @@
  *   2. Template CRUD & Stock Automotive Templates: `GET /marketing/studio/templates`
  *   3. Free Asset Library Proxy & Import: `GET /marketing/studio/library/search`, `POST /marketing/studio/library/import`
  *   4. Server Scene Renderer: `POST /marketing/studio/render` (renders full MarketSync scene JSON to WebP in marketing_assets)
+ *   5. Project Organization: tenant-scoped folders and design drag/drop assignment
  */
 
 import { supabaseAdmin } from '../shared.js'
@@ -93,6 +94,13 @@ export function pexelsSearchEndpoint(mediaType) {
   return mediaType === 'video'
     ? 'https://api.pexels.com/videos/search'
     : 'https://api.pexels.com/v1/search'
+}
+
+export function studioGifProviderConfig(provider) {
+  const key = provider === 'tenor' ? String(process.env.TENOR_API_KEY || '').trim() : String(process.env.GIPHY_API_KEY || '').trim()
+  return provider === 'tenor'
+    ? { provider: 'tenor', key, endpoint: 'https://tenor.googleapis.com/v2/search' }
+    : { provider: 'giphy', key, endpoint: 'https://api.giphy.com/v1/gifs/search' }
 }
 
 const HEX = /^#[0-9a-f]{6}$/i
@@ -223,6 +231,9 @@ export function registerMarketingStudio(app) {
   const canEdit = requirePermission('marketing.edit')
   const guard = (req, res) => { if (!req.dealershipId) { res.status(403).json({ error: 'no dealership' }); return false } return true }
 
+  const BRAND_KIT_FIELDS = new Set(['logo_url','alternate_logo_url','light_logo_url','dark_logo_url','logo_mark_url','primary_color','secondary_color','accent_color','approved_gradients','heading_font','body_font','heading_style','body_style','cta_style','address','phone','website','legal_disclaimers','locked_fields'])
+  const cleanBrandKit = input => Object.fromEntries(Object.entries(input || {}).filter(([key]) => BRAND_KIT_FIELDS.has(key)).map(([key, value]) => [key, typeof value === 'string' ? value.slice(0, 2000) : value]))
+
   const requireMediaUploadAccess = async (req, res, next) => {
     if (req.user?.is_platform_staff) return next()
     try {
@@ -236,6 +247,25 @@ export function registerMarketingStudio(app) {
       return res.status(500).json({ error: e.message })
     }
   }
+
+  app.get('/marketing/studio/brand-kit', requireAuth, requireMfa, canView, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data, error } = await supabaseAdmin.from('dealerships').select('name, website_url, branding').eq('id', req.dealershipId).single()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ brand_kit: { dealership_name: data.name, website: data.website_url, ...(data.branding || {}) } })
+  })
+
+  app.put('/marketing/studio/brand-kit', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    if (!(await hasPermission(req, 'settings.manage').catch(() => false))) return res.status(403).json({ error: 'Only dealership management can change or lock the Brand Kit.' })
+    const { data: current, error: readError } = await supabaseAdmin.from('dealerships').select('branding').eq('id', req.dealershipId).single()
+    if (readError) return res.status(500).json({ error: readError.message })
+    const branding = { ...(current?.branding || {}), ...cleanBrandKit(req.body) }
+    const { error } = await supabaseAdmin.from('dealerships').update({ branding }).eq('id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'marketing.studio_brand_kit_updated', { after_state: { fields: Object.keys(cleanBrandKit(req.body)), locked_fields: branding.locked_fields || [] } })
+    res.json({ ok: true, brand_kit: branding })
+  })
 
   // ── Asset Management ──────────────────────────────────────────────────────
   app.get('/marketing/assets', requireAuth, requireMfa, canView, async (req, res) => {
@@ -310,6 +340,79 @@ export function registerMarketingStudio(app) {
     res.json({ ok: true, asset: data })
   })
 
+  // ── Studio Project Folders ───────────────────────────────────────────────
+  app.get('/marketing/studio/folders', requireAuth, requireMfa, canView, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data, error } = await supabaseAdmin.from('studio_project_folders')
+      .select('id, name, color, position, created_at, updated_at')
+      .eq('dealership_id', req.dealershipId)
+      .is('deleted_at', null)
+      .order('position', { ascending: true })
+      .order('created_at', { ascending: true })
+    if (error) {
+      if (isMissingTableError(error)) return res.json({ folders: [] })
+      return res.status(500).json({ error: error.message })
+    }
+    res.json({ folders: data || [] })
+  })
+
+  app.post('/marketing/studio/folders', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const name = String(req.body?.name || '').trim().slice(0, 80)
+    const color = /^#[0-9a-f]{6}$/i.test(String(req.body?.color || '')) ? String(req.body.color) : '#2563eb'
+    if (!name) return res.status(400).json({ error: 'Folder name is required.' })
+    const { data, error } = await supabaseAdmin.from('studio_project_folders').insert({
+      dealership_id: req.dealershipId,
+      name,
+      color,
+      position: Number.isFinite(Number(req.body?.position)) ? Number(req.body.position) : 0,
+      created_by: req.user?.id || null,
+    }).select('id, name, color, position, created_at, updated_at').single()
+    if (error) {
+      if (error.code === '23505') return res.status(409).json({ error: 'A folder with that name already exists.' })
+      if (isMissingTableError(error)) return res.status(503).json({ error: 'Project folders are not available on this environment yet.' })
+      return res.status(500).json({ error: error.message })
+    }
+    audit(req, 'marketing.studio_folder_created', { after_state: { id: data.id, name: data.name } })
+    res.json({ ok: true, folder: data })
+  })
+
+  app.put('/marketing/studio/folders/:id', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const updates = { updated_at: new Date().toISOString() }
+    if (req.body?.name !== undefined) {
+      updates.name = String(req.body.name || '').trim().slice(0, 80)
+      if (!updates.name) return res.status(400).json({ error: 'Folder name is required.' })
+    }
+    if (req.body?.color !== undefined && /^#[0-9a-f]{6}$/i.test(String(req.body.color))) updates.color = String(req.body.color)
+    if (req.body?.position !== undefined && Number.isFinite(Number(req.body.position))) updates.position = Number(req.body.position)
+    const { data, error } = await supabaseAdmin.from('studio_project_folders').update(updates)
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null)
+      .select('id, name, color, position, created_at, updated_at').single()
+    if (error) {
+      if (error.code === '23505') return res.status(409).json({ error: 'A folder with that name already exists.' })
+      return res.status(500).json({ error: error.message })
+    }
+    audit(req, 'marketing.studio_folder_updated', { after_state: { id: data.id, fields: Object.keys(updates) } })
+    res.json({ ok: true, folder: data })
+  })
+
+  app.delete('/marketing/studio/folders/:id', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data: folder, error: findError } = await supabaseAdmin.from('studio_project_folders').select('id, name')
+      .eq('id', req.params.id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
+    if (findError) return res.status(500).json({ error: findError.message })
+    if (!folder) return res.status(404).json({ error: 'Folder not found.' })
+    const { error: moveError } = await supabaseAdmin.from('studio_designs').update({ folder_id: null, updated_at: new Date().toISOString() })
+      .eq('dealership_id', req.dealershipId).eq('folder_id', folder.id).is('deleted_at', null)
+    if (moveError) return res.status(500).json({ error: moveError.message })
+    const { error } = await supabaseAdmin.from('studio_project_folders').update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', folder.id).eq('dealership_id', req.dealershipId)
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'marketing.studio_folder_deleted', { before_state: { id: folder.id, name: folder.name } })
+    res.json({ ok: true })
+  })
+
   // ── Studio Designs CRUD ───────────────────────────────────────────────────
   app.get('/marketing/studio/designs', requireAuth, requireMfa, canView, async (req, res) => {
     if (!guard(req, res)) return
@@ -338,6 +441,13 @@ export function registerMarketingStudio(app) {
 
   app.post('/marketing/studio/designs', requireAuth, requireMfa, canEdit, async (req, res) => {
     if (!guard(req, res)) return
+    const folderId = req.body?.folder_id || null
+    if (folderId) {
+      const { data: folder, error: folderError } = await supabaseAdmin.from('studio_project_folders').select('id')
+        .eq('id', folderId).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
+      if (folderError) return res.status(500).json({ error: folderError.message })
+      if (!folder) return res.status(400).json({ error: 'Choose a valid project folder.' })
+    }
     const payload = {
       // Keep the database UUID contract intact so revisions can reference the
       // design. The old sd_ prefix made new designs fall out of the DB path.
@@ -353,6 +463,7 @@ export function registerMarketingStudio(app) {
       vehicle_id: req.body?.vehicle_id || null,
       campaign_id: req.body?.campaign_id || null,
       template_id: req.body?.template_id || null,
+      folder_id: folderId,
       created_by: req.user?.id,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -435,6 +546,68 @@ export function registerMarketingStudio(app) {
     } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
+  app.get('/marketing/studio/designs/:id/collaboration', requireAuth, requireMfa, canView, async (req, res) => {
+    if (!guard(req, res)) return
+    const [commentsResult, approvalsResult] = await Promise.all([
+      supabaseAdmin.from('studio_design_comments').select('*').eq('design_id', req.params.id).eq('dealership_id', req.dealershipId).order('created_at', { ascending: true }),
+      supabaseAdmin.from('studio_design_approvals').select('*').eq('design_id', req.params.id).eq('dealership_id', req.dealershipId).order('requested_at', { ascending: false }),
+    ])
+    if (commentsResult.error && !isMissingTableError(commentsResult.error)) return res.status(500).json({ error: commentsResult.error.message })
+    if (approvalsResult.error && !isMissingTableError(approvalsResult.error)) return res.status(500).json({ error: approvalsResult.error.message })
+    res.json({ comments: commentsResult.data || [], approvals: approvalsResult.data || [] })
+  })
+
+  app.post('/marketing/studio/designs/:id/comments', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data: design } = await supabaseAdmin.from('studio_designs').select('id').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!design) return res.status(404).json({ error: 'Design not found' })
+    const body = String(req.body?.body || '').trim().slice(0, 2000)
+    if (!body) return res.status(400).json({ error: 'Comment text is required.' })
+    const mentioned = Array.isArray(req.body?.mentioned_user_ids) ? req.body.mentioned_user_ids.slice(0, 25) : []
+    const { data, error } = await supabaseAdmin.from('studio_design_comments').insert({ design_id: req.params.id, dealership_id: req.dealershipId, body, mentioned_user_ids: mentioned, created_by: req.user?.id || null }).select('*').single()
+    if (error) return res.status(isMissingTableError(error) ? 503 : 500).json({ error: isMissingTableError(error) ? 'Studio collaboration migration has not been applied.' : error.message })
+    audit(req, 'marketing.studio_comment_added', { after_state: { design_id: req.params.id, comment_id: data.id } })
+    res.json({ ok: true, comment: data })
+  })
+
+  app.post('/marketing/studio/designs/:id/approval-requests', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data: design } = await supabaseAdmin.from('studio_designs').select('id, revision_number').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
+    if (!design) return res.status(404).json({ error: 'Design not found' })
+    const { data, error } = await supabaseAdmin.from('studio_design_approvals').insert({ design_id: design.id, dealership_id: req.dealershipId, revision_number: design.revision_number || null, status: 'requested', note: String(req.body?.note || '').slice(0, 2000) || null, requested_by: req.user?.id || null }).select('*').single()
+    if (error) return res.status(isMissingTableError(error) ? 503 : 500).json({ error: isMissingTableError(error) ? 'Studio collaboration migration has not been applied.' : error.message })
+    audit(req, 'marketing.studio_approval_requested', { after_state: { design_id: design.id, approval_id: data.id, revision_number: data.revision_number } })
+    res.json({ ok: true, approval: data })
+  })
+
+  app.post('/marketing/studio/designs/:id/approvals/:approvalId/decision', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    if (!(await hasPermission(req, 'marketing.approve').catch(() => false))) return res.status(403).json({ error: 'Marketing approval permission required.' })
+    const status = String(req.body?.status || '')
+    if (!['approved','rejected','revision_requested'].includes(status)) return res.status(400).json({ error: 'Decision must be approved, rejected, or revision_requested.' })
+    const { data, error } = await supabaseAdmin.from('studio_design_approvals').update({ status, note: String(req.body?.note || '').slice(0, 2000) || null, decided_by: req.user?.id || null, decided_at: new Date().toISOString() }).eq('id', req.params.approvalId).eq('design_id', req.params.id).eq('dealership_id', req.dealershipId).select('*').single()
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, `marketing.studio_${status}`, { after_state: { design_id: req.params.id, approval_id: data.id } })
+    res.json({ ok: true, approval: data })
+  })
+
+  app.get('/marketing/studio/template-governance', requireAuth, requireMfa, canView, async (req, res) => {
+    if (!guard(req, res)) return
+    const { data, error } = await supabaseAdmin.from('studio_template_governance').select('*').eq('dealership_id', req.dealershipId).order('updated_at', { ascending: false })
+    if (error && !isMissingTableError(error)) return res.status(500).json({ error: error.message })
+    res.json({ rules: data || [] })
+  })
+
+  app.put('/marketing/studio/template-governance/:templateKey', requireAuth, requireMfa, canEdit, async (req, res) => {
+    if (!guard(req, res)) return
+    if (!(await hasPermission(req, 'settings.manage').catch(() => false))) return res.status(403).json({ error: 'Dealership management permission required.' })
+    const payload = { dealership_id: req.dealershipId, template_key: String(req.params.templateKey).slice(0, 180), approved: req.body?.approved === true, locked_element_ids: Array.isArray(req.body?.locked_element_ids) ? req.body.locked_element_ids.slice(0, 100) : [], required_fields: Array.isArray(req.body?.required_fields) ? req.body.required_fields.slice(0, 50) : [], allowed_color_values: Array.isArray(req.body?.allowed_color_values) ? req.body.allowed_color_values.slice(0, 30) : [], allowed_font_values: Array.isArray(req.body?.allowed_font_values) ? req.body.allowed_font_values.slice(0, 30) : [], expires_at: req.body?.expires_at || null, configured_by: req.user?.id || null, updated_at: new Date().toISOString() }
+    const { data, error } = await supabaseAdmin.from('studio_template_governance').upsert(payload, { onConflict: 'dealership_id,template_key' }).select('*').single()
+    if (error) return res.status(500).json({ error: error.message })
+    audit(req, 'marketing.studio_template_governance_updated', { after_state: { id: data.id, template_key: data.template_key, approved: data.approved } })
+    res.json({ ok: true, rule: data })
+  })
+
   app.post('/marketing/studio/designs/:id/status', requireAuth, requireMfa, canEdit, async (req, res) => {
     if (!guard(req, res)) return
     const status = String(req.body?.status || '').toLowerCase()
@@ -483,12 +656,19 @@ export function registerMarketingStudio(app) {
       scene: req.body?.scene,
       vehicle_id: req.body?.vehicle_id,
       campaign_id: req.body?.campaign_id,
+      folder_id: req.body?.folder_id,
       updated_at: new Date().toISOString(),
       last_saved_by: req.user?.id || null
     }
     Object.keys(updates).forEach(k => updates[k] === undefined && delete updates[k])
 
     try {
+      if (Object.hasOwn(updates, 'folder_id') && updates.folder_id !== null) {
+        const { data: folder, error: folderError } = await supabaseAdmin.from('studio_project_folders').select('id')
+          .eq('id', updates.folder_id).eq('dealership_id', req.dealershipId).is('deleted_at', null).maybeSingle()
+        if (folderError) throw folderError
+        if (!folder) return res.status(400).json({ error: 'Choose a valid project folder.' })
+      }
       const { data, error } = await supabaseAdmin.from('studio_designs')
         .update(updates)
         .eq('id', req.params.id)
@@ -596,6 +776,42 @@ export function registerMarketingStudio(app) {
       const templates = [...(data || []), ...GLOBAL_TEMPLATES]
       res.json({ templates })
     } catch (e) { res.json({ templates: GLOBAL_TEMPLATES }) }
+  })
+
+  // ── GIF Search Proxy ─────────────────────────────────────────────────────
+  // Provider credentials stay server-side. The Studio only receives normalized
+  // preview/source URLs, so keys are never exposed in browser code or markup.
+  app.get('/marketing/studio/gifs/search', requireAuth, requireMfa, canView, async (req, res) => {
+    if (!guard(req, res)) return
+    const provider = req.query.provider === 'tenor' ? 'tenor' : 'giphy'
+    const query = String(req.query.q || '').trim().slice(0, 120)
+    if (!query) return res.status(400).json({ error: 'A GIF search query is required.' })
+    const config = studioGifProviderConfig(provider)
+    if (!config.key) return res.status(503).json({ error: `${provider === 'giphy' ? 'GIPHY' : 'Tenor'} search is not configured on this environment.`, provider })
+
+    try {
+      const params = new URLSearchParams({ q: query, limit: '24' })
+      if (provider === 'giphy') {
+        params.set('api_key', config.key)
+        params.set('rating', 'pg-13')
+      } else {
+        params.set('key', config.key)
+        params.set('client_key', 'marketsync-studio')
+        params.set('contentfilter', 'medium')
+      }
+      const response = await fetch(`${config.endpoint}?${params}`, { signal: AbortSignal.timeout(10000), headers: { Accept: 'application/json' } })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        const detail = payload?.message || payload?.error || response.statusText || 'provider request failed'
+        return res.status(response.status === 429 ? 429 : 502).json({ error: `GIF provider search failed: ${String(detail).slice(0, 180)}`, provider })
+      }
+      const results = provider === 'giphy'
+        ? (payload.data || []).map(item => ({ id: `giphy_${item.id}`, title: item.title || query, preview_url: item.images?.fixed_width?.url || item.images?.original?.url, source_url: item.images?.original?.url || item.images?.fixed_width?.url }))
+        : (payload.results || []).map(item => ({ id: `tenor_${item.id}`, title: item.content_description || query, preview_url: item.media_formats?.tinygif?.url || item.media_formats?.gif?.url || item.media_formats?.mediumgif?.url, source_url: item.media_formats?.gif?.url || item.media_formats?.mediumgif?.url || item.media_formats?.tinygif?.url }))
+      res.json({ provider, query, results: results.filter(item => item.preview_url && item.source_url) })
+    } catch (e) {
+      res.status(502).json({ error: 'GIF provider search could not be reached. Try again shortly.', provider })
+    }
   })
 
   // ── Free Asset Library Search & Import ────────────────────────────────────

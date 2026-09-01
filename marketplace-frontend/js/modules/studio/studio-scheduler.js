@@ -20,11 +20,11 @@ let __studioSchedulerView = 'calendar';   // 'calendar' | 'week' | 'list'
 let __studioSchedulerTab = 'overview';    // 'overview' | 'calendar' | 'create' | 'scheduled' | 'drafts' | 'published' | 'failed' | 'library' | 'accounts' | 'analytics' | 'settings'
 let __studioSchedulerCalMonth = new Date();
 let __studioSchedulerMfaRequired = false;
-let __studioSchedulerFilterPlatform = 'all'; // 'all' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'youtube' | 'x'
+let __studioSchedulerFilterPlatform = 'all'; // 'all' | 'facebook' | 'instagram' | 'pinterest' | 'linkedin' | 'tiktok' | 'youtube' | 'x'
 let __studioSchedulerFilterStatus = 'all';   // 'all' | 'draft' | 'scheduled' | 'published' | 'failed'
 let __studioSchedulerFilterAccount = 'all';  // 'all' | accountId
-let __studioActiveCaptionPlatform = 'shared'; // 'shared' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'youtube' | 'x'
-let __studioPreviewPlatform = 'facebook';    // 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'x'
+let __studioActiveCaptionPlatform = 'shared'; // 'shared' | 'facebook' | 'instagram' | 'pinterest' | 'linkedin' | 'tiktok' | 'youtube' | 'x'
+let __studioPreviewPlatform = 'facebook';    // 'facebook' | 'instagram' | 'pinterest' | 'linkedin' | 'tiktok' | 'x'
 let __studioComposerMedia = [];               // [{ url, type: 'image'|'video', title }]
 let __studioComposerAttachedVehicle = null;
 
@@ -52,6 +52,18 @@ const STUDIO_SOCIAL_PLATFORMS = {
       { id: 'display_name', label: 'Account Name', placeholder: 'e.g. Downtown Motors Instagram', required: true },
       { id: 'handle', label: 'Instagram Handle', placeholder: '@downtownmotors', required: true },
       { id: 'external_account_id', label: 'Account ID (optional)', placeholder: 'e.g. ig_10982347' }
+    ]
+  },
+  pinterest: {
+    name: 'Pinterest',
+    subtitle: 'Dealership Pinterest Boards',
+    badge: 'Pinterest Board',
+    charLimit: 800,
+    iconSvg: `<svg class="w-5 h-5 text-[#E60023]" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 4.98 3.04 9.25 7.37 11.07-.1-.85-.2-2.16.04-3.09.22-.84 1.41-5.98 1.41-5.98s-.36-.72-.36-1.79c0-1.68.97-2.93 2.18-2.93 1.03 0 1.53.77 1.53 1.7 0 1.03-.66 2.58-1 4.01-.28 1.2.6 2.18 1.79 2.18 2.14 0 3.79-2.26 3.79-5.52 0-2.89-2.08-4.91-5.04-4.91-3.43 0-5.45 2.58-5.45 5.24 0 1.04.4 2.15.9 2.76.1.12.11.22.08.34-.09.37-.3 1.2-.34 1.37-.05.22-.18.27-.42.16-1.49-.69-2.42-2.87-2.42-4.62 0-3.76 2.73-7.21 7.88-7.21 4.14 0 7.35 2.95 7.35 6.89 0 4.11-2.59 7.42-6.18 7.42-1.21 0-2.34-.63-2.73-1.37l-.74 2.83c-.27 1.03-1 2.32-1.49 3.11.89.28 1.83.43 2.81.43 6.63 0 12-5.37 12-12S18.63 0 12 0z"/></svg>`,
+    fields: [
+      { id: 'display_name', label: 'Board Name', placeholder: 'e.g. New Inventory', required: true },
+      { id: 'external_account_id', label: 'Board ID', placeholder: 'Selected after Pinterest sign-in', required: true },
+      { id: 'handle', label: 'Pinterest Handle (optional)', placeholder: '@downtownmotors' }
     ]
   },
   linkedin: {
@@ -430,7 +442,7 @@ function renderSocialOverview(container) {
           </div>
 
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm space-y-3">
-            ${['facebook', 'instagram', 'linkedin', 'tiktok', 'youtube'].map(plat => {
+            ${['facebook', 'instagram', 'pinterest', 'linkedin', 'tiktok', 'youtube', 'x'].map(plat => {
               const cfg = STUDIO_SOCIAL_PLATFORMS[plat];
               const acc = __studioSchedulerAccounts.find(a => a.provider === plat);
               return `
@@ -541,6 +553,7 @@ function renderSocialCalendarView(container) {
             <option value="all">All Channels</option>
             <option value="facebook">Facebook</option>
             <option value="instagram">Instagram</option>
+            <option value="pinterest">Pinterest</option>
             <option value="linkedin">LinkedIn</option>
             <option value="tiktok">TikTok</option>
             <option value="youtube">YouTube</option>
@@ -1271,11 +1284,11 @@ function studioSchedulerAiCaption(type) {
     studioSchedulerAddHashtags();
     return;
   } else if (type === 'punchy') {
-    captionEl.value = `Incredible deal of the week! Drive home in style with competitive pricing and instant financing approvals. Tap below or stop by the lot today!`;
+    captionEl.value = `Explore this week's featured inventory. Contact our team for current vehicle availability, verified pricing, and approved offer details.`;
   } else if (type === 'cta') {
     captionEl.value += `\n\nContact our sales specialists or message us today to schedule your VIP test drive!`;
   } else {
-    captionEl.value = `Featured Deal of the Day:\n\nLooking for your next reliable ride? We just added exciting inventory with low mileage, warranty included, and great finance rates.\n\nCall or message us to get pre-approved in minutes!\n\n#Dealership #CarSales #QualityVehicles #ShopLocal`;
+    captionEl.value = `Featured vehicle:\n\nExplore the photos and confirmed details in this listing. Availability, pricing, financing, and program eligibility must be verified with the dealership.\n\nCall or message our team to learn more.\n\n#Dealership #CarSales #ShopLocal`;
   }
   updateComposerPreview();
   showToast('AI copy updated!', 'success');
@@ -1792,7 +1805,7 @@ async function studioSocialConnectionsRender() {
   const list = document.getElementById('studio-social-list-page') || document.getElementById('studio-social-list');
   if (!list) return;
   const renderAccounts = (accounts) => {
-    const platformKeys = ['facebook', 'instagram', 'linkedin', 'tiktok', 'youtube'];
+    const platformKeys = ['facebook', 'instagram', 'pinterest', 'linkedin', 'tiktok', 'youtube', 'x'];
 
     const cardsHtml = platformKeys.map(p => {
       const cfg = STUDIO_SOCIAL_PLATFORMS[p];

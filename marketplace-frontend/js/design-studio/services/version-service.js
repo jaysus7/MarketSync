@@ -1,0 +1,1 @@
+(function () { window.msDesignStudioVersions = { list: id => window.apiGetJson?.(`/marketing/studio/designs/${id}/revisions`), restore: (id, revisionId) => window.apiSendJson?.(`/marketing/studio/designs/${id}/revisions/${revisionId}/restore`, 'POST', {}) }; })();

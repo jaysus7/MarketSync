@@ -1,0 +1,1 @@
+(function () { window.msDesignStudioAssetsPanel = { render: () => window.renderStudioToolPanelContent?.('media'), search: query => window.filterStudioMediaLibrary?.(query), add: url => window.addLibraryImageToCanvas?.(url) }; })();

@@ -49,6 +49,13 @@ const STUDIO_TEMPLATE_TOOL = {
   },
 }
 
+const PROTECTED_STUDIO_CLAIM = /(?:\$\s*\d|\b\d+(?:\.\d+)?\s*%|\bapr\b|\bper\s+month\b|\bmonthly\s+payment\b|\bwarranty\b|\bguaranteed\b|\boem\s+incentive\b)/i
+export function studioFactualTemplateText(value = '') {
+  const text = String(value || '').slice(0, 240)
+  if (!PROTECTED_STUDIO_CLAIM.test(text) || /\{\{\s*(?:vehicle|dealership|salesperson)\./.test(text)) return { text, approval_required: false }
+  return { text: '{{vehicle.sale_price|Contact dealer for details}}', approval_required: true }
+}
+
 export function registerAiDesignStudioRoutes(app) {
   // Marketing copy for the canvas — a much lighter, purpose-built ask than the
   // AI Assistant's inventory-aware chat, so it gets its own small system prompt
@@ -93,7 +100,7 @@ export function registerAiDesignStudioRoutes(app) {
         tool_choice: { type: 'tool', name: 'return_design_template' },
         messages: [{
           role: 'user',
-          content: `Design a car dealership marketing graphic template, ${width}x${height} pixels. Request: ${prompt}. Use {{vehicle.year}}, {{vehicle.make}}, {{vehicle.model}}, {{vehicle.trim}}, {{vehicle.price}}, {{vehicle.mileage}}, {{dealership.name}}, {{dealership.phone}} as placeholder text where a real value would normally go — never invent a specific price, phone number, or vehicle. Keep every element's x/y/width/height within 0-${width} and 0-${height}. Favor bold, readable text sizes (28-72px) and a small number of high-impact layers over a busy layout.`,
+          content: `Design a car dealership marketing graphic template, ${width}x${height} pixels. Request: ${prompt}. Use {{vehicle.year}}, {{vehicle.make}}, {{vehicle.model}}, {{vehicle.trim}}, {{vehicle.sale_price}}, {{vehicle.payment}}, {{vehicle.mileage}}, {{vehicle.stock_number}}, {{dealership.name}}, {{dealership.phone}}, {{dealership.logo_url}}, and {{cta}} as placeholder text where a real value would normally go. You must never invent a specific price, phone number, or vehicle. Never invent a payment, rate, incentive, mileage, warranty, stock number, or other vehicle fact. Keep every element's x/y/width/height within 0-${width} and 0-${height}. Favor bold, readable text sizes (28-72px) and a small number of high-impact layers over a busy layout.`,
         }],
       })
       const toolUse = (message.content || []).find(b => b.type === 'tool_use')
@@ -118,9 +125,12 @@ export function registerAiDesignStudioRoutes(app) {
         if (base.type === 'shape') {
           return { ...base, shapeType: 'rect', fill: /^#[0-9a-f]{3,8}$/i.test(el.fill || '') ? el.fill : '#4F46E5', rx: clamp(el.corner_radius, 0, 60) }
         }
+        const factual = studioFactualTemplateText(el.text)
         return {
           ...base,
-          text: String(el.text || '').slice(0, 200) || 'Text',
+          text: factual.text || 'Text',
+          binding: /\{\{/.test(factual.text) ? { template: factual.text } : undefined,
+          approval_required: factual.approval_required,
           fontSize: clamp(el.font_size, 12, 120),
           fontWeight: ['400', '600', '700', '800', '900'].includes(el.font_weight) ? el.font_weight : '700',
           fill: /^#[0-9a-f]{3,8}$/i.test(el.fill || '') ? el.fill : '#F8FAFC',
@@ -128,11 +138,12 @@ export function registerAiDesignStudioRoutes(app) {
       })
 
       const scene = {
-        version: 1,
+        version: 3,
         format_key: formatKey,
         width, height,
         background: { color: /^#[0-9a-f]{3,8}$/i.test(input.background_color || '') ? input.background_color : '#0F172A' },
         elements,
+        metadata: { generated_by: 'studio-ai-layout', facts_bound_locally: true, protected_claims_require_approval: elements.some(element => element.approval_required) },
       }
       res.json({ name: String(input.name || 'AI Template').slice(0, 80), scene })
     } catch (e) {
