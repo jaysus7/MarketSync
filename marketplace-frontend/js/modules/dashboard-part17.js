@@ -5252,9 +5252,13 @@ const AI_QUICK = [
 // Renders the quick-rewrite chips. `runner` is the JS call template that takes the
 // preset instruction string, e.g. "autoAiCard('id',this,%I)" where %I is replaced.
 function aiQuickChips(runner) {
+  // Parse the runner to extract function name and first argument
+  // E.g. "autoAiCard('123',this,%I)" → {func: 'autoAiCard', arg: "'123'"}
+  const m = runner.match(/^(\w+)\(([^,]+),this,%I\)$/);
+  const [, func, arg] = m || ['', '', ''];
+
   return `<div class="flex flex-wrap gap-1 w-full">${AI_QUICK.map(([label, instr]) => {
-    const call = runner.replace('%I', `'${esc(instr).replace(/'/g, "\\'")}'`);
-    return `<button type="button" onclick="${call}" class="text-[11px] font-semibold bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 border border-violet-200 dark:border-violet-900/50 rounded-full px-2.5 py-1 transition"> ${esc(label)}</button>`;
+    return `<button type="button" class="ai-quick-chip text-[11px] font-semibold bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 border border-violet-200 dark:border-violet-900/50 rounded-full px-2.5 py-1 transition" data-ai-func="${esc(func)}" data-ai-arg="${esc(arg)}" data-ai-instr="${esc(instr)}"> ${esc(label)}</button>`;
   }).join('')}</div>`;
 }
 function autoDelayLabel(c) {

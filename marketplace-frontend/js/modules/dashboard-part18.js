@@ -6552,3 +6552,22 @@ window.createAudienceCampaign = async function (segKey) {
     openCampaignBuilder({ name, audience: segKey || 'all_contacts', audienceName: seg?.name || 'All Opted-in Contacts' });
   }
 };
+
+// Event delegation for AI quick-chip buttons
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.ai-quick-chip');
+  if (!btn) return;
+
+  const func = btn.dataset.aiFunc;
+  const arg = btn.dataset.aiArg;
+  const instr = btn.dataset.aiInstr;
+
+  if (func && typeof window[func] === 'function') {
+    try {
+      const argVal = JSON.parse(arg);
+      window[func](argVal, btn, instr);
+    } catch (ex) {
+      console.error('Error executing AI quick chip:', ex);
+    }
+  }
+});
