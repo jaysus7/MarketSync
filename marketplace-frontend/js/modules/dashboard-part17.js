@@ -4069,6 +4069,7 @@ function applyCompleteTemplate(templateId) {
 
 function openDesignStudioTemplatePicker() {
   const templates = getStudioTemplates('design-studio');
+  const esc = t => (t || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const modalHtml = `
     <div class="p-6 space-y-4 max-w-4xl">
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
@@ -4076,23 +4077,23 @@ function openDesignStudioTemplatePicker() {
           <h2 class="text-xl font-black text-slate-900 dark:text-white">Design Templates</h2>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose a template to start creating social media graphics, banners, and promotional materials.</p>
         </div>
-        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
+        <button type="button" onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
       <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 max-h-[70vh] overflow-y-auto">
         ${templates.map(t => `
-          <button onclick="applyDesignTemplate('${t.id}')" class="group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-200 flex flex-col cursor-pointer p-4">
+          <button type="button" class="studio-template-btn group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-200 flex flex-col cursor-pointer p-4" data-template-id="${esc(t.id)}" data-template-type="design">
             <div class="flex items-center gap-3 mb-3">
               <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center border border-indigo-500/30">
                 <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V5z"/></svg>
               </div>
               <div>
-                <h3 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${t.name}</h3>
-                <p class="text-[11px] text-slate-500 dark:text-slate-400">${t.size}</p>
+                <h3 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${esc(t.name)}</h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">${esc(t.size)}</p>
               </div>
             </div>
-            <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed mb-3">${t.desc}</p>
+            <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed mb-3">${esc(t.desc)}</p>
             <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
               <span class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition inline-block">Create from Template →</span>
             </div>
@@ -4101,7 +4102,9 @@ function openDesignStudioTemplatePicker() {
       </div>
     </div>
   `;
-  crmOverlay(modalHtml, 'max-w-4xl');
+  const modal = crmOverlay(modalHtml, 'max-w-4xl');
+  const buttons = modal?.querySelectorAll('.studio-template-btn[data-template-type="design"]') || document.querySelectorAll('.studio-template-btn[data-template-type="design"]');
+  buttons.forEach(btn => btn.addEventListener('click', e => applyDesignTemplate(e.currentTarget.dataset.templateId)));
 }
 
 function applyDesignTemplate(templateId) {
@@ -4112,6 +4115,7 @@ function applyDesignTemplate(templateId) {
 
 function openEmailSmsStudioTemplatePicker() {
   const templates = getStudioTemplates('email-sms-studio');
+  const esc = t => (t || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const modalHtml = `
     <div class="p-6 space-y-4 max-w-4xl">
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
@@ -4119,23 +4123,23 @@ function openEmailSmsStudioTemplatePicker() {
           <h2 class="text-xl font-black text-slate-900 dark:text-white">Email & SMS Templates</h2>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose a campaign type to start building newsletters, promotions, and customer outreach.</p>
         </div>
-        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
+        <button type="button" onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
       <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 max-h-[70vh] overflow-y-auto">
         ${templates.map(t => `
-          <button onclick="applyEmailSmsTemplate('${t.id}')" class="group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-200 flex flex-col cursor-pointer p-4">
+          <button type="button" class="studio-template-btn group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-200 flex flex-col cursor-pointer p-4" data-template-id="${esc(t.id)}" data-template-type="email-sms">
             <div class="flex items-center gap-3 mb-3">
               <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center border border-blue-500/30">
                 <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
               </div>
               <div>
-                <h3 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${t.name}</h3>
-                <p class="text-[11px] text-slate-500 dark:text-slate-400">${t.template}</p>
+                <h3 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${esc(t.name)}</h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">${esc(t.template)}</p>
               </div>
             </div>
-            <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed mb-3">${t.desc}</p>
+            <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed mb-3">${esc(t.desc)}</p>
             <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
               <span class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition inline-block">Create Campaign →</span>
             </div>
@@ -4144,7 +4148,9 @@ function openEmailSmsStudioTemplatePicker() {
       </div>
     </div>
   `;
-  crmOverlay(modalHtml, 'max-w-4xl');
+  const modal = crmOverlay(modalHtml, 'max-w-4xl');
+  const buttons = modal?.querySelectorAll('.studio-template-btn[data-template-type="email-sms"]') || document.querySelectorAll('.studio-template-btn[data-template-type="email-sms"]');
+  buttons.forEach(btn => btn.addEventListener('click', e => applyEmailSmsTemplate(e.currentTarget.dataset.templateId)));
 }
 
 function applyEmailSmsTemplate(templateId) {
@@ -4155,6 +4161,7 @@ function applyEmailSmsTemplate(templateId) {
 
 function openVideoStudioTemplatePicker() {
   const templates = getStudioTemplates('video-studio');
+  const esc = t => (t || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const modalHtml = `
     <div class="p-6 space-y-4 max-w-4xl">
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
@@ -4162,23 +4169,23 @@ function openVideoStudioTemplatePicker() {
           <h2 class="text-xl font-black text-slate-900 dark:text-white">Video Templates</h2>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose a video type to create inventory showcases, testimonials, and promotional videos.</p>
         </div>
-        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
+        <button type="button" onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
       <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 max-h-[70vh] overflow-y-auto">
         ${templates.map(t => `
-          <button onclick="applyVideoTemplate('${t.id}')" class="group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-200 flex flex-col cursor-pointer p-4">
+          <button type="button" class="studio-template-btn group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-200 flex flex-col cursor-pointer p-4" data-template-id="${esc(t.id)}" data-template-type="video">
             <div class="flex items-center gap-3 mb-3">
               <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500/20 to-orange-500/20 flex items-center justify-center border border-red-500/30">
                 <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               </div>
               <div>
-                <h3 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${t.name}</h3>
-                <p class="text-[11px] text-slate-500 dark:text-slate-400">${t.duration}</p>
+                <h3 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${esc(t.name)}</h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">${esc(t.duration)}</p>
               </div>
             </div>
-            <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed mb-3">${t.desc}</p>
+            <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed mb-3">${esc(t.desc)}</p>
             <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
               <span class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition inline-block">Create Video →</span>
             </div>
@@ -4187,7 +4194,9 @@ function openVideoStudioTemplatePicker() {
       </div>
     </div>
   `;
-  crmOverlay(modalHtml, 'max-w-4xl');
+  const modal = crmOverlay(modalHtml, 'max-w-4xl');
+  const buttons = modal?.querySelectorAll('.studio-template-btn[data-template-type="video"]') || document.querySelectorAll('.studio-template-btn[data-template-type="video"]');
+  buttons.forEach(btn => btn.addEventListener('click', e => applyVideoTemplate(e.currentTarget.dataset.templateId)));
 }
 
 function applyVideoTemplate(templateId) {
@@ -4198,6 +4207,7 @@ function applyVideoTemplate(templateId) {
 
 function openAutomationsStudioTemplatePicker() {
   const templates = getStudioTemplates('automations-studio');
+  const esc = t => (t || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const modalHtml = `
     <div class="p-6 space-y-4 max-w-4xl">
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
@@ -4205,23 +4215,23 @@ function openAutomationsStudioTemplatePicker() {
           <h2 class="text-xl font-black text-slate-900 dark:text-white">Automation Templates</h2>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose an automation workflow to set up lead nurturing, service reminders, and customer engagement.</p>
         </div>
-        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
+        <button type="button" onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
       <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 max-h-[70vh] overflow-y-auto">
         ${templates.map(t => `
-          <button onclick="applyAutomationTemplate('${t.id}')" class="group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-200 flex flex-col cursor-pointer p-4">
+          <button type="button" class="studio-template-btn group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-200 flex flex-col cursor-pointer p-4" data-template-id="${esc(t.id)}" data-template-type="automation">
             <div class="flex items-center gap-3 mb-3">
               <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-yellow-500/20 flex items-center justify-center border border-amber-500/30">
                 <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
               </div>
               <div>
-                <h3 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${t.name}</h3>
+                <h3 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${esc(t.name)}</h3>
                 <p class="text-[11px] text-slate-500 dark:text-slate-400">Workflow</p>
               </div>
             </div>
-            <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed mb-3">${t.desc}</p>
+            <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed mb-3">${esc(t.desc)}</p>
             <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
               <span class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition inline-block">Create Automation →</span>
             </div>
@@ -4230,7 +4240,9 @@ function openAutomationsStudioTemplatePicker() {
       </div>
     </div>
   `;
-  crmOverlay(modalHtml, 'max-w-4xl');
+  const modal = crmOverlay(modalHtml, 'max-w-4xl');
+  const buttons = modal?.querySelectorAll('.studio-template-btn[data-template-type="automation"]') || document.querySelectorAll('.studio-template-btn[data-template-type="automation"]');
+  buttons.forEach(btn => btn.addEventListener('click', e => applyAutomationTemplate(e.currentTarget.dataset.templateId)));
 }
 
 function applyAutomationTemplate(templateId) {
