@@ -160,8 +160,8 @@ function siteSettingsFields(cfg) {
     ${sec('Address &amp; visibility', 'Your site&rsquo;s public link and whether it&rsquo;s live.', `
       ${publicUrl ? `<div class="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 mb-2">
         <span class="text-xs text-slate-600 dark:text-slate-300 truncate flex-1">${esc(publicUrl)}</span>
-        <button onclick="navigator.clipboard?.writeText('${publicUrl}');showToast('Link copied','success')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">Copy</button>
-        <a href="${publicUrl}" target="_blank" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">Open ↗</a>
+        <button type="button" class="copy-link-btn text-xs font-bold text-indigo-600 dark:text-indigo-400" data-copy-url="${esc(publicUrl)}">Copy</button>
+        <a href="${esc(publicUrl)}" target="_blank" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">Open ↗</a>
       </div>` : ''}
       <div class="flex items-center gap-2">
         <div class="flex-1">${lbl('Site address (letters, numbers, dashes)')}
@@ -407,6 +407,7 @@ function wsSetup() {
   const slug = __siteCfg?.site_slug || '';
   const domain = __siteCfg?.custom_domain || '';
   const isDomainVerified = !!__siteCfg?.custom_domain_verified;
+  const esc = t => (t || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const card = (id, iconSvg, title, desc, metaRows, badgeHtml, btnText = 'Configure') => `
     <div class="ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition flex flex-col justify-between gap-4 h-full">
@@ -416,18 +417,18 @@ function wsSetup() {
             <div class="w-9 h-9 rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold border border-indigo-500/20 flex-shrink-0">
               ${iconSvg}
             </div>
-            <h3 class="text-sm font-black text-slate-900 dark:text-white tracking-tight leading-snug">${title}</h3>
+            <h3 class="text-sm font-black text-slate-900 dark:text-white tracking-tight leading-snug">${esc(title)}</h3>
           </div>
           ${badgeHtml || ''}
         </div>
-        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${desc}</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${esc(desc)}</p>
         <div class="p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800/80 space-y-1.5 text-[11px]">
           ${metaRows}
         </div>
       </div>
       <div class="pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-2">
         <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Settings</span>
-        <button type="button" onclick="openSetupModal('${id}')" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-xs cursor-pointer flex items-center gap-1">
+        <button type="button" data-setup-id="${esc(id)}" class="setup-modal-btn px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-xs cursor-pointer flex items-center gap-1">
           <span>${btnText}</span>
           <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
         </button>
@@ -3480,6 +3481,18 @@ function renderWsBody() {
     body.className = 'flex-1 min-h-0 overflow-y-auto w-full bg-slate-50 dark:bg-slate-950';
     body.innerHTML = __wsTab === 'settings' ? wsSettings() : wsSetup();
     if (__wsTab === 'settings') renderSiteWidgets();
+    // Setup event listeners for modal buttons
+    body.querySelectorAll('.setup-modal-btn').forEach(btn => {
+      btn.addEventListener('click', e => openSetupModal(e.currentTarget.dataset.setupId));
+    });
+    // Setup event listeners for copy link buttons
+    body.querySelectorAll('.copy-link-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const url = e.currentTarget.dataset.copyUrl;
+        navigator.clipboard?.writeText(url);
+        showToast('Link copied', 'success');
+      });
+    });
     return;
   }
   if (__wsTab === 'seo') {
