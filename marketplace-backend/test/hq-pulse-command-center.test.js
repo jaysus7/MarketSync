@@ -308,18 +308,18 @@ test('Header + sidebar chrome is ALWAYS light, regardless of OS dark mode', asyn
   // turned dark on any OS with dark-mode preference — the exact regression
   // the last screenshot showed.
   assert.match(html,
-    /header\.ms-chrome-glass\.ms-chrome-glass,[\s\S]{0,120}#dashboard-nav#dashboard-nav,[\s\S]{0,80}#dept-nav#dept-nav,[\s\S]{0,80}#dept-sidebar#dept-sidebar\{[\s\S]{0,300}background:#ffffff!important/,
-    'chrome must use doubled-ID selectors to beat .dark #dept-sidebar specificity')
+    /header\.ms-chrome-glass\.ms-chrome-glass\.ms-chrome-glass,[\s\S]{0,120}#dashboard-nav#dashboard-nav,[\s\S]{0,80}#dept-nav#dept-nav,[\s\S]{0,80}#dept-sidebar#dept-sidebar,[\s\S]{0,80}#dept-tabbar#dept-tabbar\{[\s\S]{0,400}background:#ffffff!important/,
+    'chrome must use triple-class for header + doubled-ID for every rail; #dept-tabbar included')
   // A regression that puts .dark back into the chrome selector would
   // reintroduce the OS-dark-mode bug. The test explicitly forbids it.
-  const chromeBlock = html.match(/header\.ms-chrome-glass\.ms-chrome-glass,[\s\S]{0,900}background:#ffffff!important/)
+  const chromeBlock = html.match(/header\.ms-chrome-glass\.ms-chrome-glass\.ms-chrome-glass,[\s\S]{0,900}background:#ffffff!important/)
   assert.ok(chromeBlock, 'chrome block must exist')
   assert.doesNotMatch(chromeBlock[0], /\.dark/,
     'chrome selector must NOT branch on .dark — the OS dark auto-toggle would darken it')
   // backdrop-filter must be disabled — the translucent surface mixing with
   // the body colour is the whole source of the "too dark in light" complaint.
   assert.match(html,
-    /header\.ms-chrome-glass\.ms-chrome-glass,[\s\S]{0,900}backdrop-filter:none!important/,
+    /header\.ms-chrome-glass\.ms-chrome-glass\.ms-chrome-glass,[\s\S]{0,900}backdrop-filter:none!important/,
     'chrome fix must disable backdrop-filter to prevent Liquid-Glass mixing')
 })
 
