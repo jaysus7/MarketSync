@@ -153,6 +153,37 @@ test('no public page claims a rating, review or award it cannot support', () => 
   assert.deepEqual(offenders, [], `pages claiming ratings or awards: ${offenders.join(', ')}`)
 })
 
+test('no public page prices something a reader cannot see', () => {
+  // Four feature pages each carried an Offer of USD $299 — a figure that belongs to
+  // MarketSync Identity Verify on the pricing page, quoted in a currency that page
+  // never uses, for products the catalog does not sell separately. Nothing rendered
+  // it, so nothing contradicted it. This is the check that would have said so.
+  const pages = [...read('sitemap.xml').matchAll(/<loc>[^<]*\/([^</]*)<\/loc>/g)].map((m) => m[1] || 'index.html')
+  const offenders = []
+  for (const p of pages) {
+    if (!existsSync(path.join(FE, p))) continue
+    for (const f of auditSchemaAgainstVisible(read(p), { url: p }).findings) {
+      if (f.type === 'schema_price_not_visible' || f.type === 'schema_free_offer') offenders.push(`${p}: ${f.message}`)
+    }
+  }
+  assert.deepEqual(offenders, [], offenders.join('\n'))
+})
+
+test('the link graph counts absolute hrefs, or every page looks orphaned', () => {
+  // The site writes its internal links absolutely (https://marketsync.link/x.html).
+  // A caller that only extracts relative hrefs reports every strategic page as an
+  // orphan — which is exactly what happened while auditing, and would have sent
+  // someone adding navigation the site already had.
+  const graph = auditLinkGraph({
+    'index.html': { links: ['https://example.test/features.html', '/pricing.html', 'faq.html'] },
+    'features.html': { links: [] },
+    'pricing.html': { links: [] },
+    'faq.html': { links: [] },
+  }, { strategic: ['features.html', 'pricing.html', 'faq.html'] })
+  assert.deepEqual(graph.findings, [], 'absolute, root-relative and bare hrefs all count as inbound links')
+  assert.equal(graph.inbound['features.html'], 1, 'an absolute href is an inbound link')
+})
+
 test('malformed JSON-LD is a finding, not a silent skip', () => {
   const html = '<html><script type="application/ld+json">{"@type": broken}</script></html>'
   assert.ok(types(auditSchemaAgainstVisible(html)).includes('schema_malformed'))
