@@ -306,6 +306,10 @@ function initAppraisal() {
       if (!r.ok) throw new Error(d.error || 'Appraisal failed');
       result.innerHTML = renderAppraisal(d);
       if (typeof loadApprList === 'function') loadApprList();  // refresh Recent Trades
+      // Auto-save appraisal
+      setTimeout(() => {
+        if (typeof apprSaveDeal === 'function') { apprSaveDeal(); }
+      }, 100);
     } catch (e) {
       result.innerHTML = `<div class="py-8 text-center text-sm text-slate-500">Couldn't appraise: ${esc(e.message)}</div>`;
     } finally { runBtn.disabled = false; runBtn.textContent = orig; }
