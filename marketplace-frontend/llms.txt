@@ -36,6 +36,11 @@ source; every figure a person or model needs is there.
 - [AI Customer Agent](https://marketsync.link/ai-chatbot.html): A customer-facing AI
   salesperson on the dealership website. Answers questions, shows live vehicle cards from
   real inventory, books the appointment and captures the lead. Formerly the AI ChatBot.
+- [Discoverability](https://marketsync.link/discoverability.html): Crawls the live public
+  dealership website, turns what it finds into evidence-backed findings, fixes what is safe
+  to fix, and validates each fix against the public page. Reports Quality and Evidence
+  Coverage separately and never counts synthetic or missing provider data as measured.
+  Included with MarketSync SEO, MarketSync Digital and DealerOS Complete.
 - [MarketSync SEO](https://marketsync.link/marketsync-seo.html): Automotive AI SEO — a
   daily audit, a safe auto-fix engine, local and AutoDealer schema, inventory SEO
   lifecycle rules, competitor and keyword tracking, AI-search readiness, and CRM revenue

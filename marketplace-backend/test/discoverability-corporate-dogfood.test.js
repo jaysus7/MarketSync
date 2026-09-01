@@ -7,7 +7,7 @@ import path from 'node:path'
 import {
   auditLlmsTxt, auditSitemap, auditRobots, classifyRobots, auditSchemaAgainstVisible,
   auditOpenGraph, auditLinkGraph, auditCanonical, auditFactConsistency,
-  coverage, verified100, visibleText,
+  coverage, verified100, visibleText, jsonLdBlocks,
 } from '../services/corporateFactAudit.js'
 import { calculateGeoMetrics } from '../services/aeoGeoTruthService.js'
 import { sxoStageEvidence } from '../services/discoverabilityAutopilotService.js'
@@ -320,6 +320,47 @@ test('every indexable public page carries a complete social card', () => {
     if (real.length) bad.push(`${p}: ${real.map((f) => f.message).join('; ')}`)
   }
   assert.deepEqual(bad, [], bad.join('\n'))
+})
+
+// ── FAQ structured data may only describe what the page shows ──────────────────────
+
+test('every FAQPage question and answer is visibly present on the page', () => {
+  // Compare each question against its OWN visible Q&A, never against a page-wide blob:
+  // stripping tags from the whole page turns inline markup — "(<strong>X</strong>)" —
+  // into "( X )", which reads as a mismatch when the copy is identical. A check that
+  // cries wolf gets muted, and then a real schema-only claim walks straight past it.
+  const norm = (t) => t.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#x27;|&#39;/g, "'")
+    .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim()
+
+  for (const page of ['faq.html']) {
+    const html = read(page)
+    const visible = new Map()
+    for (const m of html.matchAll(/<div class="qa[^"]*"><h3>([\s\S]*?)<\/h3><p>([\s\S]*?)<\/p><\/div>/g)) {
+      visible.set(norm(m[1]), norm(m[2]))
+    }
+    assert.ok(visible.size > 0, `${page} renders no visible Q&A pairs`)
+
+    const problems = []
+    let checked = 0
+    for (const block of jsonLdBlocks(html)) {
+      const walk = (node) => {
+        if (Array.isArray(node)) return node.forEach(walk)
+        if (!node || typeof node !== 'object') return
+        if (node['@type'] === 'Question') {
+          checked += 1
+          const q = norm(node.name || '')
+          const a = norm((node.acceptedAnswer || {}).text || '')
+          if (!visible.has(q)) problems.push(`${page}: schema asks "${q}", which the page never shows`)
+          else if (visible.get(q) !== a) problems.push(`${page}: the answer to "${q}" differs from the page`)
+        }
+        Object.values(node).forEach(walk)
+      }
+      walk(block)
+    }
+    assert.equal(checked, visible.size,
+      `${page} emits ${checked} FAQ questions but shows ${visible.size} — schema and page must describe the same set`)
+    assert.deepEqual(problems, [], problems.join('\n'))
+  }
 })
 
 // ── Accessibility of the public pages (Batch 9 STEP 20) ────────────────────────────
