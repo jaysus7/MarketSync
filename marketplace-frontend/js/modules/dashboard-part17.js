@@ -110,7 +110,7 @@ function customDomainCard(cfg) {
     : verified
       ? `<span class="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400"> Connected — live at <a href="https://${esc(dom)}" target="_blank" class="underline">${esc(dom)}</a></span>`
       : `<span class="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">⏳ Waiting for DNS — add the record below, then Check.</span>`;
-  const rec = (host, val) => `<div class="flex items-center gap-2 text-xs font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1"><span class="text-slate-400">${host}</span><span class="flex-1 truncate">${esc(val)}</span><button type="button" onclick="navigator.clipboard?.writeText('${esc(val)}');showToast('Copied','success')" class="text-indigo-600 dark:text-indigo-400 font-bold">Copy</button></div>`;
+  const rec = (host, val) => `<div class="flex items-center gap-2 text-xs font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1"><span class="text-slate-400">${host}</span><span class="flex-1 truncate">${esc(val)}</span><button type="button" class="dns-copy-btn text-indigo-600 dark:text-indigo-400 font-bold" data-copy-text="${esc(val)}">Copy</button></div>`;
   return `<div class="border border-slate-200 dark:border-slate-700 rounded-xl p-3 space-y-2">
     <div class="flex items-center justify-between gap-2 flex-wrap">
       <div class="text-sm font-black text-slate-900 dark:text-white"> Your own domain</div>
@@ -3493,6 +3493,18 @@ function renderWsBody() {
         showToast('Link copied', 'success');
       });
     });
+    // Setup event listeners for DNS copy buttons
+    body.querySelectorAll('.dns-copy-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const text = e.currentTarget.dataset.copyText;
+        navigator.clipboard?.writeText(text);
+        showToast('Copied', 'success');
+      });
+    });
+    // Setup event listeners for theme buttons
+    body.querySelectorAll('.theme-btn').forEach(btn => {
+      btn.addEventListener('click', e => wsSetTheme(e.currentTarget.dataset.themeId));
+    });
     return;
   }
   if (__wsTab === 'seo') {
@@ -4395,9 +4407,9 @@ function wsDesign() {
     </div>
     <div>
       <div class="text-sm font-black text-slate-900 dark:text-white mb-2">Design theme <span class="font-normal text-slate-400 text-[11px]">— one click restyles the whole site</span></div>
-      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">${themes.map(([id, nm, desc]) => `<button type="button" onclick="wsSetTheme('${id}')" class="text-left rounded-xl border-2 p-3 transition ${curTheme === id ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40' : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300'}">
-        <div class="text-[13px] font-black text-slate-900 dark:text-white flex items-center gap-1">${nm}${curTheme === id ? ' <span class="text-indigo-500"></span>' : ''}</div>
-        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">${desc}</div></button>`).join('')}</div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">${themes.map(([id, nm, desc]) => `<button type="button" class="theme-btn text-left rounded-xl border-2 p-3 transition ${curTheme === id ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40' : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300'}" data-theme-id="${esc(id)}">
+        <div class="text-[13px] font-black text-slate-900 dark:text-white flex items-center gap-1">${esc(nm)}${curTheme === id ? ' <span class="text-indigo-500"></span>' : ''}</div>
+        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">${esc(desc)}</div></button>`).join('')}</div>
       <p class="text-[11px] text-slate-400 mt-1.5">Themes set spacing, corners, shadows and heading style. Save, then “View site” to see it live.</p>
     </div>
     <div>
