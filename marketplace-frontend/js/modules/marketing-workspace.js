@@ -43,7 +43,7 @@ function buildMarketingSuiteConfig(key) {
       suiteItem('studio', 'Design Studio', 'camera', { studioLaunch: true }),
       suiteItem('social-scheduler', 'Social Studio & Scheduler', 'calendar'),
       suiteItem('video-studio', 'Video', 'video'),
-      suiteItem('automation-builder', 'Automations', 'bolt', { tab: 'overview' }),
+      suiteItem('automation-builder', 'Automations', 'bolt', { tab: 'automations', studio: 'automation' }),
       suiteItem('marketing-overview', 'Campaigns', 'megaphone', { tab: 'campaigns' }),
       suiteItem('marketing-overview', 'Templates', 'document', { tab: 'templates' }),
       suiteItem('marketing-overview', 'Audiences', 'users', { tab: 'audiences' }),
@@ -104,7 +104,7 @@ function buildMarketingSuiteConfig(key) {
   }
   navItems.push(
     suiteItem('inventory', 'Facebook Auto Poster', 'megaphone', { invmode: 'facebook' }),
-    suiteItem('automation-builder', 'Automations', 'bolt', { tab: 'overview' }),
+    suiteItem('automation-builder', 'Automations', 'bolt', { tab: 'automations', studio: 'automation' }),
     suiteItem('marketing-overview', 'Campaigns', 'megaphone', { tab: 'campaigns' }),
     suiteItem('marketing-overview', 'Templates', 'document', { tab: 'templates' }),
     suiteItem('marketing-overview', 'Audiences', 'users', { tab: 'audiences' }),

@@ -107,7 +107,7 @@ test('each MarketSync Internal page owns specific operational header tabs', () =
   // simplification pass — its intent (one owner, one next action per lead) is now
   // implicit in the "Follow up" card's own copy rather than a separate card.
   assert.match(part10, /saas-connected-website-builder/)
-  assert.match(part11, /Take or upload receipt photo/)
+  assert.match(part11, /HQ vendor ledger \+ income \+ budget \+ affiliate/)
   const videoStudio = read('js/modules/video-studio.js')
   // The full-screen camera redesign shortened the verbose "MarketSync Product
   // Video Studio" header badge to a compact "MarketSync" pill (it now shares the
@@ -127,11 +127,35 @@ const PRE_PHASE1_PAGES = [
   'taskboard', 'tasks', 'website',
 ]
 
-test('registry exposes the nine DealerOS workspaces in workflow order', () => {
+test('registry exposes the ten DealerOS workspaces in workflow order', () => {
   const { MS_WORKSPACES, msDepartmentIds } = loadRegistry()
   assert.ok(MS_WORKSPACES, 'MS_WORKSPACES must be exported')
   assert.deepEqual(msDepartmentIds(MS_WORKSPACES), EXPECTED_WORKSPACES,
-    'departments must be exactly the nine target workspaces, in order')
+    'departments must be exactly the ten target workspaces, in order')
+})
+
+test('DealerOS Marketing exposes exactly five studios on canonical engines', () => {
+  const { MS_WORKSPACES } = loadRegistry()
+  const studios = MS_WORKSPACES.marketing.pages.filter(page => !page.legacy)
+  assert.deepEqual(studios.map(page => page.label), [
+    'Website Studio', 'Design Studio', 'Video Studio', 'Email/SMS Studio', 'Automations Studio',
+  ])
+  assert.deepEqual(studios.map(page => page.page), [
+    'website', 'studio', 'video-studio', 'automation-builder', 'automation-builder',
+  ])
+  assert.equal(studios.find(page => page.label === 'Design Studio').studioLaunch, true)
+  assert.deepEqual(studios.filter(page => page.page === 'automation-builder').map(page => page.studio), ['email', 'automation'])
+  assert.match(part2, /aria-label="Marketing Studios"/)
+  assert.match(part2, /function deptGo\(page, invmode, tab, studio\)/)
+})
+
+test('Email\/SMS and Automations reuse one engine with distinct required tabs', () => {
+  const automationSource = read('js/modules/dashboard-part18.js')
+  assert.match(automationSource, /\['campaigns', 'Campaigns'\][\s\S]*?\['templates', 'Templates'\][\s\S]*?\['audiences', 'Audiences'\][\s\S]*?\['automations', 'Automations'\][\s\S]*?\['performance', 'Results'\]/)
+  assert.match(automationSource, /\['automations', 'My Automations'\][\s\S]*?\['workflow-templates', 'Templates'\][\s\S]*?\['triggers', 'Triggers'\][\s\S]*?\['actions', 'Actions'\][\s\S]*?\['connectors', 'Integrations'\][\s\S]*?\['history', 'History'\]/)
+  assert.match(automationSource, /apiGetJson\('\/automation\/triggers'\)/)
+  assert.match(automationSource, /apiGetJson\('\/automation\/queue'\)/)
+  assert.match(automationSource, /Actual dealership queue records\. No synthetic run data is shown\./)
 })
 
 test('every dealer department leads with one role-aware My Day', () => {
@@ -140,6 +164,7 @@ test('every dealer department leads with one role-aware My Day', () => {
   // tests and the registry). It IS the role-aware My Day surface; the label is 'Pulse'.
   for (const id of msDepartmentIds(MS_WORKSPACES)) {
     const pages = MS_WORKSPACES[id].pages
+    if (id === 'marketing') continue // Marketing intentionally leads with the five studio switcher.
     // A single-page department (e.g. Cleanup) IS its own My Day — there is no
     // separate Pulse/Work split to carve a dedicated 'Pulse' tab out of.
     if (pages.length === 1) continue
@@ -198,7 +223,7 @@ test('required UI moves landed in the right workspace', () => {
   assert.equal(at('delivery'), 'fni', 'Delivery → F&I')
   assert.equal(at('sales-team'), 'people', 'Employees → People')
   assert.equal(at('people-compliance'), 'people', 'Compliance → People')
-  assert.equal(at('automation-builder'), 'settings', 'Automation → Settings, not a department')
+  assert.equal(at('automation-builder'), 'marketing', 'Automation → Marketing Studios on the shared engine')
   assert.equal(at('config'), 'settings', 'Configuration → Settings')
 })
 
@@ -219,12 +244,12 @@ test('Inventory Intelligence has one connected home inside Inventory Pulse', () 
   assert.ok(reg.includes("page: 'market'"), 'Market & Competitors must stay reachable')
 })
 
-test('one inventory pool — the manual and Facebook views are the same page', () => {
-  // Still one pool and one page; the Facebook view simply moved to Marketing, where publishing
-  // to a channel belongs. What must never happen is a second vehicle model.
+test('one inventory pool — Marketing Studios do not create a second inventory destination', () => {
   const { MS_WORKSPACES } = loadRegistry()
   assert.deepEqual(MS_WORKSPACES.inventory.pages.filter(p => p.page === 'inventory').map(p => p.invmode), ['manual'])
-  assert.deepEqual(MS_WORKSPACES.marketing.pages.filter(p => p.page === 'inventory').map(p => p.invmode), ['facebook'])
+  assert.deepEqual(MS_WORKSPACES.marketing.pages.filter(p => p.page === 'inventory'), [])
+  assert.match(dashboardJs, /facebook_solo:\s*\['leaderboard', 'inventory'\]/,
+    'Facebook-only products must continue to reuse the canonical inventory page')
 })
 
 test('role gating is preserved on regrouped workspaces', () => {

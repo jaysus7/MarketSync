@@ -3198,13 +3198,13 @@
                 <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
               </div>
               <div class="min-w-0">
-                <h2 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none">Email, SMS &amp; Campaigns</h2>
-                <p class="text-base text-slate-600 dark:text-slate-300 mt-2 max-w-3xl leading-relaxed">Automations and broadcasts — lead response, service retention, reviews, and journeys.</p>
+                <h2 id="auto-builder-title" class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none">Email/SMS Studio</h2>
+                <p id="auto-builder-subtitle" class="text-base text-slate-600 dark:text-slate-300 mt-2 max-w-3xl leading-relaxed">Campaigns, reusable messages, audiences, and results.</p>
               </div>
             </div>
             <div class="flex items-center gap-2 flex-wrap shrink-0">
-              <button type="button" onclick="typeof openVisualWorkflowBuilder==='function' && openVisualWorkflowBuilder()" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black shadow-md">Build Automation</button>
-              <button type="button" onclick="typeof openEmailSmsBuilder==='function' && openEmailSmsBuilder({mode:'email'})" class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-sm font-black">New Campaign</button>
+              <button type="button" id="auto-build-action" onclick="typeof openVisualWorkflowBuilder==='function' && openVisualWorkflowBuilder()" class="hidden px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-black shadow-md">Build Automation</button>
+              <button type="button" id="auto-campaign-action" onclick="typeof openEmailSmsBuilder==='function' && openEmailSmsBuilder({mode:'email'})" class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-sm font-black">New Campaign</button>
             </div>
           </div>
         </section>

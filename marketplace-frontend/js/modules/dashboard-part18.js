@@ -502,7 +502,9 @@ function autoRerenderCurrent() {
 // keeps its original root id, so the existing bucket loaders render unchanged.
 // ── Email & SMS: Central Dealership Communication Automation Engine ──────────
 let __autoTab = 'automations';
-function autoTab(t) { __autoTab = (t === 'overview' ? 'automations' : t); loadAutoBuilderPage(); }
+function autoStudioMode() { return window.__autoStudio === 'automation' ? 'automation' : 'email'; }
+function autoStudioDefaultTab(mode = autoStudioMode()) { return mode === 'automation' ? 'automations' : 'campaigns'; }
+function autoTab(t) { __autoTab = t || autoStudioDefaultTab(); loadAutoBuilderPage(); }
 window.autoTab = autoTab;
 
 // Comprehensive dictionary of categorized dealership automation workflows
@@ -824,6 +826,38 @@ async function loadAutoBuilderPage() {
   const tabsEl = document.getElementById('auto-builder-tabs');
   if (!tabsEl) return;
 
+  const studio = autoStudioMode();
+  const studioTabs = studio === 'automation'
+    ? [
+        ['automations', 'My Automations'],
+        ['workflow-templates', 'Templates'],
+        ['triggers', 'Triggers'],
+        ['actions', 'Actions'],
+        ['connectors', 'Integrations'],
+        ['history', 'History'],
+      ]
+    : [
+        ['campaigns', 'Campaigns'],
+        ['templates', 'Templates'],
+        ['audiences', 'Audiences'],
+        ['automations', 'Automations'],
+        ['performance', 'Results'],
+      ];
+  if (!studioTabs.some(([id]) => id === __autoTab) || __autoTab === 'overview') {
+    __autoTab = autoStudioDefaultTab(studio);
+  }
+
+  const title = document.getElementById('auto-builder-title');
+  const subtitle = document.getElementById('auto-builder-subtitle');
+  const buildAction = document.getElementById('auto-build-action');
+  const campaignAction = document.getElementById('auto-campaign-action');
+  if (title) title.textContent = studio === 'automation' ? 'Automations Studio' : 'Email/SMS Studio';
+  if (subtitle) subtitle.textContent = studio === 'automation'
+    ? 'Build, activate, and inspect dealership workflows on the canonical automation engine.'
+    : 'Campaigns, reusable messages, audiences, automations, and measured results.';
+  buildAction?.classList.toggle('hidden', studio !== 'automation');
+  campaignAction?.classList.toggle('hidden', studio === 'automation');
+
   if (!(await ensureAutoCfg('auto-leads-root'))) {
     const metrics = document.getElementById('auto-builder-metrics');
     if (metrics) metrics.innerHTML = '';
@@ -838,17 +872,7 @@ async function loadAutoBuilderPage() {
     </button>
   `;
 
-  tabsEl.innerHTML = `
-    <div role="tablist" aria-label="Campaigns and Automations" class="flex items-center gap-1 min-w-0 overflow-x-auto overscroll-x-contain">
-      ${tabBtn('overview', 'Overview', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>`)}
-      ${tabBtn('automations', 'Automations', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>`)}
-      ${tabBtn('campaigns', 'Campaigns', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>`)}
-      ${tabBtn('templates', 'Templates', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>`)}
-      ${tabBtn('audiences', 'Audiences', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>`)}
-      ${tabBtn('connectors', 'DMS & CMS Connectors', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></svg>`)}
-      ${tabBtn('performance', 'Performance', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"/></svg>`)}
-    </div>
-  `;
+  tabsEl.innerHTML = `<div role="tablist" aria-label="${studio === 'automation' ? 'Automations Studio' : 'Email and SMS Studio'}" class="flex items-center gap-1 min-w-0 overflow-x-auto overscroll-x-contain">${studioTabs.map(([id, label]) => tabBtn(id, label, '')).join('')}</div>`;
 
   // Hide auxiliary containers
   const roots = { delivery: 'auto-delivery-root', holidays: 'auto-holidays-root' };
@@ -866,9 +890,7 @@ async function loadAutoBuilderPage() {
     inventory: 'inventory', marketing: 'marketing', custom: 'custom'
   };
 
-  if (__autoTab === 'overview') {
-    renderAutoOverviewTab(mainRoot);
-  } else if (__autoTab === 'automations' || categoryMap[__autoTab]) {
+  if (__autoTab === 'automations' || categoryMap[__autoTab]) {
     if (categoryMap[__autoTab]) {
       __autoCategoryFilter = categoryMap[__autoTab];
     }
@@ -883,9 +905,55 @@ async function loadAutoBuilderPage() {
     renderAutoConnectorsTab(mainRoot);
   } else if (__autoTab === 'performance') {
     renderAutoPerformanceTab(mainRoot);
+  } else if (__autoTab === 'workflow-templates') {
+    renderAutomationWorkflowTemplatesTab(mainRoot);
+  } else if (__autoTab === 'triggers' || __autoTab === 'actions') {
+    renderAutomationNodeLibraryTab(mainRoot, __autoTab);
+  } else if (__autoTab === 'history') {
+    renderAutomationHistoryTab(mainRoot);
   }
 }
 window.loadAutoBuilderPage = loadAutoBuilderPage;
+
+function renderAutomationWorkflowTemplatesTab(container) {
+  const templates = Array.isArray(VISUAL_TEMPLATES_CATALOG) ? VISUAL_TEMPLATES_CATALOG : [];
+  container.innerHTML = `<div class="space-y-5">
+    <div><h3 class="text-xl font-black text-slate-900 dark:text-white">Automation Templates</h3><p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Open a workflow graph in the existing visual builder, then edit and save it for this dealership.</p></div>
+    <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">${templates.map(t => `<article class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs"><span class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-300">${esc(t.category || 'Workflow')}</span><h4 class="mt-1 text-base font-black text-slate-900 dark:text-white">${esc(t.name)}</h4><p class="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">${esc(t.desc || '')}</p><button type="button" onclick="openVisualWorkflowBuilder('${esc(t.key)}')" class="mt-4 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black">Preview &amp; use</button></article>`).join('')}</div>
+  </div>`;
+}
+
+async function renderAutomationNodeLibraryTab(container, kind) {
+  const isTriggers = kind === 'triggers';
+  container.innerHTML = '<div class="py-12 text-center text-sm text-slate-400">Loading…</div>';
+  let items = [];
+  if (isTriggers) {
+    try {
+      const result = await apiGetJson('/automation/triggers');
+      items = Array.isArray(result?.triggers) ? result.triggers : [];
+    } catch (e) {
+      container.innerHTML = `<div class="rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/30 p-5 text-sm text-rose-700 dark:text-rose-300">${esc(e.message || 'Trigger catalog could not be loaded.')}</div>`;
+      return;
+    }
+  } else {
+    items = Array.isArray(VISUAL_NODE_LIBRARY?.actions) ? VISUAL_NODE_LIBRARY.actions : [];
+  }
+  container.innerHTML = `<div class="space-y-5">
+    <div><h3 class="text-xl font-black text-slate-900 dark:text-white">${isTriggers ? 'Triggers' : 'Actions'}</h3><p class="text-sm text-slate-500 dark:text-slate-400 mt-1">${isTriggers ? 'Availability comes from the server trigger catalog; Preview items are not wired to an event source yet.' : 'Canonical actions available in the existing visual workflow builder.'}</p></div>
+    <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">${items.map(item => { const ready = !isTriggers || item.available === true; return `<article class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4"><div class="flex items-start justify-between gap-3"><div><span class="text-[10px] font-black uppercase tracking-wider text-slate-400">${esc(item.category || item.subcat || kind)}</span><h4 class="mt-1 text-sm font-black text-slate-900 dark:text-white">${esc(item.label)}</h4></div>${isTriggers ? `<span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-black ${ready ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'}">${ready ? 'Wired' : 'Preview'}</span>` : ''}</div>${item.desc ? `<p class="mt-2 text-xs text-slate-500 dark:text-slate-400">${esc(item.desc)}</p>` : ''}</article>`; }).join('')}</div>
+  </div>`;
+}
+
+async function renderAutomationHistoryTab(container) {
+  container.innerHTML = '<div class="py-12 text-center text-sm text-slate-400">Loading history…</div>';
+  try {
+    const result = await apiGetJson('/automation/queue');
+    const rows = Array.isArray(result?.queue) ? result.queue.slice().sort((a, b) => String(b.scheduled_at || '').localeCompare(String(a.scheduled_at || ''))) : [];
+    container.innerHTML = `<div class="space-y-5"><div><h3 class="text-xl font-black text-slate-900 dark:text-white">Automation History</h3><p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Actual dealership queue records. No synthetic run data is shown.</p></div>${rows.length ? `<div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"><table class="w-full text-left text-xs"><thead class="bg-slate-50 dark:bg-slate-950/50 text-slate-500"><tr><th class="px-4 py-3">Scheduled</th><th class="px-4 py-3">Channel</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Campaign</th><th class="px-4 py-3">Reason</th></tr></thead><tbody class="divide-y divide-slate-100 dark:divide-slate-800">${rows.map(row => `<tr><td class="px-4 py-3 whitespace-nowrap">${esc(row.scheduled_at ? new Date(row.scheduled_at).toLocaleString() : '—')}</td><td class="px-4 py-3 uppercase font-bold">${esc(row.channel || '—')}</td><td class="px-4 py-3 font-black capitalize">${esc(row.status || '—')}</td><td class="px-4 py-3 font-mono">${esc(row.campaign_id || '—')}</td><td class="px-4 py-3">${esc(row.cancel_reason || '—')}</td></tr>`).join('')}</tbody></table></div>` : '<div class="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-10 text-center text-sm text-slate-500 dark:text-slate-400">No scheduled or completed automation records were returned for this dealership.</div>'}</div>`;
+  } catch (e) {
+    container.innerHTML = `<div class="rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/30 p-5 text-sm text-rose-700 dark:text-rose-300">${esc(e.message || 'Automation history could not be loaded.')}</div>`;
+  }
+}
 
 // ── Render Automations Tab ───────────────────────────────────────────────────
 let __autoAutomationsLastMount = null;

@@ -1327,7 +1327,7 @@ const PAGE_FEATURE = {
   'acct-expenses': 'os.accounting', 'acct-budget': 'os.accounting', 'acct-tax': 'os.accounting',
   'acct-reports': 'os.accounting', 'acct-settings': 'os.accounting',
   'service-ros': 'os.service', 'service-appointments': 'os.service', 'service-parts': 'os.service',
-  website: 'os.website', seo: 'os.marketing', discoverability: 'os.marketing',
+  website: 'os.website', 'website-settings': 'os.website', blog: 'os.website', seo: 'os.marketing', discoverability: 'os.marketing',
   'automation-builder': 'os.automations', operations: 'os.automations', taskboard: 'os.automations',
   'email-marketing': 'os.email_marketing',
   delivery: 'os.sales', fni: 'os.sales',
@@ -1366,6 +1366,8 @@ const PAGE_ANY_FEATURE = {
   'automation-builder': ['os.automations', 'os.marketing', 'os.email_marketing', 'email.campaigns', 'email.templates', 'email.audiences', 'email.automations'],
   'video-studio': ['os.marketing', 'video.library'],
   website: ['os.website', 'website.builder'],
+  'website-settings': ['os.website', 'website.builder', 'website.pages'],
+  blog: ['os.website', 'website.builder', 'website.pages', 'os.marketing'],
   // `seo.intelligence` and `seo.standalone` never existed in the catalog, so this
   // gate only ever really asked `os.marketing`. That is the wrong question: it is
   // the DealerOS marketing engine, which a customer who bought SEO on its own does
@@ -1516,7 +1518,7 @@ function renderDeptTabbar(pageId) {
         ? 'ensureOpenMarketSyncStudio()'
         : item.page === 'social-scheduler'
           ? "deptGo('marketing-overview','','scheduler')"
-          : `deptGo('${esc(item.page)}'${item.tab ? `,'','${esc(item.tab)}'` : ''})`;
+          : `deptGo('${esc(item.page)}'${item.tab ? `,'','${esc(item.tab)}','${esc(item.studio || '')}'` : ''})`;
       return `<button type="button" role="tab" aria-selected="${on}"${on ? ' aria-current="page"' : ''} onclick="${call}" class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${on ? 'text-indigo-700 dark:text-indigo-300 border-current' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}">${esc(item.label)}</button>`;
     }).join('');
     // Tabs only — suite title lives on the engine header (no triple title stack).
@@ -1554,10 +1556,31 @@ function renderDeptTabbar(pageId) {
           ? 'window.openStudioSchedulerWithEntitlementCheck()'
           : item.page === 'social-scheduler'
             ? "deptGo('marketing-overview','','scheduler')"
-            : `deptGo('${esc(item.page)}'${item.invmode ? `,'${esc(item.invmode)}'` : `,''`}${item.tab ? `,'${esc(item.tab)}'` : ''})`;
+            : `deptGo('${esc(item.page)}'${item.invmode ? `,'${esc(item.invmode)}'` : `,''`}${item.tab ? `,'${esc(item.tab)}','${esc(item.studio || '')}'` : ''})`;
       return `<button type="button" role="tab" aria-selected="${on}"${on ? ' aria-current="page"' : ''} onclick="${call}" class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${on ? 'text-indigo-700 dark:text-indigo-300 border-current' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}">${esc(item.label)}</button>`;
     }).join('');
     bar.innerHTML = `<div role="tablist" aria-label="Workspace navigation" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto">${tabs}</div>`;
+    bar.classList.remove('hidden');
+    return;
+  }
+  // DealerOS Marketing owns one local switcher for its five studios. Render it
+  // before the generic engine/special-page suppression so Website and the shared
+  // communication runtime do not strand the user inside one studio.
+  const dealerDeptId = (__activeDept && DEPARTMENTS[__activeDept]?.pages.some(p => p.page === pageId)) ? __activeDept
+    : Object.keys(DEPARTMENTS).find(id => DEPARTMENTS[id].pages.some(p => p.page === pageId && !p.legacy));
+  if (dealerDeptId === 'marketing') {
+    __activeDept = 'marketing';
+    const dept = DEPARTMENTS.marketing;
+    const pages = dept.pages.filter(deptPageAllowed);
+    const tabs = pages.map(p => {
+      const activeStudio = window.__autoStudio || ((__autoTab || '') === 'automations' ? 'automation' : 'email');
+      const on = p.page === pageId && (!p.studio || p.studio === activeStudio);
+      const call = p.studioLaunch
+        ? 'ensureOpenMarketSyncStudio()'
+        : `deptGo('${p.page}','${p.invmode || ''}','${p.tab || ''}','${p.studio || ''}')`;
+      return `<button type="button" role="tab" aria-selected="${on}"${on ? ' aria-current="page"' : ''} onclick="${call}" class="px-3.5 py-2 -mb-px border-b-2 text-[13px] font-bold whitespace-nowrap transition ${on ? 'text-indigo-700 dark:text-indigo-300 border-current' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}">${esc(p.label)}</button>`;
+    }).join('');
+    bar.innerHTML = `<div class="flex items-center gap-2 mb-1"><span class="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 flex items-center justify-center">${svgIcon(dept.icon, 'w-4 h-4')}</span><span class="text-sm font-black text-slate-900 dark:text-white">Marketing</span></div><div role="tablist" aria-label="Marketing Studios" class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto">${tabs}</div>`;
     bar.classList.remove('hidden');
     return;
   }
@@ -1593,8 +1616,9 @@ function renderDeptTabbar(pageId) {
   bar.classList.remove('hidden');
 }
 // Navigate to a department page (handles the inventory view-mode tabs).
-function deptGo(page, invmode, tab) {
+function deptGo(page, invmode, tab, studio) {
   if (invmode) __inventoryMode = invmode;
+  if (page === 'automation-builder' && studio) window.__autoStudio = studio;
   if (page === 'website' && tab === 'builder') {
     if (typeof openWebsiteBuilder === 'function') {
       openWebsiteBuilder();
@@ -1804,7 +1828,17 @@ function deptNavEligible(role) {
     && __productAllowedPages == null;
 }
 // A page the current user may actually open: role-allowed AND not entitlement/flag hidden.
-function deptPageAllowed(p) { return !p.legacy && deptRoleOk(p) && deptPageVisible(p.page, p.invmode); }
+function deptItemFeatureOk(p) {
+  if (!Array.isArray(p?.anyFeature) || !p.anyFeature.length) return true;
+  const access = window.__demoEntitlements || window.__access;
+  const fallback = dealerPlanFallback();
+  if (!access?.features && !fallback.features) return true;
+  return !!access?.isPlatformStaff || p.anyFeature.some(feature =>
+    (access?.features || []).includes(feature) || fallback.features?.has(feature));
+}
+function deptPageAllowed(p) {
+  return !p.legacy && deptRoleOk(p) && deptPageVisible(p.page, p.invmode) && deptItemFeatureOk(p);
+}
 function deptHomePage(dept) { return dept.pages.find(deptPageAllowed) || dept.pages.find(deptRoleOk) || dept.pages[0]; }
 // A department is present when it has one page the user's role and plan both permit.
 // Do not inspect the old nested sidebar here: it is merely a legacy presentation tree
@@ -1856,7 +1890,7 @@ function renderMarketingSuiteNav(suiteKey, host, navRoot) {
     html += visibleItems.filter(item => !item.dealerOnly || dealer).map(item => {
       const call = item.studioLaunch
         ? 'ensureOpenMarketSyncStudio()'
-        : `deptGo('${esc(item.page)}'${item.invmode ? `,'${esc(item.invmode)}'` : `,''`}${item.tab ? `,'${esc(item.tab)}'` : ''})`;
+        : `deptGo('${esc(item.page)}'${item.invmode ? `,'${esc(item.invmode)}'` : `,''`}${item.tab ? `,'${esc(item.tab)}','${esc(item.studio || '')}'` : ''})`;
       return `<button type="button" data-page="${esc(item.page)}"${item.tab ? ` data-tab="${esc(item.tab)}"` : ''} title="${esc(item.label)}" onclick="${call}" class="ms-suite-nav-item dept-nav-item w-full flex items-center gap-2.5 px-3 py-1.5 rounded font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-[13px]"><span class="text-indigo-500 flex-shrink-0">${svgIcon(item.icon || 'dot', 'w-4 h-4')}</span><span class="truncate">${esc(item.label)}</span></button>`;
     }).join('');
   } else html += cfg.areas.map(area => {
@@ -1864,7 +1898,7 @@ function renderMarketingSuiteNav(suiteKey, host, navRoot) {
     const items = (area.items || []).map(item => {
       const call = item.studioLaunch
         ? 'ensureOpenMarketSyncStudio()'
-        : `deptGo('${esc(item.page)}'${item.invmode ? `,'${esc(item.invmode)}'` : `,''`}${item.tab ? `,'${esc(item.tab)}'` : ''})`;
+        : `deptGo('${esc(item.page)}'${item.invmode ? `,'${esc(item.invmode)}'` : `,''`}${item.tab ? `,'${esc(item.tab)}','${esc(item.studio || '')}'` : ''})`;
       return `<button type="button" data-page="${esc(item.page)}"${item.tab ? ` data-tab="${esc(item.tab)}"` : ''} title="${esc(item.label)}" onclick="${call}" class="ms-suite-nav-item dept-nav-item w-full flex items-center gap-2.5 px-3 py-1.5 rounded font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-[13px]"><span class="text-indigo-500 flex-shrink-0">${svgIcon(item.icon || area.icon || 'dot', 'w-4 h-4')}</span><span class="truncate">${esc(item.label)}</span></button>`;
     }).join('');
     return heading + items;
@@ -1887,7 +1921,7 @@ function suiteAreaOpen(areaId) {
   const home = area?.items?.find(item => item.page === area.defaultPage) || area?.items?.[0];
   if (!home) return;
   if (home.studioLaunch) return (window.ensureOpenMarketSyncStudio || window.openMarketSyncStudio)?.();
-  deptGo(home.page, home.invmode || '', home.tab || '');
+  deptGo(home.page, home.invmode || '', home.tab || '', home.studio || '');
 }
 window.suiteAreaOpen = suiteAreaOpen;
 
@@ -1932,7 +1966,7 @@ function renderDeptNav(role) {
           ? 'window.openStudioSchedulerWithEntitlementCheck()'
           : p.studioLaunch
           ? 'ensureOpenMarketSyncStudio()'
-          : `deptGo('${esc(p.page)}'${p.tab ? `,'${esc(p.invmode || '')}','${esc(p.tab)}'` : (p.invmode ? `,'${esc(p.invmode)}'` : '')})`;
+          : `deptGo('${esc(p.page)}'${p.tab ? `,'${esc(p.invmode || '')}','${esc(p.tab)}','${esc(p.studio || '')}'` : (p.invmode ? `,'${esc(p.invmode)}'` : '')})`;
         return `<button type="button" data-page="${esc(p.page)}"${p.tab ? ` data-tab="${esc(p.tab)}"` : ''} onclick="${call}" title="${esc(p.label)}" class="ms-product-nav-item dept-nav-item w-full flex items-center gap-2.5 px-3 py-2 rounded font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"><span class="text-indigo-500 flex-shrink-0">${svgIcon(p.icon || 'dot', 'w-4 h-4')}</span><span>${esc(p.label)}</span></button>`;
       }).join('');
       navRoot.classList.add('dept-mode');

@@ -138,44 +138,24 @@ const MS_WORKSPACES = {
     ],
   },
 
-  'website-studio': {
-    label: 'Website Studio', icon: 'globe', accent: 'market', mgr: true,
+  // Marketing is one dealership department with five studios. Each destination
+  // reuses its canonical engine; Email/SMS and Automations share the workflow
+  // runtime but enter it with separate studio context and separate local tabs.
+  marketing: {
+    label: 'Marketing', icon: 'megaphone', accent: 'market', mgr: true,
     pages: [
-      { page: 'website', label: 'Website Studio' },
-      { page: 'discoverability', label: 'Discoverability' },
-      { page: 'seo', label: 'AI SEO', legacy: true },
-      { page: 'blog', label: 'Blog Posts', legacy: true },
-    ],
-  },
-
-  'video-studio': {
-    label: 'Video Studio', icon: 'film', accent: 'market', mgr: true,
-    pages: [
-      { page: 'video-studio', label: 'Video Studio' },
-    ],
-  },
-
-  'design-studio': {
-    label: 'Design Studio', icon: 'palette', accent: 'market', mgr: true,
-    pages: [
-      { page: 'studio', label: 'Design Studio' },
-      { page: 'social-scheduler', label: 'Scheduler' },
-    ],
-  },
-
-  'email-sms-studio': {
-    label: 'Email/SMS Studio', icon: 'mail', accent: 'market', mgr: true,
-    pages: [
-      { page: 'email-marketing', label: 'Email/SMS Studio' },
-      { page: 'audience-manager', label: 'Audiences' },
-    ],
-  },
-
-  'automations-studio': {
-    label: 'Automations Studio', icon: 'zap', accent: 'market', mgr: true,
-    pages: [
-      { page: 'automation-builder', label: 'Automations' },
-      { page: 'api-keys', label: 'Integrations', legacy: true },
+      { page: 'website', label: 'Website Studio', anyFeature: ['os.website', 'website.builder', 'website.pages'] },
+      { page: 'studio', label: 'Design Studio', studioLaunch: true, anyFeature: ['design.canvas', 'design.templates', 'os.marketing'] },
+      { page: 'video-studio', label: 'Video Studio', anyFeature: ['video.library', 'video.record', 'os.marketing'] },
+      { page: 'automation-builder', label: 'Email/SMS Studio', tab: 'campaigns', studio: 'email', anyFeature: ['os.email_marketing', 'email.campaigns', 'email.templates', 'email.audiences'] },
+      { page: 'automation-builder', label: 'Automations Studio', tab: 'automations', studio: 'automation', anyFeature: ['os.automations', 'email.automations'] },
+      { page: 'email-marketing', label: 'Email Marketing', legacy: true },
+      { page: 'discoverability', label: 'Discoverability', legacy: true },
+      { page: 'seo', label: 'SEO', legacy: true },
+      { page: 'blog', label: 'Blog', legacy: true },
+      { page: 'social-scheduler', label: 'Social Scheduler', legacy: true },
+      { page: 'ai-home', label: 'AI Customer Agent', legacy: true },
+      { page: 'ai-inbox', label: 'Messaging', legacy: true },
     ],
   },
 
@@ -244,9 +224,9 @@ const MS_ROLE_MOBILE_NAV = {
   SERVICE:      ['service-ros', 'service-appointments', 'crm', 'tasks'],
   CLEANUP:      ['recon', 'taskboard'],
   ACCOUNTING:   ['accounting', 'commissions', 'crm', 'tasks'],
-  MANAGER:      ['command', 'sales', 'inventory-overview', 'design-studio'],
-  OWNER:        ['command', 'sales', 'inventory-overview', 'design-studio'],
-  DEALER_ADMIN: ['command', 'sales', 'inventory-overview', 'design-studio'],
+  MANAGER:      ['command', 'sales', 'inventory-overview', 'website'],
+  OWNER:        ['command', 'sales', 'inventory-overview', 'website'],
+  DEALER_ADMIN: ['command', 'sales', 'inventory-overview', 'website'],
 };
 const MS_MOBILE_NAV_DEFAULT = ['sales', 'crm', 'tasks'];
 
