@@ -7,34 +7,34 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-describe('Website Product — Default Landing Setup & Contained Dashboard Architecture', () => {
+describe('Website Studio — seven destinations and one immersive builder', () => {
   const part17Path = path.join(__dirname, '../../marketplace-frontend/js/modules/dashboard-part17.js');
   const part2Path = path.join(__dirname, '../../marketplace-frontend/js/modules/dashboard-part2.js');
 
   const part17Content = fs.readFileSync(part17Path, 'utf8');
   const part2Content = fs.readFileSync(part2Path, 'utf8');
 
-  it('supports explicit Website destinations and falls back to Setup for unknown state', () => {
-    assert.ok(part17Content.includes("if (targetTab === 'builder') __wsTab = 'builder';"), 'Supports explicit targetTab=builder');
-    assert.ok(part17Content.includes("else if (targetTab === 'blog') __wsTab = 'blog';"), 'Supports explicit targetTab=blog');
-    assert.ok(part17Content.includes("else if (targetTab === 'seo') __wsTab = 'seo';"), 'Supports explicit targetTab=seo');
-    assert.ok(part17Content.includes("else if (!['builder', 'blog', 'seo', 'setup', 'settings'].includes(__wsTab)) __wsTab = 'setup';"), 'Unknown website state defaults to Setup without erasing shared-nav destinations');
+  it('supports the seven Website Studio destinations and defaults to Overview', () => {
+    for (const tab of ['overview', 'sites', 'pages', 'templates', 'blog', 'discoverability', 'settings']) {
+      assert.ok(part17Content.includes(`['${tab}', '${tab === 'discoverability' ? 'Discoverability' : tab[0].toUpperCase() + tab.slice(1)}']`), `Studio tab ${tab} exists`);
+    }
+    assert.ok(part17Content.includes("setup: 'overview', seo: 'discoverability'"), 'Legacy Website routes map into the Studio');
+    assert.ok(part17Content.includes("__wsTab = 'overview'"), 'Unknown and plain Website state defaults to Overview');
   });
 
-  it('does not render the redundant Builder, Blog, SEO, and Setup tab strip inside wsSetup', () => {
-    const setupSource = part17Content.slice(part17Content.indexOf('function wsSetup()'), part17Content.indexOf('window.wsSetup = wsSetup'));
-    assert.ok(!setupSource.includes('Website Workspace Top Navigation Tabs'), 'Redundant Website tab strip is absent');
-    assert.ok(!setupSource.includes("onclick=\"wsTab('builder')\""), 'Builder tab is not duplicated in Setup');
-    assert.ok(!setupSource.includes("onclick=\"wsTab('blog')\""), 'Blog tab is not duplicated in Setup');
-    assert.ok(!setupSource.includes("onclick=\"wsTab('seo')\""), 'SEO tab is not duplicated in Setup');
+  it('keeps Blog and Discoverability inside Website Studio', () => {
+    const tabSource = part17Content.slice(part17Content.indexOf('function wsTab(t)'), part17Content.indexOf('function setBuilderMode'));
+    assert.doesNotMatch(tabSource, /switchPage\('blog'\)/);
+    assert.doesNotMatch(tabSource, /switchPage\('seo'\)/);
+    assert.ok(part17Content.includes("if (__wsTab === 'discoverability')"));
+    assert.ok(part17Content.includes("if (__wsTab === 'blog')"));
   });
 
-  it('keeps Website Setup and Website Settings as distinct destinations', () => {
+  it('keeps all website configuration under Settings without a second Setup page', () => {
     const settingsSource = part17Content.slice(part17Content.indexOf('function wsSettings()'), part17Content.indexOf('function isAiChatbotOwned'));
-    const loaderSource = part17Content.slice(part17Content.indexOf('async function loadWebsiteSettings()'), part17Content.indexOf('function wsFlushTarget'));
     assert.ok(settingsSource.includes('siteSettingsFields(__siteCfg)'), 'Settings renders the detailed settings form');
-    assert.ok(!settingsSource.includes('return wsSetup()'), 'Settings does not alias Setup');
-    assert.ok(loaderSource.includes("__wsTab = 'settings';"), 'Settings loader preserves the settings destination');
+    assert.ok(settingsSource.includes("openSetupModal('${id}')"), 'Settings exposes the canonical advanced configuration modals');
+    assert.ok(!part17Content.includes('function wsSetup()'), 'The duplicate Setup landing no longer exists');
   });
 
   it('materializes editable starter sections before opening an empty live builder', () => {
@@ -43,45 +43,23 @@ describe('Website Product — Default Landing Setup & Contained Dashboard Archit
     assert.ok(part17Content.includes('ensureEditableWebsiteSections();\n  selectFirstEditableWsSection();\n  wireLiveMessages();'), 'Live builder initializes sections before wiring the canvas');
   });
 
-  it('surfaces all 13 core configuration cards in wsSetup', () => {
-    const requiredCards = [
-      'Dealership Information',
-      'Domain',
-      'Branding',
-      'Appearance',
-      'Contact Information',
-      'Social Links',
-      'Inventory Feed',
-      'Forms & Lead Routing',
-      'Analytics',
-      'Integrations',
-      'AI ChatBot',
-      'Publishing',
-      'Advanced'
-    ];
-
-    requiredCards.forEach(c => {
-      assert.ok(part17Content.includes(c), `wsSetup contains card "${c}"`);
-    });
+  it('templates use one catalog, preview before apply, and persist a draft', () => {
+    assert.equal((part17Content.match(/const SITE_TEMPLATES =/g) || []).length, 1);
+    assert.ok(part17Content.includes('function openWebsiteTemplatePreview(id)'));
+    assert.ok(part17Content.includes("const saved = await saveWebsite(btn, 'draft');"));
+    assert.equal((part17Content.match(/async function saveWebsite\(/g) || []).length, 1, 'There is one revision-backed save implementation');
   });
 
-  it('provides key status indicators across domain, inventory, analytics, chat, and publishing', () => {
-    assert.ok(part17Content.includes('SSL Active') || part17Content.includes('DNS Ready'), 'Domain status indicator');
-    assert.ok(part17Content.includes('Website Source:'), 'Inventory feed source status indicator');
-    assert.ok(part17Content.includes('Automated'), 'Inventory feed automation status indicator');
-    assert.ok(part17Content.includes('GA4:'), 'Analytics GA4 status');
-    assert.ok(part17Content.includes('Meta Pixel:'), 'Analytics Meta Pixel status');
-    assert.ok(part17Content.includes('isAiChatbotOwned()'), 'AI Chatbot status logic');
-  });
-
-  it('exits Builder cleanly back into Website Setup', () => {
+  it('exits Builder cleanly back into Website Studio Overview', () => {
     assert.ok(part17Content.includes("function exitWebsiteWorkspace()"), 'exitWebsiteWorkspace exists');
-    assert.ok(part17Content.includes("__wsTab = 'setup';"), 'exitWebsiteWorkspace resets tab to setup');
+    assert.ok(part17Content.includes("__wsTab = 'overview';"), 'exitWebsiteWorkspace resets tab to overview');
     assert.ok(part17Content.includes("switchPage('website')"), 'exitWebsiteWorkspace routes back to website page');
   });
 
-  it('supports deep linking to website/setup, website/builder, website/blog, and website/seo in switchPage', () => {
+  it('supports Website Studio deep links without routing Blog or Discoverability away', () => {
     assert.ok(part2Content.includes("pageId.startsWith('website/')"), 'Handles website/ subroutes');
-    assert.ok(part2Content.includes("if (!__wsTab || __wsTab === 'settings') __wsTab = 'setup';"), 'Defaults pageId=website to setup');
+    assert.ok(part2Content.includes("else if (sub === 'blog') { __wsTab = 'blog'; pageId = 'website'; }"));
+    assert.ok(part2Content.includes("else if (sub === 'seo') { __wsTab = 'discoverability'; pageId = 'website'; }"));
+    assert.ok(part2Content.includes("if (!__wsTab) __wsTab = 'overview';"), 'Defaults pageId=website to Overview');
   });
 });

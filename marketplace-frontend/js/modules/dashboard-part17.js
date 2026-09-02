@@ -279,8 +279,8 @@ async function openSiteManager() {
   __siteWidgets = Array.isArray(cfg.content?.widgets) ? cfg.content.widgets.slice() : [];
   renderSiteWidgets();
 }
-// Website → Settings is the detailed site-level form. Setup is the separate
-// configuration control centre; both shared-nav destinations stay distinct.
+// Website Studio Settings combines the canonical site form with the existing
+// configuration modals; there is no separate Setup destination.
 function wsSettings() {
   if (!__siteCfg) return '<div class="mt-4 text-sm text-slate-400">Loading…</div>';
   return `
@@ -298,6 +298,13 @@ function wsSettings() {
         <button type="button" onclick="saveSite(this)" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md cursor-pointer flex-shrink-0">Save Website Settings</button>
       </section>
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6 items-stretch">${siteSettingsFields(__siteCfg)}</div>
+      <section class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+        <h2 class="text-base font-black text-slate-950 dark:text-white">Advanced configuration</h2>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Inventory, lead routing, analytics, integrations, publishing, and dealership-specific controls.</p>
+        <div class="mt-4 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2">
+          ${[['info','Dealership'],['domain','Domain'],['branding','Branding'],['appearance','Appearance'],['contact','Contact'],['social','Social'],['inventory','Inventory feed'],['leads','Lead routing'],['analytics','Analytics'],['integrations','Integrations'],['ai-chatbot','AI ChatBot'],['publishing','Publishing'],['advanced','Advanced']].map(([id,label]) => `<button type="button" onclick="openSetupModal('${id}')" class="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2.5 text-left text-xs font-black text-slate-700 dark:text-slate-200 hover:border-indigo-400 hover:text-indigo-600">${label}</button>`).join('')}
+        </div>
+      </section>
       <div class="flex justify-end">
         <button type="button" onclick="saveSite(this)" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm transition shadow-md cursor-pointer">Save Website Settings</button>
       </div>
@@ -401,188 +408,6 @@ if (typeof window !== 'undefined' && window.matchMedia) {
   }
 }
 
-function wsSetup() {
-  const c = __siteCfg?.content || {};
-  const isPub = !!__siteCfg?.site_published;
-  const slug = __siteCfg?.site_slug || '';
-  const domain = __siteCfg?.custom_domain || '';
-  const isDomainVerified = !!__siteCfg?.custom_domain_verified;
-
-  const card = (id, iconSvg, title, desc, metaRows, badgeHtml, btnText = 'Configure') => `
-    <div class="ms-c--glass bg-white/90 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition flex flex-col justify-between gap-4 h-full">
-      <div class="space-y-3 flex-1">
-        <div class="flex items-start justify-between gap-2">
-          <div class="flex items-center gap-2.5 min-w-0">
-            <div class="w-9 h-9 rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold border border-indigo-500/20 flex-shrink-0">
-              ${iconSvg}
-            </div>
-            <h3 class="text-sm font-black text-slate-900 dark:text-white tracking-tight leading-snug">${title}</h3>
-          </div>
-          ${badgeHtml || ''}
-        </div>
-        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${desc}</p>
-        <div class="p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800/80 space-y-1.5 text-[11px]">
-          ${metaRows}
-        </div>
-      </div>
-      <div class="pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-2">
-        <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Settings</span>
-        <button type="button" onclick="openSetupModal('${id}')" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-xs cursor-pointer flex items-center gap-1">
-          <span>${btnText}</span>
-          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
-        </button>
-      </div>
-    </div>
-  `;
-
-  return `
-    <div class="w-full px-0 sm:px-1 py-2 space-y-6">
-      <!-- Setup header — DealerOS-style glass bar -->
-      <section class="ms-glass rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/70 p-5 md:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between shadow-sm">
-        <div class="min-w-0 flex items-start gap-3.5">
-          <div class="w-11 h-11 rounded-2xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zM2.25 12h19.5"/></svg>
-          </div>
-          <div class="min-w-0">
-            <div class="flex flex-wrap items-center gap-2">
-              <h1 class="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Website</h1>
-              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${isPub ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'}">
-                ${isPub ? 'Live' : 'Draft'}
-              </span>
-            </div>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">Domain, branding, contact, lead routing, inventory feeds, analytics, and integrations.</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
-          <button type="button" onclick="openWebsiteBuilder()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-md cursor-pointer">Open Builder</button>
-          ${slug ? `<a href="${SITE_BASE}?d=${encodeURIComponent(slug)}" target="_blank" rel="noopener noreferrer" class="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition">Preview Site ↗</a>` : ''}
-          <button onclick="saveWebsite(this)" class="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition">Save All Changes</button>
-        </div>
-      </section>
-
-      <!-- Even CSS grid (replaces uneven masonry columns) -->
-      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
-        <!-- 1. Dealership Information -->
-        ${card('info', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009 9c.63 0 1.213-.19 1.7-.514m-5.45 0A2.996 2.996 0 016 7.5c0-.63.19-1.213.514-1.7m5.45 0A2.996 2.996 0 0012 4.5c.63 0 1.213.19 1.7.514M18 9.35a3.001 3.001 0 003.75-.615A2.993 2.993 0 0021 7.5a2.996 2.996 0 00-.514-1.7"/></svg>`,
-          'Dealership Information', 'Legal business name, tagline, description, operating hours, and business license.',
-          `<div class="flex justify-between"><span class="text-slate-500">Name:</span> <span class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[170px]">${esc(c.dealer_name || 'Premier Motors')}</span></div>
-           <div class="flex justify-between"><span class="text-slate-500">Tagline:</span> <span class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[170px]">${esc(c.tagline || 'New & Used Cars')}</span></div>
-           <div class="flex justify-between"><span class="text-slate-500">City:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${esc(c.city || 'Welland')}</span></div>`,
-          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Configured</span>`
-        )}
-
-        <!-- 2. Domain -->
-        ${card('domain', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zM2.25 12h19.5M12 2.25a15.3 15.3 0 014.5 9.75 15.3 15.3 0 01-4.5 9.75 15.3 15.3 0 01-4.5-9.75A15.3 15.3 0 0112 2.25z"/></svg>`,
-          'Domain', 'Connect your custom domain with automated Cloudflare SSL certificates.',
-          `<div class="flex justify-between"><span class="text-slate-500">Host:</span> <span class="font-bold font-mono text-slate-800 dark:text-slate-200 truncate max-w-[170px]">${esc(domain || 'marketsync.link')}</span></div>
-           <div class="flex justify-between"><span class="text-slate-500">SSL / DNS:</span> <span class="font-bold ${isDomainVerified ? 'text-emerald-500' : 'text-amber-500'}">${isDomainVerified ? 'Verified & Active' : (domain ? 'Pending DNS' : 'Standard')}</span></div>`,
-          isDomainVerified ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">SSL Active</span>` : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/20 text-slate-400">DNS Ready</span>`
-        )}
-
-        <!-- 3. Branding -->
-        ${card('branding', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42"/></svg>`,
-          'Branding', 'Primary colors, dealership logo, favicon, and hero banner aesthetics.',
-          `<div class="flex items-center justify-between"><span class="text-slate-500">Brand Color:</span> <div class="flex items-center gap-1.5 font-bold"><span class="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700" style="background-color: ${esc(c.primary_color || '#1e3a8a')}"></span><span>${esc(c.primary_color || '#1e3a8a')}</span></div></div>
-           <div class="flex justify-between"><span class="text-slate-500">Logo:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${c.logo_url ? 'Custom Logo Set' : 'Text Wordmark'}</span></div>`,
-          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-400">Palette</span>`
-        )}
-
-        <!-- 4. Appearance -->
-        ${card('appearance', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072"/></svg>`,
-          'Appearance', 'Editor application visual mode (Dark/Light/Auto), typography pairing, and button corners.',
-          `<div class="flex justify-between"><span class="text-slate-500">Theme:</span> <span class="font-bold text-slate-800 dark:text-slate-200 uppercase">${esc(__builderTheme || 'Auto')}</span></div>
-           <div class="flex justify-between"><span class="text-slate-500">Typography:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${esc(c.heading_font || 'Inter')} / ${esc(c.body_font || 'Inter')}</span></div>`,
-          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-500/20 text-violet-400">Modern</span>`
-        )}
-
-        <!-- 5. Contact Information -->
-        ${card('contact', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg>`,
-          'Contact Information', 'Showroom phone, service line, physical address, and Google Maps pin.',
-          `<div class="flex justify-between"><span class="text-slate-500">Phone:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${esc(c.phone || '905-555-0199')}</span></div>
-           <div class="flex justify-between"><span class="text-slate-500">Address:</span> <span class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[170px]">${esc(c.address || '123 Main St')}</span></div>`,
-          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Showroom</span>`
-        )}
-
-        <!-- 6. Social Links -->
-        ${card('social', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/></svg>`,
-          'Social Links', 'Official Facebook, Instagram, YouTube, TikTok, LinkedIn, and X links.',
-          `<div class="flex justify-between"><span class="text-slate-500">Facebook:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${c.facebook_url ? 'Connected' : 'Not set'}</span></div>
-           <div class="flex justify-between"><span class="text-slate-500">Instagram:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${c.instagram_url ? 'Connected' : 'Not set'}</span></div>`,
-          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-400">Channels</span>`
-        )}
-
-        <!-- 7. Inventory Feed -->
-        ${card('inventory_feed', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.676A48.243 48.243 0 0012 7.5"/></svg>`,
-          'Inventory Feed', 'Choose whether the public Digital site uses Marketplace inventory, dealer inventory, or both while you migrate.',
-          `<div class="flex justify-between"><span class="text-slate-500">Website Source:</span> <span class="font-bold text-emerald-500 capitalize">${esc(c.inventory_source || 'auto')}</span></div>
-           <div class="flex justify-between"><span class="text-slate-500">Franchise Makes:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${(c.build_makes || []).length || 'Auto-Detect'} Selected</span></div>`,
-          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Automated</span>`
-        )}
-
-        <!-- 8. Forms & Lead Routing -->
-        ${card('routing', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>`,
-          'Forms & Lead Routing', 'Sales lead email notification, instant SMS dispatch, and CRM webhook routing.',
-          `<div class="flex justify-between"><span class="text-slate-500">Notify Email:</span> <span class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[170px]">${esc(c.email || 'sales@dealer.com')}</span></div>
-           <div class="flex justify-between"><span class="text-slate-500">Notify SMS:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${esc(c.phone || 'Configured')}</span></div>`,
-          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Instant CRM</span>`
-        )}
-
-        <!-- 9. Analytics -->
-        ${card('analytics', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>`,
-          'Analytics', 'Google Analytics 4 Measurement ID, Meta Pixel ID, and Google Tag Manager (GTM).',
-          `<div class="flex justify-between"><span class="text-slate-500">GA4:</span> <span class="font-bold font-mono text-slate-800 dark:text-slate-200">${esc(c.ga4_id || 'G-XXXXXXXX')}</span></div>
-           <div class="flex justify-between"><span class="text-slate-500">Meta Pixel:</span> <span class="font-bold font-mono text-slate-800 dark:text-slate-200">${esc(c.meta_pixel_id || 'Configured')}</span></div>`,
-          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-400">Tracking</span>`
-        )}
-
-        <!-- 10. Integrations -->
-        ${card('integrations', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9.75L16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z"/></svg>`,
-          'Integrations', 'Digital retail integrations: Carfax history, Plaid bank connection, Square deposits.',
-          `<div class="flex justify-between"><span class="text-slate-500">Carfax Badge:</span> <span class="font-bold text-emerald-500">Enabled</span></div>
-           <div class="flex justify-between"><span class="text-slate-500">Digital Finance:</span> <span class="font-bold text-emerald-500">Plaid Active</span></div>`,
-          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Connected</span>`
-        )}
-
-        <!-- 11. AI ChatBot -->
-        ${card('ai-chatbot', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg>`,
-          'AI ChatBot', '24/7 conversational sales assistant on your website qualifying shoppers and capturing leads.',
-          `<div class="flex justify-between"><span class="text-slate-500">Status:</span> <span class="font-bold ${c.sales_chat ? 'text-emerald-500' : 'text-amber-400'}">${c.sales_chat ? 'Active on Site' : (isAiChatbotOwned() ? 'Available — turn on' : 'Standalone Add-on')}</span></div>
-           <div class="flex justify-between"><span class="text-slate-500">Assistant:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${esc(c.chat_name || 'Ava (AI Assistant)')}</span></div>`,
-          c.sales_chat
-            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Active</span>`
-            : (isAiChatbotOwned()
-              ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-500">Available</span>`
-              : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300">$599/mo</span>`)
-        )}
-
-        <!-- 12. Publishing -->
-        ${card('publishing', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 01-.34 6.63m-4.5-6.63a6 6 0 00-.34 6.63m3.18-12.06a9 9 0 013.9 3.9m-3.9-3.9a9 9 0 00-3.9 3.9m3.9-3.9V3m0 6a3 3 0 100 6 3 3 0 000-6z"/></svg>`,
-          'Publishing', 'Live visibility status, site slug address, Cloudflare CDN cache purge, and maintenance.',
-          `<div class="flex justify-between"><span class="text-slate-500">Visibility:</span> <span class="font-bold ${isPub ? 'text-emerald-500' : 'text-amber-500'}">${isPub ? 'Published Live' : 'Draft Mode'}</span></div>
-           <div class="flex justify-between"><span class="text-slate-500">Slug:</span> <span class="font-bold font-mono text-slate-800 dark:text-slate-200 truncate max-w-[170px]">${esc(slug || 'default')}</span></div>`,
-          isPub ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Live</span>` : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400">Draft</span>`
-        )}
-
-        <!-- 13. Advanced -->
-        ${card('advanced', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"/></svg>`,
-          'Advanced', 'Custom &lt;head&gt; tracking scripts, footer codes, CSS overrides, and sitemaps.',
-          `<div class="flex justify-between"><span class="text-slate-500">Custom Head:</span> <span class="font-bold text-slate-800 dark:text-slate-200">${c.head_html ? 'Configured' : 'None'}</span></div>
-           <div class="flex justify-between"><span class="text-slate-500">Sitemap Index:</span> <span class="font-bold text-emerald-500">Auto-Generated</span></div>`,
-          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/20 text-slate-400">Expert</span>`
-        )}
-
-        <!-- 14. Batch 9 Discoverability Kit -->
-        ${card('discoverability', `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
-          'Discoverability Kit', 'Automatically apply SEO, schema, and crawlability recommendations to boost search visibility.',
-          `<div class="flex justify-between"><span class="text-slate-500">Status:</span> <span class="font-bold text-slate-800 dark:text-slate-200">Ready to Apply</span></div>
-           <div class="flex justify-between"><span class="text-slate-500">Action:</span> <span class="font-bold text-emerald-500">One-Click Apply</span></div>`,
-          `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-500">Batch 9</span>`
-        )}
-      </div>
-    </div>
-  `;
-}
-window.wsSetup = wsSetup;
 
 function openSetupModal(secId) {
   document.getElementById('setup-modal-container')?.remove();
@@ -1663,7 +1488,7 @@ window.uploadSiteImage = uploadSiteImage;
 // ══ Website page builder (Squarespace-simple, dealership-aware) ═══════════════
 // __siteSections = the ACTIVE editing buffer. __wsTarget = 'home' or a page index.
 // The home layout lives in __homeSections; each page's layout in __sitePages[i].sections.
-let __siteCfg = null, __siteSections = [], __homeSections = [], __wsTarget = 'home', __wsTab = 'builder';
+let __siteCfg = null, __siteSections = [], __homeSections = [], __wsTarget = 'home', __wsTab = 'overview';
 // Governance is loaded separately from the site document so brand locks remain
 // an administrative control, rather than editable page content.
 let __wsGovernance = { locked_fields: [], can_manage: false };
@@ -1726,13 +1551,12 @@ async function loadWebsitePage() {
   const targetTab = params.get('tab');
   const targetSection = params.get('section');
 
-  if (targetTab === 'builder') __wsTab = 'builder';
-  else if (targetTab === 'blog') __wsTab = 'blog';
-  else if (targetTab === 'seo') __wsTab = 'seo';
-  // Preserve an explicit in-app tab selected by the shared nav. Previously a
-  // Website → Builder click set __wsTab to builder, then this loader immediately
-  // reset it to setup, which made the link appear to open Settings.
-  else if (!['builder', 'blog', 'seo', 'setup', 'settings'].includes(__wsTab)) __wsTab = 'setup';
+  const tabAliases = { setup: 'overview', seo: 'discoverability' };
+  if (targetTab) __wsTab = tabAliases[targetTab] || targetTab;
+  else __wsTab = tabAliases[__wsTab] || __wsTab;
+  // The seven Website Studio destinations share this one page. Builder remains
+  // an immersive action, not an eighth tab or a parallel workspace.
+  if (!['overview', 'sites', 'pages', 'templates', 'blog', 'discoverability', 'settings', 'builder'].includes(__wsTab)) __wsTab = 'overview';
 
   if (targetSection) __wsSetupSection = targetSection;
   if (__wsTab === 'builder') {
@@ -1770,7 +1594,7 @@ function openWebsiteBuilder() {
 }
 window.openWebsiteBuilder = openWebsiteBuilder;
 
-// Canonical website builder exit point (returns to Website workspace setup)
+// Canonical website builder exit point (returns to Website Studio overview)
 function closeWebsiteBuilder() {
   if (typeof toggleWsLeftDock === 'function' && !__wsLeftDockCollapsed) {
     toggleWsLeftDock();
@@ -1799,34 +1623,20 @@ function closeWebsiteBuilder() {
   const chatDock = document.getElementById('staff-chat-dock-bar');
   if (chatDock) chatDock.style.display = '';
 
-  __wsTab = 'setup';
-  const back = window.websiteWorkspacePreviousRoute || { dept: 'marketing', page: 'marketing-overview', tab: 'website' };
-  const destination = back.page || 'marketing-overview';
-  const destinationTab = back.tab || 'website';
-  // The builder lives on the Website page, while the shared Marketing shell
-  // owns the Website tab. Calling engineTab() while still on the Website page
-  // finds no marketing engine body and silently leaves the builder mounted.
-  // Switch the page first, then select the tab after its shared shell exists.
-  if (typeof switchPage === 'function' && typeof __currentPage !== 'undefined' && __currentPage !== destination) {
-    switchPage(destination);
-    if (typeof engineTab === 'function') setTimeout(() => engineTab(destination, destinationTab), 0);
-  } else if (typeof engineTab === 'function') {
-    engineTab(destination, destinationTab);
-  } else if (typeof switchPage === 'function') {
-    switchPage(destination);
-  } else {
-    renderWebsitePage();
-  }
+  __wsTab = 'overview';
+  delete window.websiteWorkspacePreviousRoute;
+  if (typeof switchPage === 'function' && typeof __currentPage !== 'undefined' && __currentPage !== 'website') switchPage('website');
+  else renderWebsitePage();
   requestAnimationFrame(() => {
     if (typeof renderDeptNav === 'function') renderDeptNav(profileContext?.role);
-    if (typeof renderDeptTabbar === 'function') renderDeptTabbar(back.page || 'marketing-overview');
+    if (typeof renderDeptTabbar === 'function') renderDeptTabbar('website');
   });
 }
 window.closeWebsiteBuilder = closeWebsiteBuilder;
 
 function exitWebsiteWorkspace() {
   if (typeof closeWebsiteBuilder === 'function') closeWebsiteBuilder();
-  else { __wsTab = 'setup'; renderWebsitePage(); }
+  else { __wsTab = 'overview'; renderWebsitePage(); }
 }
 window.exitWebsiteWorkspace = exitWebsiteWorkspace;
 
@@ -1899,67 +1709,50 @@ function renderWebsitePage() {
   document.documentElement.classList.toggle('website-workspace-mode', isBuilder);
   document.body.classList.toggle('website-workspace-mode', isBuilder);
   const root = document.getElementById('website-root'); if (!root) return;
+  const url = __siteCfg?.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(__siteCfg.site_slug)}` : null;
 
-  // Setup renders directly into the contained layout without redundant top navigation
-  if (__wsTab === 'setup' || __wsTab === 'settings') {
-    root.innerHTML = wsSetup();
+  if (isBuilder) {
+    // The live canvas owns the only builder header. Rendering the Studio header
+    // here as well produced two action bars and conflicting publish controls.
+    root.innerHTML = '<div id="ws-body" class="flex-1 min-h-0 overflow-hidden flex flex-col w-full h-full"></div>';
+    renderWsBody();
     return;
   }
 
-  const c = __siteCfg?.content || {};
-  const url = __siteCfg?.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(__siteCfg.site_slug)}` : null;
+  const tabs = [
+    ['overview', 'Overview'], ['sites', 'Sites'], ['pages', 'Pages'],
+    ['templates', 'Templates'], ['blog', 'Blog'],
+    ['discoverability', 'Discoverability'], ['settings', 'Settings'],
+  ];
 
   root.innerHTML = `
-    <div class="flex flex-col ${isBuilder ? 'h-full' : 'min-h-0'} w-full ${isBuilder ? 'bg-[var(--ws-bg)] text-[var(--ws-text)]' : 'bg-transparent'}">
-      <!-- TOP APPLICATION HEADER (Dedicated Website Workspace Header). Uses the
-           same --ws-* variables the rest of the builder chrome follows (set by
-           applyBuilderTheme()/[data-ws-theme]) rather than hardcoded dark-only
-           colors, so it never goes half-dark against a light body or vice versa. -->
-      <div class="ws-builder-header flex items-center justify-between px-4 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex-shrink-0 flex-wrap gap-2 text-slate-900 dark:text-white z-20">
-        <div class="flex items-center gap-3">
-          <button onclick="closeWebsiteBuilder()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[var(--ws-panel-raised)] hover:bg-[var(--ws-hover-bg)] text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-black transition cursor-pointer shadow-xs" title="Exit Website Builder & Return to Website Workspace">
-            <svg class="w-3.5 h-3.5 text-[var(--ws-text-muted)]" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
-            <span>Exit Builder</span>
-          </button>
-          <div class="h-5 w-px bg-[var(--ws-border)]"></div>
-          <div class="w-7 h-7 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-black border border-indigo-500/40">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18zM2.25 12h19.5M12 2.25a15.3 15.3 0 014.5 9.75 15.3 15.3 0 01-4.5 9.75 15.3 15.3 0 01-4.5-9.75A15.3 15.3 0 0112 2.25z"/></svg>
-          </div>
-          <div>
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-black tracking-tight text-[var(--ws-text)]">MarketSync Website Builder</span>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${__siteCfg.site_published ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40'}">
-                ${__siteCfg.site_published ? 'Live' : 'Draft'}
-              </span>
+    <div class="website-studio-shell w-full min-h-0">
+      <section class="website-studio-hero rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900/80 p-5 md:p-6 shadow-sm">
+        <div class="flex items-start justify-between gap-4 flex-wrap">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h1 class="text-2xl font-black tracking-tight text-slate-950 dark:text-white">Website Studio</h1>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${__siteCfg?.site_published ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'}">${__siteCfg?.site_published ? 'Live' : 'Draft'}</span>
             </div>
+            <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">Build, publish, and improve the dealership website from one studio.</p>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            ${url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-black text-slate-700 dark:text-slate-200">View Site ↗</a>` : ''}
+            <button type="button" onclick="wsOpenRevisions()" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-black text-slate-700 dark:text-slate-200">History</button>
+            <button type="button" onclick="openWebsiteBuilder()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-sm">Open Builder</button>
           </div>
         </div>
-
-        <!-- TOP RIGHT ACTION CONTROLS -->
-        <div class="flex items-center gap-2">
-          ${url ? `<a href="${url}" target="_blank" class="text-xs font-black bg-[var(--ws-panel-raised)] text-[var(--ws-text-muted)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl transition">View Site ↗</a>` : ''}
-          <button onclick="wsOpenRevisions()" class="text-xs font-black bg-[var(--ws-panel-raised)] hover:bg-[var(--ws-hover-bg)] text-[var(--ws-text)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl transition">History</button>
-          <button onclick="saveWebsite(this,'draft')" class="text-xs font-black bg-[var(--ws-panel-raised)] hover:bg-[var(--ws-hover-bg)] text-[var(--ws-text)] border border-[var(--ws-border)] px-3 py-1.5 rounded-xl transition">Save Draft</button>
-          <button onclick="wsSubmitChangeSet(this)" class="text-xs font-black bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/35 px-3 py-1.5 rounded-xl transition" title="Send the current saved draft to an owner or administrator for review">Request Approval</button>
-          <button onclick="saveWebsite(this,'publish')" class="text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-xl transition shadow-md cursor-pointer">Publish</button>
+        <div role="tablist" aria-label="Website Studio" class="website-studio-tabs mt-5 flex items-center gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800">
+          ${tabs.map(([id, label]) => `<button type="button" role="tab" aria-selected="${__wsTab === id}"${__wsTab === id ? ' aria-current="page"' : ''} onclick="wsTab('${id}')" class="px-3.5 py-2.5 -mb-px whitespace-nowrap border-b-2 text-xs font-black transition ${__wsTab === id ? 'border-indigo-600 text-indigo-700 dark:text-indigo-300' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}">${label}</button>`).join('')}
         </div>
-      </div>
-
-      <!-- WORKSPACE CONTENT BODY (Sub-Layout dynamically mounted based on active tab) -->
-      <div id="ws-body" class="${isBuilder ? 'flex-1 min-h-0 overflow-hidden' : 'w-full'}"></div>
+      </section>
+      <div id="ws-body" class="w-full"></div>
     </div>`;
   renderWsBody();
 }
 function wsTab(t) {
-  __wsTab = t;
-  if (t === 'blog') {
-    if (typeof switchPage === 'function') switchPage('blog');
-    return;
-  }
-  if (t === 'seo') {
-    if (typeof switchPage === 'function') switchPage('seo');
-    return;
-  }
+  const aliases = { setup: 'overview', seo: 'discoverability' };
+  __wsTab = aliases[t] || t;
   if (t === 'builder') {
     openWebsiteBuilder();
     return;
@@ -2329,150 +2122,6 @@ function setWsFont(type, fontName) {
 }
 window.setWsFont = setWsFont;
 
-function wsDesign() {
-  const c = __siteCfg?.content || {};
-  const theme = (c.design_theme || 'modern').toLowerCase();
-  const palette = (c.quick_palette || 'chevy_blue').toLowerCase();
-  const primary = c.primary_color || '#1e3a8a';
-  const secondary = c.secondary_color || '#3b82f6';
-  const accent = c.accent_color || '#f59e0b';
-  const headingFont = c.heading_font || 'Inter';
-  const bodyFont = c.body_font || 'Inter';
-
-  const themes = [
-    { id: 'classic', label: 'Classic', desc: 'Traditional & familiar dealership style' },
-    { id: 'prestige', label: 'Prestige', desc: 'Serif headlines & luxury spacing' },
-    { id: 'modern', label: 'Modern', desc: 'Rounded corners & clean tech typography' },
-    { id: 'bold', label: 'Bold', desc: 'High contrast & heavy impact headlines' },
-    { id: 'minimal', label: 'Minimal', desc: 'Monochrome, subtle & airy surfaces' }
-  ];
-
-  const fontOpts = [
-    'Inter', 'Playfair Display', 'Plus Jakarta Sans', 'Oswald', 'Roboto Slab',
-    'Outfit', 'Montserrat', 'Space Grotesk', 'Poppins', 'Lora', 'Cinzel', 'Rubik'
-  ];
-
-  return `
-    <div class="space-y-4 font-sans text-xs">
-      <div>
-        <div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Design Theme</div>
-        <div class="grid grid-cols-1 gap-1.5">
-          ${themes.map(t => `
-            <button type="button" onclick="setWsTheme('${t.id}')" class="p-2.5 rounded-xl border text-left transition cursor-pointer ${theme === t.id ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700'}">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-bold">${t.label}</span>
-                ${theme === t.id ? '<span class="text-[10px] text-indigo-400 font-black">ACTIVE</span>' : ''}
-              </div>
-              <div class="text-[10px] text-slate-400 mt-0.5">${t.desc}</div>
-            </button>
-          `).join('')}
-        </div>
-      </div>
-
-      <div>
-        <div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Quick Palettes</div>
-        <div class="grid grid-cols-2 gap-1.5">
-          ${Object.entries(PALETTES).map(([k, p]) => `
-            <button type="button" onclick="setWsPalette('${k}')" class="p-2 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${palette === k ? 'border-indigo-500 bg-indigo-600/20 text-white font-bold' : 'border-slate-800 bg-slate-950 text-slate-300 hover:border-slate-700'}">
-              <span class="text-[11px] font-bold truncate">${p.label}</span>
-              <div class="flex items-center -space-x-1 shrink-0 ml-1">
-                <div class="w-3 h-3 rounded-full border border-black/30" style="background-color:${p.primary}"></div>
-                <div class="w-3 h-3 rounded-full border border-black/30" style="background-color:${p.secondary}"></div>
-                <div class="w-3 h-3 rounded-full border border-black/30" style="background-color:${p.accent}"></div>
-              </div>
-            </button>
-          `).join('')}
-        </div>
-      </div>
-
-      <div class="space-y-2 pt-1 border-t border-slate-800">
-        <div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Brand Colors</div>
-        <div class="space-y-2">
-          <div class="flex items-center justify-between gap-2">
-            <label class="text-xs font-bold text-slate-300">Primary Color</label>
-            <div class="flex items-center gap-2">
-              <input type="color" value="${primary}" oninput="setWsBrandColor('primary', this.value)" class="w-7 h-7 rounded border border-slate-700 bg-transparent cursor-pointer">
-              <input type="text" value="${primary}" oninput="setWsBrandColor('primary', this.value)" class="w-20 px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-200 font-mono">
-            </div>
-          </div>
-          <div class="flex items-center justify-between gap-2">
-            <label class="text-xs font-bold text-slate-300">Secondary Color</label>
-            <div class="flex items-center gap-2">
-              <input type="color" value="${secondary}" oninput="setWsBrandColor('secondary', this.value)" class="w-7 h-7 rounded border border-slate-700 bg-transparent cursor-pointer">
-              <input type="text" value="${secondary}" oninput="setWsBrandColor('secondary', this.value)" class="w-20 px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-200 font-mono">
-            </div>
-          </div>
-          <div class="flex items-center justify-between gap-2">
-            <label class="text-xs font-bold text-slate-300">Accent Color</label>
-            <div class="flex items-center gap-2">
-              <input type="color" value="${accent}" oninput="setWsBrandColor('accent', this.value)" class="w-7 h-7 rounded border border-slate-700 bg-transparent cursor-pointer">
-              <input type="text" value="${accent}" oninput="setWsBrandColor('accent', this.value)" class="w-20 px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-200 font-mono">
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="space-y-2 pt-2 border-t border-slate-800">
-        <div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Typography</div>
-        <div class="space-y-2">
-          <div>
-            <label class="block text-[11px] font-bold text-slate-300 mb-1">Heading Google Font</label>
-            <select onchange="setWsFont('heading', this.value)" class="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
-              ${fontOpts.map(f => `<option value="${f}" ${headingFont === f ? 'selected' : ''}>${f}</option>`).join('')}
-            </select>
-          </div>
-          <div>
-            <label class="block text-[11px] font-bold text-slate-300 mb-1">Body Google Font</label>
-            <select onchange="setWsFont('body', this.value)" class="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
-              ${fontOpts.map(f => `<option value="${f}" ${bodyFont === f ? 'selected' : ''}>${f}</option>`).join('')}
-            </select>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-window.wsDesign = wsDesign;
-
-async function saveWebsite(btn, action = 'draft') {
-  if (!__siteCfg) return;
-  wsFlushTarget();
-  const c = __siteCfg.content || {};
-  
-  const payload = {
-    site_slug: __siteCfg.site_slug || '',
-    site_published: document.getElementById('ws-pub')?.checked || __siteCfg.site_published || false,
-    content: {
-      ...c,
-      sections: __homeSections,
-      pages: __sitePages,
-      builtins: __siteBuiltins,
-      staff: __siteStaff,
-      design_theme: c.design_theme || 'modern',
-      quick_palette: c.quick_palette || 'chevy_blue',
-      primary_color: c.primary_color || '#1e3a8a',
-      secondary_color: c.secondary_color || '#3b82f6',
-      accent_color: c.accent_color || '#f59e0b',
-      heading_font: c.heading_font || 'Inter',
-      body_font: c.body_font || 'Inter',
-    }
-  };
-
-  const orig = btn ? btn.innerHTML : '';
-  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving…'; }
-
-  try {
-    const res = await apiSendJson('/dealership/site', 'PUT', payload);
-    if (res && res.content) __siteCfg.content = res.content;
-    markWsSaved();
-    showToast('Website design saved', 'success');
-  } catch (e) {
-    showToast(e.message || 'Failed to save website', 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-  }
-}
-window.saveWebsite = saveWebsite;
 function cancelInsert() { __pendingInsertAt = null; const h = document.getElementById('ws-insert-hint'); if (h) h.classList.add('hidden'); }
 window.cancelInsert = cancelInsert;
 function wireLiveMessages() {
@@ -3322,6 +2971,9 @@ function renderLiveBuilder(body) {
       <!-- Top Visual Workspace Action Bar -->
       <div class="ws-top-action-bar flex items-center justify-between gap-3 py-1.5 px-4 bg-[var(--ws-panel)] border-b border-[var(--ws-border)] flex-shrink-0 z-20 flex-wrap">
         <div class="flex items-center gap-2">
+          <button type="button" onclick="closeWebsiteBuilder()" class="px-2.5 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] border border-[var(--ws-border)] text-xs font-black" title="Return to Website Studio">← Studio</button>
+          <span class="hidden lg:inline text-xs font-black text-[var(--ws-text)]">Website Builder</span>
+          <span class="hidden lg:inline h-4 w-px bg-[var(--ws-border)]"></span>
           <span class="text-xs font-bold text-[var(--ws-text-muted)]">Editing Page:</span>
           <select onchange="wsSetTarget(this.value)" class="text-xs font-bold bg-[var(--ws-input-bg)] text-[var(--ws-input-text)] border border-[var(--ws-input-border)] rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer">
             <option value="home" ${__wsTarget === 'home' ? 'selected' : ''}>Home Page</option>
@@ -3342,7 +2994,8 @@ function renderLiveBuilder(body) {
           <button onclick="wsRunAudit()" class="px-2.5 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] border border-[var(--ws-border)] text-xs font-bold transition cursor-pointer" title="Run SEO and accessibility audit">Audit</button>
           <span class="ws-saved-badge px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40">SAVED</span>
           <button type="button" onclick="wsOpenDraftPreview()" class="px-3 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-bold transition">Preview ↗</button>
-          <button onclick="saveWebsite(this)" class="px-4 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md transition cursor-pointer">Publish Site</button>
+          <button onclick="saveWebsite(this,'draft')" class="px-3 py-1 rounded-lg bg-[var(--ws-panel-raised)] text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] border border-[var(--ws-border)] text-xs font-black transition">Save Draft</button>
+          <button onclick="saveWebsite(this,'publish')" class="px-4 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md transition cursor-pointer">Publish</button>
         </div>
       </div>
 
@@ -3409,6 +3062,61 @@ function wsBlog() {
 }
 window.wsBlog = wsBlog;
 
+function wsOverview() {
+  const c = __siteCfg?.content || {};
+  const slug = __siteCfg?.site_slug || '';
+  const domain = __siteCfg?.custom_domain || '';
+  const revision = __siteCfg?.revision?.revision_number || __siteCfg?.revision?.number || null;
+  const pageCount = 1 + (__sitePages?.length || 0) + Object.values(__siteBuiltins || {}).filter(page => page?.enabled !== false).length;
+  const status = __siteCfg?.site_published ? 'Published' : 'Draft';
+  const detail = (label, value) => `<div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400">${label}</div><div class="mt-1 text-sm font-black text-slate-900 dark:text-white break-words">${esc(String(value || 'Not configured'))}</div></div>`;
+  return `<div class="website-studio-view space-y-5">
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+      ${detail('Status', status)}${detail('Website address', domain || (slug ? `${slug}.marketsync.ca` : 'Not configured'))}${detail('Pages', pageCount)}${detail('Latest revision', revision ? `Revision ${revision}` : 'Not saved yet')}
+    </div>
+    <section class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 md:p-6">
+      <div class="flex items-start justify-between gap-4 flex-wrap"><div><h2 class="text-lg font-black text-slate-950 dark:text-white">Your dealership website</h2><p class="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-2xl">Manage the live site, draft revisions, pages, templates, content, and search visibility without leaving Website Studio.</p></div><button type="button" onclick="openWebsiteBuilder()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black">Edit in Builder</button></div>
+      <div class="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+        <button type="button" onclick="wsTab('pages')" class="text-left rounded-xl border border-slate-200 dark:border-slate-800 p-4 hover:border-indigo-400"><div class="font-black text-slate-900 dark:text-white">Pages</div><div class="mt-1 text-xs text-slate-500">Organize navigation and page content.</div></button>
+        <button type="button" onclick="wsTab('templates')" class="text-left rounded-xl border border-slate-200 dark:border-slate-800 p-4 hover:border-indigo-400"><div class="font-black text-slate-900 dark:text-white">Templates</div><div class="mt-1 text-xs text-slate-500">Start from a complete dealership layout.</div></button>
+        <button type="button" onclick="wsTab('discoverability')" class="text-left rounded-xl border border-slate-200 dark:border-slate-800 p-4 hover:border-indigo-400"><div class="font-black text-slate-900 dark:text-white">Discoverability</div><div class="mt-1 text-xs text-slate-500">Improve local search visibility.</div></button>
+      </div>
+    </section>
+  </div>`;
+}
+
+function wsSites() {
+  const c = __siteCfg?.content || {};
+  const slug = __siteCfg?.site_slug || '';
+  const domain = __siteCfg?.custom_domain || '';
+  const address = domain || (slug ? `${slug}.marketsync.ca` : 'Website address not configured');
+  return `<div class="website-studio-view space-y-5">
+    <div><h2 class="text-xl font-black text-slate-950 dark:text-white">Sites</h2><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">The website connected to this dealership account.</p></div>
+    <section class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+      <div class="h-28 bg-gradient-to-br from-indigo-700 via-blue-700 to-cyan-500 p-5 text-white flex items-end"><div><div class="text-[10px] font-black uppercase tracking-wider text-white/70">Dealership website</div><h3 class="text-xl font-black">${esc(c.name || c.dealer_name || 'Your dealership')}</h3></div></div>
+      <div class="p-5 flex items-start justify-between gap-4 flex-wrap"><div><div class="text-sm font-black text-slate-900 dark:text-white">${esc(address)}</div><div class="mt-1 text-xs text-slate-500">${__siteCfg?.site_published ? 'Published site' : 'Draft site'}${__siteCfg?.custom_domain_verified ? ' · Custom domain verified' : ''}</div></div><div class="flex gap-2 flex-wrap"><button type="button" onclick="openSetupModal('domain')" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">Configure</button><button type="button" onclick="openWebsiteBuilder()" class="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black">Open Builder</button>${slug ? `<a href="${SITE_BASE}?d=${encodeURIComponent(slug)}" target="_blank" rel="noopener noreferrer" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">View ↗</a>` : ''}</div></div>
+    </section>
+  </div>`;
+}
+
+function websiteTemplateCard(t) {
+  const hero = t.hero_img || '';
+  return `<article class="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden hover:border-indigo-400 transition">
+    <div class="h-36 bg-slate-900 relative overflow-hidden">${hero ? `<img src="${esc(hero)}" alt="" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">` : ''}<div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent"></div><div class="absolute bottom-3 left-3 flex gap-1"><span class="w-4 h-4 rounded-full border border-white/50" style="background:${esc(t.primary)}"></span><span class="w-4 h-4 rounded-full border border-white/50" style="background:${esc(t.secondary)}"></span><span class="w-4 h-4 rounded-full border border-white/50" style="background:${esc(t.accent)}"></span></div></div>
+    <div class="p-4"><h3 class="font-black text-slate-950 dark:text-white">${esc(t.name)}</h3><p class="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400 min-h-[3rem]">${esc(t.desc)}</p><div class="mt-4 flex gap-2"><button type="button" onclick="openWebsiteTemplatePreview('${esc(t.id)}')" class="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">Preview</button><button type="button" onclick="applyCompleteTemplate('${esc(t.id)}',this)" class="flex-1 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black">Use template</button></div></div>
+  </article>`;
+}
+
+function wsTemplates() {
+  return `<div class="website-studio-view space-y-5"><div><h2 class="text-xl font-black text-slate-950 dark:text-white">Website templates</h2><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Preview a complete dealership layout, then apply it to the current draft.</p></div><div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">${SITE_TEMPLATES.map(websiteTemplateCard).join('')}</div></div>`;
+}
+
+function openWebsiteTemplatePreview(id) {
+  const t = SITE_TEMPLATES.find(item => item.id === id); if (!t) return;
+  crmOverlay(`<div class="overflow-hidden rounded-2xl"><div class="h-64 bg-slate-950 relative">${t.hero_img ? `<img src="${esc(t.hero_img)}" alt="" class="w-full h-full object-cover">` : ''}<div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div><div class="absolute bottom-5 left-5 right-5 text-white"><div class="text-xs font-black uppercase tracking-wider text-white/70">Website template preview</div><h2 class="mt-1 text-2xl font-black">${esc(t.name)}</h2></div></div><div class="p-5 bg-white dark:bg-slate-900"><p class="text-sm text-slate-600 dark:text-slate-300">${esc(t.desc)}</p><div class="mt-5 flex justify-end gap-2"><button type="button" onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">Close</button><button type="button" onclick="applyCompleteTemplate('${esc(t.id)}',this)" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black">Use template</button></div></div></div>`, 'max-w-3xl');
+}
+window.openWebsiteTemplatePreview = openWebsiteTemplatePreview;
+
 function renderWsBody() {
   const body = document.getElementById('ws-body'); if (!body) return;
 
@@ -3419,31 +3127,26 @@ function renderWsBody() {
     document.getElementById('ws-inspector-panel')?.remove();
   }
 
-  if (__wsTab === 'setup' || __wsTab === 'settings') {
-    body.className = 'flex-1 min-h-0 overflow-y-auto w-full bg-slate-50 dark:bg-slate-950';
-    body.innerHTML = __wsTab === 'settings' ? wsSettings() : wsSetup();
-    if (__wsTab === 'settings') renderSiteWidgets();
+  body.className = 'website-studio-body w-full';
+  if (__wsTab === 'overview') { body.innerHTML = wsOverview(); return; }
+  if (__wsTab === 'sites') { body.innerHTML = wsSites(); return; }
+  if (__wsTab === 'settings') {
+    body.innerHTML = wsSettings();
+    renderSiteWidgets();
     return;
   }
-  if (__wsTab === 'seo') {
-    body.className = 'flex-1 min-h-0 overflow-y-auto w-full bg-slate-50 dark:bg-slate-950';
+  if (__wsTab === 'discoverability') {
     body.innerHTML = wsSeo();
     loadDealerSeo();
     return;
   }
   if (__wsTab === 'blog') {
-    body.className = 'flex-1 min-h-0 overflow-y-auto w-full bg-slate-50 dark:bg-slate-950';
     body.innerHTML = wsBlog();
     loadDealerBlog();
     return;
   }
-  if (__wsTab === 'design') {
-    body.className = 'flex-1 min-h-0 overflow-y-auto w-full bg-slate-50 dark:bg-slate-950 p-6';
-    body.innerHTML = wsDesign();
-    return;
-  }
+  if (__wsTab === 'templates') { body.innerHTML = wsTemplates(); return; }
   if (__wsTab === 'pages') {
-    body.className = 'flex-1 min-h-0 overflow-y-auto w-full bg-slate-50 dark:bg-slate-950 p-6';
     body.innerHTML = wsPages();
     renderMenuList();
     return;
@@ -3459,7 +3162,8 @@ function renderWsBody() {
     renderLiveBuilder(body);
     return;
   }
-  // Only the live visual builder remains; every other tab returned above.
+  __wsTab = 'overview';
+  body.innerHTML = wsOverview();
 }
 // Structural change to the current page (add / move / duplicate / delete a section,
 // or swap a section image). Repaint the three surfaces that show that structure: the
@@ -3674,137 +3378,19 @@ function wsApplyPalette(p, s, a) { const g = id => document.getElementById(id); 
 function wsSetTheme(id) { __siteCfg.content = __siteCfg.content || {}; __siteCfg.content.theme = id; renderWsBody(); showToast('Theme selected — Save to publish', 'info'); }
 window.wsSetTheme = wsSetTheme;
 function openTemplatePicker() {
-  const templates = [
-    {
-      id: 'classic',
-      name: 'Classic Dealership',
-      desc: 'Balanced, familiar dealer look with royal navy & slate styling, upfront transparency, and instant approval workflows.',
-      preset: 'classic',
-      primary: '#1e3a8a', secondary: '#0f172a', accent: '#3b82f6', heading_font: 'Inter', body_font: 'Inter',
-      hero_img: 'https://images.pexels.com/photos/164634/pexels-photo-164634.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
-    },
-    {
-      id: 'prestige',
-      name: 'Prestige Luxury & Executive',
-      desc: 'Refined, spacious, serif headings with obsidian & champagne gold accents, white-glove concierge styling, and private reserve presentation.',
-      preset: 'prestige',
-      primary: '#0f172a', secondary: '#1e293b', accent: '#d97706', heading_font: 'Playfair Display', body_font: 'Inter',
-      hero_img: 'https://images.pexels.com/photos/3764984/pexels-photo-3764984.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
-    },
-    {
-      id: 'modern',
-      name: 'Modern Digital Showroom',
-      desc: 'Crisp, soft depth, rounded cards, vibrant indigo & electric cyan accents, and instant digital retailing workflows.',
-      preset: 'modern',
-      primary: '#4f46e5', secondary: '#0b1020', accent: '#06b6d4', heading_font: 'Outfit', body_font: 'Inter',
-      hero_img: 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
-    },
-    {
-      id: 'bold',
-      name: 'Bold High-Impact & Performance',
-      desc: 'High-contrast, punchy headlines, racing crimson & obsidian styling, high-velocity specs, and urgent promotional banners.',
-      preset: 'bold',
-      primary: '#dc2626', secondary: '#09090b', accent: '#f59e0b', heading_font: 'Oswald', body_font: 'Montserrat',
-      hero_img: 'https://images.pexels.com/photos/3311574/pexels-photo-3311574.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
-    },
-    {
-      id: 'minimal',
-      name: 'Minimal Studio & Precision',
-      desc: 'Flat, airy, bordered, generous white space, graphite tones with subtle cobalt highlights, and distraction-free vehicle shopping.',
-      preset: 'minimal',
-      primary: '#18181b', secondary: '#27272a', accent: '#2563eb', heading_font: 'Outfit', body_font: 'Space Grotesk',
-      hero_img: 'https://images.pexels.com/photos/909907/pexels-photo-909907.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
-    },
-    {
-      id: 'performance',
-      name: 'Motorsport & High Velocity',
-      desc: 'Carbon dark styling, neon cyan accents, velocity performance specs spotlight, and dyno-tuned sports car showcase.',
-      preset: 'performance',
-      primary: '#0284c7', secondary: '#020617', accent: '#06b6d4', heading_font: 'Syne', body_font: 'Space Grotesk',
-      hero_img: 'https://images.pexels.com/photos/1149831/pexels-photo-1149831.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
-    },
-    {
-      id: 'truck',
-      name: 'Truck & Commercial Headquarters',
-      desc: 'Oswald uppercase headlines, heavy-duty towing capacity cards, stone palette, and 4x4 off-road capability.',
-      preset: 'truck',
-      primary: '#1c1917', secondary: '#292524', accent: '#d97706', heading_font: 'Oswald', body_font: 'Inter',
-      hero_img: 'https://images.pexels.com/photos/1638459/pexels-photo-1638459.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
-    },
-    {
-      id: 'family',
-      name: 'Family & Community Motors',
-      desc: 'Poppins typography, safety-first 5-star Google review spotlights, and family crossover features.',
-      preset: 'family',
-      primary: '#1e293b', secondary: '#0f172a', accent: '#0d9488', heading_font: 'Poppins', body_font: 'Nunito',
-      hero_img: 'https://images.pexels.com/photos/1592384/pexels-photo-1592384.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
-    },
-    {
-      id: 'used',
-      name: 'Certified Pre-Owned Depot',
-      desc: 'Barlow & Rubik typography, amber/navy theme, guaranteed credit approval banner, and certified used lot hero.',
-      preset: 'used',
-      primary: '#1e3a8a', secondary: '#0f172a', accent: '#f59e0b', heading_font: 'Barlow', body_font: 'Rubik',
-      hero_img: 'https://images.pexels.com/photos/100656/pexels-photo-100656.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
-    },
-    {
-      id: 'ev',
-      name: 'Next-Gen Electric Vehicle Hub',
-      desc: 'Plus Jakarta Sans typography, deep electric blue theme, charging range calculator banner, and EV incentive guide.',
-      preset: 'ev',
-      primary: '#030712', secondary: '#0b1329', accent: '#22d3ee', heading_font: 'Plus Jakarta Sans', body_font: 'Inter',
-      hero_img: 'https://images.pexels.com/photos/9800006/pexels-photo-9800006.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2'
-    }
-  ];
-
   const modalHtml = `
     <div class="p-6 space-y-4 max-w-4xl">
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-        <div>
-          <h2 class="text-xl font-black text-slate-900 dark:text-white">Choose Complete Dealership Template</h2>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Each template applies a full working layout, curated Pexels automotive imagery, typography, and rich copy customized with your dealership name.</p>
-        </div>
-        <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
-        </button>
+        <div><h2 class="text-xl font-black text-slate-900 dark:text-white">Choose a website template</h2><p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Preview a complete dealership layout, then save it to the current draft.</p></div>
+        <button type="button" onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white" aria-label="Close">&times;</button>
       </div>
-
-      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 max-h-[70vh] overflow-y-auto">
-        ${templates.map(t => `
-          <button onclick="applyCompleteTemplate('${t.id}')" class="group text-left border border-slate-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-200 flex flex-col cursor-pointer">
-            <div class="h-28 relative overflow-hidden bg-slate-950 shrink-0">
-              <img src="${t.hero_img}" class="w-full h-full object-cover object-center group-hover:scale-105 transition duration-500">
-              <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent"></div>
-              <div class="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-                <span class="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-black/60 backdrop-blur-md text-white border border-white/20">${t.preset}</span>
-              </div>
-              <div class="absolute bottom-2 left-3 flex items-center gap-1">
-                <span class="w-3.5 h-3.5 rounded-full border border-white/40 shadow-sm" style="background:${t.primary}"></span>
-                <span class="w-3.5 h-3.5 rounded-full border border-white/40 shadow-sm" style="background:${t.secondary}"></span>
-                <span class="w-3.5 h-3.5 rounded-full border border-white/40 shadow-sm" style="background:${t.accent}"></span>
-                <span class="text-[10px] font-mono text-white/80 ml-1 drop-shadow">${t.heading_font}</span>
-              </div>
-            </div>
-            <div class="p-4 flex-1 flex flex-col justify-between space-y-2">
-              <div>
-                <h3 class="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">${t.name}</h3>
-                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-1">${t.desc}</p>
-              </div>
-              <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Full Suite Ready</span>
-                <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition">Apply Template →</span>
-              </div>
-            </div>
-          </button>
-        `).join('')}
-      </div>
-    </div>
-  `;
-
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 max-h-[70vh] overflow-y-auto">${SITE_TEMPLATES.map(websiteTemplateCard).join('')}</div>
+    </div>`;
   crmOverlay(modalHtml, 'max-w-4xl');
 }
-
-function applyCompleteTemplate(templateId) {
+async function applyCompleteTemplate(templateId, btn = null) {
+  const originalButtonText = btn?.textContent || '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Applying…'; }
   const c = __siteCfg.content || (__siteCfg.content = {});
   const name = c.name || ctxName() || 'Our Dealership';
   const city = c.city || '';
@@ -4001,9 +3587,16 @@ function applyCompleteTemplate(templateId) {
   const pageTok = (title) => { const p = __sitePages.find(x => (x.title || '').toLowerCase() === title.toLowerCase()); return p ? ('p:' + p.id) : null; };
   __menuOrder = ['b:inventory', 'b:build', 'b:trade', 'b:finance', pageTok('Specials'), pageTok('About Us'), pageTok('Careers'), pageTok('Service'), pageTok('Book Service'), pageTok('Parts'), pageTok('Accessories'), 'b:team', 'b:contact'].filter(Boolean);
 
+  markWsUnsaved();
+  const saved = await saveWebsite(btn, 'draft');
+  if (!saved) {
+    if (btn) { btn.disabled = false; btn.textContent = originalButtonText; }
+    return;
+  }
   document.querySelector('.fixed')?.remove();
+  __wsTab = 'templates';
   renderWebsitePage();
-  showToast(`Applied "${selected.preset.toUpperCase()}" template with Pexels imagery & full copy — Save to publish`, 'success');
+  showToast(`Applied and saved the ${selected.preset.toUpperCase()} template as a draft`, 'success');
 }
 
 window.openTemplatePicker = openTemplatePicker;
@@ -4260,7 +3853,8 @@ async function saveWebsite(btn, action = 'draft') {
     heading_font: c.heading_font || '', body_font: c.body_font || '', hero_photos: !!c.hero_photos,
     theme: c.theme || 'classic',
   };
-  const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+  const orig = btn?.textContent || '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   try {
     const result = await apiSendJson('/dealership/site', 'PUT', body);
     if (result?.revision) __siteCfg.revision = { ...result.revision };
@@ -4277,10 +3871,11 @@ async function saveWebsite(btn, action = 'draft') {
     try { localStorage.removeItem(`ms_ws_recovery:${__siteCfg.site_slug}`); } catch {}
     markWsSaved();
     showToast(action === 'publish' ? 'Website published and verified' : `Draft saved${result?.revision?.number ? ` · revision ${result.revision.number}` : ''}`, 'success');
-    btn.disabled = false; btn.textContent = orig;
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+    return result;
   }
   catch (e) {
-    btn.disabled = false; btn.textContent = orig;
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
     const message = e?.message || 'Could not save website changes.';
     const conflict = /changed in another session|latest draft|concurrent|conflict/i.test(message);
     if (conflict) {
@@ -4289,8 +3884,10 @@ async function saveWebsite(btn, action = 'draft') {
     } else if (/publish verification failed|production was not confirmed/i.test(message)) {
       showToast('Publish was not confirmed. Production was left unchanged; reload and try again.', 'error');
     } else showToast(message, 'error');
+    return null;
   }
 }
+window.saveWebsite = saveWebsite;
 async function wsOpenRevisions() {
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4';
@@ -4463,16 +4060,16 @@ async function dealerCtxAsync() {
   return { name: c.name || 'our dealership', city: c.city || '', makes, primaryMake: makes[0] || '', makeList: makes.slice(0, 3).join(', ') };
 }
 const SITE_TEMPLATES = [
-  { id: 'classic', name: 'Classic Dealership', primary: '#1e3a8a', secondary: '#0f172a', accent: '#3b82f6', typography: 'classic', preset: 'classic', desc: 'Balanced, familiar dealer look with upfront transparency' },
-  { id: 'prestige', name: 'Prestige Luxury & Executive', primary: '#0f172a', secondary: '#1e293b', accent: '#d97706', typography: 'prestige', preset: 'prestige', desc: 'Refined, spacious, serif headings and gold accents' },
-  { id: 'modern', name: 'Modern Digital Showroom', primary: '#4f46e5', secondary: '#0b1020', accent: '#06b6d4', typography: 'modern', preset: 'modern', desc: 'Crisp, soft depth, rounded cards and fast retailing' },
-  { id: 'bold', name: 'Bold High-Impact & Performance', primary: '#dc2626', secondary: '#09090b', accent: '#f59e0b', typography: 'bold', preset: 'bold', desc: 'High-contrast, punchy headlines and sales urgency' },
-  { id: 'minimal', name: 'Minimal Studio & Precision', primary: '#18181b', secondary: '#27272a', accent: '#2563eb', typography: 'minimal', preset: 'minimal', desc: 'Flat, airy, bordered, distraction-free vehicle shopping' },
-  { id: 'performance', name: 'Motorsport & High Velocity', primary: '#0284c7', secondary: '#020617', accent: '#06b6d4', typography: 'performance', preset: 'performance', desc: 'Carbon styling and dynamic horsepower specs' },
-  { id: 'truck', name: 'Truck & Commercial HQ', primary: '#1c1917', secondary: '#292524', accent: '#d97706', typography: 'bold', preset: 'truck', desc: 'Heavy-duty towing capacity and commercial power' },
-  { id: 'family', name: 'Family & Crossover Hub', primary: '#1e293b', secondary: '#0f172a', accent: '#0d9488', typography: 'modern', preset: 'family', desc: 'Safety-first 5-star ratings and family versatility' },
-  { id: 'used', name: 'Certified Pre-Owned Depot', primary: '#1e3a8a', secondary: '#0f172a', accent: '#f59e0b', typography: 'classic', preset: 'used', desc: '100% inspection guarantee and credit approval' },
-  { id: 'ev', name: 'Electric Vehicle Hub', primary: '#030712', secondary: '#0b1329', accent: '#22d3ee', typography: 'modern', preset: 'ev', desc: 'Zero emissions and EV charging range calculator' }
+  { id: 'classic', name: 'Classic Dealership', primary: '#1e3a8a', secondary: '#0f172a', accent: '#3b82f6', typography: 'classic', preset: 'classic', heading_font: 'Inter', hero_img: 'https://images.pexels.com/photos/164634/pexels-photo-164634.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2', desc: 'Balanced, familiar dealer look with upfront transparency' },
+  { id: 'prestige', name: 'Prestige Luxury & Executive', primary: '#0f172a', secondary: '#1e293b', accent: '#d97706', typography: 'prestige', preset: 'prestige', heading_font: 'Playfair Display', hero_img: 'https://images.pexels.com/photos/3764984/pexels-photo-3764984.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2', desc: 'Refined, spacious, serif headings and gold accents' },
+  { id: 'modern', name: 'Modern Digital Showroom', primary: '#4f46e5', secondary: '#0b1020', accent: '#06b6d4', typography: 'modern', preset: 'modern', heading_font: 'Outfit', hero_img: 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2', desc: 'Crisp, soft depth, rounded cards and fast retailing' },
+  { id: 'bold', name: 'Bold High-Impact & Performance', primary: '#dc2626', secondary: '#09090b', accent: '#f59e0b', typography: 'bold', preset: 'bold', heading_font: 'Oswald', hero_img: 'https://images.pexels.com/photos/3311574/pexels-photo-3311574.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2', desc: 'High-contrast, punchy headlines and sales urgency' },
+  { id: 'minimal', name: 'Minimal Studio & Precision', primary: '#18181b', secondary: '#27272a', accent: '#2563eb', typography: 'minimal', preset: 'minimal', heading_font: 'Outfit', hero_img: 'https://images.pexels.com/photos/909907/pexels-photo-909907.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2', desc: 'Flat, airy, bordered, distraction-free vehicle shopping' },
+  { id: 'performance', name: 'Motorsport & High Velocity', primary: '#0284c7', secondary: '#020617', accent: '#06b6d4', typography: 'performance', preset: 'performance', heading_font: 'Syne', hero_img: 'https://images.pexels.com/photos/1149831/pexels-photo-1149831.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2', desc: 'Carbon styling and dynamic horsepower specs' },
+  { id: 'truck', name: 'Truck & Commercial HQ', primary: '#1c1917', secondary: '#292524', accent: '#d97706', typography: 'bold', preset: 'truck', heading_font: 'Oswald', hero_img: 'https://images.pexels.com/photos/1638459/pexels-photo-1638459.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2', desc: 'Heavy-duty towing capacity and commercial power' },
+  { id: 'family', name: 'Family & Crossover Hub', primary: '#1e293b', secondary: '#0f172a', accent: '#0d9488', typography: 'modern', preset: 'family', heading_font: 'Poppins', hero_img: 'https://images.pexels.com/photos/1592384/pexels-photo-1592384.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2', desc: 'Safety-first 5-star ratings and family versatility' },
+  { id: 'used', name: 'Certified Pre-Owned Depot', primary: '#1e3a8a', secondary: '#0f172a', accent: '#f59e0b', typography: 'classic', preset: 'used', heading_font: 'Barlow', hero_img: 'https://images.pexels.com/photos/100656/pexels-photo-100656.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2', desc: '100% inspection guarantee and credit approval' },
+  { id: 'ev', name: 'Electric Vehicle Hub', primary: '#030712', secondary: '#0b1329', accent: '#22d3ee', typography: 'modern', preset: 'ev', heading_font: 'Plus Jakarta Sans', hero_img: 'https://images.pexels.com/photos/9800006/pexels-photo-9800006.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&dpr=2', desc: 'Zero emissions and EV charging range calculator' }
 ];
 
 async function applyTemplate(id) {

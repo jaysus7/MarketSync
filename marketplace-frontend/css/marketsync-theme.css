@@ -2935,6 +2935,31 @@ html:not(.website-builder-mode) [data-ws-theme] #website-root,
 html:not(.website-builder-mode) [data-ws-theme] div[data-page-content="website"] {
   background: transparent !important;
 }
+.website-studio-shell {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+}
+.website-studio-hero {
+  background-image: linear-gradient(145deg, rgba(255,255,255,.94), rgba(244,247,252,.86));
+}
+.dark .website-studio-hero {
+  background-image: linear-gradient(145deg, rgba(24,35,58,.96), rgba(10,18,33,.92));
+}
+.website-studio-body {
+  min-width: 0;
+  padding: .25rem 0 1rem;
+}
+.website-studio-view {
+  min-width: 0;
+}
+.website-studio-tabs {
+  scrollbar-width: thin;
+}
+@media (max-width: 640px) {
+  .website-studio-hero { padding: 1rem !important; }
+  .website-studio-tabs button { padding-left: .75rem !important; padding-right: .75rem !important; }
+}
 html[data-dash-mode="marketsync"] :is(#dept-tabbar, .page-content .eng-shell-header, .page-content .rounded-xl.border:not(.ms-kpi), .page-content .rounded-2xl.border:not(.ms-kpi)) {
   background: linear-gradient(145deg, rgba(255,255,255,.72), rgba(245,248,255,.52)) !important;
   border-color: rgba(255,255,255,.62) !important;

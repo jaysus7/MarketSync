@@ -1503,7 +1503,7 @@ function renderDeptTabbar(pageId) {
     if (!cfg.navItems) return hide();
     const activeTab = pageId === 'marketing-overview'
       ? ((typeof ENGINE_STATE !== 'undefined' && ENGINE_STATE['marketing-overview']) || 'overview')
-      : pageId === 'website' ? (window.__wsTab || 'setup')
+      : pageId === 'website' ? (window.__wsTab || 'overview')
       : pageId === 'seo' ? ((typeof __seoMainTab !== 'undefined' && __seoMainTab) || 'settings')
       : pageId === 'automation-builder' ? (__autoTab || 'overview')
       : pageId === 'ai-home' ? (window.__aiHomeTab || 'conversations')
@@ -1543,7 +1543,7 @@ function renderDeptTabbar(pageId) {
   const restricted = typeof restrictedNavPages === 'function' ? restrictedNavPages() : null;
   const workspaceContext = typeof resolveWorkspaceContext === 'function' ? resolveWorkspaceContext() : null;
   if (!__deptNavBuilt && restricted && restricted.length > 1 && (__productAllowedPages || __fbOnly || __staffAllowedPages || workspaceContext?.type === 'website')) {
-    const activeTab = pageId === 'website' ? (window.__wsTab || 'setup')
+    const activeTab = pageId === 'website' ? (window.__wsTab || 'overview')
       : pageId === 'automation-builder' ? (__autoTab || 'overview')
       : pageId === 'ai-home' ? (window.__aiHomeTab || 'conversations')
       : pageId === 'social-scheduler' ? (window.__socialTab || window.__studioSchedulerTab || 'overview')
@@ -1625,10 +1625,10 @@ function deptGo(page, invmode, tab, studio) {
       return;
     }
   }
-  // A plain "Website" nav click (no explicit tab) must always land on Setup —
+  // A plain "Website" nav click (no explicit tab) must always land on Overview —
   // otherwise a stale __wsTab left over from a previous openWebsiteBuilder() call
   // silently reopens the Builder instead.
-  if (page === 'website') __wsTab = tab || 'setup';
+  if (page === 'website') __wsTab = ({ setup: 'overview', seo: 'discoverability' }[tab] || tab || 'overview');
   if (tab && page === 'automation-builder') {
     __autoTab = tab;
     if (typeof loadAutoBuilderPage === 'function') loadAutoBuilderPage();
@@ -2039,7 +2039,7 @@ function highlightDeptNav(pageId) {
   const reg = __deptRegistry;
   // Helper to resolve the currently active tab for tab-aware single-product pages
   const getPageActiveTab = (pg) => {
-    if (pg === 'website') return window.__wsTab || 'setup';
+    if (pg === 'website') return window.__wsTab || 'overview';
     if (pg === 'automation-builder') return window.__autoTab || 'overview';
     if (pg === 'ai-home') return window.__aiHomeTab || 'conversations';
     if (pg === 'social-scheduler') return window.__socialTab || window.__studioSchedulerTab || 'overview';
@@ -2058,7 +2058,7 @@ function highlightDeptNav(pageId) {
       ? ((typeof ENGINE_STATE !== 'undefined' && ENGINE_STATE['marketing-overview']) || 'overview')
       : pageId === 'automation-builder' ? (__autoTab || 'overview')
       : pageId === 'ai-home' ? (window.__aiHomeTab || 'conversations')
-      : pageId === 'website' ? (window.__wsTab || 'setup')
+      : pageId === 'website' ? (window.__wsTab || 'overview')
       : pageId === 'social-scheduler' ? (window.__socialTab || window.__studioSchedulerTab || 'overview')
       : null;
     const activeArea = cfg && typeof marketingSuiteAreaForPage === 'function'
@@ -2160,8 +2160,9 @@ function switchPage(pageId) {
     pageId = 'automation-builder';
   }
 
-  // Handle SEO direct/deep routes: seo, seo/easy, seo/advanced, website/seo, website/seo/easy, website/seo/advanced
-  if (typeof pageId === 'string' && (pageId === 'seo' || pageId.startsWith('seo/') || pageId === 'website/seo' || pageId.startsWith('website/seo/'))) {
+  // Standalone MarketSync SEO routes stay separate. Legacy website/seo links
+  // are handled below as Website Studio → Discoverability.
+  if (typeof pageId === 'string' && (pageId === 'seo' || pageId.startsWith('seo/'))) {
     if (pageId.endsWith('/easy')) {
       __seoMode = 'easy';
       if (typeof localStorage !== 'undefined') localStorage.setItem('marketsync_seo_mode', 'easy');
@@ -2183,16 +2184,17 @@ function switchPage(pageId) {
     window.__aiHomeTab = sub || 'conversations';
     pageId = 'ai-home';
   }
-  // Website canonical default route: website -> setup first; support deep links: website/builder, website/blog, website/seo, website/setup
+  // Website Studio owns all seven destinations; legacy setup/seo links map in place.
   if (typeof pageId === 'string' && pageId.startsWith('website/')) {
     const sub = pageId.split('/')[1];
     if (sub === 'builder') __wsTab = 'builder';
-    else if (sub === 'blog') { pageId = 'blog'; }
-    else if (sub === 'seo') { pageId = 'seo'; }
-    else { __wsTab = 'setup'; pageId = 'website'; }
+    else if (sub === 'blog') { __wsTab = 'blog'; pageId = 'website'; }
+    else if (sub === 'seo') { __wsTab = 'discoverability'; pageId = 'website'; }
+    else if (['overview', 'sites', 'pages', 'templates', 'discoverability', 'settings'].includes(sub)) { __wsTab = sub; pageId = 'website'; }
+    else { __wsTab = 'overview'; pageId = 'website'; }
     if (pageId.startsWith('website/')) pageId = 'website';
   } else if (pageId === 'website') {
-    if (!__wsTab || __wsTab === 'settings') __wsTab = 'setup';
+    if (!__wsTab) __wsTab = 'overview';
   }
   // Facebook-only tier: only the Facebook hub, leaderboard and settings are reachable.
   if (__fbOnly && !FB_ONLY_PAGES.has(pageId)) { __inventoryMode = 'facebook'; pageId = 'inventory'; }
@@ -2269,7 +2271,7 @@ function switchPage(pageId) {
       else if (btn.dataset.crmView) active = (btn.dataset.crmView === 'all') === !!__crmSearchAll;
     }
     if (active && btn.dataset.tab) {
-      const activeTab = (pageId === 'website') ? (window.__wsTab || 'setup')
+      const activeTab = (pageId === 'website') ? (window.__wsTab || 'overview')
                       : (pageId === 'automation-builder') ? (window.__autoTab || 'overview')
                       : (pageId === 'ai-home') ? (window.__aiHomeTab || 'conversations')
                       : (pageId === 'marketing-overview') ? ((typeof ENGINE_STATE !== 'undefined' ? ENGINE_STATE['marketing-overview'] : (typeof window !== 'undefined' ? window.ENGINE_STATE?.['marketing-overview'] : null)) || 'overview')

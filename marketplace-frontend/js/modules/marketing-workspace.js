@@ -37,7 +37,7 @@ function buildMarketingSuiteConfig(key) {
     const navItems = [
       suiteItem('marketing-overview', 'Pulse', 'chart', { tab: 'overview' }),
       suiteItem('inventory', 'Facebook Auto Poster', 'megaphone', { invmode: 'facebook' }),
-      suiteItem('website', 'Dealer Website', 'globe', { tab: 'setup' }),
+      suiteItem('website', 'Website Studio', 'globe', { tab: 'overview' }),
       suiteItem('seo', 'MarketSync SEO', 'chart', { tab: 'overview' }),
       suiteItem('ai-home', 'AI Customer Agent', 'sparkles', { tab: 'conversations' }),
       suiteItem('studio', 'Design Studio', 'camera', { studioLaunch: true }),
@@ -50,13 +50,7 @@ function buildMarketingSuiteConfig(key) {
     ];
     const areas = [
       { id: 'pulse', label: 'MarketSync Digital', icon: 'chart', items: [navItems[0]] },
-      { id: 'website', label: 'Website', icon: 'globe', items: [
-        suiteItem('website', 'Setup', 'wrench', { tab: 'setup' }),
-        suiteItem('website', 'Builder', 'globe', { tab: 'builder' }),
-        suiteItem('blog', 'Blog Post Tips', 'document'),
-        suiteItem('discoverability', 'Discovery', 'sparkles'),
-        suiteItem('website-settings', 'Website Settings', 'shield'),
-      ] },
+      { id: 'website', label: 'Website Studio', icon: 'globe', items: [navItems[2]] },
       { id: 'seo', label: 'MarketSync SEO', icon: 'chart', items: [
         suiteItem('seo', 'SEO Builder', 'sparkles', { tab: 'settings' }),
         suiteItem('seo', 'Pulse', 'chart', { tab: 'overview' }),
@@ -82,7 +76,7 @@ function buildMarketingSuiteConfig(key) {
       mobileQuickRow: [
         suiteItem('marketing-overview', 'Pulse', 'chart', { tab: 'overview' }),
         suiteItem('inventory', 'Auto Poster', 'megaphone', { invmode: 'facebook' }),
-        suiteItem('website', 'Website', 'globe', { tab: 'setup' }),
+        suiteItem('website', 'Website', 'globe', { tab: 'overview' }),
       ],
     };
   }
@@ -232,18 +226,12 @@ function getMarketingSuiteConfig(suiteKey) {
   const access = (typeof window !== 'undefined' && window.__access) ? window.__access : {};
   let configured = base;
   // Website is sold independently for non-Digital suites. Surface the complete
-  // Website area only when the account owns that product, so Setup and Blog are
-  // reachable without weakening the existing server-side product gate.
+  // Website area only when the account owns that product. Website Studio owns
+  // its seven internal destinations so the suite shell exposes one entry point.
   if (key !== 'digital' && !base.areas.some(area => area.id === 'website')) {
     const ownsWebsite = access.isPlatformStaff || (Array.isArray(access.products) && access.products.includes('marketsync_website'));
     if (ownsWebsite) {
-      const websiteItems = [
-        suiteItem('website', 'Website Setup', 'wrench', { tab: 'setup' }),
-        suiteItem('website', 'Website Builder', 'globe', { tab: 'builder' }),
-        suiteItem('blog', 'Blog Post Tips', 'document'),
-        suiteItem('discoverability', 'Discovery', 'sparkles'),
-        suiteItem('website-settings', 'Website Settings', 'shield'),
-      ];
+      const websiteItems = [suiteItem('website', 'Website Studio', 'globe', { tab: 'overview' })];
       const navItems = [...(base.navItems || base.areas[0]?.items || []), ...websiteItems];
       configured = { ...base, navItems, areas: [{ id: 'suite', label: base.badge, icon: 'megaphone', items: navItems }], sections: [{ title: (base.badge || '').toUpperCase(), items: navItems }] };
     }

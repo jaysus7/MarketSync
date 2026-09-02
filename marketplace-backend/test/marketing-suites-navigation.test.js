@@ -260,7 +260,7 @@ test('MarketSync Digital package exposes its complete Digital Presence area', (t
   assert.equal(pageLabels.join('|'), [
     'Pulse',
     'Facebook Auto Poster',
-    'Dealer Website',
+    'Website Studio',
     'MarketSync SEO',
     'AI Customer Agent',
     'Design Studio',
@@ -274,9 +274,9 @@ test('MarketSync Digital package exposes its complete Digital Presence area', (t
   assert.equal(pageLabels.includes('Accounting'), false);
 
   const digitalConfig = sandbox.getMarketingSuiteConfig('digital');
-  assert.deepEqual(Array.from(digitalConfig.areas.find(area => area.id === 'website').items, item => item.label), ['Setup', 'Builder', 'Blog Post Tips', 'Discovery', 'Website Settings']);
+  assert.deepEqual(Array.from(digitalConfig.areas.find(area => area.id === 'website').items, item => item.label), ['Website Studio']);
   assert.deepEqual(Array.from(digitalConfig.areas.find(area => area.id === 'seo').items, item => item.label), ['SEO Builder', 'Pulse']);
-  assert.equal(digitalConfig.navItems.find(item => item.page === 'website').tab, 'setup');
+  assert.equal(digitalConfig.navItems.find(item => item.page === 'website').tab, 'overview');
   assert.equal(digitalConfig.navItems.find(item => item.page === 'seo').tab, 'overview');
   assert.deepEqual(Array.from(digitalConfig.areas.find(area => area.id === 'ai').items, item => item.label), ['Pulse', 'Setup']);
 });
@@ -295,7 +295,7 @@ test('MarketSync Digital navigation with SEO entitlement includes SEO', (t) => {
   const pageLabels = pages.map(p => p.label);
   
   assert.ok(pageLabels.includes('Pulse'));
-  assert.ok(pageLabels.includes('Dealer Website'));
+  assert.ok(pageLabels.includes('Website Studio'));
   assert.ok(pageLabels.includes('AI Customer Agent'));
   assert.ok(pageLabels.includes('MarketSync SEO'), 'MarketSync SEO must use its product name');
 });
