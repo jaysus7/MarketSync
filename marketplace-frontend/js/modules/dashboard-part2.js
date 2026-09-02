@@ -2359,7 +2359,7 @@ function switchPage(pageId) {
       .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-store.js?v=20260830_prostudio'))
       .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-autosave.js?v=20260830_prostudio'))
       .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260830_prostudio'))
-      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-shell.js?v=20260830_light_rail_v1'))
+      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-shell.js?v=20260902_staging_repair_v1'))
       .then(() => { if (typeof openMarketSyncStudio === 'function') openMarketSyncStudio(); })
       .catch(renderMarketSyncStudioBootError);
   }
@@ -2648,7 +2648,7 @@ window.ensureOpenMarketSyncStudio = function ensureOpenMarketSyncStudio(designId
           'js/design-studio/state/document-schema.js', 'js/design-studio/state/history-store.js', 'js/design-studio/state/studio-store.js', 'js/design-studio/editor/canvas-engine.js', 'js/design-studio/editor/selection-engine.js', 'js/design-studio/editor/transform-engine.js', 'js/design-studio/editor/snapping-engine.js', 'js/design-studio/editor/keyboard-engine.js', 'js/design-studio/panels/layers-panel.js', 'js/design-studio/panels/properties-panel.js', 'js/design-studio/panels/assets-panel.js', 'js/design-studio/panels/templates-panel.js', 'js/design-studio/panels/brand-panel.js', 'js/design-studio/panels/pages-panel.js', 'js/design-studio/panels/history-panel.js', 'js/design-studio/services/autosave-service.js', 'js/design-studio/services/version-service.js', 'js/design-studio/services/media-service.js', 'js/design-studio/services/export-service.js', 'js/design-studio/services/publishing-service.js', 'js/design-studio/services/ai-service.js', 'js/design-studio/studio-shell.js'
         ].map(path => window.msLoadScript(`${path}?v=20260830_prostudio`))))
         .then(() => window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260830_prostudio'))
-        .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260830_light_rail_v1'))
+        .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260902_staging_repair_v1'))
     : Promise.resolve();
   return Promise.resolve(load).then(() => {
     if (typeof window.openMarketSyncStudio === 'function' && window.openMarketSyncStudio !== ensureOpenMarketSyncStudio) {

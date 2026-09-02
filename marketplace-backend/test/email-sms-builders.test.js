@@ -11,20 +11,14 @@ describe('Email & SMS — Split Full-Screen Builders Architecture', () => {
   const part18Path = path.join(__dirname, '../../marketplace-frontend/js/modules/dashboard-part18.js');
   const part18Content = fs.readFileSync(part18Path, 'utf8');
 
-  it('preserves the 6 internal dashboard tabs in Email & SMS', () => {
-    assert.ok(part18Content.includes("tabBtn('overview', 'Overview'"), 'Includes Overview tab');
-    assert.ok(part18Content.includes("tabBtn('automations', 'Automations'"), 'Includes Automations tab');
-    assert.ok(part18Content.includes("tabBtn('campaigns', 'Campaigns'"), 'Includes Campaigns tab');
-    assert.ok(part18Content.includes("tabBtn('templates', 'Templates'"), 'Includes Templates tab');
-    assert.ok(part18Content.includes("tabBtn('audiences', 'Audiences'"), 'Includes Audiences tab');
-    assert.ok(part18Content.includes("tabBtn('performance', 'Performance'"), 'Includes Performance tab');
+  it('uses the exact five Email/SMS Studio tabs', () => {
+    assert.match(part18Content, /\['campaigns', 'Campaigns'\][\s\S]*?\['templates', 'Templates'\][\s\S]*?\['audiences', 'Audiences'\][\s\S]*?\['automations', 'Automations'\][\s\S]*?\['performance', 'Results'\]/);
   });
 
-  it('exposes the two top primary builder action buttons: Build Automation and Build Email / SMS', () => {
-    assert.ok(part18Content.includes('onclick="openVisualWorkflowBuilder()"'), 'Contains Build Automation button');
-    assert.ok(part18Content.includes("onclick=\"openEmailSmsBuilder({ mode: 'email' })\""), 'Contains Build Email / SMS button');
-    assert.ok(part18Content.includes('Build Automation'), 'Label Build Automation present');
-    assert.ok(part18Content.includes('Build Email / SMS'), 'Label Build Email / SMS present');
+  it('keeps Email/SMS and Automations on the shared canonical engine with studio-specific actions', () => {
+    assert.ok(part18Content.includes('openVisualWorkflowBuilder'), 'Contains Automation builder action');
+    assert.ok(part18Content.includes('openEmailSmsBuilder'), 'Contains Email/SMS builder action');
+    assert.ok(part18Content.includes("studio === 'automation'"), 'Actions are selected by studio context');
   });
 
   it('implements openVisualWorkflowBuilder for n8n-style DAG logic and journeys', () => {
@@ -82,9 +76,8 @@ describe('Email & SMS — Split Full-Screen Builders Architecture', () => {
     assert.ok(part18Content.includes('logic_stop'), 'Contains Stop terminal node');
   });
 
-  it('synchronizes canonical workflow data between Simple Mode edits and visual graph nodes', () => {
-    assert.ok(part18Content.includes('found.graph.nodes.forEach'), 'Syncs graph nodes on simple edit');
-    assert.ok(part18Content.includes('saveVisualWorkflow'), 'Saves and compiles graph back to canonical catalog');
+  it('persists Simple Mode edits and visual graphs through canonical tenant endpoints', () => {
+    assert.ok(part18Content.includes("apiSendJson(`/automation/campaigns/${found.id}`, 'PUT'"), 'Simple edits persist');
+    assert.ok(part18Content.includes("apiSendJson('/automation/workflows', 'POST', payload)"), 'Visual graphs persist and compile');
   });
 });
-
