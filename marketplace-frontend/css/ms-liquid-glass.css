@@ -160,35 +160,37 @@ html[data-ms-glass="global"][data-dash-owner="1"][data-dash-mode="marketsync"] :
   color: #334155;
 }
 
-/* Builder-specific inheritance: all existing hard-coded panel utilities become
- * the same material, while accent buttons remain untouched. */
+/* The website editor is a dense workbench, not a glass surface. Keep its
+ * navigation, drawers, inspector, forms, and toolbar fully opaque so the live
+ * website remains the only visually expressive layer. */
 .ws-studio-container {
-  --ws-bg: var(--ms-glass-canvas) !important;
-  --ws-panel: var(--ms-glass-dark) !important;
-  --ws-panel-sub: rgba(16, 36, 63, .54) !important;
-  --ws-panel-raised: rgba(31, 61, 96, .58) !important;
-  --ws-border: var(--ms-glass-line-dark) !important;
-  --ws-input-bg: rgba(7, 20, 38, .72) !important;
-  --ws-input-border: rgba(148, 190, 230, .3) !important;
-  background: var(--ms-glass-canvas) !important;
-  background-attachment: fixed;
+  --ws-bg: #0b1220 !important;
+  --ws-panel: #111827 !important;
+  --ws-panel-sub: #172033 !important;
+  --ws-panel-raised: #1e293b !important;
+  --ws-border: #334155 !important;
+  --ws-input-bg: #0f172a !important;
+  --ws-input-border: #475569 !important;
+  background: var(--ws-bg) !important;
 }
 .ws-studio-container[data-ws-theme="light"] {
-  --ws-panel: var(--ms-glass-light) !important;
-  --ws-panel-sub: rgba(255,255,255,.42) !important;
-  --ws-panel-raised: rgba(255,255,255,.64) !important;
-  --ws-border: var(--ms-glass-line) !important;
-  --ws-input-bg: rgba(255,255,255,.72) !important;
-  --ws-input-border: rgba(100,116,139,.32) !important;
+  --ws-bg: #e5e7eb !important;
+  --ws-panel: #ffffff !important;
+  --ws-panel-sub: #f8fafc !important;
+  --ws-panel-raised: #f1f5f9 !important;
+  --ws-border: #cbd5e1 !important;
+  --ws-input-bg: #ffffff !important;
+  --ws-input-border: #94a3b8 !important;
 }
 .ws-studio-container :is(.ws-builder-header,.ws-top-action-bar,#ws-left-dock-wrapper nav,#ws-left-drawer-content,#ws-right-dock-wrapper,#ws-inspector-panel,#ws-inspector-content,#ws-palette,#ws-layers-tree,.ws-builder-chrome) {
   background: var(--ws-panel) !important;
+  background-image: none !important;
   border-color: var(--ws-border) !important;
-  box-shadow: var(--ms-glass-shadow-dark);
-  backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
-  -webkit-backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
+  box-shadow: 0 10px 28px rgba(2, 8, 23, .28);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
-.ws-studio-container[data-ws-theme="light"] :is(.ws-builder-header,.ws-top-action-bar,#ws-left-dock-wrapper nav,#ws-left-drawer-content,#ws-right-dock-wrapper,#ws-inspector-panel,#ws-inspector-content,#ws-palette,#ws-layers-tree,.ws-builder-chrome) { box-shadow: var(--ms-glass-shadow); }
+.ws-studio-container[data-ws-theme="light"] :is(.ws-builder-header,.ws-top-action-bar,#ws-left-dock-wrapper nav,#ws-left-drawer-content,#ws-right-dock-wrapper,#ws-inspector-panel,#ws-inspector-content,#ws-palette,#ws-layers-tree,.ws-builder-chrome) { box-shadow: 0 8px 24px rgba(15, 23, 42, .14); }
 .ws-studio-container :is(.bg-white,.bg-slate-950,.bg-slate-900,.dark\:bg-slate-900) {
   background: var(--ws-panel-raised) !important;
   border-color: var(--ws-border) !important;
@@ -507,7 +509,7 @@ body.ms-glass-site button.bg-emerald-600 {
   body.ms-glass-site :is(div,section,article,aside,form,details,header,footer,nav).bg-white,
   body.ms-glass-site :is(div,section,article,aside,form,details,header,footer,nav).bg-slate-900,
   html[data-ms-glass="global"] :is(div,section,article,aside,form,details,header,footer,nav).rounded-xl.bg-white,
-  .ws-studio-container :is(.ws-builder-header,.ws-top-action-bar,#ws-left-dock-wrapper nav,#ws-left-drawer-content,#ws-right-dock-wrapper,#ws-inspector-panel,#ws-inspector-content,#ws-palette,#ws-layers-tree) { background: rgba(255,255,255,.94) !important; }
+  .ws-studio-container :is(.ws-builder-header,.ws-top-action-bar,#ws-left-dock-wrapper nav,#ws-left-drawer-content,#ws-right-dock-wrapper,#ws-inspector-panel,#ws-inspector-content,#ws-palette,#ws-layers-tree) { background: var(--ws-panel) !important; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ms-glass-surface,.ms-glass-panel { transition: none !important; }

@@ -3059,7 +3059,7 @@ function renderLiveBuilder(body) {
         <!-- Left Floating Dock (Nav Rail + Drawer) -->
         <div id="ws-left-dock-wrapper" class="absolute left-3 top-3 z-30 flex items-start gap-2 max-h-[calc(100vh-120px)]">
           <!-- Nav Rail -->
-          <nav class="w-12 bg-[var(--ws-panel)] backdrop-blur-xl border border-[var(--ws-border)] rounded-2xl flex flex-col items-center py-2.5 gap-2 shrink-0 shadow-2xl">
+          <nav class="w-12 bg-[var(--ws-panel)] border border-[var(--ws-border)] rounded-xl flex flex-col items-center py-2.5 gap-2 shrink-0 shadow-xl">
             <button onclick="setWsLeftNav('layers')" data-tab="layers" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'layers' ? 'bg-indigo-600/30 text-indigo-600 dark:text-indigo-400 border border-indigo-500/50' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer" title="Layers Tree">Tree</button>
             <button onclick="setWsLeftNav('blocks')" data-tab="blocks" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'blocks' ? 'bg-indigo-600/30 text-indigo-600 dark:text-indigo-400 border border-indigo-500/50' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer" title="Add Blocks">+Add</button>
             <button onclick="setWsLeftNav('pages')" data-tab="pages" class="ws-nav-rail-btn w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold ${__wsActiveLeftNav === 'pages' ? 'bg-indigo-600/30 text-indigo-600 dark:text-indigo-400 border border-indigo-500/50' : 'text-[var(--ws-text-muted)] hover:text-[var(--ws-text)]'} cursor-pointer" title="Manage Pages">Pages</button>
@@ -3070,7 +3070,7 @@ function renderLiveBuilder(body) {
           </nav>
 
           <!-- Floating Drawer Content -->
-          <aside id="ws-left-drawer-content" class="w-64 bg-[var(--ws-panel)] backdrop-blur-xl border border-[var(--ws-border)] rounded-2xl overflow-y-auto max-h-[calc(100vh-120px)] shadow-2xl transition-all duration-200 ${__wsLeftDockCollapsed ? 'hidden' : ''}">
+          <aside id="ws-left-drawer-content" class="w-64 bg-[var(--ws-panel)] border border-[var(--ws-border)] rounded-xl overflow-y-auto max-h-[calc(100vh-120px)] shadow-xl transition-all duration-200 ${__wsLeftDockCollapsed ? 'hidden' : ''}">
             ${renderWsLeftDrawerHtml()}
           </aside>
         </div>
@@ -3078,11 +3078,11 @@ function renderLiveBuilder(body) {
         <!-- Right Floating Property Inspector Dock -->
         <div id="ws-right-dock-wrapper" class="absolute right-3 top-3 z-30 flex flex-col items-end gap-2 max-h-[calc(100vh-120px)]">
           <div class="flex items-center gap-2">
-            <button id="ws-right-collapse-btn" onclick="toggleWsRightDock()" class="px-3 py-1.5 rounded-xl bg-[var(--ws-panel)] backdrop-blur-xl border border-[var(--ws-border)] text-xs font-black text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] transition shadow-xl cursor-pointer" title="Toggle Property Inspector">
+            <button id="ws-right-collapse-btn" onclick="toggleWsRightDock()" class="px-3 py-1.5 rounded-lg bg-[var(--ws-panel)] border border-[var(--ws-border)] text-xs font-black text-[var(--ws-text-secondary)] hover:text-[var(--ws-text)] transition shadow-lg cursor-pointer" title="Toggle Property Inspector">
               ${__wsRightDockCollapsed ? 'Inspector &laquo;' : 'Inspector &raquo;'}
             </button>
           </div>
-          <aside id="ws-inspector-panel" class="w-64 bg-[var(--ws-panel)] backdrop-blur-xl border border-[var(--ws-border)] rounded-2xl overflow-y-auto max-h-[calc(100vh-160px)] shadow-2xl transition-all duration-200 ${__wsRightDockCollapsed ? 'hidden' : ''}">
+          <aside id="ws-inspector-panel" class="w-64 bg-[var(--ws-panel)] border border-[var(--ws-border)] rounded-xl overflow-y-auto max-h-[calc(100vh-160px)] shadow-xl transition-all duration-200 ${__wsRightDockCollapsed ? 'hidden' : ''}">
             ${renderWsRightInspectorHtml()}
           </aside>
         </div>

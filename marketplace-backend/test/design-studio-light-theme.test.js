@@ -27,6 +27,6 @@ test('Templates fits the rail and the Heading action remains legible', () => {
 
 test('the deployed dashboard requests the corrected Studio assets', () => {
   assert.match(loader, /studio-shell\.js\?v=20260902_staging_repair_v1/g);
-  assert.match(dashboard, /marketsync-theme\.css\?v=20260902_staging_repair_v1/);
+  assert.match(dashboard, /marketsync-theme\.css\?v=20260902_builder_workbench_v1/);
   assert.match(dashboard, /dashboard-part2\.js\?v=20260902_staging_repair_v1/);
 });
