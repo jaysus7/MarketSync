@@ -375,14 +375,16 @@ class StudioFabricAdapter {
       textAlign: options.textAlign || 'left',
       lineHeight: options.lineHeight || 1.08,
       charSpacing: options.charSpacing || 0,
+      angle: Number(options.angle || options.rotation) || 0,
       originX: options.originX || 'left',
       originY: options.originY || 'top'
     });
-    txt.msData = { type: 'text', name: text.slice(0, 20) };
+    txt.msData = { type: 'text', name: options.name || text.slice(0, 20), ...(options.textTemplateId ? { textTemplateId: options.textTemplateId } : {}), ...(options.premadeId ? { premadeId: options.premadeId } : {}) };
     this.fabricCanvas.add(txt);
     this.fabricCanvas.setActiveObject(txt);
     this.fabricCanvas.renderAll();
     this.saveHistory();
+    this.onSelectionChange([txt]);
   }
 
   updateSelectedText(properties = {}) {
@@ -621,6 +623,7 @@ class StudioFabricAdapter {
     this.fabricCanvas.setActiveObject(shape);
     this.fabricCanvas.renderAll();
     this.saveHistory();
+    this.onSelectionChange([shape]);
   }
 
   addImage(url, name = 'Image') {

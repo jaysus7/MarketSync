@@ -3391,7 +3391,22 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
   background: rgba(255,255,255,.96) !important;
   border-color: #dbe3ef !important;
 }
-#ms-studio-master-modal [data-studio-region="rail"] { width: 88px !important; padding-top: 12px; gap: 8px; }
+#ms-studio-master-modal [data-studio-region="rail"] {
+  width: 88px !important; padding-top: 12px; gap: 8px;
+  min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin;
+  overscroll-behavior: contain;
+}
+#ms-studio-master-modal [data-studio-region="rail"]::-webkit-scrollbar { width: 5px; }
+#ms-studio-master-modal [data-studio-region="rail"]::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+#ms-studio-master-modal [role="tablist"][aria-label="Design Studio"] {
+  min-height: 44px; scrollbar-width: thin; scroll-snap-type: x proximity;
+}
+#ms-studio-master-modal [role="tablist"][aria-label="Design Studio"] > button { scroll-snap-align: start; min-width: max-content; }
+#ms-studio-master-modal .studio-command-bar { min-height: 56px; overflow: hidden; }
+#ms-studio-master-modal .studio-command-scroll { flex: 1 1 auto; padding: 5px 10px 5px 0; scrollbar-width: thin; overscroll-behavior-inline: contain; }
+#ms-studio-master-modal .studio-command-scroll > * { flex: 0 0 auto; }
+#ms-studio-master-modal .studio-primary-actions { max-width: min(55vw, 720px); overflow-x: auto; padding: 5px 0 5px 8px; scrollbar-width: thin; border-left: 1px solid #dbe3ef; }
+#ms-studio-master-modal .studio-primary-actions > button { flex: 0 0 auto; white-space: nowrap; }
 #ms-studio-master-modal .studio-tool-rail-button {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   width: 82px; min-height: 58px; padding: 6px 3px; border: 0 !important;
@@ -3478,6 +3493,38 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 #ms-studio-master-modal .studio-shape-art svg { width: 40px; height: 40px; display: block; }
 #ms-studio-master-modal .studio-shape-card:hover .studio-shape-art { color: #1d4ed8; transform: scale(1.08); }
 #ms-studio-master-modal .studio-shape-card:focus-visible { outline: 3px solid rgba(37,99,235,.35); outline-offset: 2px; }
+#ms-studio-master-modal .studio-shape-colour-row { display: grid; grid-template-columns: 1fr 42px 88px; align-items: center; gap: 8px; }
+#ms-studio-master-modal .studio-shape-colour-row label { font: 800 11px/1.2 ui-sans-serif,sans-serif; color: #475569; }
+#ms-studio-master-modal .studio-shape-colour-row input[type="color"] { width: 42px; height: 36px; padding: 2px !important; border-radius: 10px; cursor: pointer; }
+#ms-studio-master-modal .studio-shape-colour-row input[type="text"],
+#ms-studio-master-modal .studio-shape-colour-row input:not([type]) { width: 88px; height: 36px; padding: 6px 8px !important; border-radius: 10px; font: 700 11px/1 monospace; }
+#ms-studio-master-modal .studio-text-template-preview { height: 74px; padding: 13px 12px; border-radius: 9px; color: #fff; overflow: hidden; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 6px 14px rgba(15,23,42,.18); }
+#ms-studio-master-modal .studio-text-template-preview small { display: block; font: 900 8px/1 ui-sans-serif,sans-serif; letter-spacing: .12em; }
+#ms-studio-master-modal .studio-text-template-preview strong { display: block; margin-top: 5px; font: 900 13px/.9 ui-sans-serif,sans-serif; letter-spacing: -.02em; }
+
+/* Full website template browser — the preview is the actual multi-page site
+ * renderer, with WordPress-style page and device navigation around it. */
+.ws-template-browser-bar { min-height: 62px; display: flex; align-items: center; gap: 14px; padding: 9px 14px; background: #111827; color: #fff; border-bottom: 1px solid #334155; }
+.ws-template-browser-bar > div:first-child { display: flex; flex-direction: column; min-width: 180px; margin-right: auto; }
+.ws-template-browser-bar > div:first-child span { color: #94a3b8; font: 800 10px/1.2 ui-sans-serif,sans-serif; text-transform: uppercase; letter-spacing: .1em; }
+.ws-template-browser-bar > div:first-child strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 900 14px/1.4 ui-sans-serif,sans-serif; }
+.ws-template-browser-bar label { display: flex; align-items: center; gap: 7px; color: #cbd5e1; font: 800 11px/1 ui-sans-serif,sans-serif; }
+.ws-template-browser-bar select { width: 190px; padding: 8px 10px; border: 1px solid #475569; border-radius: 9px; background: #1e293b; color: #fff; font: 700 12px/1 ui-sans-serif,sans-serif; }
+.ws-template-preview-devices { display: flex; padding: 3px; border: 1px solid #475569; border-radius: 10px; background: #1e293b; }
+.ws-template-preview-devices button { padding: 6px 9px; border-radius: 7px; color: #94a3b8; font: 800 10px/1 ui-sans-serif,sans-serif; }
+.ws-template-preview-devices button[aria-current="true"] { background: #4f46e5; color: #fff; }
+.ws-template-preview-use { padding: 9px 14px; border-radius: 9px; background: #4f46e5; color: #fff; font: 900 12px/1 ui-sans-serif,sans-serif; white-space: nowrap; }
+.ws-template-preview-close { width: 36px; height: 36px; border-radius: 9px; color: #cbd5e1; background: #1e293b; font: 400 25px/1 ui-sans-serif,sans-serif; }
+.ws-template-browser-stage { flex: 1; min-height: 0; display: flex; justify-content: center; overflow: hidden; padding: 12px; background: #334155; }
+#ws-template-preview-wrap { width: 100%; height: 100%; overflow: hidden; background: #fff; box-shadow: 0 10px 35px rgba(0,0,0,.42); transition: width .2s ease; }
+#ws-template-preview-frame { width: 100%; height: 100%; border: 0; background: #fff; }
+@media (max-width: 860px) {
+  .ws-template-browser-bar { flex-wrap: wrap; }
+  .ws-template-browser-bar > div:first-child { flex: 1 1 180px; }
+  .ws-template-browser-bar label { order: 3; flex: 1 1 100%; }
+  .ws-template-browser-bar select { flex: 1; width: auto; }
+  .ws-template-preview-devices { display: none; }
+}
 #ms-studio-master-modal .studio-icon-card { min-width: 0; }
 #ms-studio-master-modal .studio-icon-art { width: 44px; height: 44px; display: block; }
 #ms-studio-master-modal .studio-icon-card:hover .studio-icon-art { transform: scale(1.08); }

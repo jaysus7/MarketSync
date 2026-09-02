@@ -61,7 +61,13 @@ const STUDIO_SOCIAL_FORMATS = {
   website_banner: { label: 'Website Banner', w: 1920, h: 720, safe: [8, 7, 10, 7], note: 'Responsive website content bounds' },
   display_300x250: { label: 'Display Ad 300×250', w: 300, h: 250, safe: [7, 7, 9, 7], note: 'Compact display-ad safe area' },
   display_728x90: { label: 'Display Ad 728×90', w: 728, h: 90, safe: [8, 4, 8, 4], note: 'Leaderboard safe area' },
-  display_160x600: { label: 'Display Ad 160×600', w: 160, h: 600, safe: [4, 8, 5, 8], note: 'Skyscraper safe area' }
+  display_160x600: { label: 'Display Ad 160×600', w: 160, h: 600, safe: [4, 8, 5, 8], note: 'Skyscraper safe area' },
+  letterhead: { label: 'Letterhead · US Letter', w: 2550, h: 3300, safe: [5, 6, 6, 6], note: 'Print-safe margins', channel: 'print' },
+  presentation: { label: 'Presentation Slide · 16:9', w: 1920, h: 1080, safe: [6, 6, 7, 6], note: 'Projector-safe content area', channel: 'presentation' },
+  business_card: { label: 'Business Card · 3.5×2 in', w: 1050, h: 600, safe: [7, 7, 7, 7], note: 'Keep details inside the trim-safe area', channel: 'print' },
+  postcard: { label: 'Postcard · 6×4 in', w: 1800, h: 1200, safe: [6, 6, 6, 6], note: 'Print-safe margins', channel: 'print' },
+  flyer: { label: 'Flyer · US Letter', w: 2550, h: 3300, safe: [5, 5, 5, 5], note: 'Print-safe margins', channel: 'print' },
+  brochure: { label: 'Tri-fold Brochure · Letter', w: 3300, h: 2550, safe: [5, 5, 5, 5], note: 'Keep copy clear of folds and trim', channel: 'print' }
 };
 
 // Small inline SVG previews so each Shapes button shows the actual shape, not just
@@ -106,8 +112,8 @@ const STUDIO_GOOGLE_FONTS = [
 const STUDIO_FONT_CATEGORIES = { all: 'All fonts', sans: 'Sans serif', display: 'Display', serif: 'Serif', mono: 'Monospace', script: 'Script / hand' };
 const STUDIO_FONT_CATEGORY_FOR = font => /serif|merriweather|garamond|crimson|lora|baskerville|spectral|prata|zilla|cormorant/i.test(font) ? 'serif' : /script|hand|lobster|satisfy|dancing|marker|ravi|turncoat/i.test(font) ? 'script' : /mono|inconsolata|plex mono/i.test(font) ? 'mono' : /anton|bebas|oswald|archivo black|black|orbitron|teko|righteous|russo|staatliches|unbounded|syne|fjalla/i.test(font) ? 'display' : 'sans';
 const STUDIO_FONT_CATALOG = Array.from(new Set([...STUDIO_GOOGLE_FONTS, 'Roboto','Open Sans','Lato','Nunito','Raleway','Merriweather','Source Sans 3','Source Serif 4','Work Sans','Rubik','Outfit','Space Grotesk','Plus Jakarta Sans','Sora','Urbanist','Figtree','Geologica','Albert Sans','Archivo','Barlow','Cabin','Catamaran','Chakra Petch','Chivo','Commissioner','Comfortaa','Cormorant Garamond','Crimson Text','Dancing Script','Dela Gothic One','EB Garamond','Exo 2','Fira Sans','Fjalla One','Fraunces','Gabarito','Heebo','Hind','IBM Plex Sans','IBM Plex Serif','Inconsolata','Josefin Sans','Kanit','Karla','Khand','Libre Baskerville','Libre Franklin','Lobster','Lora','Marcellus','Maven Pro','Michroma','Mitr','Mukta','Noto Sans','Noto Serif','Oleo Script','Onest','Orbitron','Patrick Hand','Permanent Marker','Philosopher','Play','Prata','Public Sans','Quicksand','Rajdhani','Red Hat Display','Rokkitt','Russo One','Saira','Satisfy','Sen','Signika','Skranji','Slabo 27px','Spectral','Staatliches','Syne','Titillium Web','Trispace','Ubuntu','Unbounded','Varela Round','Vollkorn','Walter Turncoat','Yanone Kaffeesatz','Zilla Slab']));
-const STUDIO_SHAPE_LIBRARY = Array.from({ length: 120 }, (_, index) => { const base = ['rect','badge','circle','ellipse','triangle','diamond','pentagon','hexagon','star','line','arrow','heart','speech'][index % 13]; return { id: `shape-${index + 1}`, base, name: `${base[0].toUpperCase()} ${index + 1}` }; });
-const STUDIO_ICON_LIBRARY = Array.from({ length: 120 }, (_, index) => { const names = ['car','truck','screwdriver-wrench','gear','wrench','calendar','camera','chart-line','chart-pie','check','circle-check','circle-info','clock','cloud','comment','credit-card','envelope','file','film','flag','folder','gift','globe','handshake','heart','house','image','key','laptop','leaf','lightbulb','link','location-dot','lock','magnifying-glass','map','message','mobile-screen','paper-plane','phone','play','plus','print','rocket','share-nodes','shield','shop','star','tags','thumbs-up','ticket','toolbox','trophy','user','users','video','wallet','wand-magic-sparkles','wifi','xmark']; return { id: `icon-${index + 1}`, name: names[index % names.length], label: `${names[index % names.length]} ${index + 1}` }; });
+const STUDIO_SHAPE_LIBRARY = ['rect','badge','circle','ellipse','triangle','diamond','pentagon','hexagon','star','line','arrow','heart','speech'].map((base, index) => ({ id: `shape-${index + 1}`, base, name: base.replace(/^./, char => char.toUpperCase()) }));
+const STUDIO_ICON_LIBRARY = ['car','truck','bus','bike','motorcycle','fuel','battery-charging','ev-station','gauge','route','navigation','map','map-pin','building-2','warehouse','store','shopping-cart','tag','tags','badge-percent','badge-dollar-sign','receipt','credit-card','wallet','banknote','calculator','calendar','clock','alarm-clock','phone','smartphone','mail','send','message-circle','messages-square','user','users','user-round-check','contact','handshake','heart','star','thumbs-up','award','trophy','shield','shield-check','lock','key-round','check','circle-check','info','circle-help','triangle-alert','x','plus','minus','search','filter','sliders-horizontal','settings','wrench','hammer','screwdriver','drill','tool-case','sparkles','wand-sparkles','lightbulb','rocket','zap','flame','gift','party-popper','megaphone','bell','camera','image','images','video','play','pause','music','mic','upload','download','share-2','link','external-link','globe-2','home','building','briefcase-business','file-text','folder','printer','qr-code','chart-line','chart-pie','chart-no-axes-combined','trending-up','eye','palette','type','shapes','layers-3','layout-template','instagram','facebook','linkedin','youtube'].map((name, index) => ({ id: `icon-${index + 1}`, name, label: name.replace(/-/g, ' ') }));
 const STUDIO_GIF_LIBRARY = [['Celebration','https://media.giphy.com/media/g9582DNuQppxC/giphy.gif'],['Applause','https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif'],['Rocket','https://media.giphy.com/media/26tOZ6e9jD8ZP7jK8/giphy.gif'],['Sparkles','https://media.giphy.com/media/26AHONQ79FdWZhAI0/giphy.gif']];
 const STUDIO_GIF_PRESETS = (() => {
   const groups = {
@@ -126,7 +132,11 @@ const STUDIO_PREMADE_ELEMENTS = [
   ['trade-callout','Trade-in callout','Automotive','callout','REQUEST A TRADE VALUE'], ['inventory-label','Inventory label','Automotive','badge','IN STOCK'], ['vehicle-specs','Vehicle specs','Automotive','card','YEAR • BODY • DRIVETRAIN'], ['featured-vehicle','Featured vehicle','Automotive','card','FEATURED VEHICLE'], ['electric-label','Electric label','Automotive','badge','ELECTRIC VEHICLE'], ['fuel-saver','Fuel saver','Automotive','badge','FUEL EFFICIENT'],
   ['dealer-header','Dealership header','Brand','header','DEALERSHIP NAME'], ['hours-card','Hours card','Brand','card','VIEW TODAY\'S HOURS'], ['contact-card','Contact card','Brand','card','CALL OUR TEAM'], ['location-card','Location card','Brand','card','VISIT OUR SHOWROOM'], ['social-follow','Social follow','Brand','button','FOLLOW US'], ['newsletter','Newsletter CTA','Brand','button','GET OUR SPECIALS'],
   ['disclaimer-apr','APR disclaimer','Legal','legal','O.A.C. • Terms and conditions apply.'], ['disclaimer-price','Price disclaimer','Legal','legal','Plus taxes, licensing and applicable fees.'], ['disclaimer-inventory','Inventory disclaimer','Legal','legal','Vehicle availability subject to change.'], ['disclaimer-trade','Trade disclaimer','Legal','legal','Trade values subject to in-person appraisal.']
-].map(([id,name,category,kind,text]) => ({ id, name, category, kind, text }));
+].map(([id,name,category,kind,text]) => ({
+  id, name, category, kind, text,
+  icon: category === 'Offers' ? '🏷' : category === 'Buttons' ? '→' : category === 'Trust' ? '✓' : category === 'Automotive' ? '🚗' : category === 'Brand' ? '◆' : 'ⓘ',
+  subtext: kind === 'legal' ? 'Editable disclosure copy' : category === 'Offers' ? 'Add approved offer details' : category === 'Buttons' ? 'Editable call to action' : category === 'Trust' ? 'Add verified supporting details' : category === 'Automotive' ? 'Connected inventory content' : 'Dealership information'
+}));
 
 function loadStudioGoogleFonts() {
   if (document.getElementById('studio-google-fonts-link')) return;
@@ -141,10 +151,8 @@ function loadStudioGoogleFonts() {
 // font new text (AI copy, headings, etc.) is added with next.
 function studioPickFont(fontName) {
   window.__studioSelectedFont = `'${fontName}', sans-serif`;
-  document.querySelectorAll('#studio-font-picker button').forEach(btn => {
-    btn.classList.toggle('ring-2', btn.dataset.font === fontName);
-    btn.classList.toggle('ring-indigo-500', btn.dataset.font === fontName);
-  });
+  const picker = document.getElementById('studio-font-picker');
+  if (picker && picker.tagName === 'SELECT') picker.value = fontName;
   const active = window.__studioAdapter?.fabricCanvas?.getActiveObject();
   if (active && ['textbox', 'text', 'i-text'].includes(active.type)) {
     window.__studioAdapter.updateSelectedText({ fontFamily: window.__studioSelectedFont });
@@ -162,11 +170,12 @@ function studioAddSticker(emoji) {
 window.studioAddSticker = studioAddSticker;
 
 function studioCatalogButtons(items, query, render) { const needle = String(query || '').toLowerCase(); return items.filter(item => !needle || `${item.name} ${item.label || ''} ${item.value || ''}`.toLowerCase().includes(needle)).map(render).join('') || '<div class="col-span-4 p-4 text-center text-xs text-slate-500">Nothing matches that search.</div>'; }
+window.__studioCatalogLimits = window.__studioCatalogLimits || { icons: 28 };
 function renderStudioShapeLibrary(query = '') { return studioCatalogButtons(STUDIO_SHAPE_LIBRARY, query, item => `<button type="button" onclick="studioAddShape('${item.base}')" title="${escS(item.name)}" aria-label="Add ${escS(item.name)}" class="studio-shape-card aspect-square rounded-2xl bg-transparent hover:bg-blue-50 dark:hover:bg-slate-800/70 border border-transparent hover:border-blue-300 dark:hover:border-blue-500/60 text-slate-700 dark:text-slate-200 flex items-center justify-center transition"><span class="studio-shape-art">${STUDIO_SHAPE_PREVIEW[item.base] || '◆'}</span></button>`); }
 function filterStudioShapes() { const el = document.getElementById('studio-shape-library'); if (el) el.innerHTML = renderStudioShapeLibrary(document.getElementById('studio-shape-query')?.value); }
 function renderStudioStickerLibrary(query = '') { return studioCatalogButtons(STUDIO_STICKER_LIBRARY, query, item => `<button type="button" onclick="studioAddSticker('${item.value}')" title="${escS(item.name)}" class="aspect-square rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-500/20 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-2xl">${item.value}</button>`); }
 function filterStudioStickers() { const el = document.getElementById('studio-sticker-library'); if (el) el.innerHTML = renderStudioStickerLibrary(document.getElementById('studio-sticker-query')?.value); }
-function renderStudioFontLibrary(query = '', category = 'all') { const needle = String(query || '').toLowerCase(); return STUDIO_FONT_CATALOG.filter(font => (!needle || font.toLowerCase().includes(needle)) && (category === 'all' || STUDIO_FONT_CATEGORY_FOR(font) === category)).map(font => `<button type="button" data-font="${escS(font)}" onclick="studioPickFont('${font.replace(/'/g, "\\'")}')" style="font-family:'${escS(font)}', sans-serif" class="w-full text-left px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-500/20 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white">${escS(font)}</button>`).join('') || '<div class="p-4 text-center text-xs text-slate-500">No fonts match.</div>'; }
+function renderStudioFontLibrary(query = '', category = 'all') { const needle = String(query || '').toLowerCase(); const groups = Object.keys(STUDIO_FONT_CATEGORIES).filter(key => key !== 'all' && (category === 'all' || key === category)); return groups.map(key => { const fonts = STUDIO_FONT_CATALOG.filter(font => STUDIO_FONT_CATEGORY_FOR(font) === key && (!needle || font.toLowerCase().includes(needle))); return fonts.length ? `<optgroup label="${escS(STUDIO_FONT_CATEGORIES[key])}">${fonts.map(font => `<option value="${escS(font)}" style="font-family:'${escS(font)}',sans-serif">${escS(font)}</option>`).join('')}</optgroup>` : ''; }).join('') || '<option value="">No fonts match</option>'; }
 function filterStudioFonts() { const el = document.getElementById('studio-font-picker'); if (el) el.innerHTML = renderStudioFontLibrary(document.getElementById('studio-font-query')?.value, document.getElementById('studio-font-category')?.value || 'all'); }
 function loadStudioIconFont() { if (document.getElementById('studio-fontawesome-link')) return; const link = document.createElement('link'); link.id = 'studio-fontawesome-link'; link.rel = 'stylesheet'; link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css'; document.head.appendChild(link); }
 const STUDIO_ICON_SYMBOLS = { car:'🚗', truck:'🚚', 'screwdriver-wrench':'🛠️', gear:'⚙️', wrench:'🔧', calendar:'📅', camera:'📷', 'chart-line':'📈', 'chart-pie':'📊', check:'✓', 'circle-check':'✅', 'circle-info':'ⓘ', clock:'🕒', cloud:'☁️', comment:'💬', 'credit-card':'💳', envelope:'✉️', file:'📄', film:'🎞️', flag:'⚑', folder:'📁', gift:'🎁', globe:'🌐', handshake:'🤝', heart:'❤️', house:'🏠', image:'🖼️', key:'🔑', laptop:'💻', leaf:'🍃', lightbulb:'💡', link:'🔗', 'location-dot':'📍', lock:'🔒', 'magnifying-glass':'🔍', map:'🗺️', message:'💬', 'mobile-screen':'📱', 'paper-plane':'✈️', phone:'☎️', play:'▶️', plus:'＋', print:'🖨️', rocket:'🚀', 'share-nodes':'🔗', shield:'🛡️', shop:'🏪', star:'⭐', tags:'🏷️', 'thumbs-up':'👍', ticket:'🎟️', toolbox:'🧰', trophy:'🏆', user:'👤', users:'👥', video:'🎥', wallet:'👛', 'wand-magic-sparkles':'✨', wifi:'📶', xmark:'×' };
@@ -179,8 +188,10 @@ const STUDIO_ICON_SLUGS = {
   material: { 'screwdriver-wrench':'build', gear:'settings', 'circle-info':'info', envelope:'mail', globe:'public', house:'home', image:'image', 'location-dot':'location_on', 'magnifying-glass':'search', message:'chat_bubble', 'mobile-screen':'smartphone', 'paper-plane':'send', print:'print', 'share-nodes':'share', shop:'storefront', xmark:'close' }
 };
 function studioIconUrl(name, library = 'lucide') { const [label, prefix] = STUDIO_ICON_LIBRARIES[library] || STUDIO_ICON_LIBRARIES.lucide; const slug = STUDIO_ICON_SLUGS[library]?.[name] || name; return `https://api.iconify.design/${encodeURIComponent(prefix)}/${encodeURIComponent(slug)}.svg?color=%232563EB`; }
-function renderStudioIconLibrary(query = '', library = document.getElementById('studio-icon-library-select')?.value || 'lucide') { const catalog = library === 'fontawesome-brands' ? STUDIO_BRAND_ICON_LIBRARY : STUDIO_ICON_LIBRARY; return studioCatalogButtons(catalog, query, item => { const fallback = STUDIO_ICON_SYMBOLS[item.name] || '✦'; const url = studioIconUrl(item.name, library); return `<button type="button" onclick="studioAddIcon('${item.id}')" title="${escS(item.label)}" aria-label="Add ${escS(item.label)} icon" class="studio-icon-card aspect-square rounded-2xl bg-transparent hover:bg-blue-50 dark:hover:bg-slate-800/70 border border-transparent hover:border-blue-300 dark:hover:border-blue-500/60 flex items-center justify-center text-blue-600 dark:text-blue-400 transition"><img src="${url}" alt="" loading="lazy" class="studio-icon-art object-contain" onerror="this.classList.add('hidden');this.nextElementSibling.classList.remove('hidden')"><span class="hidden text-4xl leading-none" aria-hidden="true">${fallback}</span></button>`; }); }
-function filterStudioIcons() { const el = document.getElementById('studio-icon-library'); if (el) el.innerHTML = renderStudioIconLibrary(document.getElementById('studio-icon-query')?.value, document.getElementById('studio-icon-library-select')?.value || 'lucide'); }
+function renderStudioIconLibrary(query = '', library = document.getElementById('studio-icon-library-select')?.value || 'lucide') { const catalog = library === 'fontawesome-brands' ? STUDIO_BRAND_ICON_LIBRARY : STUDIO_ICON_LIBRARY; const needle = String(query || '').toLowerCase(); const matches = catalog.filter(item => !needle || `${item.name} ${item.label || ''}`.toLowerCase().includes(needle)); const limit = Number(window.__studioCatalogLimits.icons || 28); const cards = matches.slice(0, limit).map(item => { const fallback = STUDIO_ICON_SYMBOLS[item.name] || '✦'; const url = studioIconUrl(item.name, library); return `<button type="button" onclick="studioAddIcon('${item.id}')" title="${escS(item.label)}" aria-label="Add ${escS(item.label)} icon" class="studio-icon-card aspect-square rounded-2xl bg-transparent hover:bg-blue-50 dark:hover:bg-slate-800/70 border border-transparent hover:border-blue-300 dark:hover:border-blue-500/60 flex items-center justify-center text-blue-600 dark:text-blue-400 transition"><img src="${url}" alt="" loading="lazy" decoding="async" class="studio-icon-art object-contain" onerror="this.classList.add('hidden');this.nextElementSibling.classList.remove('hidden')"><span class="hidden text-4xl leading-none" aria-hidden="true">${fallback}</span></button>`; }).join(''); const more = matches.length > limit ? `<button type="button" onclick="loadMoreStudioIcons()" class="col-span-4 rounded-xl border border-slate-300 py-2 text-xs font-black">Load ${Math.min(28, matches.length - limit)} more icons</button>` : ''; return cards + more || '<div class="col-span-4 p-4 text-center text-xs text-slate-500">Nothing matches that search.</div>'; }
+function filterStudioIcons() { window.__studioCatalogLimits.icons = 28; const el = document.getElementById('studio-icon-library'); if (el) el.innerHTML = renderStudioIconLibrary(document.getElementById('studio-icon-query')?.value, document.getElementById('studio-icon-library-select')?.value || 'lucide'); }
+function loadMoreStudioIcons() { window.__studioCatalogLimits.icons += 28; const el = document.getElementById('studio-icon-library'); if (el) el.innerHTML = renderStudioIconLibrary(document.getElementById('studio-icon-query')?.value, document.getElementById('studio-icon-library-select')?.value || 'lucide'); }
+window.loadMoreStudioIcons = loadMoreStudioIcons;
 function studioAddIcon(id) { const library = document.getElementById('studio-icon-library-select')?.value || 'lucide'; const catalog = library === 'fontawesome-brands' ? STUDIO_BRAND_ICON_LIBRARY : STUDIO_ICON_LIBRARY; const item = catalog.find(icon => icon.id === id); const adapter = window.__studioAdapter; if (!item || !adapter) return; const url = studioIconUrl(item.name, library); adapter.addImage(url, `Icon: ${item.name}`).then((image) => { if (image) { image.msData = { ...(image.msData || {}), iconName: item.name, iconLibrary: library, mediaType: 'svg-icon' }; adapter.saveHistory(); if (typeof showToast === 'function') showToast(`${item.name} icon added`, 'success'); return; } adapter.addText(STUDIO_ICON_SYMBOLS[item.name] || '✦', { fontSize: 110, fontWeight: '900', name: `Icon: ${item.name}`, iconName: item.name, iconLibrary: library }); if (typeof showToast === 'function') showToast('Icon preview unavailable — added emoji fallback', 'info'); }); }
 function addStudioGifFromUrl(url) { const value = String(url || document.getElementById('studio-gif-url')?.value || '').trim(); if (!value) return; window.__studioAdapter?.addImage(value, 'Animated GIF').then((image) => { const active = image || window.__studioAdapter.fabricCanvas?.getActiveObject(); if (active) { active.msData = { ...(active.msData || {}), mediaType: 'gif' }; window.__studioAdapter.saveHistory(); } }); }
 function studioGifPresetSearch(query) { const input = document.getElementById('studio-gif-search'); if (input) input.value = query; searchStudioGifs(); }
@@ -200,19 +211,46 @@ async function searchStudioGifs() {
   }
 }
 window.searchStudioGifs = searchStudioGifs; window.studioGifPresetSearch = studioGifPresetSearch;
-function renderStudioPremadeElements(query = '', category = 'all') { const needle = String(query || '').toLowerCase(); return STUDIO_PREMADE_ELEMENTS.filter(item => (!needle || `${item.name} ${item.category} ${item.text}`.toLowerCase().includes(needle)) && (category === 'all' || item.category === category)).map(item => { const isButton = item.kind === 'button'; const isRibbon = item.kind === 'ribbon'; const isLegal = item.kind === 'legal'; const previewStyle = isButton ? 'background:linear-gradient(135deg,#2563EB,#4F46E5);color:#fff;border-radius:14px;box-shadow:0 5px 14px rgba(37,99,235,.28)' : isRibbon ? 'background:linear-gradient(135deg,#E11D48,#FB7185);color:#fff;border-radius:10px;transform:rotate(-2deg)' : isLegal ? 'background:#F1F5F9;color:#334155;border-radius:10px' : 'background:linear-gradient(135deg,#172554,#2563EB);color:#fff;border-radius:999px;box-shadow:0 5px 14px rgba(37,99,235,.2)'; const labelSize = isLegal ? '9px' : isButton ? '12px' : '11px'; return `<button type="button" onclick="studioAddPremade('${item.id}')" class="studio-element-card text-left p-2.5 rounded-2xl bg-white dark:bg-slate-800 hover:border-blue-500 hover:shadow-md border border-slate-200 dark:border-slate-700 transition"><div class="flex items-center justify-between gap-2"><span class="text-[9px] uppercase tracking-wider font-black text-sky-500">${escS(item.category)}</span><span class="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 flex items-center justify-center text-xs">+</span></div><div class="mt-2 h-20 flex items-center justify-center px-2 text-center font-black overflow-hidden" style="${previewStyle};font-size:${labelSize};line-height:1.05">${escS(item.text)}</div><div class="mt-2 text-[10px] font-bold text-slate-800 dark:text-white truncate">${escS(item.name)}</div><div class="text-[9px] text-slate-500 dark:text-slate-400">Click to add to canvas</div></button>`; }).join('') || '<div class="col-span-2 p-4 text-center text-xs text-slate-500">No elements match.</div>'; }
+function renderStudioPremadeElements(query = '', category = 'all') { const needle = String(query || '').toLowerCase(); return STUDIO_PREMADE_ELEMENTS.filter(item => (!needle || `${item.name} ${item.category} ${item.text}`.toLowerCase().includes(needle)) && (category === 'all' || item.category === category)).map(item => { const isButton = item.kind === 'button'; const isRibbon = item.kind === 'ribbon'; const isLegal = item.kind === 'legal'; const previewStyle = isButton ? 'background:linear-gradient(135deg,#2563EB,#4F46E5);color:#fff;border-radius:14px;box-shadow:0 5px 14px rgba(37,99,235,.28)' : isRibbon ? 'background:linear-gradient(135deg,#E11D48,#FB7185);color:#fff;border-radius:10px;transform:rotate(-2deg)' : isLegal ? 'background:#F1F5F9;color:#334155;border-radius:10px' : 'background:linear-gradient(135deg,#172554,#2563EB);color:#fff;border-radius:18px;box-shadow:0 5px 14px rgba(37,99,235,.2)'; const labelSize = isLegal ? '9px' : isButton ? '12px' : '11px'; return `<button type="button" onclick="studioAddPremade('${item.id}')" class="studio-element-card text-left p-2.5 rounded-2xl bg-white dark:bg-slate-800 hover:border-blue-500 hover:shadow-md border border-slate-200 dark:border-slate-700 transition"><div class="flex items-center justify-between gap-2"><span class="text-[9px] uppercase tracking-wider font-black text-sky-500">${escS(item.category)}</span><span class="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 flex items-center justify-center text-xs">+</span></div><div class="mt-2 h-20 flex items-center gap-2 px-3 font-black overflow-hidden" style="${previewStyle};font-size:${labelSize};line-height:1.05"><span class="text-xl">${item.icon}</span><span><b class="block">${escS(item.text)}</b><small class="block mt-1 opacity-70 font-semibold">${escS(item.subtext)}</small></span></div><div class="mt-2 text-[10px] font-bold text-slate-800 dark:text-white truncate">${escS(item.name)}</div><div class="text-[9px] text-slate-500 dark:text-slate-400">Grouped icon + title + supporting text</div></button>`; }).join('') || '<div class="col-span-2 p-4 text-center text-xs text-slate-500">No elements match.</div>'; }
 function filterStudioPremadeElements() { const el = document.getElementById('studio-premade-library'); if (el) el.innerHTML = renderStudioPremadeElements(document.getElementById('studio-premade-query')?.value, document.getElementById('studio-premade-category')?.value || 'all'); }
 const STUDIO_TEXT_TEMPLATES = [
-  ['bold-title','Bold title','Titles','YOUR BIG IDEA','#0F172A','#FFFFFF',58,'900'], ['gradient-title','Gradient title','Titles','MAKE IT HAPPEN','#2563EB','#FFFFFF',52,'900'], ['outlined-title','Outlined title','Titles','STAND OUT','#172033','#FFFFFF',54,'900'], ['condensed-title','Condensed title','Titles','WEEKEND EVENT','#E11D48','#FFFFFF',42,'900'],
-  ['sale-price','Sale price','Offers','SALE PRICE','#10B981','#FFFFFF',56,'900'], ['monthly-price','Monthly payment','Offers','PAYMENT OFFER','#2563EB','#FFFFFF',42,'900'], ['apr-callout','Finance offer','Offers','FINANCE OFFER','#F59E0B','#172033',42,'900'], ['limited-time','Limited time','Offers','LIMITED TIME ONLY','#E11D48','#FFFFFF',34,'900'],
-  ['eyebrow','Eyebrow label','Labels','FEATURED INVENTORY','#172033','#93C5FD',22,'900'], ['new-arrival','New arrival','Labels','JUST ARRIVED','#4F46E5','#FFFFFF',26,'900'], ['certified','Certified label','Labels','CERTIFIED PRE-OWNED','#0F766E','#FFFFFF',24,'900'], ['stock-label','Stock label','Labels','IN STOCK • READY TODAY','#172033','#FFFFFF',22,'800'],
-  ['info-card','Info card','Information','VIEW TODAY\'S HOURS','#1E293B','#FFFFFF',25,'800'], ['phone-card','Contact card','Information','CALL OUR TEAM','#0F172A','#FFFFFF',25,'800'], ['location-card','Location card','Information','VISIT OUR SHOWROOM','#334155','#FFFFFF',25,'800'], ['disclaimer','Disclaimer','Information','SEE DEALER FOR COMPLETE DETAILS','#F1F5F9','#334155',17,'700']
-].map(([id, name, category, text, background, fill, fontSize, fontWeight]) => ({ id, name, category, text, background, fill, fontSize, fontWeight }));
-function renderStudioTextTemplates(query = '') { return studioCatalogButtons(STUDIO_TEXT_TEMPLATES, query, item => `<button type="button" onclick="studioAddTextTemplate('${item.id}')" class="text-left p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-500/20 border border-slate-300 dark:border-slate-700 transition"><div class="h-16 rounded-lg flex items-center justify-center px-2 text-center overflow-hidden" style="background:${item.background};color:${item.fill};font-size:${Math.max(10, item.fontSize * .25)}px;font-weight:${item.fontWeight};line-height:1.05">${escS(item.text)}</div><div class="mt-2 text-[10px] font-bold text-slate-900 dark:text-white truncate">${escS(item.name)}</div><div class="text-[9px] text-slate-500">${escS(item.category)}</div></button>`); }
+  ['bold-title','Bold split title','Titles','MAKE YOUR','MOVE TODAY','#0F172A','#60A5FA',-4,'wide'],
+  ['gradient-title','Stacked campaign','Titles','THE ROAD','STARTS HERE','#1D4ED8','#FFFFFF',3,'tall'],
+  ['outlined-title','Editorial contrast','Titles','BUILT FOR','WHAT IS NEXT','#111827','#F59E0B',-2,'wide'],
+  ['condensed-title','Angled event','Titles','WEEKEND','SALES EVENT','#BE123C','#FFFFFF',-6,'banner'],
+  ['sale-price','Price spotlight','Offers','SPECIAL','ASK FOR TODAY\'S PRICE','#047857','#D1FAE5',4,'card'],
+  ['monthly-price','Payment message','Offers','PAYMENT OPTIONS','AVAILABLE','#1D4ED8','#DBEAFE',-3,'banner'],
+  ['apr-callout','Finance message','Offers','FINANCE','OPTIONS AVAILABLE','#B45309','#FEF3C7',5,'card'],
+  ['limited-time','Limited event','Offers','LIMITED TIME','WHILE AVAILABLE','#BE123C','#FFE4E6',-5,'wide'],
+  ['eyebrow','Editorial label','Labels','FEATURED','INVENTORY','#172033','#93C5FD',-3,'compact'],
+  ['new-arrival','Arrival lockup','Labels','JUST','ARRIVED','#4338CA','#C7D2FE',5,'compact'],
+  ['certified','Certified lockup','Labels','CERTIFIED','PRE-OWNED','#0F766E','#CCFBF1',-4,'wide'],
+  ['stock-label','Inventory status','Labels','IN STOCK','READY TO VIEW','#172033','#FFFFFF',2,'banner'],
+  ['info-card','Hours block','Information','TODAY\'S HOURS','VIEW DETAILS','#1E293B','#93C5FD',-2,'card'],
+  ['phone-card','Contact block','Information','TALK TO OUR TEAM','CALL OR TEXT','#0F172A','#60A5FA',3,'wide'],
+  ['location-card','Location block','Information','VISIT THE SHOWROOM','GET DIRECTIONS','#334155','#F8FAFC',-3,'wide'],
+  ['disclaimer','Legal pairing','Information','OFFER DETAILS','TERMS AND CONDITIONS APPLY','#E2E8F0','#334155',0,'legal']
+].map(([id,name,category,kicker,headline,background,accent,angle,layout]) => ({ id,name,category,kicker,headline,background,accent,angle,layout }));
+function renderStudioTextTemplates(query = '') { return studioCatalogButtons(STUDIO_TEXT_TEMPLATES, query, item => `<button type="button" onclick="studioAddTextTemplate('${item.id}')" class="studio-text-template-card text-left p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-500/20 border border-slate-300 dark:border-slate-700 transition"><div class="studio-text-template-preview" style="background:${item.background};transform:rotate(${item.angle * .35}deg)"><small style="color:${item.accent}">${escS(item.kicker)}</small><strong>${escS(item.headline)}</strong></div><div class="mt-2 text-[10px] font-bold text-slate-900 dark:text-white truncate">${escS(item.name)}</div><div class="text-[9px] text-slate-500">${escS(item.category)} · ${item.angle ? `${item.angle}°` : 'stacked'}</div></button>`); }
 function filterStudioTextTemplates() { const el = document.getElementById('studio-text-template-library'); if (el) el.innerHTML = renderStudioTextTemplates(document.getElementById('studio-text-template-query')?.value || ''); }
-function studioAddTextTemplate(id) { const item = STUDIO_TEXT_TEMPLATES.find(template => template.id === id); const adapter = window.__studioAdapter; const canvas = adapter?.fabricCanvas; if (!item || !adapter || !canvas) return; const center = canvas.getCenter(); const width = Math.max(360, Math.min(760, item.text.length * item.fontSize * .52)); const objects = []; adapter.addShape('rect', item.background); const shape = canvas.getActiveObject(); if (shape) { shape.set({ left: center.left - width / 2, top: center.top - 52, width, height: 104, rx: 18, ry: 18 }); shape.msData = { ...(shape.msData || {}), name: `${item.name} background`, textTemplateId: item.id }; objects.push(shape); } adapter.addText(item.text, { x: center.left - width / 2 + 24, y: center.top - item.fontSize * .35, width: width - 48, fontSize: item.fontSize, fontWeight: item.fontWeight, fill: item.fill, textAlign: 'center', name: item.name, textTemplateId: item.id }); const text = canvas.getActiveObject(); if (text) { text.msData = { ...(text.msData || {}), name: item.name, textTemplateId: item.id }; objects.push(text); } if (objects.length > 1) { canvas.discardActiveObject(); canvas.setActiveObject(new window.fabric.ActiveSelection(objects, { canvas })); adapter.groupSelected(); } if (typeof showToast === 'function') showToast(`${item.name} added — text remains editable`, 'success'); }
+function studioAddTextTemplate(id) {
+  const item = STUDIO_TEXT_TEMPLATES.find(template => template.id === id), adapter = window.__studioAdapter, canvas = adapter?.fabricCanvas;
+  if (!item || !adapter || !canvas) return;
+  const center = canvas.getCenter(), compact = item.layout === 'compact', legal = item.layout === 'legal', tall = item.layout === 'tall';
+  const width = legal ? 680 : compact ? 330 : tall ? 520 : 620, height = legal ? 116 : tall ? 280 : compact ? 180 : 220, objects = [];
+  adapter.addShape(item.layout === 'banner' ? 'badge' : 'rect', item.background);
+  const shape = canvas.getActiveObject();
+  if (shape) { shape.set({ left: center.left - width / 2, top: center.top - height / 2, width, height, rx: compact ? 46 : 22, ry: compact ? 46 : 22, angle: item.angle }); shape.msData = { ...(shape.msData || {}), name: `${item.name} background`, textTemplateId: item.id }; objects.push(shape); }
+  const left = center.left - width / 2 + 34, top = center.top - height / 2 + (legal ? 22 : 32);
+  adapter.addText(item.kicker, { x: left, y: top, width: width - 68, fontSize: legal ? 18 : compact ? 22 : 25, fontWeight: '900', fill: item.accent, charSpacing: 80, angle: item.angle, name: `${item.name} kicker`, textTemplateId: item.id });
+  const kicker = canvas.getActiveObject(); if (kicker) objects.push(kicker);
+  adapter.addText(item.headline, { x: left, y: top + (legal ? 38 : 48), width: width - 68, fontSize: legal ? 20 : compact ? 38 : tall ? 58 : 48, fontWeight: legal ? '700' : '900', fill: legal ? '#334155' : '#FFFFFF', lineHeight: .92, angle: item.angle, name: `${item.name} headline`, textTemplateId: item.id });
+  const headline = canvas.getActiveObject(); if (headline) objects.push(headline);
+  if (objects.length > 1) { canvas.discardActiveObject(); canvas.setActiveObject(new window.fabric.ActiveSelection(objects, { canvas })); adapter.groupSelected(); }
+  if (typeof showToast === 'function') showToast(`${item.name} added — ungroup to edit both text layers`, 'success');
+}
 window.studioAddTextTemplate = studioAddTextTemplate;
-function studioAddPremade(id) { const item = STUDIO_PREMADE_ELEMENTS.find(element => element.id === id); const adapter = window.__studioAdapter; const canvas = adapter?.fabricCanvas; if (!item || !adapter || !canvas) return; const center = canvas.getCenter(); const objects = []; const fill = item.kind === 'button' ? '#2563EB' : item.kind === 'ribbon' ? '#E11D48' : item.kind === 'legal' ? '#172033' : '#4F46E5'; const width = item.kind === 'legal' ? 620 : item.kind === 'button' ? 480 : 420; const height = item.kind === 'legal' ? 78 : item.kind === 'button' ? 96 : 88; adapter.addShape(item.kind === 'badge' || item.kind === 'ribbon' || item.kind === 'button' ? 'badge' : 'rect', fill); const shape = canvas.getActiveObject(); if (shape) { shape.set({ left: center.left - width / 2, top: center.top - height / 2, width, height, rx: item.kind === 'button' ? 26 : 18, ry: item.kind === 'button' ? 26 : 18 }); shape.msData = { ...(shape.msData || {}), name: `${item.name} background`, premadeId: item.id }; objects.push(shape); } adapter.addText(item.text, { x: center.left, y: center.top, width: width - 48, fontSize: item.kind === 'legal' ? 17 : item.kind === 'button' ? 26 : 24, fontWeight: item.kind === 'legal' ? '600' : '900', fill: item.kind === 'legal' ? '#E2E8F0' : '#FFFFFF', textAlign: 'center', originX: 'center', originY: 'center', name: `${item.name} text`, premadeId: item.id }); const text = canvas.getActiveObject(); if (text) { text.msData = { ...(text.msData || {}), name: `${item.name} text`, premadeId: item.id }; objects.push(text); } if (objects.length > 1) { canvas.discardActiveObject(); canvas.setActiveObject(new window.fabric.ActiveSelection(objects, { canvas })); adapter.groupSelected(); } if (typeof showToast === 'function') showToast(`${item.name} added — edit or duplicate it`, 'success'); }
+function studioAddPremade(id) { const item = STUDIO_PREMADE_ELEMENTS.find(element => element.id === id), adapter = window.__studioAdapter, canvas = adapter?.fabricCanvas; if (!item || !adapter || !canvas) return; const center = canvas.getCenter(), objects = [], legal = item.kind === 'legal', ribbon = item.kind === 'ribbon', button = item.kind === 'button'; const fill = button ? '#2563EB' : ribbon ? '#E11D48' : legal ? '#E2E8F0' : '#172554'; const width = legal ? 720 : button ? 520 : 500, height = legal ? 126 : button ? 126 : 160, angle = ribbon ? -4 : 0; adapter.addShape(button || ribbon ? 'badge' : 'rect', fill); const shape = canvas.getActiveObject(); if (shape) { shape.set({ left:center.left-width/2, top:center.top-height/2, width, height, rx:button ? 34 : 20, ry:button ? 34 : 20, angle }); shape.msData={...(shape.msData||{}),name:`${item.name} background`,premadeId:item.id}; objects.push(shape); } adapter.addText(item.icon,{x:center.left-width/2+24,y:center.top-(legal?20:36),width:60,fontSize:legal?26:42,fontWeight:'900',fill:legal?'#334155':'#FFFFFF',angle,name:`${item.name} icon`,premadeId:item.id}); const icon=canvas.getActiveObject(); if(icon) objects.push(icon); adapter.addText(item.text,{x:center.left-width/2+92,y:center.top-height/2+26,width:width-120,fontSize:legal?18:button?28:26,fontWeight:legal?'700':'900',fill:legal?'#334155':'#FFFFFF',angle,name:`${item.name} title`,premadeId:item.id}); const title=canvas.getActiveObject(); if(title) objects.push(title); adapter.addText(item.subtext,{x:center.left-width/2+92,y:center.top-height/2+(legal?66:76),width:width-120,fontSize:legal?15:17,fontWeight:'600',fill:legal?'#64748B':'#BFDBFE',angle,name:`${item.name} supporting text`,premadeId:item.id}); const sub=canvas.getActiveObject(); if(sub) objects.push(sub); if(objects.length>1){canvas.discardActiveObject();canvas.setActiveObject(new window.fabric.ActiveSelection(objects,{canvas}));adapter.groupSelected();} if(typeof showToast==='function') showToast(`${item.name} added — ungroup to edit all layers`,'success'); }
 window.filterStudioShapes = filterStudioShapes; window.filterStudioStickers = filterStudioStickers; window.filterStudioFonts = filterStudioFonts; window.filterStudioIcons = filterStudioIcons; window.studioAddIcon = studioAddIcon; window.addStudioGifFromUrl = addStudioGifFromUrl; window.filterStudioPremadeElements = filterStudioPremadeElements; window.studioAddPremade = studioAddPremade; window.filterStudioTextTemplates = filterStudioTextTemplates;
 
 function escS(str) {
@@ -384,11 +422,11 @@ function renderStudioWorkspaceHtml(designName, scene) {
     </nav>
 
     <!-- Toolbar layer -->
-    <div class="h-14 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between gap-3">
+    <div class="studio-command-bar h-14 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between gap-3">
       <!-- Left tool cluster scrolls on its own so it can never push the primary
            actions (Save/Schedule/Publish) off the right edge — the exact reason
            Schedule + Render weren't visible on laptop widths. -->
-      <div class="flex items-center gap-2 min-w-0 overflow-x-auto">
+      <div class="studio-command-scroll flex items-center gap-2 min-w-0 overflow-x-auto">
         <!-- Zoom Controls -->
         <div class="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-300 dark:border-slate-700">
           <button onclick="zoomStudioOut()" title="Zoom Out" class="px-2.5 py-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-black text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">-</button>
@@ -421,7 +459,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
         </div>
       </div>
 
-      <div class="flex items-center gap-2 flex-shrink-0">
+      <div class="studio-primary-actions flex items-center gap-2 flex-shrink-0">
         <button onclick="toggleStudioToolPanel()" class="studio-mobile-panel-button px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">Tools</button>
         <button onclick="toggleStudioInspectorPanel()" class="studio-mobile-panel-button px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">Inspector</button>
         <button onclick="saveStudioDesign()" class="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition flex items-center gap-1.5">
@@ -691,15 +729,44 @@ const STUDIO_TEMPLATES_CATALOG = {
   }
 };
 
+const STUDIO_FORMAT_PURPOSES = {
+  square:['Instagram New Arrival Post','NEW ARRIVAL','Introduce a connected vehicle with room for verified details.'],
+  portrait:['Instagram Inventory Spotlight','VEHICLE SPOTLIGHT','A portrait feed composition built around a full-height vehicle image.'],
+  story:['Instagram Story Event','THIS WEEKEND','Story-safe campaign content with clear top and bottom control zones.'],
+  tiktok:['TikTok Walkaround Cover','VEHICLE WALKAROUND','A vertical cover for short-form inventory video.'],
+  landscape:['Facebook Weekend Event','WEEKEND EVENT','A wide event post with a strong offer area and action.'],
+  facebook_post:['Facebook Trade-In Post','VALUE YOUR TRADE','A feed post for an appraisal campaign.'],
+  facebook_story:['Facebook Story New Arrival','JUST ARRIVED','Vertical arrival creative with story-safe spacing.'],
+  linkedin:['LinkedIn Team Spotlight','MEET THE TEAM','Professional dealership and employee storytelling.'],
+  x_landscape:['X Dealership Update','DEALERSHIP UPDATE','Fast, concise announcement creative for X.'],
+  youtube:['YouTube Vehicle Review Thumbnail','FULL REVIEW','High-contrast thumbnail typography and image framing.'],
+  pinterest:['Pinterest Vehicle Buying Guide','BUYING GUIDE','A tall, saveable guide cover with room for a topic and brand.'],
+  marketplace:['Marketplace Vehicle Listing','AVAILABLE NOW','Listing-first vehicle composition for marketplace browsing.'],
+  email_hero:['Email Inventory Campaign Hero','EXPLORE INVENTORY','Email-safe headline, image and call-to-action hierarchy.'],
+  website_banner:['Website Promotion Banner','CURRENT HIGHLIGHT','Responsive banner copy with a wide photographic zone.'],
+  display_300x250:['Display Ad · Inventory','SHOP INVENTORY','Compact rectangle campaign creative.'],
+  display_728x90:['Leaderboard Ad · Event','VIEW THE EVENT','Single-line wide banner with compact action.'],
+  display_160x600:['Skyscraper Ad · Vehicle','FEATURED VEHICLE','Tall display composition for inventory promotion.'],
+  letterhead:['Dealership Letterhead','DEALERSHIP NAME','Print-ready correspondence header and contact footer.'],
+  presentation:['Dealership Presentation Cover','DEALERSHIP PRESENTATION','A widescreen title slide for internal or customer presentations.'],
+  business_card:['Sales Team Business Card','YOUR NAME','Role, dealership and contact information layout.'],
+  postcard:['Sales Event Postcard','YOU ARE INVITED','A print postcard front with a campaign message and action.'],
+  flyer:['Dealership Event Flyer','UPCOMING EVENT','Letter-size print layout with headline, details and contact area.'],
+  brochure:['Dealership Tri-fold Brochure','EXPLORE OUR DEALERSHIP','Three-panel print composition with services and contact details.']
+};
+
 Object.entries(STUDIO_SOCIAL_FORMATS).forEach(([formatKey, format], index) => {
   const portrait = format.h > format.w;
+  const compact = format.w < 500 || format.h < 300;
+  const print = format.channel === 'print' || ['letterhead','business_card','postcard','flyer','brochure'].includes(formatKey);
+  const purpose = STUDIO_FORMAT_PURPOSES[formatKey] || [`${format.label} Campaign`,'CAMPAIGN','Editable campaign layout.'];
   const pad = Math.round(format.w * 0.07);
   const headlineY = Math.round(format.h * (portrait ? 0.62 : 0.48));
   const ctaY = Math.round(format.h * (1 - format.safe[2] / 100 - 0.09));
   const key = `social_ready_${formatKey}`;
   STUDIO_TEMPLATES_CATALOG[key] = {
-    template_key: key, name: `${format.label} — Ready Layout`,
-    desc: `${format.w}×${format.h} • Gradient campaign template`, format_key: formatKey,
+    template_key: key, name: purpose[0], category: print ? 'Print & stationery' : formatKey === 'presentation' ? 'Presentations' : formatKey.startsWith('display_') ? 'Display advertising' : 'Social media',
+    desc: `${format.w}×${format.h} • ${purpose[2]}`, format_key: formatKey,
     width: format.w, height: format.h,
     preview: index % 3 === 0 ? 'linear-gradient(135deg,#0f172a,#2563eb)' : index % 3 === 1 ? 'linear-gradient(135deg,#172554,#06b6d4)' : 'linear-gradient(135deg,#111827,#7c3aed)',
     scene: { version: 1, format_key: formatKey, width: format.w, height: format.h, background: { color: '#0F172A' }, elements: [
@@ -707,8 +774,8 @@ Object.entries(STUDIO_SOCIAL_FORMATS).forEach(([formatKey, format], index) => {
       { id: `${key}-orb`, type: 'shape', shapeType: 'circle', x: Math.round(format.w * .68), y: Math.round(format.h * .08), width: Math.round(format.w * .42), height: Math.round(format.w * .42), fill: '#60A5FA', opacity: .22, name: 'Accent Shape', z: 2 },
       { id: `${key}-tag`, type: 'shape', shapeType: 'badge', x: pad, y: Math.round(format.h * .1), width: Math.round(format.w * .34), height: Math.round(format.h * .055), fill: '#FFFFFF', opacity: .18, rx: 28, name: 'Campaign Tag', z: 3 },
       { id: `${key}-tagtext`, type: 'text', x: pad + 24, y: Math.round(format.h * .115), width: Math.round(format.w * .3), text: 'MARKETSYNC MOTORS', fontSize: Math.max(18, Math.round(format.w * .018)), fontWeight: '800', fill: '#FFFFFF', name: 'Brand Label', z: 4 },
-      { id: `${key}-title`, type: 'text', x: pad, y: headlineY, width: Math.round(format.w * .82), text: 'YOUR BIG CAMPAIGN HEADLINE', fontSize: Math.max(38, Math.round(format.w * (portrait ? .065 : .06))), fontWeight: '900', fill: '#FFFFFF', name: 'Headline', z: 5 },
-      { id: `${key}-sub`, type: 'text', x: pad, y: headlineY + Math.round(format.h * .1), width: Math.round(format.w * .72), text: 'Add the supporting message customers need to take action.', fontSize: Math.max(22, Math.round(format.w * .028)), fontWeight: '600', fill: '#DBEAFE', name: 'Supporting Text', z: 6 },
+      { id: `${key}-title`, type: 'text', x: pad, y: headlineY, width: Math.round(format.w * .82), text: purpose[1], fontSize: Math.max(compact ? 16 : 38, Math.round(format.w * (portrait ? .065 : .06))), fontWeight: '900', fill: '#FFFFFF', name: 'Headline', z: 5 },
+      { id: `${key}-sub`, type: 'text', x: pad, y: headlineY + Math.round(format.h * (compact ? .16 : .1)), width: Math.round(format.w * .72), text: print ? 'Add your dealership details, date, address and contact information.' : purpose[2], fontSize: Math.max(compact ? 9 : 22, Math.round(format.w * .028)), fontWeight: '600', fill: '#DBEAFE', name: 'Supporting Text', z: 6 },
       { id: `${key}-cta`, type: 'shape', shapeType: 'badge', x: pad, y: ctaY, width: Math.round(format.w * .42), height: Math.round(format.h * .075), fill: '#FFFFFF', rx: 24, name: 'CTA Button', z: 7 },
       { id: `${key}-ctatxt`, type: 'text', x: pad + 32, y: ctaY + Math.round(format.h * .02), width: Math.round(format.w * .35), text: 'LEARN MORE →', fontSize: Math.max(20, Math.round(format.w * .025)), fontWeight: '900', fill: '#1D4ED8', name: 'CTA Text', z: 8 }
     ] }
@@ -901,7 +968,8 @@ function renderStudioToolPanelContent(tool) {
     return `
       <div class="p-4 space-y-3">
         <h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Shapes &amp; Badges</h3>
-        <input id="studio-shape-query" oninput="filterStudioShapes()" placeholder="Search 120 shapes..." class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs">
+        <div class="studio-shape-colour-row"><label for="studio-shape-colour">Shape colour</label><input id="studio-shape-colour" type="color" value="${escS(window.__studioShapeColor || '#2563EB')}" oninput="setStudioShapeColour(this.value)"><input id="studio-shape-colour-hex" value="${escS(window.__studioShapeColor || '#2563EB')}" onchange="setStudioShapeColour(this.value)" aria-label="Shape colour hex"></div>
+        <input id="studio-shape-query" oninput="filterStudioShapes()" placeholder="Search shapes..." class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs">
         <div id="studio-shape-library" class="grid grid-cols-3 gap-2 max-h-[52vh] overflow-y-auto">${renderStudioShapeLibrary()}</div>
         <div class="border-t border-slate-200 dark:border-slate-800 pt-3"><h4 class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Draw</h4><div class="grid grid-cols-2 gap-2"><button onclick="studioDrawingMode('pen')" class="p-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">Pen</button><button onclick="studioDrawingMode('pencil')" class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-black">Pencil</button></div><button onclick="studioSelectMode()" class="mt-2 w-full p-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold">Select &amp; move objects</button></div>
       </div>
@@ -912,11 +980,11 @@ function renderStudioToolPanelContent(tool) {
         <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Stickers &amp; Clip Art</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Click to drop a sticker on the canvas — drag to resize once placed.</p></div>
         <input id="studio-sticker-query" oninput="filterStudioStickers()" placeholder="Search 120 stickers..." class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs">
         <div id="studio-sticker-library" class="grid grid-cols-4 gap-2 max-h-[42vh] overflow-y-auto">${renderStudioStickerLibrary()}</div>
-        <div class="studio-gif-panel"><div class="studio-gif-heading"><h4>GIF library · 100+ searches</h4><span>GIPHY · Tenor</span></div><div class="studio-gif-featured">${STUDIO_GIF_LIBRARY.map(([name,url]) => `<button type="button" onclick="addStudioGifFromUrl('${url}')" class="studio-gif-card"><img src="${url}" alt="${name}" loading="lazy"><span>${name}</span></button>`).join('')}</div><div class="studio-gif-search-row"><input id="studio-gif-search" onkeydown="if(event.key==='Enter') searchStudioGifs()" placeholder="Search GIFs…"><select id="studio-gif-provider" aria-label="GIF provider"><option value="giphy">GIPHY</option><option value="tenor">Tenor</option></select><button type="button" onclick="searchStudioGifs()">Search</button></div><div class="studio-gif-quick-label">Quick searches</div><div class="studio-gif-filters">${STUDIO_GIF_PRESETS.map(item => `<button type="button" onclick="studioGifPresetSearch('${item.query.replace(/'/g, "\\'")}')" class="studio-gif-filter">${escS(item.label)}</button>`).join('')}</div><div id="studio-gif-results" class="studio-gif-results"></div><div class="studio-gif-paste"><input id="studio-gif-url" placeholder="Paste a GIF URL"><button type="button" onclick="addStudioGifFromUrl()">Add GIF</button></div></div>
+        <div class="studio-gif-panel"><div class="studio-gif-heading"><h4>GIF library</h4><span>Powered by GIPHY</span></div><div class="studio-gif-search-row"><input id="studio-gif-search" value="car dealership" onkeydown="if(event.key==='Enter') searchStudioGifs()" placeholder="Search GIPHY…"><select id="studio-gif-provider" aria-label="GIF provider"><option value="giphy">GIPHY</option><option value="tenor">Tenor</option></select><button type="button" onclick="searchStudioGifs()">Search</button></div><div class="studio-gif-quick-label">Quick searches</div><div class="studio-gif-filters">${STUDIO_GIF_PRESETS.map(item => `<button type="button" onclick="studioGifPresetSearch('${item.query.replace(/'/g, "\\'")}')" class="studio-gif-filter">${escS(item.label)}</button>`).join('')}</div><div id="studio-gif-results" class="studio-gif-results"><div class="col-span-3 p-3 text-center text-xs text-slate-400">Loading GIPHY results…</div></div><div class="studio-gif-paste"><input id="studio-gif-url" placeholder="Paste a GIF URL"><button type="button" onclick="addStudioGifFromUrl()">Add GIF</button></div></div>
       </div>
     `;
   } else if (tool === 'icons') {
-    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-white">Icons</h3><p class="text-[10px] text-slate-400 mt-1">Free SVG icons from open icon libraries. Emojis remain available in Stickers.</p></div><select id="studio-icon-library-select" onchange="filterStudioIcons()" class="w-full px-3 py-2 rounded-xl bg-slate-900 text-white border border-white/10 text-xs">${Object.entries(STUDIO_ICON_LIBRARIES).map(([key,[label]]) => `<option value="${key}">${label}</option>`).join('')}</select><input id="studio-icon-query" oninput="filterStudioIcons()" placeholder="Search 120 icons..." class="w-full px-3 py-2 rounded-xl bg-slate-900 text-white placeholder:text-slate-500 border border-white/10 text-xs"><div id="studio-icon-library" class="grid grid-cols-4 gap-2 max-h-[65vh] overflow-y-auto">${renderStudioIconLibrary()}</div></div>`;
+    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Icons</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Curated automotive, business, interface and social SVG icons. Results load in batches.</p></div><select id="studio-icon-library-select" onchange="filterStudioIcons()" class="w-full px-3 py-2 rounded-xl bg-slate-900 text-white border border-white/10 text-xs">${Object.entries(STUDIO_ICON_LIBRARIES).map(([key,[label]]) => `<option value="${key}">${label}</option>`).join('')}</select><input id="studio-icon-query" oninput="filterStudioIcons()" placeholder="Search icons..." class="w-full px-3 py-2 rounded-xl bg-slate-900 text-white placeholder:text-slate-500 border border-white/10 text-xs"><div id="studio-icon-library" class="grid grid-cols-4 gap-2 max-h-[65vh] overflow-y-auto">${renderStudioIconLibrary()}</div></div>`;
   } else if (tool === 'text') {
     return `
       <div class="p-4 space-y-5">
@@ -943,7 +1011,7 @@ function renderStudioToolPanelContent(tool) {
           <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Fonts</h4>
           <p class="text-[10px] text-slate-500 dark:text-slate-400 -mt-1">Pick a font — applies to selected text, or the next text you add.</p>
           <div class="flex gap-2"><input id="studio-font-query" oninput="filterStudioFonts()" placeholder="Search 100+ Google fonts..." class="min-w-0 flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs"><select id="studio-font-category" onchange="filterStudioFonts()" class="w-28 px-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs">${Object.entries(STUDIO_FONT_CATEGORIES).map(([value,label]) => `<option value="${value}">${label}</option>`).join('')}</select></div>
-          <div class="space-y-1.5 max-h-[48vh] overflow-y-auto" id="studio-font-picker">${renderStudioFontLibrary()}</div>
+          <select id="studio-font-picker" onchange="studioPickFont(this.value)" class="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white">${renderStudioFontLibrary()}</select>
         </div>
       </div>
     `;
@@ -1220,6 +1288,7 @@ function setStudioTool(tool) {
   if (tool === 'uploads') setTimeout(loadStudioUploadedVideos, 0);
   if (tool === 'media') setTimeout(loadStudioMediaLibrary, 0);
   if (tool === 'text') setTimeout(loadStudioGoogleFonts, 0);
+  if (tool === 'stickers') setTimeout(searchStudioGifs, 0);
   if (tool === 'brand') setTimeout(loadStudioBrandKit, 0);
 }
 
@@ -1319,10 +1388,10 @@ window.archiveStudioMedia = archiveStudioMedia;
 
 function studioSetObjectGeometry(property, value) {
   const object = window.__studioAdapter?.fabricCanvas?.getActiveObject(); const number = Number(value);
-  if (!object || !Number.isFinite(number) || number < 0) return;
+  if (!object || !Number.isFinite(number) || ((property === 'width' || property === 'height') && number < 0)) return;
   if (property === 'width') object.scaleToWidth(Math.max(1, number));
   else if (property === 'height') object.scaleToHeight(Math.max(1, number));
-  else object.set(property, number);
+  else object.set(property === 'rotation' ? 'angle' : property, number);
   const breakpoint = window.__studioAdapter?.activeBreakpoint || 'desktop';
   if (breakpoint !== 'desktop') {
     object.msData = object.msData || {};
@@ -1607,11 +1676,22 @@ function addLibraryVideoToCanvas(url, name = 'Video') {
 
 function studioAddShape(shapeType) {
   window.__studioAdapter?.stopDrawingMode();
-  window.__studioAdapter?.addShape(shapeType, '#2563EB');
+  window.__studioAdapter?.addShape(shapeType, window.__studioShapeColor || '#2563EB');
 }
 
+function setStudioShapeColour(value) {
+  const colour = /^#[0-9a-f]{6}$/i.test(String(value || '').trim()) ? String(value).toUpperCase() : null;
+  if (!colour) { if (typeof showToast === 'function') showToast('Enter a six-digit hex colour.', 'error'); return; }
+  window.__studioShapeColor = colour;
+  const picker = document.getElementById('studio-shape-colour'); if (picker) picker.value = colour;
+  const hex = document.getElementById('studio-shape-colour-hex'); if (hex) hex.value = colour;
+  const active = window.__studioAdapter?.fabricCanvas?.getActiveObject();
+  if (active && active.msData?.type === 'shape') studioSetObjectStyle('color', colour);
+}
+window.setStudioShapeColour = setStudioShapeColour;
+
 function studioDrawingMode(tool) {
-  window.__studioAdapter?.setDrawingMode(tool, { color: '#2563EB' });
+  window.__studioAdapter?.setDrawingMode(tool, { color: window.__studioShapeColor || '#2563EB' });
   if (typeof showToast === 'function') showToast(`${tool === 'pen' ? 'Pen' : 'Pencil'} active — draw directly on the canvas`, 'info');
 }
 
@@ -1759,22 +1839,26 @@ function openStudioSheet(title, body) {
 
 function openStudioMagicResize() {
   const current = window.__studioAdapter?.exportScene(); if (!current) return;
-  const formats = window.msDesignStudioFormats || {};
+  const formats = window.msDesignStudioFormats || Object.fromEntries(Object.entries(STUDIO_SOCIAL_FORMATS).map(([key, value]) => [key, { label:value.label, width:value.w, height:value.h }]));
   openStudioSheet('Magic Resize · Create variations', `<p class="text-sm text-slate-600 dark:text-slate-300 mb-4">MarketSync will create editable pages and reflow vehicle imagery, headlines, offers, CTA buttons, logos, and disclaimers. Your current page stays unchanged.</p><form onsubmit="event.preventDefault();generateStudioVariations()"><div class="grid sm:grid-cols-2 gap-3">${Object.entries(formats).map(([key, format]) => `<label class="flex items-center gap-3 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-violet-500"><input type="checkbox" name="studio-variation" value="${key}" ${key === current.format_key ? '' : 'checked'}><span><b class="block text-sm">${escS(format.label)}</b><span class="text-xs text-slate-500">${format.width}×${format.height}</span></span></label>`).join('')}</div><button class="mt-5 w-full py-3 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-black">Create editable variations</button></form>`);
 }
 window.openStudioMagicResize = openStudioMagicResize;
 
 async function generateStudioVariations() {
-  const adapter = window.__studioAdapter, schema = window.msDesignStudioSchema; if (!adapter || !schema) return;
+  const adapter = window.__studioAdapter, schema = window.msDesignStudioSchema;
+  if (!adapter || !schema || typeof window.msStudioSceneToDocument !== 'function' || typeof window.msStudioDocumentToScene !== 'function') { if (typeof showToast === 'function') showToast('Magic Resize did not finish loading. Refresh the Studio and try again.', 'error'); return; }
   const selected = [...document.querySelectorAll('input[name="studio-variation"]:checked')].map(input => input.value);
   if (!selected.length) { if (typeof showToast === 'function') showToast('Choose at least one output size.', 'info'); return; }
-  const source = adapter.exportScene(), doc = window.msStudioSceneToDocument(source);
-  const variations = schema.createVariations({ ...source, id: adapter.activePageId || source.id }, selected);
-  doc.pages.push(...variations); doc.version = 3; doc.metadata = { ...(doc.metadata || {}), variation_set_updated_at: new Date().toISOString() };
-  window.__studioDocument = doc; adapter.currentScene = window.msStudioDocumentToScene(doc); adapter.activePageId = variations[0].id;
-  await adapter.renderScene(adapter.currentScene); window.__msStudioStore?.update(doc); window.msStudioScheduleAutosave?.(adapter.currentScene); syncStudioPageUi();
-  document.getElementById('studio-action-sheet')?.remove(); zoomStudioFit();
-  if (typeof showToast === 'function') showToast(`${variations.length} editable variations created.`, 'success');
+  try {
+    const source = adapter.exportScene(), doc = window.msStudioSceneToDocument(source);
+    const variations = schema.createVariations({ ...source, id: adapter.activePageId || source.id }, selected);
+    if (!variations.length) throw new Error('No compatible output formats were selected.');
+    doc.pages.push(...variations); doc.version = 3; doc.metadata = { ...(doc.metadata || {}), variation_set_updated_at: new Date().toISOString() };
+    window.__studioDocument = doc; adapter.currentScene = window.msStudioDocumentToScene(doc); adapter.activePageId = variations[0].id;
+    await adapter.renderScene(adapter.currentScene); window.__msStudioStore?.update(doc); window.msStudioScheduleAutosave?.(adapter.currentScene); syncStudioPageUi();
+    document.getElementById('studio-action-sheet')?.remove(); zoomStudioFit();
+    if (typeof showToast === 'function') showToast(`${variations.length} editable variations created.`, 'success');
+  } catch (error) { if (typeof showToast === 'function') showToast(error?.message || 'Magic Resize could not create variations.', 'error'); }
 }
 window.generateStudioVariations = generateStudioVariations;
 

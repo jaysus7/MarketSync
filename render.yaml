@@ -51,6 +51,14 @@ services:
       # route returns a clear 503 until this is set.
       - key: OPENAI_API_KEY
         sync: false
+      # Design Studio media providers. Values are configured server-side in the
+      # staging Render service; no provider credential is shipped to the browser.
+      - key: PEXELS_API_KEY
+        sync: false
+      - key: GIPHY_API_KEY
+        sync: false
+      - key: TENOR_API_KEY
+        sync: false
       # Field-level PII encryption (SIN/DOB + stored vendor creds). Fails closed.
       - key: PII_ENCRYPTION_KEY
         sync: false

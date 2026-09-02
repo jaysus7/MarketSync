@@ -5,16 +5,25 @@
     square: { label: 'Instagram / Facebook Square', width: 1080, height: 1080, channel: 'social' },
     portrait: { label: 'Instagram Portrait', width: 1080, height: 1350, channel: 'social' },
     story: { label: 'Instagram Story', width: 1080, height: 1920, channel: 'social' },
+    tiktok: { label: 'TikTok Vertical Video', width: 1080, height: 1920, channel: 'social' },
     facebook_post: { label: 'Facebook Post', width: 1200, height: 630, channel: 'social' },
     facebook_story: { label: 'Facebook Story', width: 1080, height: 1920, channel: 'social' },
     marketplace: { label: 'Marketplace Image', width: 1200, height: 900, channel: 'marketplace' },
     linkedin: { label: 'LinkedIn Image', width: 1200, height: 627, channel: 'social' },
     x_landscape: { label: 'X Image', width: 1600, height: 900, channel: 'social' },
+    youtube: { label: 'YouTube Thumbnail', width: 1280, height: 720, channel: 'social' },
+    pinterest: { label: 'Pinterest Pin', width: 1000, height: 1500, channel: 'social' },
     email_hero: { label: 'Email Hero', width: 1200, height: 600, channel: 'campaign' },
     website_banner: { label: 'Website Banner', width: 1920, height: 720, channel: 'website' },
     display_300x250: { label: 'Display Ad · 300×250', width: 300, height: 250, channel: 'display' },
     display_728x90: { label: 'Display Ad · 728×90', width: 728, height: 90, channel: 'display' },
-    display_160x600: { label: 'Display Ad · 160×600', width: 160, height: 600, channel: 'display' }
+    display_160x600: { label: 'Display Ad · 160×600', width: 160, height: 600, channel: 'display' },
+    letterhead: { label: 'Letterhead · US Letter', width: 2550, height: 3300, channel: 'print' },
+    presentation: { label: 'Presentation Slide · 16:9', width: 1920, height: 1080, channel: 'presentation' },
+    business_card: { label: 'Business Card · 3.5×2 in', width: 1050, height: 600, channel: 'print' },
+    postcard: { label: 'Postcard · 6×4 in', width: 1800, height: 1200, channel: 'print' },
+    flyer: { label: 'Flyer · US Letter', width: 2550, height: 3300, channel: 'print' },
+    brochure: { label: 'Tri-fold Brochure · Letter', width: 3300, height: 2550, channel: 'print' }
   };
   const bindingFields = ['vehicle.photo','vehicle.year','vehicle.make','vehicle.model','vehicle.trim','vehicle.vin','vehicle.stock_number','vehicle.msrp','vehicle.sale_price','vehicle.payment','vehicle.mileage','vehicle.exterior_color','vehicle.drivetrain','vehicle.body_style','vehicle.fuel_type','vehicle.availability','dealership.logo_url','dealership.name','dealership.phone','dealership.website','salesperson.name','salesperson.phone','cta'];
   const getPath = (source, path) => String(path || '').split('.').reduce((value, key) => value == null ? value : value[key], source);
@@ -119,7 +128,13 @@
       { id: makeId('el'), type: 'text', name: 'Legal disclaimer', text: '{{dealership.legal_disclaimer|Vehicle availability and offer terms are subject to change.}}', binding: { template: '{{dealership.legal_disclaimer|Vehicle availability and offer terms are subject to change.}}' }, x: 54, y: 1025, width: 970, height: 24, fontSize: 13, fontWeight: '500', fill: '#CBD5E1', z: 9 }
     ] };
   }
-  const automotiveTemplates = Object.entries(templateGroups).flatMap(([category, names]) => names.map((name, index) => ({ template_key: `auto_${category}_${name}`.toLowerCase().replace(/[^a-z0-9]+/g, '_'), name, category, format_key: 'square', editable: true, scene: templateScene(name, category, index) })));
+  const templateFormats = ['square','portrait','story','facebook_post','linkedin','x_landscape','youtube','pinterest','marketplace'];
+  const automotiveTemplates = Object.entries(templateGroups).flatMap(([category, names], groupIndex) => names.map((name, index) => {
+    const format_key = templateFormats[(groupIndex * 3 + index) % templateFormats.length];
+    const scene = format_key === 'square' ? templateScene(name, category, index) : reflowScene(templateScene(name, category, index), format_key);
+    scene.metadata = { ...(scene.metadata || {}), template_category: category, template_name: name, editable: true };
+    return { template_key: `auto_${category}_${name}`.toLowerCase().replace(/[^a-z0-9]+/g, '_'), name, category, format_key, editable: true, scene };
+  }));
   window.msDesignStudioSchema = { clone, makeId, normalize, formats, bindingFields, normalizeContext, resolveTemplate, semanticRole, reflowScene, createVariations, refreshBindings, automotiveTemplates, createObject: (type, data = {}) => ({ id: makeId('object'), type, name: data.name || type, visible: true, locked: false, opacity: 1, ...clone(data) }) };
   window.msDesignStudioFormats = formats; window.msDesignStudioAutomotiveTemplates = automotiveTemplates;
 })();

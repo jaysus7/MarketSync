@@ -3151,19 +3151,41 @@ function websiteTemplateCard(t) {
   const hero = t.hero_img || '';
   return `<article class="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden hover:border-indigo-400 transition">
     <div class="h-36 bg-slate-900 relative overflow-hidden">${hero ? `<img src="${esc(hero)}" alt="" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">` : ''}<div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent"></div><div class="absolute bottom-3 left-3 flex gap-1"><span class="w-4 h-4 rounded-full border border-white/50" style="background:${esc(t.primary)}"></span><span class="w-4 h-4 rounded-full border border-white/50" style="background:${esc(t.secondary)}"></span><span class="w-4 h-4 rounded-full border border-white/50" style="background:${esc(t.accent)}"></span></div></div>
-    <div class="p-4"><h3 class="font-black text-slate-950 dark:text-white">${esc(t.name)}</h3><p class="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400 min-h-[3rem]">${esc(t.desc)}</p><div class="mt-4 flex gap-2"><button type="button" onclick="openWebsiteTemplatePreview('${esc(t.id)}')" class="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">Preview</button><button type="button" onclick="applyCompleteTemplate('${esc(t.id)}',this)" class="flex-1 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black">Use template</button></div></div>
+    <div class="p-4"><h3 class="font-black text-slate-950 dark:text-white">${esc(t.name)}</h3><p class="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400 min-h-[3rem]">${esc(t.desc)}</p><div class="mt-4 flex gap-2"><button type="button" onclick="openWebsiteTemplatePreview('${esc(t.id)}')" class="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">Explore site</button><button type="button" onclick="applyCompleteTemplate('${esc(t.id)}',this)" class="flex-1 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black">Use &amp; publish</button></div></div>
   </article>`;
 }
 
 function wsTemplates() {
-  return `<div class="website-studio-view space-y-5"><div><h2 class="text-xl font-black text-slate-950 dark:text-white">Website templates</h2><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Preview a complete dealership layout, then apply it to the current draft.</p></div><div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">${SITE_TEMPLATES.map(websiteTemplateCard).join('')}</div></div>`;
+  return `<div class="website-studio-view space-y-5"><div><h2 class="text-xl font-black text-slate-950 dark:text-white">Website templates</h2><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Explore every page in a live preview, then apply and publish the complete site.</p></div><div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">${SITE_TEMPLATES.map(websiteTemplateCard).join('')}</div></div>`;
 }
 
-function openWebsiteTemplatePreview(id) {
+async function openWebsiteTemplatePreview(id) {
   const t = SITE_TEMPLATES.find(item => item.id === id); if (!t) return;
-  crmOverlay(`<div class="overflow-hidden rounded-2xl"><div class="h-64 bg-slate-950 relative">${t.hero_img ? `<img src="${esc(t.hero_img)}" alt="" class="w-full h-full object-cover">` : ''}<div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div><div class="absolute bottom-5 left-5 right-5 text-white"><div class="text-xs font-black uppercase tracking-wider text-white/70">Website template preview</div><h2 class="mt-1 text-2xl font-black">${esc(t.name)}</h2></div></div><div class="p-5 bg-white dark:bg-slate-900"><p class="text-sm text-slate-600 dark:text-slate-300">${esc(t.desc)}</p><div class="mt-5 flex justify-end gap-2"><button type="button" onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">Close</button><button type="button" onclick="applyCompleteTemplate('${esc(t.id)}',this)" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black">Use template</button></div></div></div>`, 'max-w-3xl');
+  await applyCompleteTemplate(id, null, { preview: true });
 }
 window.openWebsiteTemplatePreview = openWebsiteTemplatePreview;
+
+function showWebsiteTemplateBrowser(template, payload) {
+  document.getElementById('ws-template-browser')?.remove();
+  const slug = __siteCfg?.site_slug || 'template-preview';
+  const overlay = document.createElement('div');
+  overlay.id = 'ws-template-browser';
+  overlay.className = 'fixed inset-0 z-[100000] bg-slate-950 flex flex-col';
+  const pageOptions = [`<option value="home">Home</option>`, ...(payload.site.pages || []).map(page => `<option value="page:${esc(page.slug || slugifyTitle(page.title || page.id))}">${esc(page.title || 'Page')}</option>`), ...Object.entries(payload.site.builtins || {}).filter(([,page]) => page?.enabled !== false).map(([key,page]) => `<option value="${esc(key === 'contact' ? 'inquiry' : key)}">${esc(page.title || key.replace(/_/g,' '))}</option>`)].join('');
+  overlay.innerHTML = `<header class="ws-template-browser-bar"><div class="min-w-0"><span>Live theme preview</span><strong>${esc(template.name)}</strong></div><label>Page<select id="ws-template-preview-page">${pageOptions}</select></label><div class="ws-template-preview-devices"><button type="button" data-width="100%" aria-current="true">Desktop</button><button type="button" data-width="768px">Tablet</button><button type="button" data-width="390px">Mobile</button></div><button type="button" class="ws-template-preview-use">Use &amp; publish</button><button type="button" class="ws-template-preview-close" aria-label="Close preview">×</button></header><main class="ws-template-browser-stage"><div id="ws-template-preview-wrap"><iframe id="ws-template-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1&template_preview=1&builder_v=20260902_template_browser_v1" title="${esc(template.name)} full website preview"></iframe></div></main>`;
+  document.body.appendChild(overlay);
+  const frame = overlay.querySelector('iframe'), select = overlay.querySelector('select'), wrap = overlay.querySelector('#ws-template-preview-wrap');
+  let view = 'home';
+  const push = () => { try { frame.contentWindow?.postMessage({ type:'ms-preview-apply', session:`template-${template.id}`, site:payload.site, view }, new URL(frame.src, location.href).origin); } catch {} };
+  frame.addEventListener('load', () => { push(); setTimeout(push, 180); });
+  const onMessage = event => { if (event.source === frame.contentWindow && event.data?.type === 'ms-preview-ready') push(); };
+  window.addEventListener('message', onMessage);
+  select.addEventListener('change', () => { view = select.value; push(); });
+  overlay.querySelectorAll('[data-width]').forEach(button => button.addEventListener('click', () => { wrap.style.width = button.dataset.width; overlay.querySelectorAll('[data-width]').forEach(item => item.setAttribute('aria-current', item === button ? 'true' : 'false')); }));
+  const close = () => { window.removeEventListener('message', onMessage); overlay.remove(); };
+  overlay.querySelector('.ws-template-preview-close').addEventListener('click', close);
+  overlay.querySelector('.ws-template-preview-use').addEventListener('click', async event => { close(); await applyCompleteTemplate(template.id, event.currentTarget); });
+}
 
 let __wsDiscoveryData = null;
 
@@ -3527,14 +3549,15 @@ function openTemplatePicker() {
   const modalHtml = `
     <div class="p-6 space-y-4 max-w-4xl">
       <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-        <div><h2 class="text-xl font-black text-slate-900 dark:text-white">Choose a website template</h2><p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Preview a complete dealership layout, then save it to the current draft.</p></div>
+        <div><h2 class="text-xl font-black text-slate-900 dark:text-white">Choose a website template</h2><p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Explore the complete website, then apply and publish it in one verified action.</p></div>
         <button type="button" onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white" aria-label="Close">&times;</button>
       </div>
       <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 max-h-[70vh] overflow-y-auto">${SITE_TEMPLATES.map(websiteTemplateCard).join('')}</div>
     </div>`;
   crmOverlay(modalHtml, 'max-w-4xl');
 }
-async function applyCompleteTemplate(templateId, btn = null) {
+async function applyCompleteTemplate(templateId, btn = null, options = {}) {
+  const previewSnapshot = options.preview ? JSON.parse(JSON.stringify({ content:__siteCfg.content || {}, home:__homeSections, pages:__sitePages, builtins:__siteBuiltins, menu:__menuOrder, target:__wsTarget })) : null;
   const originalButtonText = btn?.textContent || '';
   if (btn) { btn.disabled = true; btn.textContent = 'Applying…'; }
   const c = __siteCfg.content || (__siteCfg.content = {});
@@ -3733,8 +3756,15 @@ async function applyCompleteTemplate(templateId, btn = null) {
   const pageTok = (title) => { const p = __sitePages.find(x => (x.title || '').toLowerCase() === title.toLowerCase()); return p ? ('p:' + p.id) : null; };
   __menuOrder = ['b:inventory', 'b:build', 'b:trade', 'b:finance', pageTok('Specials'), pageTok('About Us'), pageTok('Careers'), pageTok('Service'), pageTok('Book Service'), pageTok('Parts'), pageTok('Accessories'), 'b:team', 'b:contact'].filter(Boolean);
 
+  if (options.preview) {
+    const payload = wsLivePreviewPayload();
+    __siteCfg.content = previewSnapshot.content; __homeSections = previewSnapshot.home; __sitePages = previewSnapshot.pages; __siteBuiltins = previewSnapshot.builtins; __menuOrder = previewSnapshot.menu; __wsTarget = previewSnapshot.target;
+    __siteSections = typeof __wsTarget === 'number' ? (__sitePages[__wsTarget]?.sections || []) : (typeof __wsTarget === 'string' && __wsTarget.startsWith('b:') ? (__siteBuiltins[__wsTarget.slice(2)]?.sections || []) : __homeSections);
+    showWebsiteTemplateBrowser(SITE_TEMPLATES.find(item => item.id === templateId) || SITE_TEMPLATES[0], payload);
+    return payload;
+  }
   markWsUnsaved();
-  const saved = await saveWebsite(btn, 'draft');
+  const saved = await saveWebsite(btn, 'publish');
   if (!saved) {
     if (btn) { btn.disabled = false; btn.textContent = originalButtonText; }
     return;
@@ -3742,7 +3772,7 @@ async function applyCompleteTemplate(templateId, btn = null) {
   document.querySelector('.fixed')?.remove();
   __wsTab = 'templates';
   renderWebsitePage();
-  showToast(`Applied and saved the ${selected.preset.toUpperCase()} template as a draft`, 'success');
+  showToast(`Applied and published the ${selected.preset.toUpperCase()} website`, 'success');
 }
 
 window.openTemplatePicker = openTemplatePicker;
