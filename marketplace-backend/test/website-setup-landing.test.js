@@ -43,10 +43,11 @@ describe('Website Studio — seven destinations and one immersive builder', () =
     assert.ok(part17Content.includes('ensureEditableWebsiteSections();\n  selectFirstEditableWsSection();\n  wireLiveMessages();'), 'Live builder initializes sections before wiring the canvas');
   });
 
-  it('templates use one catalog, preview before apply, and persist a draft', () => {
+  it('templates use one catalog, preview the full site, and publish after apply', () => {
     assert.equal((part17Content.match(/const SITE_TEMPLATES =/g) || []).length, 1);
     assert.ok(part17Content.includes('function openWebsiteTemplatePreview(id)'));
-    assert.ok(part17Content.includes("const saved = await saveWebsite(btn, 'draft');"));
+    assert.ok(part17Content.includes('function showWebsiteTemplateBrowser(template, payload)'));
+    assert.ok(part17Content.includes("const saved = await saveWebsite(btn, 'publish');"));
     assert.equal((part17Content.match(/async function saveWebsite\(/g) || []).length, 1, 'There is one revision-backed save implementation');
   });
 
