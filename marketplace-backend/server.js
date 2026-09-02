@@ -134,7 +134,12 @@ if (process.env.SERVE_STATIC === 'true' || process.env.NODE_ENV === 'test') {
 registerBilling(app)
 registerSquare(app)
 
-app.use(express.json({ limit: '25mb' }))
+app.use(express.json({
+  limit: '25mb',
+  verify: (req, _res, buf) => {
+    req.rawBody = buf
+  },
+}))
 app.use(express.urlencoded({ extended: true, limit: '25mb' }))
 
 app.use('/accounting', requireAuth, requireFeature('os.accounting'))
