@@ -45,11 +45,10 @@ export function verifyResendSignature({ payload, headers = {}, secret } = {}) {
 const STATUS_OF = {
   'email.sent': 'sent',
   'email.delivered': 'delivered',
-  'email.delivery_delayed': 'delayed',
+  'email.delivery_delayed': 'failed',
   'email.bounced': 'bounced',
   'email.complained': 'complained',
-  'email.opened': 'opened',
-  'email.clicked': 'clicked',
+  'email.failed': 'failed',
 }
 
 export function mapResendEvent(body = {}) {
