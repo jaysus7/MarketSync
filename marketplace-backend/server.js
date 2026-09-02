@@ -31,6 +31,7 @@ import { registerRecon } from './routes/recon.js'
 import { registerFni } from './routes/fni.js'
 import { registerMarketsync } from './routes/marketsync.js'
 import { registerIntegrations } from './routes/integrations.js'
+import { registerIntegrationBatches } from './routes/integration-batches.js'
 import { registerCredit } from './routes/credit.js'
 import { registerHistory } from './routes/history.js'
 import { registerDeposits } from './routes/deposits.js'
@@ -107,9 +108,6 @@ app.set('trust proxy', 1)
 app.use(securityHeaders)
 app.use(cors({ origin: corsOriginCheck, credentials: true }))
 
-// Fast, dependency-free health check. A scheduled ping to this keeps the
-// free-tier instance from spinning down (which caused ~50s cold-start hangs on
-// the first request to the dashboard, pipeline/leads, and the extension).
 let startupDemoRefresh = { status: 'pending' }
 app.get('/health', (req, res) => res.json({ ok: true, ts: Date.now(), demo_refresh: startupDemoRefresh }))
 app.get('/ready', async (req, res) => {
@@ -125,37 +123,25 @@ app.get('/ready', async (req, res) => {
   res.json({ ok: true, ts: Date.now(), database: 'ready', rate_limiting })
 })
 
-// Serve frontend static files when running locally or in test QA mode
 if (process.env.SERVE_STATIC === 'true' || process.env.NODE_ENV === 'test') {
   app.use(express.static('../marketplace-frontend'))
 } else {
-  // Bounce any stale *.html requests to the canonical frontend
   app.get(/\.html$/, (req, res) => {
     res.redirect(302, `${CANONICAL_FRONTEND}${req.originalUrl}`)
   })
 }
 
-// Stripe webhook must be raw before express.json
 registerBilling(app)
-// Square webhook is also raw-body (own express.raw on /square/webhook); its other
-// routes read no JSON body, so registering here (before express.json) is safe.
 registerSquare(app)
 
 app.use(express.json({ limit: '25mb' }))
 app.use(express.urlencoded({ extended: true, limit: '25mb' }))
 
-// ── Product/feature entitlement guards (backend authorization layer) ──
-// Mounted before the product-scoped route groups so they run ahead of the per-route RBAC
-// guards. requireAuth here also primes the caller's access context (memoized on req).
-// Orgs without an explicit subscription fall back to full dealer_os, so existing accounts
-// are unaffected; only plans that don't include the feature (e.g. os_starter, or a
-// Facebook-only org) are blocked here — the same gate RLS enforces at the row level.
 app.use('/accounting', requireAuth, requireFeature('os.accounting'))
 app.use('/service', requireAuth, requireFeature('os.service'))
 app.use('/service-engine', requireAuth, requireFeature('os.service'))
 app.use('/hr', requireAuth, requireFeature('os.people'))
 
-// Route modules
 registerAuth(app)
 registerProfile(app)
 registerAccessContext(app)
@@ -181,6 +167,7 @@ registerRecon(app)
 registerFni(app)
 registerMarketsync(app)
 registerIntegrations(app)
+registerIntegrationBatches(app)
 registerCredit(app)
 registerHistory(app)
 registerDeposits(app)
@@ -206,22 +193,22 @@ registerEvents(app)
 registerWorkflow(app)
 registerActionExecutor(app)
 registerAccountingEngine(app)
-registerAccountingArAp(app)   // AR/AP/CIT read surface — derived from the posted ledger
-registerCampaigns(app)        // canonical Campaign + source taxonomy + attribution by ID
-registerSocial(app)           // social account identity + server-side publish authorization
-registerSocialPublish(app)    // the dispatcher: posts actually leave the building, or say why not
-registerMarketingStudio(app)  // Studio — canonical creative editor and media library
-registerConsent(app)          // the ONE consent gate every sender calls
-registerConversations(app)    // one customer conversation across channels + human takeover
-registerSalesVideo(app)       // Sales-owned video messaging — a link fetch is not a view
-registerReputation(app)       // reviews asked for honestly — no review gating, by construction
-registerMyDay(app)            // one queue across departments, permission-gated per source
-registerPeopleOffboarding(app) // leaving properly — reassign owned work, revoke roles, then terminate
-registerAcademy(app)          // Your Path by role/department + credentials that required the work
-registerPeopleTime(app)       // the time clock — there was none — and payroll that names who it could not pay
-registerPeopleCompliance(app) // policies, onboarding, and telling an absence of records from compliance
-registerPeopleDossier(app)    // one employee, everything on record — and editing them after onboarding
-registerLaunchHub(app)        // ONE setup hub — derived readiness, never a stored checklist, never a lock
+registerAccountingArAp(app)
+registerCampaigns(app)
+registerSocial(app)
+registerSocialPublish(app)
+registerMarketingStudio(app)
+registerConsent(app)
+registerConversations(app)
+registerSalesVideo(app)
+registerReputation(app)
+registerMyDay(app)
+registerPeopleOffboarding(app)
+registerAcademy(app)
+registerPeopleTime(app)
+registerPeopleCompliance(app)
+registerPeopleDossier(app)
+registerLaunchHub(app)
 registerConfigEngine(app)
 registerAiEngine(app)
 registerAiRuntime(app)
@@ -247,7 +234,6 @@ registerSeoRoutes(app)
 registerDiscoverabilityRoutes(app)
 registerWebhookRoutes(app)
 
-// Background event dispatcher and webhook retry worker: start only on dedicated worker instances (RUN_WORKERS=true)
 if (process.env.RUN_WORKERS === 'true') {
   startEventDispatcher()
   startWebhookRetryWorker()
@@ -270,7 +256,7 @@ if (process.env.VALIDATE_STARTUP === 'true') {
 }
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Secure Marketplace engine live on port ${PORT}`)
+  console.log(`Secure Marketplace engine live on port ${PORT}`)
   startSocialPublishWorker()
   if (process.env.SKIP_DEMO_REFRESH !== 'true') {
     refreshDedicatedDemoAccounts()
