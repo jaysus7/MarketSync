@@ -114,7 +114,8 @@ describe('Visual Automation Builder — Graph Compiler to Canonical Model', () =
     };
 
     const compiled = compileGraphToCanonical(graph);
-    assert.equal(compiled.trigger_event, 'new_lead');
+    assert.equal(compiled.trigger_event, 'internet_lead');
+    assert.equal(compiled.trigger_available, true);
     assert.equal(compiled.delay_minutes, 1.5);
     assert.equal(compiled.channel, 'sms');
     assert.equal(compiled.sender_identity, 'assigned_rep');
@@ -135,7 +136,8 @@ describe('Visual Automation Builder — Graph Compiler to Canonical Model', () =
     };
 
     const compiled = compileGraphToCanonical(graph);
-    assert.equal(compiled.trigger_event, 'appointment_missed');
+    assert.equal(compiled.trigger_event, 'appointment_booked');
+    assert.equal(compiled.trigger_available, false);
     assert.equal(compiled.delay_minutes, 120);
     assert.equal(compiled.channel, 'email');
     assert.equal(compiled.subject_template, 'Missed Appointment at {{dealership.name}}');

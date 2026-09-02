@@ -957,6 +957,16 @@ async function renderAutomationHistoryTab(container) {
 
 // ── Render Automations Tab ───────────────────────────────────────────────────
 let __autoAutomationsLastMount = null;
+function automationStudioCategory(workflow) {
+  if (String(workflow.trigger_event || '').startsWith('service_')) return 'service';
+  if (['equity', 'inventory'].includes(workflow.category) || String(workflow.trigger_event || '').startsWith('inventory_')) return 'inventory';
+  if (['retention', 'reviews', 'referrals'].includes(workflow.category) || workflow.trigger_event === 'delivered') return 'sales';
+  if (workflow.category === 'marketing') return 'marketing';
+  if (workflow.category === 'calendar') return 'lifecycle';
+  if (workflow.category === 'custom') return 'custom';
+  return 'leads';
+}
+
 function renderAutoAutomationsTab(container) {
   if (container) {
     __autoAutomationsLastMount = container;
@@ -990,12 +1000,8 @@ function renderAutoAutomationsTab(container) {
     }
   }
 
-  let items = [];
-  if (__autoCategoryFilter === 'all') {
-    Object.values(ALL_AUTOMATIONS_CATALOG).forEach(list => items.push(...list));
-  } else {
-    items = ALL_AUTOMATIONS_CATALOG[__autoCategoryFilter] || [];
-  }
+  const tenantWorkflows = Array.isArray(__autoCfg?.campaigns) ? __autoCfg.campaigns : [];
+  const items = __autoCategoryFilter === 'all' ? tenantWorkflows : tenantWorkflows.filter(workflow => automationStudioCategory(workflow) === __autoCategoryFilter);
 
   container.innerHTML = `
     <div class="space-y-6 md:space-y-8">
@@ -1122,11 +1128,7 @@ function renderAutoWorkflowCard(wf) {
 
 // ── Simple Mode Quick Edit Modal ──────────────────────────────────────────────
 function openQuickEditAutoModal(key) {
-  let found = null;
-  Object.values(ALL_AUTOMATIONS_CATALOG).forEach(list => {
-    const item = list.find(x => x.key === key);
-    if (item) found = item;
-  });
+  const found = findAutoWorkflow(key);
   if (!found) return;
 
   const existing = document.getElementById('auto-quick-edit-modal');
@@ -1196,12 +1198,8 @@ function openQuickEditAutoModal(key) {
 }
 window.openQuickEditAutoModal = openQuickEditAutoModal;
 
-function saveQuickEditAutoModal(key) {
-  let found = null;
-  Object.values(ALL_AUTOMATIONS_CATALOG).forEach(list => {
-    const item = list.find(x => x.key === key);
-    if (item) found = item;
-  });
+async function saveQuickEditAutoModal(key) {
+  const found = findAutoWorkflow(key);
   if (!found) return;
 
   const nameInput = document.getElementById('quick-wf-name');
@@ -1210,55 +1208,63 @@ function saveQuickEditAutoModal(key) {
   const subjectInput = document.getElementById('quick-wf-subject');
   const bodyInput = document.getElementById('quick-wf-body');
 
-  if (nameInput) found.name = nameInput.value;
-  if (delayInput) found.delay_minutes = parseFloat(delayInput.value) || 0;
-  if (senderInput) found.sender_identity = senderInput.value;
-  if (subjectInput) found.subject_template = subjectInput.value;
-  if (bodyInput) found.message_body_template = bodyInput.value;
+  const next = {
+    name: nameInput?.value || found.name,
+    delay_minutes: delayInput ? (parseFloat(delayInput.value) || 0) : found.delay_minutes,
+    sender_identity: senderInput?.value || found.sender_identity,
+    subject_template: subjectInput?.value ?? found.subject_template,
+    message_body_template: bodyInput?.value ?? found.message_body_template,
+  };
 
-  // Keep visual graph in sync with simple edits
-  if (found.graph?.nodes?.length) {
-    found.graph.nodes.forEach(n => {
-      if (n.type === 'logic_wait' && delayInput) {
-        n.config.delay_value = parseFloat(delayInput.value) || 0;
-      }
-      if ((n.type === 'action_send_sms' || n.type === 'action_send_email') && bodyInput) {
-        n.config.message_template = bodyInput.value;
-        if (subjectInput) n.config.subject_template = subjectInput.value;
-        if (senderInput) n.config.sender_identity = senderInput.value;
-      }
+  try {
+    if (!found.id) throw new Error('Open this template in the visual builder and save it first.');
+    const response = await apiSendJson(`/automation/campaigns/${found.id}`, 'PUT', {
+      name: next.name,
+      delay_minutes: next.delay_minutes,
+      sender_identity: next.sender_identity === 'dynamic' ? 'dynamic_smart_switch' : next.sender_identity,
+      subject_template: next.subject_template || null,
+      message_body_template: next.message_body_template || '',
     });
+    Object.assign(found, response?.campaign || {});
+    document.getElementById('auto-quick-edit-modal')?.remove();
+    showToast(`Updated "${found.name}"`, 'success');
+    renderAutoAutomationsTab(document.getElementById('auto-leads-root'));
+  } catch (error) {
+    showToast(error.message || 'Workflow changes could not be saved.', 'error');
   }
-
-  const modal = document.getElementById('auto-quick-edit-modal');
-  if (modal) modal.remove();
-
-  showToast(`Updated "${found.name}"`, 'success');
-  renderAutoAutomationsTab(document.getElementById('auto-leads-root'));
 }
 window.saveQuickEditAutoModal = saveQuickEditAutoModal;
 
-function duplicateAutoWorkflow(key) {
-  let found = null;
-  Object.values(ALL_AUTOMATIONS_CATALOG).forEach(list => {
-    const item = list.find(x => x.key === key);
-    if (item) found = item;
-  });
+async function duplicateAutoWorkflow(key) {
+  const found = findAutoWorkflow(key);
   if (!found) return;
-  const clone = JSON.parse(JSON.stringify(found));
-  clone.key = `${found.key}_copy_${Math.random().toString(36).slice(2, 6)}`;
-  clone.name = `${found.name} (Copy)`;
-  if (!ALL_AUTOMATIONS_CATALOG.custom) ALL_AUTOMATIONS_CATALOG.custom = [];
-  ALL_AUTOMATIONS_CATALOG.custom.unshift(clone);
-  showToast(`Duplicated "${found.name}" into Custom workflows`, 'success');
-  __autoTab = 'automations';
-  __autoCategoryFilter = 'custom';
-  loadAutoBuilderPage();
+  try {
+    const response = await apiSendJson('/automation/campaigns', 'POST', {
+      name: `${found.name} (Copy)`,
+      category: 'custom',
+      trigger_event: found.trigger_event,
+      channel: found.channel,
+      subject_template: found.subject_template || null,
+      message_body_template: found.message_body_template || '',
+      delay_minutes: found.delay_minutes || 0,
+      sender_identity: found.sender_identity,
+      is_active: false,
+    });
+    if (response?.campaign) __autoCfg.campaigns.push(response.campaign);
+    showToast(`Duplicated "${found.name}" into Custom workflows`, 'success');
+    __autoTab = 'automations';
+    __autoCategoryFilter = 'custom';
+    loadAutoBuilderPage();
+  } catch (error) {
+    showToast(error.message || 'Workflow could not be duplicated.', 'error');
+  }
 }
 
 // Find a workflow anywhere in the catalog — the catalog is grouped by category,
 // and every quick action here addresses a workflow by key alone.
 function findAutoWorkflow(key) {
+  const tenantWorkflow = (Array.isArray(__autoCfg?.campaigns) ? __autoCfg.campaigns : []).find(item => item.key === key);
+  if (tenantWorkflow) return tenantWorkflow;
   let found = null;
   Object.values(ALL_AUTOMATIONS_CATALOG).forEach(list => {
     const item = list.find(x => x.key === key);
@@ -1271,12 +1277,22 @@ window.findAutoWorkflow = findAutoWorkflow;
 // Pause / activate a workflow from the card toggle. The catalog is the in-memory
 // source of truth for this page (same as Quick Edit), so flip it and re-render
 // so the status dot and the toggle agree.
-function toggleWorkflowActive(key, active) {
+async function toggleWorkflowActive(key, active) {
   const found = findAutoWorkflow(key);
   if (!found) return;
-  found.is_active = active !== false;
-  showToast(found.is_active ? `Activated "${found.name}"` : `Paused "${found.name}"`, found.is_active ? 'success' : 'info');
+  const next = active !== false;
+  const previous = found.is_active !== false;
+  found.is_active = next;
   renderAutoAutomationsTab(document.getElementById('auto-leads-root'));
+  try {
+    if (!found.id) throw new Error('This workflow must be saved before it can be activated.');
+    await apiSendJson(`/automation/campaigns/${found.id}`, 'PUT', { is_active: next });
+    showToast(next ? `Activated "${found.name}"` : `Paused "${found.name}"`, next ? 'success' : 'info');
+  } catch (error) {
+    found.is_active = previous;
+    renderAutoAutomationsTab(document.getElementById('auto-leads-root'));
+    showToast(error.message || 'Workflow status could not be saved.', 'error');
+  }
 }
 window.toggleWorkflowActive = toggleWorkflowActive;
 
@@ -1337,22 +1353,22 @@ async function quickAiRewriteWorkflow(key) {
 }
 window.quickAiRewriteWorkflow = quickAiRewriteWorkflow;
 
-function applyAiRewriteWorkflow(btn) {
+async function applyAiRewriteWorkflow(btn) {
   const draft = __autoRewriteDraft;
   __autoRewriteDraft = null;
   btn?.closest('.fixed')?.remove();
   if (!draft) return;
   const found = findAutoWorkflow(draft.key);
   if (!found) return;
-  found.message_body_template = draft.text;
-  // Keep the visual graph in step, exactly as Quick Edit does.
-  if (found.graph?.nodes?.length) {
-    found.graph.nodes.forEach(n => {
-      if (n.type === 'action_send_sms' || n.type === 'action_send_email') n.config.message_template = draft.text;
-    });
+  try {
+    if (!found.id) throw new Error('Save this workflow before applying an AI rewrite.');
+    const response = await apiSendJson(`/automation/campaigns/${found.id}`, 'PUT', { message_body_template: draft.text });
+    Object.assign(found, response?.campaign || {});
+    showToast(`Rewrote "${found.name}"`, 'success');
+    renderAutoAutomationsTab(document.getElementById('auto-leads-root'));
+  } catch (error) {
+    showToast(error.message || 'The AI rewrite could not be saved.', 'error');
   }
-  showToast(`Rewrote "${found.name}"`, 'success');
-  renderAutoAutomationsTab(document.getElementById('auto-leads-root'));
 }
 window.applyAiRewriteWorkflow = applyAiRewriteWorkflow;
 
@@ -2887,11 +2903,11 @@ const VISUAL_NODE_LIBRARY = {
   ]
 };
 
-// ── 15 Pre-Built Automotive Templates ─────────────────────────────────────────
+// ── Pre-Built Automotive Templates ───────────────────────────────────────────
 const VISUAL_TEMPLATES_CATALOG = [
   {
     key: 'speed_to_lead_90s',
-    name: 'New Lead 90-Second Rapid Response & SLA Routing',
+    name: 'New Lead Follow-Up — 90-Second Response & SLA Routing',
     category: 'pipeline',
     desc: 'Instant lead engagement: waits 90 seconds, checks for human rep reply, dispatches SMS, assigns salesperson, and executes 3-day follow-up.',
     graph: {
@@ -2958,7 +2974,7 @@ const VISUAL_TEMPLATES_CATALOG = [
   },
   {
     key: 'nurture_7day_lead',
-    name: '7-Day Inactive Lead Re-Engagement',
+    name: 'Unsold Lead Follow-Up — 7-Day Re-Engagement',
     category: 'pipeline',
     desc: 'Multi-touch nurture sequence for leads that went cold after initial contact.',
     graph: {
@@ -3009,7 +3025,7 @@ const VISUAL_TEMPLATES_CATALOG = [
   },
   {
     key: 'service_reminder_6mo',
-    name: '6-Month Factory Recommended Service Notice',
+    name: 'Service Reminder — 6-Month Factory Recommended Notice',
     category: 'retention',
     desc: 'Automated maintenance cadence for oil change, tire rotation, and safety inspection.',
     graph: {
@@ -3077,7 +3093,7 @@ const VISUAL_TEMPLATES_CATALOG = [
   },
   {
     key: 'price_drop_watcher',
-    name: 'Inventory Price Drop Notification for Saved Units',
+    name: 'Vehicle Price Drop Notification for Saved Units',
     category: 'pipeline',
     desc: 'Alerts leads who viewed or inquired about a specific vehicle when price is reduced.',
     graph: {
@@ -3094,7 +3110,7 @@ const VISUAL_TEMPLATES_CATALOG = [
   },
   {
     key: 'birthday_vip_gift',
-    name: 'Customer Birthday Anniversary & Service Credit',
+    name: 'Birthday — Customer Greeting & Service Credit',
     category: 'retention',
     desc: 'Annual customer celebration text with an exclusive service or detailing voucher.',
     graph: {
@@ -3160,7 +3176,7 @@ const VISUAL_TEMPLATES_CATALOG = [
   },
   {
     key: 'quarterly_equity_pulse',
-    name: '18-Month Equity Position & Trade-Up Alert',
+    name: 'Equity Opportunity — 18-Month Trade-Up Alert',
     category: 'equity',
     desc: 'Mid-term ownership equity check to invite customers into newer inventory with zero out-of-pocket.',
     graph: {
@@ -3172,6 +3188,25 @@ const VISUAL_TEMPLATES_CATALOG = [
       edges: [
         { id: 'qp_e1', source: 'qp_trig', target: 'qp_wait' },
         { id: 'qp_e2', source: 'qp_wait', target: 'qp_email' }
+      ]
+    }
+  },
+  {
+    key: 'new_inventory_match',
+    name: 'New Inventory Match',
+    category: 'inventory',
+    desc: 'Notifies active shoppers when newly added inventory matches their recorded vehicle interest.',
+    graph: {
+      nodes: [
+        { id: 'nim_trig', type: 'trigger_inv_added', category: 'trigger', label: 'Vehicle Added to Inventory', x: 380, y: 60, config: {} },
+        { id: 'nim_wait', type: 'logic_wait', category: 'logic', label: 'Wait 5 Minutes', x: 380, y: 190, config: { delay_value: 5, delay_unit: 'minutes' } },
+        { id: 'nim_email', type: 'action_send_email', category: 'action', label: 'Send Inventory Match', x: 380, y: 320, config: { sender_identity: 'rep', subject_template: 'A new {{vehicle.ymm|vehicle}} match just arrived', message_template: 'Hi {{customer.first_name|there}}, a {{vehicle.ymm|vehicle}} matching your search just arrived at {{dealership.name}}. Would you like photos, pricing, or first access to a test drive?' } },
+        { id: 'nim_stop', type: 'logic_stop', category: 'logic', label: 'Stop on Reply or Unit Sold', x: 380, y: 460, config: { reason: 'Customer replied or matched unit sold' } }
+      ],
+      edges: [
+        { id: 'nim_e1', source: 'nim_trig', target: 'nim_wait' },
+        { id: 'nim_e2', source: 'nim_wait', target: 'nim_email' },
+        { id: 'nim_e3', source: 'nim_email', target: 'nim_stop' }
       ]
     }
   }
@@ -3469,14 +3504,12 @@ function buildVisualGraphForWorkflow(wf) {
 window.buildVisualGraphForWorkflow = buildVisualGraphForWorkflow;
 
 // ── Open Visual Workflow Builder ──────────────────────────────────────────────
-function openVisualWorkflowBuilder(wfKey) {
-  let initialWf = null;
-
-  // Search existing catalog or create blank
-  Object.values(ALL_AUTOMATIONS_CATALOG).forEach(list => {
-    const item = list.find(x => x.key === wfKey);
-    if (item) initialWf = item;
-  });
+async function openVisualWorkflowBuilder(wfKey) {
+  const initialWf = findAutoWorkflow(wfKey);
+  let savedWorkflow = null;
+  if (initialWf?.id && wfKey) {
+    try { savedWorkflow = (await apiGetJson(`/automation/workflows/${encodeURIComponent(wfKey)}`))?.workflow || null; } catch (e) {}
+  }
 
   const template = VISUAL_TEMPLATES_CATALOG.find(t => t.key === wfKey);
 
@@ -3492,7 +3525,10 @@ function openVisualWorkflowBuilder(wfKey) {
   __vb.history = [];
   __vb.historyIndex = -1;
 
-  if (template?.graph?.nodes?.length) {
+  if (savedWorkflow?.graph?.nodes?.length) {
+    __vb.nodes = JSON.parse(JSON.stringify(savedWorkflow.graph.nodes));
+    __vb.edges = JSON.parse(JSON.stringify(savedWorkflow.graph.edges || []));
+  } else if (template?.graph?.nodes?.length) {
     __vb.nodes = JSON.parse(JSON.stringify(template.graph.nodes));
     __vb.edges = JSON.parse(JSON.stringify(template.graph.edges));
   } else if (initialWf?.graph?.nodes?.length) {
@@ -4615,21 +4651,22 @@ async function saveVisualWorkflow(btn) {
         business_hours_only: true,
         stop_on_reply: true,
         stop_on_appointment: true
-      }
+      },
+      enforce_valid: true
     };
 
-    const res = await apiSendJson('/automation/workflows', 'POST', payload);
-    showToast('Visual workflow compiled & activated', 'success');
+    const saved = await apiSendJson('/automation/workflows', 'POST', payload);
+    __autoCfg = await apiGetJson('/automation/campaigns');
+    showToast(saved?.workflow?.activation_blocked
+      ? 'Workflow saved inactive — its trigger is not wired yet.'
+      : 'Visual workflow compiled & activated', saved?.workflow?.activation_blocked ? 'info' : 'success');
     closeVisualBuilder();
-    loadAutoBuilderPage();
   } catch (e) {
-    showToast(e.message || 'Saved locally', 'success');
-    closeVisualBuilder();
-    loadAutoBuilderPage();
+    showToast(e.message || 'Workflow could not be saved.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
   }
-
-  btn.disabled = false;
-  btn.textContent = orig;
 }
 
 function closeVisualBuilder() {

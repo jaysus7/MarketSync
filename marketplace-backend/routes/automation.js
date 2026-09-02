@@ -865,6 +865,9 @@ export function registerAutomation(app) {
     if (b.sender_identity !== undefined && ['house', 'rep', 'dynamic_smart_switch'].includes(b.sender_identity)) patch.sender_identity = b.sender_identity
     const { data: before } = await supabaseAdmin.from('automated_campaigns').select('*').eq('id', req.params.id).eq('dealership_id', req.dealershipId).maybeSingle()
     if (!before) return res.status(404).json({ error: 'Campaign not found' })
+    if (b.is_active === true && !AVAILABLE_TRIGGERS.has(before.trigger_event)) {
+      return res.status(409).json({ error: 'This workflow trigger is not wired to an event source yet. The workflow remains inactive.' })
+    }
     const { data, error } = await supabaseAdmin.from('automated_campaigns').update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select('*').maybeSingle()
     if (error) return res.status(500).json({ error: error.message })
     audit(req, 'automation.campaign_updated', { before_state: before, after_state: data })
@@ -890,7 +893,7 @@ export function registerAutomation(app) {
       delay_minutes: Math.max(0, parseInt(b.delay_minutes) || 0),
       send_at_hour: b.send_at_hour == null ? null : Math.max(0, Math.min(23, parseInt(b.send_at_hour) || 0)),
       sender_identity: ['house', 'rep', 'dynamic_smart_switch'].includes(b.sender_identity) ? b.sender_identity : (channel === 'email' ? 'house' : 'rep'),
-      is_active: b.is_active === false ? false : true,
+      is_active: b.is_active === false ? false : AVAILABLE_TRIGGERS.has(trigger),
       sort: ((maxRow?.sort ?? 900) + 10),
     }
     const { data, error } = await supabaseAdmin.from('automated_campaigns').insert(row).select('*').single()
@@ -1056,15 +1059,7 @@ Return ONLY the message text — no preamble, no quotes, no markdown.`
         graph: savedGraph?.graph || null,
         version: savedGraph?.version || 1,
         versions_count: (savedGraph?.versions || []).length + 1,
-        stats: savedGraph?.stats || {
-          triggered: 24,
-          completed: 21,
-          replies: 12,
-          appointments: 7,
-          sales: 3,
-          opt_outs: 0,
-          revenue_attributed: 14500
-        }
+        stats: savedGraph?.stats || null
       }
     })
 
@@ -1097,15 +1092,7 @@ Return ONLY the message text — no preamble, no quotes, no markdown.`
           stop_on_appointment: true,
           sms_fallback: true
         },
-        stats: saved?.stats || {
-          triggered: 24,
-          completed: 21,
-          replies: 12,
-          appointments: 7,
-          sales: 3,
-          opt_outs: 0,
-          revenue_attributed: 14500
-        }
+        stats: saved?.stats || null
       }
     })
   })
@@ -1127,13 +1114,16 @@ Return ONLY the message text — no preamble, no quotes, no markdown.`
 
     // 2. Compile graph to canonical campaign attributes (Rule 16)
     const compiled = compileGraphToCanonical(graph, name, category, isActive, settings)
+    // A saved graph may describe a useful future workflow whose event source is not
+    // wired yet. Persist it for editing, but never claim it is running.
+    const effectiveIsActive = isActive && compiled.trigger_available
 
     // 3. Update or Insert canonical automated_campaigns row
     const { data: existingCamp } = await supabaseAdmin.from('automated_campaigns').select('id, sort').eq('dealership_id', req.dealershipId).eq('key', key).maybeSingle()
 
     let campRecord = null
     if (existingCamp) {
-      const { data } = await supabaseAdmin.from('automated_campaigns').update({
+      const { data, error } = await supabaseAdmin.from('automated_campaigns').update({
         name,
         category,
         trigger_event: compiled.trigger_event,
@@ -1142,13 +1132,14 @@ Return ONLY the message text — no preamble, no quotes, no markdown.`
         subject_template: compiled.subject_template,
         delay_minutes: compiled.delay_minutes,
         sender_identity: compiled.sender_identity,
-        is_active: isActive,
+        is_active: effectiveIsActive,
         updated_at: nowIso()
       }).eq('id', existingCamp.id).select('*').maybeSingle()
+      if (error) return res.status(500).json({ error: error.message })
       campRecord = data
     } else {
       const { data: maxRow } = await supabaseAdmin.from('automated_campaigns').select('sort').eq('dealership_id', req.dealershipId).order('sort', { ascending: false }).limit(1).maybeSingle()
-      const { data } = await supabaseAdmin.from('automated_campaigns').insert({
+      const { data, error } = await supabaseAdmin.from('automated_campaigns').insert({
         dealership_id: req.dealershipId,
         key,
         name,
@@ -1159,9 +1150,10 @@ Return ONLY the message text — no preamble, no quotes, no markdown.`
         subject_template: compiled.subject_template,
         delay_minutes: compiled.delay_minutes,
         sender_identity: compiled.sender_identity,
-        is_active: isActive,
+        is_active: effectiveIsActive,
         sort: ((maxRow?.sort ?? 900) + 10)
       }).select('*').maybeSingle()
+      if (error) return res.status(500).json({ error: error.message })
       campRecord = data
     }
 
@@ -1187,7 +1179,7 @@ Return ONLY the message text — no preamble, no quotes, no markdown.`
       key,
       name,
       category,
-      is_active: isActive,
+      is_active: effectiveIsActive,
       version: newVersion,
       versions,
       graph,
@@ -1195,7 +1187,8 @@ Return ONLY the message text — no preamble, no quotes, no markdown.`
       updated_at: nowIso()
     }
 
-    await supabaseAdmin.from('dealerships').update({ automation_settings: autoSettings }).eq('id', req.dealershipId)
+    const { error: settingsError } = await supabaseAdmin.from('dealerships').update({ automation_settings: autoSettings }).eq('id', req.dealershipId)
+    if (settingsError) return res.status(500).json({ error: settingsError.message })
     audit(req, 'automation.visual_workflow_saved', { key, version: newVersion, node_count: graph.nodes?.length })
 
     res.json({
@@ -1205,7 +1198,9 @@ Return ONLY the message text — no preamble, no quotes, no markdown.`
         id: campRecord?.id,
         name,
         category,
-        is_active: isActive,
+        is_active: effectiveIsActive,
+        activation_blocked: isActive && !compiled.trigger_available,
+        trigger_event: compiled.trigger_event,
         version: newVersion,
         graph,
         settings,
@@ -1285,50 +1280,34 @@ Return ONLY raw JSON in format { "name": string, "description": string, "nodes":
     res.json({ ok: true, trace })
   })
 
-  app.get('/automation/workflows/:key/runs', requireAuth, requireMfa, requireAutomationRead, (req, res) => {
+  app.get('/automation/workflows/:key/runs', requireAuth, requireMfa, requireAutomationRead, async (req, res) => {
     const key = req.params.key
-    // Generate realistic recent run logs for the visual builder audit trail
-    const now = Date.now()
-    const runs = [
-      {
-        id: 'run_' + key + '_1',
-        contact_name: 'Alex Morgan',
-        contact_phone: '(555) 439-0129',
-        started_at: new Date(now - 12 * 60000).toISOString(),
-        current_step: 'Send 90s SMS',
-        status: 'completed',
-        nodes_executed: 4,
-        total_nodes: 5,
-        execution_path: ['trigger_1', 'wait_1', 'if_human_1', 'sms_1'],
-        logs: ['Trigger: New lead ingested from Website', 'Wait: 90 seconds elapsed', 'Condition: No human rep reply detected (TRUE)', 'Action: Dispatched SMS to (555) 439-0129']
-      },
-      {
-        id: 'run_' + key + '_2',
-        contact_name: 'James Reynolds',
-        contact_phone: '(555) 782-4411',
-        started_at: new Date(now - 85 * 60000).toISOString(),
-        current_step: 'Human Reply Detected',
-        status: 'stopped',
-        stop_reason: 'Customer replied inbound; automated cadence frozen (Compliance Kill-switch)',
-        nodes_executed: 3,
-        total_nodes: 5,
-        execution_path: ['trigger_1', 'wait_1', 'stop_1'],
-        logs: ['Trigger: Inbound Facebook lead', 'Wait: 90s elapsed', 'Event: Inbound SMS reply received from customer', 'Sequence paused by mayContact() rules']
-      },
-      {
-        id: 'run_' + key + '_3',
-        contact_name: 'Elena Rostova',
-        contact_phone: '(555) 301-9988',
-        started_at: new Date(now - 240 * 60000).toISOString(),
-        current_step: 'Day 3 Follow-up Email',
-        status: 'waiting',
-        nodes_executed: 4,
-        total_nodes: 6,
-        execution_path: ['trigger_1', 'wait_1', 'sms_1', 'wait_2'],
-        logs: ['Trigger: Trade appraisal lead', 'SMS sent via Twilio', 'Waiting for 72h interval', 'Next action scheduled at 10:00 AM']
+    const { data: campaign } = await supabaseAdmin.from('automated_campaigns').select('id').eq('dealership_id', req.dealershipId).eq('key', key).maybeSingle()
+    if (!campaign) return res.json({ ok: true, runs: [] })
+    const { data: messages, error } = await supabaseAdmin.from('scheduled_messages')
+      .select('id, contact_id, channel, scheduled_at, sent_at, status, cancel_reason, interval_marker')
+      .eq('dealership_id', req.dealershipId).eq('campaign_id', campaign.id)
+      .order('scheduled_at', { ascending: false }).limit(100)
+    if (error) return res.status(500).json({ error: error.message })
+    const contactIds = [...new Set((messages || []).map(message => message.contact_id).filter(Boolean))]
+    let contacts = []
+    if (contactIds.length) {
+      const result = await supabaseAdmin.from('contacts').select('id, first_name, last_name, full_name, phone, phone_mobile').eq('dealership_id', req.dealershipId).in('id', contactIds)
+      contacts = result.data || []
+    }
+    const byId = new Map(contacts.map(contact => [contact.id, contact]))
+    const runs = (messages || []).map(message => {
+      const contact = byId.get(message.contact_id) || {}
+      return {
+        id: message.id,
+        contact_name: contact.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(' ') || 'Unknown contact',
+        contact_phone: contact.phone_mobile || contact.phone || 'No phone',
+        started_at: message.sent_at || message.scheduled_at,
+        current_step: `${message.channel || 'message'} · ${message.interval_marker || 'initial'}`,
+        status: message.status === 'sent' ? 'completed' : ['cancelled', 'failed'].includes(message.status) ? 'stopped' : 'waiting',
+        stop_reason: message.cancel_reason || null,
       }
-    ]
-
+    })
     res.json({ ok: true, runs })
   })
 }
@@ -1433,20 +1412,31 @@ export function compileGraphToCanonical(graphInput = {}, name = '', category = '
 
   // Extract root trigger
   const triggerNode = nodes.find(n => n.category === 'trigger' || (n.type && n.type.startsWith('trigger_')))
-  let triggerEvent = 'new_lead'
+  let triggerEvent = 'internet_lead'
+  let triggerAvailable = true
   if (triggerNode) {
     const t = triggerNode.type || ''
     const conf = triggerNode.config || triggerNode.data || {}
-    if (t.includes('missed') || t.includes('no_show')) triggerEvent = 'appointment_missed'
-    else if (t.includes('lead')) triggerEvent = 'new_lead'
+    if (conf.trigger_event && TRIGGER_KEYS.includes(conf.trigger_event)) {
+      triggerEvent = conf.trigger_event
+    } else if (t.includes('missed') || t.includes('no_show')) {
+      // No missed-appointment event source exists yet. Keep this close to its
+      // appointment domain, but prevent activation below.
+      triggerEvent = 'appointment_booked'
+      triggerAvailable = false
+    }
+    else if (t.includes('birthday')) triggerEvent = 'birthday'
+    else if (t.includes('holiday')) triggerEvent = 'holiday'
+    else if (t.includes('lead') || t.includes('chat') || t.includes('form') || t.includes('credit') || t.includes('trade')) triggerEvent = 'internet_lead'
     else if (t.includes('appt') || t.includes('appointment')) triggerEvent = 'appointment_booked'
     else if (t.includes('sold') || t.includes('delivered')) triggerEvent = 'delivered'
-    else if (t.includes('price') || t.includes('inventory')) triggerEvent = 'inventory_update'
-    else if (t.includes('service') || t.includes('svc')) triggerEvent = 'service_due'
-    else if (t.includes('review')) triggerEvent = 'review_request'
-    else if (t.includes('holiday') || t.includes('birthday')) triggerEvent = 'calendar'
-    else if (conf.trigger_event) triggerEvent = conf.trigger_event
+    else if (t.includes('price') || t.includes('inventory') || t.includes('inv_')) triggerEvent = 'inventory_aged'
+    else if (t.includes('declined')) triggerEvent = 'declined_service'
+    else if (t.includes('service') || t.includes('svc')) triggerEvent = 'service_lapsed'
+    else if (t.includes('review')) triggerEvent = 'delivered'
+    else if (t.includes('equity') || t.includes('lease')) triggerEvent = 'equity'
   }
+  triggerAvailable = triggerAvailable && AVAILABLE_TRIGGERS.has(triggerEvent)
 
   // Calculate cumulative initial delay and primary communication action
   let initialDelayMinutes = 0
@@ -1479,6 +1469,7 @@ export function compileGraphToCanonical(graphInput = {}, name = '', category = '
     name,
     category,
     trigger_event: triggerEvent,
+    trigger_available: triggerAvailable,
     channel,
     delay_minutes: initialDelayMinutes,
     sender_identity: senderIdentity,
@@ -1749,5 +1740,3 @@ export function simulateGraphExecution(graph = {}, contact = {}, vehicle = {}, r
 
   return { success: true, trace }
 }
-
-
