@@ -5,6 +5,7 @@ import { runComprehensiveDiscoverabilityAudit } from '../services/discoverabilit
 import { crawlSite, crawlUrl, assertSafeUrl, createPersistedCrawlRun, getLatestPersistedCrawl, getPersistedCrawlPages, getPersistedCrawlFindings } from '../services/discoverabilityCrawlerService.js'
 import { buildCanonicalFactObject, normalizeBenchmarkEvidence, calculateGeoMetrics, generateGeoQueries } from '../services/aeoGeoTruthService.js'
 import { disconnectedSearchProvider, verifySearchProperty, normalizeSearchConsoleResponse, detectSearchOpportunities, detectCannibalization, detectContentGaps, detectInventoryDemandGaps, clusterSearchQuery, mapVdpSearchPerformance, searchScore, createSearchImpactRecord } from '../services/searchIntelligenceService.js'
+import { answerDiscoverabilityQuestion } from '../services/discoverabilityCopilotService.js'
 import { queueIndexNowSubmission, recordIndexNowResult } from '../services/indexNowService.js'
 import { buildCanonicalLocalEntity, disconnectedGbpProvider, normalizeGbpEvidence, compareGbpToCanonical, normalizeLocalRankEvidence, generateLocalQueries, localScore } from '../services/localDiscoverabilityService.js'
 import { normalizeSxoEvent, classifySource, stitchFirstPartySession, attributionForEvents, funnelFromEvents, conversionRate, roiSummary, sxoQuality, prioritizeSxoRecommendation } from '../services/sxoAttributionService.js'
@@ -106,6 +107,7 @@ export default function registerDiscoverabilityRoutes(app) {
     try {
       const ctx = await getCurrentAccessContext(req)
       const isEntitled = hasProductAccess(ctx, 'marketsync_seo') ||
+                         hasProductAccess(ctx, 'marketsync_website') ||
                          hasProductAccess(ctx, 'marketsync_digital') ||
                          hasProductAccess(ctx, 'dealeros_complete') ||
                          hasFeature(ctx, 'seo.overview') ||
@@ -233,6 +235,24 @@ export default function registerDiscoverabilityRoutes(app) {
       console.error('[discoverability/dashboard/actions] error:', err.message)
       res.status(500).json({ error: 'Failed to load action dashboard', detail: err.message })
     }
+  })
+
+  // Evidence-bound assistant. It selects from approved analytical intents and
+  // never executes SQL, writes website HTML, or treats synthetic AI tests as
+  // measured organic visibility.
+  app.post('/discoverability/copilot', requireAuth, checkDiscoverabilityEntitlement, async (req, res) => {
+    if (!req.hasDiscoverabilityEntitlement) return res.status(403).json({ error: 'Discoverability entitlement required' })
+    const question = String(req.body?.question || '').trim().slice(0, 500)
+    if (!question) return res.status(400).json({ error: 'Question is required' })
+    const previousRecommendations = await fetchRecommendations(req.dealershipId).catch(() => [])
+    const audit = await runComprehensiveDiscoverabilityAudit(req.dealershipId, { previousRecommendations }).catch(() => null)
+    let search = { search: disconnectedSearchProvider(), run: null, opportunities: [] }
+    try {
+      const { data: run } = await supabaseAdmin.from('discoverability_search_sync_runs').select('*').eq('dealership_id', req.dealershipId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+      const { data: opportunities } = await supabaseAdmin.from('discoverability_search_opportunities').select('*').eq('dealership_id', req.dealershipId).order('opportunity_score', { ascending: false }).limit(20)
+      search = { run: run || null, search: run ? { status: run.status || 'measured' } : disconnectedSearchProvider(), opportunities: opportunities || [] }
+    } catch {}
+    res.json({ success: true, ...answerDiscoverabilityQuestion({ question, audit: audit || {}, search }) })
   })
 
   // ── Scheduler Management (BATCH 8) ──────────────────────────────────────

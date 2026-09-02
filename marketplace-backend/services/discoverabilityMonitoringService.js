@@ -42,17 +42,18 @@ export async function runComprehensiveDiscoverabilityAudit(dealershipId, options
   const seoAudit = await runAutomatedSeoAudit(dealershipId).catch(() => null)
 
   // 3. Fetch dealership inventory and pages
-  const [{ data: pages }, { data: inventory }, { data: settings }, { data: contacts }] = await Promise.all([
+  const [{ data: pages }, { data: inventory }, { data: settings }, { data: contacts }, { data: draftRevision }] = await Promise.all([
     supabaseAdmin.from('dealer_site_pages').select('*').eq('dealership_id', dealershipId),
     supabaseAdmin.from('inventory').select('id, vin, year, make, model, trim, status, price, updated_at').eq('dealership_id', dealershipId).limit(50),
     supabaseAdmin.from('seo_settings').select('*').eq('dealership_id', dealershipId).maybeSingle(),
-    supabaseAdmin.from('contacts').select('id, status, source, created_at').eq('dealership_id', dealershipId)
+    supabaseAdmin.from('contacts').select('id, status, source, created_at').eq('dealership_id', dealershipId),
+    supabaseAdmin.from('dealer_website_revisions').select('content, revision_number, created_at').eq('dealership_id', dealershipId).eq('state', 'draft').order('revision_number', { ascending: false }).limit(1).maybeSingle()
   ])
 
   const city = dealer.city || 'Local'
   const isGscConnected = !!settings?.gsc_connected
   const timestamp = new Date().toISOString()
-  const builderContent = { ...(dealer.branding || {}) }
+  const builderContent = { ...(draftRevision?.content || dealer.branding || {}) }
   if (Array.isArray(pages) && pages.length) builderContent.pages = pages
   const websiteBuilderAudit = auditWebsiteDiscoverabilityContracts(builderContent, dealer)
   const liveCrawl = options.liveCrawl && dealer.website_url

@@ -2633,11 +2633,11 @@ function renderWsRightInspectorHtml() {
         ${sec ? `<button onclick="delSection(${__wsSelectedSecIdx})" class="text-xs font-bold text-rose-500 hover:bg-rose-500/10 px-2 py-1 rounded">Delete</button>` : ''}
       </div>
 
-      <div class="flex items-center gap-1 border-b border-slate-800">
+      <div class="flex items-center gap-1 border-b border-slate-800 overflow-x-auto">
         <button onclick="setWsInspectorTab('content')" data-tab="content" class="ws-insp-tab px-3 py-1.5 text-xs font-bold border-b-2 ${__wsInspectorTab === 'content' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400'}">Content</button>
         <button onclick="setWsInspectorTab('style')" data-tab="style" class="ws-insp-tab px-3 py-1.5 text-xs font-bold border-b-2 ${__wsInspectorTab === 'style' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400'}">Style</button>
         <button onclick="setWsInspectorTab('layout')" data-tab="layout" class="ws-insp-tab px-3 py-1.5 text-xs font-bold border-b-2 ${__wsInspectorTab === 'layout' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400'}">Layout</button>
-        <button onclick="setWsInspectorTab('advanced')" data-tab="advanced" class="ws-insp-tab px-3 py-1.5 text-xs font-bold border-b-2 ${__wsInspectorTab === 'advanced' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400'}">Advanced</button>
+        <button onclick="setWsInspectorTab('discoverability')" data-tab="discoverability" class="ws-insp-tab px-2 py-1.5 text-xs font-bold border-b-2 whitespace-nowrap ${__wsInspectorTab === 'discoverability' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400'}">SEO &amp; Discoverability</button>
       </div>
 
       <div id="ws-inspector-content" class="space-y-3">
@@ -2655,7 +2655,60 @@ function setSiteGlobal(key, val) {
 }
 window.setSiteGlobal = setSiteGlobal;
 
+function wsCurrentPageRecord() {
+  if (__wsTarget === 'home') return __siteCfg?.content || {};
+  if (typeof __wsTarget === 'number') return __sitePages?.[__wsTarget] || {};
+  if (typeof __wsTarget === 'string' && __wsTarget.startsWith('b:')) return __siteBuiltins?.[__wsTarget.slice(2)] || {};
+  return {};
+}
+
+function setWsPageDiscoverabilityField(key, val) {
+  const page = wsCurrentPageRecord();
+  if (!page || !['seo_title', 'seo_description'].includes(key)) return;
+  page[key] = val;
+  markWsUnsaved();
+}
+window.setWsPageDiscoverabilityField = setWsPageDiscoverabilityField;
+
+function renderWsDiscoverabilityInspector() {
+  const page = wsCurrentPageRecord();
+  const title = String(page.seo_title || '').trim();
+  const description = String(page.seo_description || '').trim();
+  const hasPrimaryHeading = (__siteSections || []).some(section => ['hero', 'heading', 'page_header'].includes(section?.type) && String(section?.settings?.headline || section?.settings?.title || '').trim());
+  const canonical = String(__siteCfg?.site_slug || '').trim();
+  const live = __wsDiscoveryData?.overview?.pillars?.livePublicWebsite || {};
+  const measured = live.status === 'completed';
+  const validationIssues = __wsDiscoveryData?.overview?.pillars?.validation?.issues || [];
+  const schemaFindings = validationIssues.filter(item => /schema|structured data/i.test(`${item.contract || ''} ${item.title || ''} ${item.message || ''}`));
+  const linkFindings = validationIssues.filter(item => /internal link|broken link|href/i.test(`${item.contract || ''} ${item.title || ''} ${item.message || ''}`));
+  const opportunityCount = __wsDiscoveryData?.search?.opportunities?.length || 0;
+  const aiBenchmark = __wsDiscoveryData?.aiEvidence?.benchmark || {};
+  const aiRecords = aiBenchmark.records || [];
+  const aiEvidenceType = aiBenchmark.run?.evidence_type || aiRecords[0]?.evidenceType || null;
+  const aiMeasured = aiRecords.length > 0 && aiEvidenceType !== 'synthetic_test';
+  const aiVisible = aiMeasured && aiRecords.some(item => item.dealershipMentioned === true || item.dealershipCited === true);
+  const checks = [
+    ['Title', title ? (title.length <= 60 ? 'pass' : 'fail') : 'fail', title ? `${title.length}/60 characters.` : 'Add a unique search title.'],
+    ['Meta', description ? (description.length <= 160 ? 'pass' : 'fail') : 'fail', description ? `${description.length}/160 characters.` : 'Add a useful search description.'],
+    ['H1', hasPrimaryHeading ? 'pass' : 'fail', hasPrimaryHeading ? 'A primary page heading exists in this draft.' : 'Add a hero or primary page heading.'],
+    ['Canonical', canonical ? 'pass' : 'unknown', canonical ? `Canonical site address: ${canonical}` : 'No canonical site address has been assigned.'],
+    ['Schema', schemaFindings.length ? 'fail' : measured ? 'pass' : 'unknown', schemaFindings.length ? `${schemaFindings.length} measured schema finding${schemaFindings.length === 1 ? '' : 's'}.` : measured ? 'No schema finding in the latest public rendered-page validation.' : 'No public rendered-page schema measurement is available.'],
+    ['Crawlability', measured ? 'pass' : live.status === 'failed' ? 'fail' : 'unknown', measured ? 'A public crawl completed.' : 'Run a public crawl before claiming crawlability.'],
+    ['Internal links', linkFindings.length ? 'fail' : measured ? 'pass' : 'unknown', linkFindings.length ? `${linkFindings.length} measured internal-link finding${linkFindings.length === 1 ? '' : 's'}.` : measured ? 'No link finding was reported by the latest public validation.' : 'Internal links have not been measured on the public site.'],
+    ['Search opportunity', opportunityCount ? 'pass' : 'unknown', opportunityCount ? `${opportunityCount} persisted Search Console opportunit${opportunityCount === 1 ? 'y' : 'ies'}.` : 'No measured search opportunity is available.'],
+    ['AI visibility', aiMeasured ? (aiVisible ? 'pass' : 'fail') : 'unknown', aiMeasured ? (aiVisible ? 'At least one measured provider response mentioned or cited the dealership.' : 'Measured provider responses did not mention or cite the dealership.') : aiEvidenceType === 'synthetic_test' ? 'Synthetic lab evidence is available, but it is not organic AI visibility.' : 'No measured AI citation evidence is available.'],
+  ];
+  return `<div class="space-y-4 text-xs">
+    <div><div class="text-[10px] uppercase tracking-wider font-black text-indigo-400">Current page</div><div class="mt-1 font-black text-slate-900 dark:text-white">${esc(wsAuditPageName(__wsTarget, __wsTarget === 'home'))}</div><p class="mt-1 text-[11px] text-slate-500">Draft checks and measured public evidence remain separate.</p></div>
+    <label class="block space-y-1"><span class="font-bold text-slate-900 dark:text-white">SEO title</span><input type="text" maxlength="120" value="${esc(title)}" oninput="setWsPageDiscoverabilityField('seo_title',this.value)" class="w-full liquid-glass-input px-3 py-2 text-slate-950 dark:text-white" placeholder="Unique page title"></label>
+    <label class="block space-y-1"><span class="font-bold text-slate-900 dark:text-white">Meta description</span><textarea rows="3" maxlength="320" oninput="setWsPageDiscoverabilityField('seo_description',this.value)" class="w-full liquid-glass-input px-3 py-2 text-slate-950 dark:text-white" placeholder="What searchers should know">${esc(description)}</textarea></label>
+    <div class="space-y-2">${checks.map(row => wsDiscoveryCheck(...row)).join('')}</div>
+    <button type="button" onclick="wsTab('discoverability')" class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2.5 text-xs font-black">Open full evidence &amp; Copilot</button>
+  </div>`;
+}
+
 function renderWsRightInspectorContent() {
+  if (__wsInspectorTab === 'discoverability') return renderWsDiscoverabilityInspector();
   const c = __siteCfg?.content || {};
   if (__wsSelectedSecIdx === -1) {
     return `
@@ -2786,11 +2839,6 @@ function renderWsRightInspectorContent() {
             <option value="right" ${sec.settings?.align === 'right' ? 'selected' : ''}>Right Aligned</option>
           </select>
         </div>
-      </div>
-    `;
-  } else if (__wsInspectorTab === 'advanced') {
-    return `
-      <div class="space-y-4 text-xs">
         <div class="p-3 rounded-xl liquid-glass-card space-y-2">
           <div class="font-black text-slate-950 dark:text-white">Device Visibility</div>
           <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-800 dark:text-slate-200"><input type="checkbox" ${sec.settings?.hide_desktop ? '' : 'checked'} onchange="setSec(${i},'hide_desktop',!this.checked)" class="accent-indigo-600"> Show on Desktop</label>
@@ -3117,6 +3165,104 @@ function openWebsiteTemplatePreview(id) {
 }
 window.openWebsiteTemplatePreview = openWebsiteTemplatePreview;
 
+let __wsDiscoveryData = null;
+
+function wsDiscoverability() {
+  return `<div class="website-studio-view space-y-5"><div class="flex items-start justify-between gap-4 flex-wrap"><div><h2 class="text-xl font-black text-slate-950 dark:text-white">Discoverability</h2><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Deterministic website checks, measured search evidence, and governed recommendations.</p></div><button type="button" onclick="loadWebsiteDiscoverability(true)" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">Refresh evidence</button></div><div id="ws-discoverability-root" class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 text-sm text-slate-500">Loading evidence…</div></div>`;
+}
+
+function wsDiscoveryCheck(label, status, detail) {
+  const tone = status === 'pass' ? 'text-emerald-600 bg-emerald-500/10 border-emerald-500/25' : status === 'fail' ? 'text-rose-600 bg-rose-500/10 border-rose-500/25' : 'text-slate-500 bg-slate-500/10 border-slate-500/20';
+  return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3"><div class="flex items-center justify-between gap-2"><span class="text-xs font-black text-slate-900 dark:text-white">${esc(label)}</span><span class="px-2 py-0.5 rounded-full border text-[9px] font-black uppercase ${tone}">${esc(status)}</span></div><p class="mt-1.5 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">${esc(detail)}</p></div>`;
+}
+
+function wsDiscoveryChecks(data = {}) {
+  const contract = data.overview?.pillars?.websiteBuilder || {};
+  const issues = contract.issues || [];
+  const has = name => issues.some(item => item.contract === name);
+  const live = data.overview?.pillars?.livePublicWebsite || {};
+  const validationIssues = data.overview?.pillars?.validation?.issues || [];
+  const search = data.search || {};
+  const geo = data.aiEvidence?.benchmark || {};
+  const geoRecords = geo.records || [];
+  const geoEvidenceType = geo.run?.evidence_type || geoRecords[0]?.evidenceType || null;
+  const geoMeasured = geoRecords.length > 0 && geoEvidenceType !== 'synthetic_test';
+  const geoVisible = geoMeasured && geoRecords.some(item => item.dealershipMentioned === true || item.dealershipCited === true);
+  const schemaMeasured = live.status === 'completed';
+  const linkFindings = validationIssues.filter(item => /link/i.test(`${item.contract || ''} ${item.title || ''}`));
+  return [
+    ['Title', has('seo-title') || has('page-title') ? 'fail' : 'pass', has('seo-title') ? 'One or more pages are missing an SEO title.' : 'Draft page titles satisfy the Website contract.'],
+    ['Meta', has('seo-description') ? 'fail' : 'pass', has('seo-description') ? 'One or more pages are missing a meta description.' : 'Draft meta descriptions satisfy the Website contract.'],
+    ['H1', has('heading-hierarchy') ? 'fail' : 'pass', has('heading-hierarchy') ? 'A page is missing a primary hero or H1.' : 'Every checked draft page has a primary topic heading.'],
+    ['Canonical', __siteCfg?.site_slug ? 'pass' : 'unknown', __siteCfg?.site_slug ? `Canonical site address is ${__siteCfg.site_slug}.` : 'A canonical site address has not been assigned.'],
+    ['Schema', schemaMeasured ? (validationIssues.some(item => /schema/i.test(`${item.contract || ''} ${item.title || ''}`)) ? 'fail' : 'pass') : 'unknown', schemaMeasured ? 'Based on the latest public rendered-page validation.' : 'No public rendered-page schema measurement is available.'],
+    ['Crawlability', live.status === 'completed' ? 'pass' : live.status === 'failed' ? 'fail' : 'unknown', live.status === 'completed' ? `${live.pageCount || 0} public page response${live.pageCount === 1 ? '' : 's'} observed.` : 'Run a public crawl before claiming crawlability.'],
+    ['Internal links', linkFindings.length ? 'fail' : schemaMeasured ? 'pass' : 'unknown', linkFindings.length ? `${linkFindings.length} observed link finding${linkFindings.length === 1 ? '' : 's'}.` : schemaMeasured ? 'No link finding in the measured public crawl.' : 'Internal links have not been measured on the public site.'],
+    ['Search opportunity', (search.opportunities || []).length ? 'pass' : 'unknown', (search.opportunities || []).length ? `${search.opportunities.length} persisted Search Console opportunit${search.opportunities.length === 1 ? 'y' : 'ies'}.` : 'No measured search opportunity is available.'],
+    ['AI visibility', geoMeasured ? (geoVisible ? 'pass' : 'fail') : 'unknown', geoMeasured ? (geoVisible ? 'Measured provider evidence includes a dealership mention or citation.' : 'Measured provider evidence includes no dealership mention or citation.') : geoEvidenceType === 'synthetic_test' ? 'Synthetic lab evidence remains separate from organic AI visibility.' : 'No measured AI citation evidence is available; readiness is not visibility.'],
+  ];
+}
+
+function renderWebsiteDiscoverability() {
+  const root = document.getElementById('ws-discoverability-root'); if (!root) return;
+  const data = __wsDiscoveryData;
+  if (!data) { root.innerHTML = 'Loading evidence…'; return; }
+  if (data.error) { root.innerHTML = `<div class="text-rose-600 font-bold">${esc(data.error)}</div>`; return; }
+  const overview = data.overview || {};
+  if (overview.entitled === false) { root.innerHTML = `<div class="text-sm text-slate-600 dark:text-slate-300">${esc(overview.message || 'Discoverability is not enabled for this account.')}</div>`; return; }
+  const actionPlan = data.actions?.actionPlan || {};
+  const persistedRecs = [...(actionPlan.quickWins?.recommendations || []), ...(actionPlan.needsReview?.recommendations || []), ...(actionPlan.manual?.recommendations || [])];
+  const recs = persistedRecs.length ? persistedRecs : (overview.recommendations || []).map(rec => ({ ...rec, _displayOnly: true }));
+  const checkRows = wsDiscoveryChecks(data);
+  const score = overview.pillars?.websiteBuilder?.score;
+  const scoreLabel = score == null ? 'Not measured' : `${score}/100`;
+  const searchRun = data.search?.run;
+  const searchMeasured = searchRun && ['measured', 'completed', 'success', 'succeeded'].includes(String(searchRun.status || '').toLowerCase());
+  const searchStatus = searchMeasured ? `Measured · ${searchRun.provider || 'search provider'}` : searchRun ? `Not measured · ${searchRun.status || 'incomplete sync'}` : 'Not connected';
+  const benchmark = data.aiEvidence?.benchmark;
+  const benchmarkRecords = benchmark?.records || [];
+  const benchmarkEvidenceType = benchmark?.run?.evidence_type || benchmarkRecords[0]?.evidenceType || null;
+  const aiStatus = benchmarkEvidenceType === 'synthetic_test' ? 'Synthetic lab only' : benchmarkRecords.length ? 'Measured provider evidence' : 'Not measured';
+  root.innerHTML = `<div class="space-y-6">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">${[['Website contract',scoreLabel],['Open actions',actionPlan.summary?.totalOpen ?? recs.filter(r => r.status === 'open').length],['Search evidence',searchStatus],['AI evidence',aiStatus]].map(([label,value]) => `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4"><div class="text-[10px] uppercase tracking-wider font-black text-slate-400">${esc(label)}</div><div class="mt-1 text-sm font-black text-slate-950 dark:text-white">${esc(String(value))}</div></div>`).join('')}</div>
+    <section><div class="flex items-center justify-between gap-3 flex-wrap"><div><h3 class="font-black text-slate-950 dark:text-white">Page and evidence checks</h3><p class="text-xs text-slate-500">Unknown stays unknown until a public or provider measurement exists.</p></div></div><div class="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">${checkRows.map(row => wsDiscoveryCheck(...row)).join('')}</div></section>
+    <section class="rounded-2xl border border-slate-200 dark:border-slate-800 p-5"><div class="flex items-start justify-between gap-3 flex-wrap"><div><h3 class="font-black text-slate-950 dark:text-white">Recommendations</h3><p class="mt-1 text-xs text-slate-500">Deterministic findings remain authoritative. Approval-required work is never auto-applied.</p></div>${actionPlan.quickWins?.count ? `<button type="button" onclick="wsApplyAllSafeDiscoverability(this)" class="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black">Apply ${actionPlan.quickWins.count} safe fix${actionPlan.quickWins.count === 1 ? '' : 'es'}</button>` : ''}</div><div class="mt-4 space-y-2">${recs.length ? recs.slice(0,8).map(rec => `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3 flex items-start justify-between gap-3"><div><div class="flex gap-2 flex-wrap"><span class="text-xs font-black text-slate-950 dark:text-white">${esc(rec.title || rec.summary || 'Recommendation')}</span><span class="text-[9px] uppercase font-black text-slate-400">${esc(rec.execution_class || 'manual')}</span></div><p class="mt-1 text-[11px] text-slate-500">${esc(rec.why_it_matters || rec.summary || rec.evidence || 'Evidence is available in the recommendation detail.')}</p></div><div class="shrink-0">${rec._displayOnly ? '<span class="text-[10px] font-black text-slate-400">Finding only</span>' : rec.execution_class === 'auto_fixable' ? `<button type="button" onclick="wsApplyDiscoveryRecommendation('${esc(rec.id)}',this)" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[11px] font-black">Apply safe fix</button>` : rec.execution_class === 'approval_required' ? `<button type="button" onclick="wsApproveDiscoveryRecommendation('${esc(rec.id)}',this)" class="px-3 py-1.5 rounded-lg border border-amber-400/50 text-amber-700 dark:text-amber-300 text-[11px] font-black">Approve for execution</button>` : '<span class="text-[10px] font-black text-slate-400">Manual review</span>'}</div></div>`).join('') : '<div class="py-5 text-center text-xs text-slate-500">No open evidence-backed recommendations.</div>'}</div></section>
+    <section class="rounded-2xl border border-indigo-500/25 bg-indigo-500/5 p-5"><div class="flex items-start justify-between gap-3 flex-wrap"><div><div class="text-[10px] uppercase tracking-wider font-black text-indigo-600">Discoverability Copilot</div><h3 class="mt-1 font-black text-slate-950 dark:text-white">Ask for an evidence-backed explanation</h3><p class="mt-1 text-xs text-slate-500">Copilot explains, prioritizes, and proposes. It does not invent rankings or publish changes.</p></div><button type="button" onclick="wsAskDiscoverabilityCopilot('What should I fix first?',this)" class="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black">Improve with AI</button></div><div class="mt-4 flex gap-2"><input id="ws-discovery-question" class="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm" placeholder="Why did visibility fall?"><button type="button" onclick="wsAskDiscoverabilityCopilot(document.getElementById('ws-discovery-question').value,this)" class="px-4 py-2 rounded-xl border border-indigo-500/40 text-indigo-700 dark:text-indigo-300 text-xs font-black">Ask</button></div><div class="mt-3 flex flex-wrap gap-2">${['Why did visibility fall?','Which pages have the biggest opportunity?','Why is Google not indexing these vehicles?','What can MarketSync safely fix automatically?','What page or content should be created next?'].map(q => `<button type="button" onclick="wsAskDiscoverabilityCopilot('${q}',this)" class="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">${q}</button>`).join('')}</div><div id="ws-discovery-copilot-answer" class="mt-4 text-sm text-slate-600 dark:text-slate-300"></div></section>
+  </div>`;
+}
+
+async function loadWebsiteDiscoverability(force = false) {
+  const root = document.getElementById('ws-discoverability-root'); if (!root) return;
+  if (__wsDiscoveryData && !force) { renderWebsiteDiscoverability(); return; }
+  root.innerHTML = '<div class="py-8 text-center text-sm text-slate-400">Loading measured and deterministic evidence…</div>';
+  try {
+    const [overview, actions, search, aiEvidence] = await Promise.all([
+      apiGetJson('/discoverability/overview'),
+      apiGetJson('/discoverability/dashboard/actions').catch(() => ({ actionPlan: null })),
+      apiGetJson('/discoverability/search/overview').catch(() => ({ run: null, opportunities: [] })),
+      apiGetJson('/discoverability/geo/benchmark/latest').catch(() => ({ benchmark: { status: 'not_measured', records: [] } })),
+    ]);
+    __wsDiscoveryData = { overview, actions, search, aiEvidence };
+    renderWebsiteDiscoverability();
+  } catch (e) { __wsDiscoveryData = { error: e.message || 'Discoverability evidence could not load.' }; renderWebsiteDiscoverability(); }
+}
+
+async function wsAskDiscoverabilityCopilot(question, btn) {
+  const target = document.getElementById('ws-discovery-copilot-answer'); if (!target || !String(question || '').trim()) return;
+  const original = btn?.textContent || ''; if (btn) { btn.disabled = true; btn.textContent = 'Checking evidence…'; }
+  target.innerHTML = '<span class="text-slate-400">Checking canonical evidence…</span>';
+  try {
+    const result = await apiSendJson('/discoverability/copilot', 'POST', { question: String(question).slice(0, 500) });
+    target.innerHTML = `<div class="rounded-xl border border-indigo-500/20 bg-white dark:bg-slate-950 p-4"><p class="font-semibold text-slate-900 dark:text-white">${esc(result.answer || 'No evidence-backed answer is available.')}</p>${result.evidence?.length ? `<div class="mt-3 space-y-1"><div class="text-[10px] uppercase tracking-wider font-black text-slate-400">Evidence</div>${result.evidence.map(item => `<div class="text-[11px] text-slate-500">${esc(item.source)} · ${esc(item.summary)}</div>`).join('')}</div>` : ''}${result.limitations?.length ? `<div class="mt-3 text-[11px] text-amber-700 dark:text-amber-300">${result.limitations.map(esc).join(' ')}</div>` : ''}</div>`;
+  } catch (e) { target.innerHTML = `<div class="text-rose-600 font-bold">${esc(e.message || 'Copilot could not read the evidence.')}</div>`; }
+  finally { if (btn) { btn.disabled = false; btn.textContent = original; } }
+}
+
+async function wsApplyDiscoveryRecommendation(id, btn) { const original = btn?.textContent || ''; if (btn) { btn.disabled = true; btn.textContent = 'Applying…'; } try { await apiSendJson(`/discoverability/recommendations/${encodeURIComponent(id)}/apply`, 'POST', {}); __wsDiscoveryData = null; await loadWebsiteDiscoverability(true); showToast('Safe recommendation applied and logged', 'success'); } catch (e) { showToast(e.message || 'Recommendation could not be applied', 'error'); if (btn) { btn.disabled = false; btn.textContent = original; } } }
+async function wsApproveDiscoveryRecommendation(id, btn) { const original = btn?.textContent || ''; if (btn) { btn.disabled = true; btn.textContent = 'Approving…'; } try { await apiSendJson(`/discoverability/recommendations/${encodeURIComponent(id)}/approve`, 'POST', { notes: 'Approved in Website Studio' }); __wsDiscoveryData = null; await loadWebsiteDiscoverability(true); showToast('Recommendation approved for controlled execution', 'success'); } catch (e) { showToast(e.message || 'Recommendation could not be approved', 'error'); if (btn) { btn.disabled = false; btn.textContent = original; } } }
+async function wsApplyAllSafeDiscoverability(btn) { if (!confirm('Apply every recommendation currently classified as low-risk, auto-fixable, and high-confidence?')) return; const original = btn?.textContent || ''; btn.disabled = true; btn.textContent = 'Applying safe fixes…'; try { await apiSendJson('/discoverability/recommendations/apply-all-safe', 'POST', {}); __wsDiscoveryData = null; await loadWebsiteDiscoverability(true); showToast('Safe recommendation batch completed', 'success'); } catch (e) { btn.disabled = false; btn.textContent = original; showToast(e.message || 'Safe batch could not be applied', 'error'); } }
+Object.assign(window, { loadWebsiteDiscoverability, wsAskDiscoverabilityCopilot, wsApplyDiscoveryRecommendation, wsApproveDiscoveryRecommendation, wsApplyAllSafeDiscoverability });
+
 function renderWsBody() {
   const body = document.getElementById('ws-body'); if (!body) return;
 
@@ -3136,8 +3282,8 @@ function renderWsBody() {
     return;
   }
   if (__wsTab === 'discoverability') {
-    body.innerHTML = wsSeo();
-    loadDealerSeo();
+    body.innerHTML = wsDiscoverability();
+    loadWebsiteDiscoverability();
     return;
   }
   if (__wsTab === 'blog') {
