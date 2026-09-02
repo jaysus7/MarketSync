@@ -104,12 +104,17 @@ html[data-ms-glass="global"] body {
   background: var(--ms-glass-canvas) !important;
   background-attachment: fixed;
 }
+html[data-ms-glass="global"] {
+  --ms-chrome-surface: var(--ms-glass-light);
+  --ms-chrome-line: var(--ms-glass-line);
+  --ms-chrome-shadow: var(--ms-glass-shadow);
+}
 /* Global glass effect is restricted to named architectural elements only.
    Do NOT apply to generic divs/sections/forms — these should use explicit material classes. */
-html[data-ms-glass="global"] :is(#dashboard-nav,#dept-tabbar,.ms-app-shell,.ms-glass-target,.ms-glass-nav,.ms-glass-floating,.ms-glass-modal) {
-  background: var(--ms-glass-light) !important;
-  border-color: var(--ms-glass-line) !important;
-  box-shadow: var(--ms-glass-shadow);
+html[data-ms-glass="global"] :is(body > header.ms-chrome-glass,#dashboard-nav,#dept-sidebar,#dept-tabbar,.ms-app-shell,.ms-glass-target,.ms-glass-nav,.ms-glass-floating,.ms-glass-modal) {
+  background: var(--ms-chrome-surface) !important;
+  border-color: var(--ms-chrome-line) !important;
+  box-shadow: var(--ms-chrome-shadow);
   backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
   -webkit-backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
 }
@@ -129,13 +134,9 @@ html[data-ms-glass="global"] :is(input,select,textarea) {
 html[data-ms-glass="global"] :is(button,a).bg-white { background: rgba(255,255,255,.88) !important; }
 html[data-ms-glass="global"].dark {
   --ms-glass-canvas: radial-gradient(circle at 8% 0%, rgba(22, 132, 190, .26), transparent 34%), radial-gradient(circle at 92% 8%, rgba(85, 64, 190, .24), transparent 36%), linear-gradient(135deg, #071426 0%, #0b1830 52%, #071d25 100%);
-}
-html[data-ms-glass="global"].dark :is(#dashboard-nav,#dept-tabbar,.ms-app-shell,.ms-glass-target,.ms-glass-nav,.ms-glass-floating,.ms-glass-modal) {
-  background: var(--ms-glass-dark) !important;
-  border-color: var(--ms-glass-line-dark) !important;
-  box-shadow: var(--ms-glass-shadow-dark);
-  backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
-  -webkit-backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
+  --ms-chrome-surface: var(--ms-glass-dark);
+  --ms-chrome-line: var(--ms-glass-line-dark);
+  --ms-chrome-shadow: var(--ms-glass-shadow-dark);
 }
 html[data-ms-glass="global"].dark :is(.ms-surface,.ms-surface-raised,.ms-inspector-panel,#ws-inspector-panel,form) {
   background: var(--ms-glass-dark-strong) !important;
@@ -145,26 +146,18 @@ html[data-ms-glass="global"].dark :is(.ms-surface,.ms-surface-raised,.ms-inspect
 }
 html[data-ms-glass="global"].dark :is(input,select,textarea) { background: rgba(7,20,38,.88) !important; color: #f8fafc !important; border-color: rgba(148,190,230,.3) !important; backdrop-filter: none !important; }
 
-/* MarketSync's dark dashboard has intentionally dark semantic surfaces even
- * when its markup still carries light utility classes. Keep the glass layer
- * translucent without repainting cards white and destroying text contrast. */
-html[data-ms-glass="global"][data-dash-mode="marketsync"] body {
-  background: radial-gradient(circle at 8% 0%, rgba(22,132,190,.26), transparent 34%), radial-gradient(circle at 92% 8%, rgba(85,64,190,.24), transparent 36%), linear-gradient(135deg, #071426 0%, #0b1830 52%, #071d25 100%) !important;
+/* MarketSync HQ uses the same light navigation material in both OS themes.
+ * Content still follows light/dark mode; only navigation chrome is pinned. */
+html[data-ms-glass="global"][data-dash-owner="1"][data-dash-mode="marketsync"] {
+  --ms-chrome-surface: rgba(255,255,255,.94);
+  --ms-chrome-line: rgba(148,163,184,.34);
+  --ms-chrome-shadow: 0 14px 36px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.82);
 }
-html[data-ms-glass="global"][data-dash-mode="marketsync"] :is(#dashboard-nav,#dept-tabbar,.ms-app-shell,.ms-glass-target),
-html[data-ms-glass="global"][data-dash-mode="marketsync"] :is(div,section,article,aside,form,details,header,footer,nav).rounded-xl.bg-white,
-html[data-ms-glass="global"][data-dash-mode="marketsync"] :is(div,section,article,aside,form,details,header,footer,nav).rounded-2xl.bg-white,
-html[data-ms-glass="global"][data-dash-mode="marketsync"] :is(div,section,article,aside,form,details,header,footer,nav).dark\:bg-slate-900 {
-  background: rgba(9,20,39,.58) !important;
-  border-color: var(--ms-glass-line-dark) !important;
-  box-shadow: var(--ms-glass-shadow-dark);
-  backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
-  -webkit-backdrop-filter: blur(var(--ms-glass-blur)) saturate(var(--ms-glass-saturation));
+html[data-ms-glass="global"][data-dash-owner="1"][data-dash-mode="marketsync"] :is(body > header.ms-chrome-glass,#dashboard-nav,#dept-sidebar,#dept-tabbar) {
+  color: #0f172a;
 }
-html[data-ms-glass="global"][data-dash-mode="marketsync"] :is(input,select,textarea) {
-  background: rgba(7,20,38,.78) !important;
-  color: #f8fafc !important;
-  border-color: rgba(148,190,230,.3) !important;
+html[data-ms-glass="global"][data-dash-owner="1"][data-dash-mode="marketsync"] :is(#dashboard-nav,#dept-sidebar) .dept-nav-item {
+  color: #334155;
 }
 
 /* Builder-specific inheritance: all existing hard-coded panel utilities become

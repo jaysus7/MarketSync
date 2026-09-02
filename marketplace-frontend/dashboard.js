@@ -1535,26 +1535,20 @@ function applyMobileQuickRow() {
 window.applyMobileQuickRow = applyMobileQuickRow;
 
 function marketsyncInternalNavPages() {
-  // The first FOUR are the bottom quick row (Pulse / Customers / Money / Work).
-  // The rest populate the "More" sheet so every operating destination is one
-  // tap away — mobile HQ has to feel like the same product as desktop HQ.
-  return [
-    { page: 'saas-command', label: 'Pulse', icon: 'chart' },
-    { page: 'saas-customers', label: 'Accounts', icon: 'building' },
-    { page: 'saas-accounting', label: 'Money', icon: 'dollar' },
-    { page: 'saas-followups', label: 'Work', icon: 'check' },
-    { page: 'saas-billing', label: 'Billing', icon: 'currency' },
-    { page: 'saas-trials', label: 'Trials', icon: 'calendar' },
-    { page: 'saas-affiliates', label: 'Affiliates', icon: 'trophy' },
-    { page: 'saas-product-usage', label: 'Usage', icon: 'chart' },
-    { page: 'saas-automation', label: 'Automation', icon: 'chat' },
-    { page: 'saas-funnel', label: 'Leads', icon: 'funnel' },
-    { page: 'saas-employees', label: 'People', icon: 'users' },
-    { page: 'saas-onboarding', label: 'Onboarding', icon: 'check' },
-    { page: 'saas-announcements', label: 'Announcements', icon: 'bolt' },
-    { page: 'saas-intelligence', label: 'Intelligence', icon: 'bolt' },
-    { page: 'saas-health', label: 'Health', icon: 'bolt' },
-  ];
+  // HQ desktop and mobile consume one registry. Department homes lead the quick
+  // row; remaining pages populate More in the same order as the desktop groups.
+  const registry = window.SAAS_DEPARTMENTS || {};
+  const groups = Object.values(registry);
+  const homePages = groups.map(group => ({
+    ...(group.pages?.[0] || {}),
+    label: group.label,
+    icon: group.icon,
+  })).filter(item => item.page);
+  const childPages = groups.flatMap(group => (group.pages || []).slice(1).map(item => ({
+    ...item,
+    icon: group.icon,
+  })));
+  return [...homePages, ...childPages];
 }
 window.marketsyncInternalNavPages = marketsyncInternalNavPages;
 

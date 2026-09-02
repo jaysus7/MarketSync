@@ -30,7 +30,7 @@
   <link rel="stylesheet" href="css/tailwind-built.css?v=20260825_header_spacing_v1">
   <link rel="stylesheet" href="css/ms-phase3-global.css?v=20260827_p4_v1">
   <link rel="stylesheet" href="css/ms-phase4-routes.css?v=20260827_p4_s3">
-  <link rel="stylesheet" href="css/ms-liquid-glass.css?v=20260828_global_v3">
+  <link rel="stylesheet" href="css/ms-liquid-glass.css?v=20260901_hq_material_v1">
   <link rel="stylesheet" href="css/ms-design-system.css?v=20260826_b1_v1">
   <meta name="color-scheme" content="light dark">
   <!-- Chart.js / QR / WebAuthn load on demand via msLoadScript — they blocked first paint when in <head>. -->
@@ -238,79 +238,11 @@
        to slate-200 if the token is missing (older glass builds without it). */
     :root{--ms-ring-track:#e2e8f0}
     .dark{--ms-ring-track:#1e293b}
-    /* Chrome (top bar + sidebars) is ALWAYS light — regardless of the .dark
-       class on <html>. Line-19 script auto-toggles .dark from the OS pref,
-       so a plain rule with lower specificity than
-       `marketsync-theme.css: .dark #dept-sidebar {background:var(--ms-surface-solid)}`
-       (1,1,0) got clobbered on macOS/iOS Night Shift. Doubling the ID in the
-       selector lifts the specificity to (2,0,0) which beats every existing
-       chrome-painting rule in both themes.
-
-       Also disables backdrop-filter — the translucent rgba(...,0.72) from
-       ms-phase3-global.css was mixing with the body colour underneath and
-       reading muddy. Solid #ffffff kills that mixing entirely.
-
-       Icons + text inside the chrome are pinned to slate-900 so they read
-       against the white surface, again even when .dark is set on <html>. */
-    /* Header uses a THIRD class chain because
-       `html.dark header.ms-chrome-glass` in ms-phase3-global.css is (0,2,2)
-       and beats my earlier doubled-class (0,2,1). Triple-class lifts it to
-       (0,3,1) which wins. All ID-selected chrome (dashboard-nav, dept-nav,
-       dept-sidebar, dept-tabbar) uses doubled IDs = (2,0,0) which beats
-       every existing rule in both themes. */
     /* HQ owner mode: keep the top header (user asked for the colour only),
        but kill the workspace tab-bar since the sidebar now flattens every
        HQ page as a directly-clickable entry — no need to drill through
        tabs. Dealer mode is untouched. */
     html[data-dash-owner="1"] #dept-tabbar{display:none!important}
-    header.ms-chrome-glass.ms-chrome-glass.ms-chrome-glass,
-    #dashboard-nav#dashboard-nav,
-    #dept-nav#dept-nav,
-    #dept-sidebar#dept-sidebar,
-    #dept-tabbar#dept-tabbar{
-      background:#ffffff!important;
-      background-color:#ffffff!important;
-      background-image:none!important;
-      color:#0f172a!important;
-      backdrop-filter:none!important;
-      -webkit-backdrop-filter:none!important;
-      border-color:#e2e8f0!important;
-      box-shadow:0 1px 2px rgba(15,23,42,.04)!important;
-    }
-    html body header.ms-chrome-glass *,
-    html body #dashboard-nav *,
-    html body #dept-nav *,
-    html body #dept-sidebar *{
-      /* only override text tokens — leave utility bg/border classes intact
-         so buttons, active-state pills and coloured icons still show. */
-      --tw-text-opacity:1;
-    }
-    html body header.ms-chrome-glass a,
-    html body header.ms-chrome-glass button,
-    html body header.ms-chrome-glass span,
-    html body #dashboard-nav a,
-    html body #dashboard-nav button,
-    html body #dashboard-nav span,
-    html body #dept-nav a,
-    html body #dept-nav button,
-    html body #dept-nav span{color:inherit}
-    /* Restore the intentional coloured icons (violet, sky, emerald, etc.) so
-       we don't paint everything monochrome. Icons carry their own text-* class
-       already; this rule just makes sure that class wins over the inherit. */
-    html body header.ms-chrome-glass svg[class*="text-"],
-    html body #dashboard-nav svg[class*="text-"],
-    html body #dept-nav svg[class*="text-"]{color:revert}
-    /* Mobile nav on HQ: `#dashboard-nav` uses `bg-white dark:bg-slate-900`
-       Tailwind utilities but on tenants with `data-ms-glass="global"` the
-       .ms-glass surface token (rgba .85) can bleed through and read as a
-       translucent bar sitting on top of the header art. Force it opaque
-       below md so icons + labels stay crisp. `#mobile-quickrow-dyn` uses
-       `display:contents` and cannot paint a background — it should not have
-       one — so the rule targets the parent nav instead. */
-    @media (max-width: 767px){
-      #dashboard-nav{background-color:#ffffff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border-color:#e2e8f0!important}
-      .dark #dashboard-nav{background-color:#0b1220!important;border-color:#1e293b!important}
-    }
     /* Customer 360 drawer + HQ modal windows: opaque backgrounds so the
        Liquid-Glass semi-transparent surface token doesn't make the drawer
        body read as dim/muddy over the page underneath (the screenshot bug
@@ -2001,28 +1933,12 @@
         <div id="saas-accounting-root"></div>
       </div>
 
-      <div data-page-content="saas-billing" class="page-content hidden space-y-6">
-        <div id="saas-billing-root"></div>
-      </div>
-
       <div data-page-content="saas-affiliates" class="page-content hidden space-y-6">
         <div id="saas-affiliates-root"></div>
       </div>
 
       <div data-page-content="saas-product-usage" class="page-content hidden space-y-6">
         <div id="saas-product-usage-root"></div>
-      </div>
-
-      <div data-page-content="saas-health" class="page-content hidden space-y-6">
-        <div id="saas-health-root"></div>
-      </div>
-
-      <div data-page-content="saas-trials" class="page-content hidden space-y-6">
-        <div id="saas-trials-root"></div>
-      </div>
-
-      <div data-page-content="saas-onboarding" class="page-content hidden space-y-6">
-        <div id="saas-onboarding-root"></div>
       </div>
 
       <div data-page-content="saas-announcements" class="page-content hidden space-y-6">
@@ -4320,8 +4236,8 @@
   <!-- Workspace registry: SINGLE SOURCE OF TRUTH for sidebar, workspace tabs and
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
   <script src="js/modules/workspace-registry.js?v=20260824_inventory_accuracy_v1"></script>
-  <script src="dashboard.js?v=20260901_hq_chrome_v1"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260901_hq_marketing_v1"></script>
+  <script src="dashboard.js?v=20260901_hq_nav_v1"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260901_hq_nav_v1"></script>
   <script src="js/modules/dashboard-part3.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part4.js?v=20260827_p4_crm_v1"></script>
   <script src="js/modules/dashboard-part5.js?v=20260826_hq_menu_v1"></script>

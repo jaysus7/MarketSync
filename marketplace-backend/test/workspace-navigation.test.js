@@ -59,18 +59,9 @@ const EXPECTED_WORKSPACES = [
 
 test('MarketSync Internal OS uses the approved company navigation in order', () => {
   const block = part2.match(/const SAAS_DEPARTMENTS = \{([\s\S]*?)\n\};/)?.[1] || ''
-  // Each department now collapses to a single page (Simplify remaining MarketSync
-  // departments), so several departments' one nested page reuses the department's
-  // own label verbatim (e.g. leads: { label: 'Leads', pages: [{ ..., label: 'Leads' }] }).
-  // The regex below matches every `label:` in the block, department-level and
-  // nested, so a department whose sole page repeats its name legitimately produces
-  // two consecutive identical matches. Collapsing consecutive duplicates preserves
-  // this test's real intent (department ORDER) without being fragile to that
-  // incidental repetition.
-  const rawLabels = [...block.matchAll(/^\s{2}[a-z]+:\s+\{ label: '([^']+)'/gm)].map(match => match[1])
-    .filter(label => ['Pulse', 'Accounts', 'Leads', 'Work', 'People', 'Communications', 'Money'].includes(label))
-  const labels = rawLabels.filter((label, i) => label !== rawLabels[i - 1])
-  assert.deepEqual(labels, ['Pulse', 'Accounts', 'Leads', 'Work', 'People', 'Communications', 'Money'])
+  const labels = [...block.matchAll(/^\s{2}[\w-]+:\s+\{ label: '([^']+)'/gm)].map(match => match[1])
+  assert.deepEqual(labels, ['Pulse', 'Customers', 'Sales', 'Subscriptions', 'People',
+    'Marketing', 'Finance', 'Affiliates', 'Operations', 'AI & Automation', 'Settings'])
   // Creative and website tools remain real routes, but are no longer primary
   // operating departments in the simplified Internal rail.
   for (const page of ['saas-email-marketing', 'saas-studio', 'saas-website']) {
@@ -513,9 +504,9 @@ test('mobile row still renders through shared gating and uses the focused HQ nav
   assert.match(dashboardJs, /msMobileNavForRole/, 'mobile row must consume the registry role map')
   assert.match(dashboardJs, /deptPageAllowed\(tab\)/, 'mobile entries must pass the same gates as desktop')
   assert.match(dashboardJs, /function marketsyncInternalNavPages\(\)/, 'MarketSync HQ must expose one shared mobile navigation source')
-  for (const label of ['Pulse', 'Accounts', 'Leads', 'Work', 'People', 'Communications', 'Money']) {
-    assert.match(dashboardJs, new RegExp(`label: '${label}'`), `MarketSync HQ mobile navigation must include ${label}`)
-  }
+  assert.match(dashboardJs, /window\.SAAS_DEPARTMENTS/, 'MarketSync HQ mobile navigation must consume the HQ registry')
+  assert.doesNotMatch(dashboardJs, /page:\s*'saas-command'[\s\S]{0,120}page:\s*'saas-customers'/,
+    'MarketSync HQ mobile navigation must not duplicate HQ destinations')
   assert.doesNotMatch(dashboardJs, /const hqWanted =/, 'HQ must not keep a second hard-coded mobile shortcut set')
 })
 

@@ -218,21 +218,34 @@ test('HQ desktop nav (SAAS_DEPARTMENTS) includes every Slice 2..5 page', async (
   }
 })
 
-test('HQ mobile nav includes every Slice-2..5 destination', async () => {
+test('HQ desktop nav uses the locked operating departments and shared icon registry', async () => {
+  const part2 = await readFile(
+    new URL('../../marketplace-frontend/js/modules/dashboard-part2.js', import.meta.url), 'utf8'
+  )
+  const block = part2.match(/const SAAS_DEPARTMENTS = \{[\s\S]*?^\};/m)?.[0] || ''
+  for (const label of ['Pulse', 'Customers', 'Sales', 'Subscriptions', 'People',
+                       'Marketing', 'Finance', 'Affiliates', 'Operations',
+                       'AI & Automation', 'Settings']) {
+    assert.match(block, new RegExp(`label: '${label.replace(/[&]/g, '\\&')}'`),
+      `HQ registry is missing ${label}`)
+  }
+  assert.match(part2, /window\.SAAS_DEPARTMENTS = SAAS_DEPARTMENTS/,
+    'mobile HQ navigation must consume the canonical desktop registry')
+  assert.match(part2, /svgIcon\(d\.icon/,
+    'HQ navigation icons must come from the shared SVG icon registry')
+})
+
+test('HQ mobile nav derives every destination from SAAS_DEPARTMENTS', async () => {
   const dashJs = await readFile(
     new URL('../../marketplace-frontend/dashboard.js', import.meta.url), 'utf8'
   )
   const mobileBlock = dashJs.match(/function marketsyncInternalNavPages\(\)[\s\S]*?^\}/m)
   assert.ok(mobileBlock, 'marketsyncInternalNavPages must exist')
-  // Every operating destination the sidebar exposes must also be reachable
-  // from the mobile bottom nav / "More" sheet. A missing entry means the
-  // phone silently loses the page.
-  for (const page of ['saas-billing', 'saas-trials', 'saas-affiliates',
-                       'saas-product-usage', 'saas-health', 'saas-onboarding',
-                       'saas-announcements', 'saas-intelligence']) {
-    assert.match(mobileBlock[0], new RegExp(`'${page}'`),
-      `mobile HQ nav is missing "${page}"`)
-  }
+  assert.match(mobileBlock[0], /window\.SAAS_DEPARTMENTS/)
+  assert.match(mobileBlock[0], /groups\.map/)
+  assert.match(mobileBlock[0], /groups\.flatMap/)
+  assert.doesNotMatch(mobileBlock[0], /page:\s*'saas-/,
+    'HQ mobile navigation must not duplicate the canonical page list')
 })
 
 test('Receipt + invoice OCR endpoints exist, gate on manage_followups, cap image size', async () => {
@@ -293,34 +306,34 @@ test('Money ring uses a themeable CSS token for the unfilled arc', async () => {
   assert.match(html, /\.dark\{--ms-ring-track:#1e293b\}/, 'dark theme must override ring track')
 })
 
-test('Header + sidebar chrome is ALWAYS light, regardless of OS dark mode', async () => {
+test('HQ chrome material stays light in either OS mode without specificity hacks', async () => {
+  const css = await readFile(
+    new URL('../../marketplace-frontend/css/ms-liquid-glass.css', import.meta.url), 'utf8'
+  )
   const html = await readFile(
     new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8'
   )
-  // Line-19 auto-adds .dark from prefers-color-scheme, so a split "light vs
-  // dark chrome" rule made the sidebar go slate-900 for anyone on macOS/iOS
-  // Night Shift — the exact "should not be dark" bug the screenshot showed.
-  // The design intent is a light chrome always; content can go dark
-  // independently. This rule pins #ffffff for chrome under both modes.
-  // The chrome selector must use DOUBLED IDs so its specificity (2,0,0)
-  // beats marketsync-theme.css's `.dark #dept-sidebar` (1,1,0). A plain
-  // `html body #dept-sidebar` (1,0,2) loses on class count and the sidebar
-  // turned dark on any OS with dark-mode preference — the exact regression
-  // the last screenshot showed.
-  assert.match(html,
-    /header\.ms-chrome-glass\.ms-chrome-glass\.ms-chrome-glass,[\s\S]{0,120}#dashboard-nav#dashboard-nav,[\s\S]{0,80}#dept-nav#dept-nav,[\s\S]{0,80}#dept-sidebar#dept-sidebar,[\s\S]{0,80}#dept-tabbar#dept-tabbar\{[\s\S]{0,400}background:#ffffff!important/,
-    'chrome must use triple-class for header + doubled-ID for every rail; #dept-tabbar included')
-  // A regression that puts .dark back into the chrome selector would
-  // reintroduce the OS-dark-mode bug. The test explicitly forbids it.
-  const chromeBlock = html.match(/header\.ms-chrome-glass\.ms-chrome-glass\.ms-chrome-glass,[\s\S]{0,900}background:#ffffff!important/)
-  assert.ok(chromeBlock, 'chrome block must exist')
-  assert.doesNotMatch(chromeBlock[0], /\.dark/,
-    'chrome selector must NOT branch on .dark — the OS dark auto-toggle would darken it')
-  // backdrop-filter must be disabled — the translucent surface mixing with
-  // the body colour is the whole source of the "too dark in light" complaint.
-  assert.match(html,
-    /header\.ms-chrome-glass\.ms-chrome-glass\.ms-chrome-glass,[\s\S]{0,900}backdrop-filter:none!important/,
-    'chrome fix must disable backdrop-filter to prevent Liquid-Glass mixing')
+  assert.match(css, /--ms-chrome-surface:\s*var\(--ms-glass-light\)/)
+  assert.match(css, /\.dark\s*\{[\s\S]{0,500}--ms-chrome-surface:\s*var\(--ms-glass-dark\)/)
+  assert.match(css,
+    /\[data-dash-owner="1"\]\[data-dash-mode="marketsync"\]\s*\{[\s\S]{0,260}--ms-chrome-surface:\s*rgba\(255,255,255,\.94\)/,
+    'HQ must override the semantic chrome token after the generic dark token')
+  assert.doesNotMatch(css,
+    /\[data-dash-mode="marketsync"\][\s\S]{0,500}:is\(div,section,article,aside,form/,
+    'MarketSync mode must not repaint every content panel as glass')
+  assert.doesNotMatch(html, /#dashboard-nav#dashboard-nav|ms-chrome-glass\.ms-chrome-glass/,
+    'the old doubled-ID/triple-class specificity patch must stay removed')
+})
+
+test('HQ page containers and render roots are unique', async () => {
+  const html = await readFile(
+    new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8'
+  )
+  const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(match => match[1])
+  const hqIds = ids.filter(id => /^saas-.*-root$/.test(id))
+  assert.equal(new Set(hqIds).size, hqIds.length, 'duplicate HQ root ids render into the wrong page')
+  const pages = [...html.matchAll(/<div\s+data-page-content="(saas-[^"]+)"/g)].map(match => match[1])
+  assert.equal(new Set(pages).size, pages.length, 'duplicate HQ page containers make multiple pages visible')
 })
 
 test('HQ page CSS block pins solid card + border tokens in both themes', async () => {

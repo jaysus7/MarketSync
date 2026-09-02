@@ -1655,53 +1655,60 @@ window.deptGo = deptGo;
 // silently invisible on desktop even if it exists in MS_ALLOWED_PAGES and has
 // its own page-content container.
 const SAAS_DEPARTMENTS = {
-  pulse:          { label: 'Pulse',          icon: 'chart',    accent: 'market', always: true, pages: [
+  pulse:          { label: 'Pulse',          icon: 'chart',     accent: 'market', always: true, pages: [
     { page: 'saas-command', label: 'Pulse' },
-    { page: 'saas-intelligence', label: 'HQ Intelligence' },
   ] },
-  accounts:       { label: 'Accounts',       icon: 'building', accent: 'market', always: true, pages: [
-    { page: 'saas-customers', label: 'Accounts' },
+  customers:      { label: 'Customers',      icon: 'building',  accent: 'market', always: true, pages: [
+    { page: 'saas-customers', label: 'Customers' },
     { page: 'saas-trials', label: 'Trials' },
-    { page: 'saas-onboarding', label: 'Staff Onboarding' },
   ] },
-  leads:          { label: 'Leads',          icon: 'funnel',   accent: 'market', always: true, pages: [
+  sales:          { label: 'Sales',          icon: 'funnel',    accent: 'market', always: true, pages: [
     { page: 'saas-funnel', label: 'Leads' },
-  ] },
-  work:           { label: 'Work',           icon: 'check',    accent: 'market', always: true, pages: [
     { page: 'saas-followups', label: 'Follow-ups' },
-    { page: 'saas-agents', label: 'AI Agent Hub' },
-    { page: 'saas-entitlements', label: 'Entitlements' },
-    { page: 'saas-flags', label: 'Feature flags' },
-    { page: 'saas-usage', label: 'Usage' },
-    { page: 'saas-product-usage', label: 'Product Usage' },
-    { page: 'saas-integrations', label: 'Integrations' },
-    { page: 'saas-audit', label: 'Audit log' },
-    { page: 'saas-security', label: 'Security' },
-    { page: 'saas-health', label: 'Platform Health' },
-    { page: 'config', label: 'Configuration' },
   ] },
-  people:         { label: 'People',         icon: 'users',    accent: 'market', always: true, pages: [
-    { page: 'saas-employees', label: 'People' },
+  subscriptions:  { label: 'Subscriptions',  icon: 'receipt',   accent: 'market', always: true, pages: [
+    { page: 'saas-billing', label: 'Overview & Invoices' },
+    { page: 'saas-entitlements', label: 'Entitlements' },
+    { page: 'saas-products', label: 'Product Catalog' },
+    { page: 'saas-product-usage', label: 'Product Usage' },
+  ] },
+  people:         { label: 'People',         icon: 'users',     accent: 'market', always: true, pages: [
+    { page: 'saas-employees', label: 'Staff' },
+    { page: 'saas-onboarding', label: 'Onboarding' },
     { page: 'owner-users', label: 'Accounts & access' },
     { page: 'saas-all-users', label: 'All Users' },
     { page: 'saas-roles', label: 'HQ Roles' },
   ] },
-  communications: { label: 'Communications', icon: 'chat',    accent: 'market', always: true, pages: [
-    { page: 'saas-automation', label: 'Email, SMS & Automations' },
-    { page: 'saas-email-marketing', label: 'Campaigns' },
-    { page: 'saas-announcements', label: 'Announcements' },
-  ] },
   marketing:      { label: 'Marketing',      icon: 'megaphone', accent: 'market', always: true, pages: [
+    { page: 'saas-email-marketing', label: 'Campaigns' },
     { page: 'saas-studio', label: 'Design Studio' },
     { page: 'saas-website', label: 'Website' },
+    { page: 'saas-announcements', label: 'Announcements' },
   ] },
-  money:          { label: 'Money',          icon: 'currency', accent: 'market', always: true, pages: [
-    { page: 'saas-accounting', label: 'Company money' },
-    { page: 'saas-billing', label: 'Billing' },
+  finance:        { label: 'Finance',        icon: 'currency',  accent: 'market', always: true, pages: [
+    { page: 'saas-accounting', label: 'Overview & Accounting' },
+  ] },
+  affiliates:     { label: 'Affiliates',     icon: 'trophy',    accent: 'market', always: true, pages: [
     { page: 'saas-affiliates', label: 'Affiliates' },
-    { page: 'saas-products', label: 'Product Catalog' },
+  ] },
+  operations:     { label: 'Operations',     icon: 'wrench',    accent: 'market', always: true, pages: [
+    { page: 'saas-health', label: 'Platform Health' },
+    { page: 'saas-integrations', label: 'Integrations' },
+    { page: 'saas-usage', label: 'Usage' },
+    { page: 'saas-audit', label: 'Audit Log' },
+    { page: 'saas-security', label: 'Security' },
+  ] },
+  intelligence:   { label: 'AI & Automation', icon: 'sparkles', accent: 'market', always: true, pages: [
+    { page: 'saas-automation', label: 'Automations' },
+    { page: 'saas-agents', label: 'AI Agent Hub' },
+    { page: 'saas-intelligence', label: 'HQ Intelligence' },
+  ] },
+  settings:       { label: 'Settings',       icon: 'shield',    accent: 'market', always: true, pages: [
+    { page: 'config', label: 'Settings' },
+    { page: 'saas-flags', label: 'Feature Flags' },
   ] },
 };
+window.SAAS_DEPARTMENTS = SAAS_DEPARTMENTS;
 let __deptNavBuilt = false;
 let __deptRegistry = DEPARTMENTS;   // which department set the flat nav is showing
 function marketsyncOwnerMode() {
@@ -2040,7 +2047,7 @@ function highlightDeptNav(pageId) {
   const deptId = (__activeDept && reg[__activeDept]?.pages.some(p => p.page === pageId)) ? __activeDept
                : Object.keys(reg).find(d => reg[d].pages.some(p => p.page === pageId));
   document.querySelectorAll('#dept-nav .dept-nav-item').forEach(b => {
-    const on = b.dataset.dept === deptId;
+    const on = b.dataset.dept === deptId || b.dataset.page === pageId;
     b.classList.toggle('bg-indigo-100', on); b.classList.toggle('dark:bg-indigo-950/50', on);
     b.classList.toggle('text-indigo-700', on); b.classList.toggle('dark:text-indigo-300', on);
     b.classList.toggle('text-slate-700', !on); b.classList.toggle('dark:text-slate-300', !on);
