@@ -773,9 +773,9 @@ export function registerMarketingStudio(app) {
         .eq('active', true)
         .order('created_at', { ascending: false })
 
-      const templates = [...(data || []), ...GLOBAL_TEMPLATES]
+      const templates = [...(data || []), ...STOCK_STUDIO_TEMPLATES]
       res.json({ templates })
-    } catch (e) { res.json({ templates: GLOBAL_TEMPLATES }) }
+    } catch (e) { res.json({ templates: STOCK_STUDIO_TEMPLATES }) }
   })
 
   // ── GIF Search Proxy ─────────────────────────────────────────────────────

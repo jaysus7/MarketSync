@@ -10,8 +10,20 @@ window.__studioAdapter = null;
 window.__studioActiveTool = 'templates';
 window.__studioCurrentDesign = null;
 window.__studioCurrentVehicle = null;
+window.__studioAppliedTemplateKey = null;
+window.__studioAppliedTemplateId = null;
+window.__studioWorkspaceTab = 'create';
 window.__studioZoomLevel = 0.55;
 window.__studioFitObserver = null;
+
+const DESIGN_STUDIO_TABS = [
+  ['create', 'Create', 'elements'],
+  ['templates', 'Templates', 'templates'],
+  ['projects', 'Projects', null],
+  ['brand', 'Brand', 'brand'],
+  ['media', 'Media', 'media'],
+  ['inventory', 'Inventory', 'inventory'],
+];
 
 const STUDIO_FREE_PHOTOS = [
   ['showroom', 'Modern dealership showroom', 'photo-1562141961-b5d64a7b61c0'],
@@ -244,6 +256,12 @@ function applyStudioZoom() {
 
 window.openMarketSyncStudio = async function(designId = null, initialOptions = {}) {
   window.__studioCurrentDesign = null;
+  window.__studioAppliedTemplateKey = null;
+  window.__studioAppliedTemplateId = null;
+  window.__studioWorkspaceTab = DESIGN_STUDIO_TABS.some(([id]) => id === initialOptions.tab) ? initialOptions.tab : 'create';
+  const initialTool = DESIGN_STUDIO_TABS.find(([id]) => id === window.__studioWorkspaceTab)?.[2];
+  if (initialTool) window.__studioActiveTool = initialTool;
+  await loadStudioTemplateCatalog().catch(() => null);
   let modal = document.getElementById('ms-studio-master-modal');
   if (!modal) {
     modal = document.createElement('div');
@@ -261,6 +279,8 @@ window.openMarketSyncStudio = async function(designId = null, initialOptions = {
       const res = await apiGetJson(`/marketing/studio/designs/${designId}`).catch(() => null);
       if (res?.design) {
         window.__studioCurrentDesign = res.design;
+        window.__studioAppliedTemplateKey = res.design.scene?.metadata?.source_template_key || null;
+        window.__studioAppliedTemplateId = res.design.template_id || null;
         scene = window.msStudioDocumentToScene ? window.msStudioDocumentToScene(res.design.scene || scene) : (res.design.scene || scene);
         designName = res.design.name || designName;
       }
@@ -286,6 +306,10 @@ window.openMarketSyncStudio = async function(designId = null, initialOptions = {
     document.addEventListener('keydown', studioKeydownHandler);
   }
 };
+
+function renderDesignStudioTabsHtml() {
+  return DESIGN_STUDIO_TABS.map(([id, label]) => `<button type="button" role="tab" data-design-studio-tab="${id}" aria-selected="${window.__studioWorkspaceTab === id}" onclick="setDesignStudioTab('${id}')" class="px-3.5 py-2 -mb-px whitespace-nowrap border-b-2 text-xs font-black transition ${window.__studioWorkspaceTab === id ? 'border-indigo-600 text-indigo-700 dark:text-indigo-300' : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'}">${label}</button>`).join('');
+}
 
 function studioRenderSaveState(state) {
   const el = document.getElementById('studio-save-status');
@@ -354,6 +378,10 @@ function renderStudioWorkspaceHtml(designName, scene) {
         <span id="studio-save-status" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-600 text-white dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-600 dark:border-emerald-500/40">SAVED</span>
       </div>
     </header>
+
+    <nav role="tablist" aria-label="Design Studio" class="h-11 px-4 flex items-end gap-1 overflow-x-auto bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+      ${renderDesignStudioTabsHtml()}
+    </nav>
 
     <!-- Toolbar layer -->
     <div class="h-14 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between gap-3">
@@ -699,6 +727,37 @@ Object.entries(STUDIO_SOCIAL_FORMATS).forEach(([formatKey, format], index) => {
   };
 });
 
+async function loadStudioTemplateCatalog(force = false) {
+  if (window.__studioTemplateCatalogLoaded && !force) return STUDIO_TEMPLATES_CATALOG;
+  const response = await apiGetJson('/marketing/studio/templates');
+  (response?.templates || []).forEach((template, index) => {
+    const key = String(template.template_key || template.id || '').trim();
+    if (!key || !template.scene || typeof template.scene !== 'object') return;
+    const scene = JSON.parse(JSON.stringify(template.scene));
+    (scene.elements || []).forEach(element => {
+      if (element.type === 'vehicle-image' && !element.src) element.src = STUDIO_FREE_PHOTOS[index % STUDIO_FREE_PHOTOS.length].url;
+    });
+    scene.format_key = scene.format_key || template.format_key || 'square';
+    // Dealership templates intentionally override a global template with the same
+    // key. Otherwise keep the richer in-bundle scene rather than replacing it with
+    // a lower-fidelity fallback copy returned by the API.
+    if (!STUDIO_TEMPLATES_CATALOG[key] || template.dealership_id) {
+      STUDIO_TEMPLATES_CATALOG[key] = {
+        ...template,
+        scene,
+        template_key: key,
+        template_id: template.id || null,
+        desc: template.description || `${template.category || 'Design'} · fully editable`,
+        width: Number(template.width || template.scene.width) || 1080,
+        height: Number(template.height || template.scene.height) || 1080,
+      };
+    }
+  });
+  window.__studioTemplateCatalogLoaded = true;
+  return STUDIO_TEMPLATES_CATALOG;
+}
+window.loadStudioTemplateCatalog = loadStudioTemplateCatalog;
+
 function renderStudioSafeGuides(formatKey) {
   const format = STUDIO_SOCIAL_FORMATS[formatKey] || STUDIO_SOCIAL_FORMATS.square;
   const [top, right, bottom, left] = format.safe;
@@ -738,11 +797,27 @@ function templatePreviewMarkup(tmpl) {
   return `<div class="studio-template-preview" style="aspect-ratio:${width}/${height};background:${escS(scene.background?.color || '#0f172a')};">${nodes}</div>`;
 }
 
+function previewStudioTemplate(templateKey) {
+  const template = STUDIO_TEMPLATES_CATALOG[templateKey];
+  if (!template) return;
+  const encodedKey = encodeURIComponent(templateKey);
+  const format = STUDIO_SOCIAL_FORMATS[template.format_key];
+  openStudioSheet(`Preview · ${template.name}`, `<div class="grid md:grid-cols-[minmax(0,1fr)_240px] gap-5"><div class="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-950">${templatePreviewMarkup(template)}</div><div class="space-y-4"><div><div class="text-[10px] uppercase tracking-wider font-black text-indigo-600">Editable template</div><h3 class="mt-1 text-lg font-black">${escS(template.name)}</h3><p class="mt-2 text-sm text-slate-500 dark:text-slate-400">${escS(template.desc || template.category || 'Design Studio template')}</p></div><div class="rounded-xl bg-slate-100 dark:bg-slate-950 p-3 text-xs text-slate-600 dark:text-slate-300"><div class="font-black">${Number(template.width || template.scene?.width) || 1080} × ${Number(template.height || template.scene?.height) || 1080}</div><div class="mt-1">${escS(format?.label || template.format_key || 'Custom format')}</div><div class="mt-1">All scene elements remain editable after use.</div></div><button type="button" onclick="applyStudioTemplate(decodeURIComponent('${encodedKey}'))" class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-3 text-sm font-black">Use this template</button><button type="button" onclick="document.getElementById('studio-action-sheet')?.remove()" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 px-4 py-2.5 text-xs font-bold">Cancel</button></div></div>`);
+}
+window.previewStudioTemplate = previewStudioTemplate;
+
+async function applyStudioTemplate(templateKey) {
+  document.getElementById('studio-action-sheet')?.remove();
+  await loadStudioTemplate(templateKey);
+}
+window.applyStudioTemplate = applyStudioTemplate;
+
 function renderStudioTemplateCards(filter = window.__studioTemplateFormat || 'all', category = window.__studioTemplateCategory || 'all', limit = window.__studioTemplateLimit || 24) {
   const matches = Object.values(STUDIO_TEMPLATES_CATALOG).filter(t => (filter === 'all' || t.format_key === filter) && (category === 'all' || t.category === category));
   const cards = matches.slice(0, limit).map(t => {
     const format = STUDIO_SOCIAL_FORMATS[t.format_key];
-    return `<button onclick="loadStudioTemplate('${t.template_key}')" class="w-full text-left rounded-2xl overflow-hidden bg-white border border-slate-200 hover:border-blue-500 hover:shadow-lg transition group"><div class="relative overflow-hidden bg-slate-950">${templatePreviewMarkup(t)}<span class="absolute left-2 top-2 px-2 py-1 rounded-lg bg-slate-950/80 text-[9px] font-black text-blue-100">${format ? `${format.w}×${format.h}` : 'READY'}</span></div><div class="p-3"><div class="text-xs font-black text-slate-900 group-hover:text-blue-600">${escS(t.name)}</div><div class="mt-1 text-[10px] text-slate-500">${escS(t.desc)}</div></div></button>`;
+    const encodedKey = encodeURIComponent(t.template_key);
+    return `<button onclick="previewStudioTemplate(decodeURIComponent('${encodedKey}'))" class="w-full text-left rounded-2xl overflow-hidden bg-white border border-slate-200 hover:border-blue-500 hover:shadow-lg transition group"><div class="relative overflow-hidden bg-slate-950">${templatePreviewMarkup(t)}<span class="absolute left-2 top-2 px-2 py-1 rounded-lg bg-slate-950/80 text-[9px] font-black text-blue-100">${format ? `${format.w}×${format.h}` : 'READY'}</span></div><div class="p-3"><div class="text-xs font-black text-slate-900 group-hover:text-blue-600">${escS(t.name)}</div><div class="mt-1 text-[10px] text-slate-500">${escS(t.desc)}</div><div class="mt-2 text-[10px] font-black text-indigo-600">Preview template →</div></div></button>`;
   }).join('');
   return cards + (matches.length > limit ? `<button type="button" onclick="loadMoreStudioTemplates()" class="w-full py-3 rounded-2xl border border-slate-300 dark:border-slate-700 text-xs font-black">Show more templates (${matches.length - limit})</button>` : '');
 }
@@ -1127,6 +1202,13 @@ window.studioCtxAction = studioCtxAction;
 
 function setStudioTool(tool) {
   window.__studioActiveTool = tool;
+  if (tool === 'templates') window.__studioWorkspaceTab = 'templates';
+  else if (tool === 'brand') window.__studioWorkspaceTab = 'brand';
+  else if (tool === 'inventory') window.__studioWorkspaceTab = 'inventory';
+  else if (['media', 'photos', 'videos', 'uploads', 'record'].includes(tool)) window.__studioWorkspaceTab = 'media';
+  else window.__studioWorkspaceTab = 'create';
+  const studioTabs = document.querySelector('[role="tablist"][aria-label="Design Studio"]');
+  if (studioTabs) studioTabs.innerHTML = renderDesignStudioTabsHtml();
   document.querySelectorAll('[data-studio-tool]').forEach(button => {
     button.setAttribute('aria-current', button.dataset.studioTool === tool ? 'page' : 'false');
   });
@@ -1140,6 +1222,43 @@ function setStudioTool(tool) {
   if (tool === 'text') setTimeout(loadStudioGoogleFonts, 0);
   if (tool === 'brand') setTimeout(loadStudioBrandKit, 0);
 }
+
+function setDesignStudioTab(tab) {
+  const definition = DESIGN_STUDIO_TABS.find(([id]) => id === tab);
+  if (!definition) return;
+  window.__studioWorkspaceTab = tab;
+  const studioTabs = document.querySelector('[role="tablist"][aria-label="Design Studio"]');
+  if (studioTabs) studioTabs.innerHTML = renderDesignStudioTabsHtml();
+  if (tab === 'projects') { openStudioProjectLibrary(); return; }
+  document.getElementById('studio-action-sheet')?.remove();
+  setStudioTool(definition[2] || 'elements');
+}
+window.setDesignStudioTab = setDesignStudioTab;
+
+function studioProjectPreviewMarkup(design) {
+  const source = design?.scene || {};
+  const scene = window.msStudioDocumentToScene ? window.msStudioDocumentToScene(source) : (Array.isArray(source.pages) ? source.pages[0] : source);
+  return templatePreviewMarkup({ scene: scene || {} });
+}
+
+async function openStudioProjectLibrary() {
+  const sheet = openStudioSheet('Projects', '<div id="studio-project-library" class="py-10 text-center text-sm text-slate-500">Loading tenant projects…</div>');
+  const target = sheet.querySelector('#studio-project-library');
+  try {
+    const response = await apiGetJson('/marketing/studio/designs');
+    const designs = response?.designs || [];
+    target.innerHTML = designs.length ? `<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">${designs.map(design => { const encodedId = encodeURIComponent(design.id); return `<button type="button" onclick="openStudioProject(decodeURIComponent('${encodedId}'))" class="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-left hover:border-indigo-500 hover:shadow-lg transition"><div class="bg-slate-100 dark:bg-slate-950 overflow-hidden">${studioProjectPreviewMarkup(design)}</div><div class="p-3"><div class="font-black truncate">${escS(design.name || 'Untitled Design')}</div><div class="mt-1 text-xs text-slate-500">${Number(design.width) || 1080} × ${Number(design.height) || 1080} · ${escS(design.status || 'draft')}</div><div class="mt-2 text-xs font-black text-indigo-600">Open and edit →</div></div></button>`; }).join('')}</div>` : '<div class="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 py-12 text-center"><h3 class="font-black">No saved projects yet</h3><p class="mt-1 text-sm text-slate-500">Start on Create or Templates, then save the design.</p><button type="button" onclick="setDesignStudioTab(\'create\')" class="mt-4 rounded-xl bg-indigo-600 text-white px-4 py-2 text-sm font-black">Create a design</button></div>';
+  } catch (error) {
+    target.innerHTML = `<div class="rounded-xl bg-rose-500/10 border border-rose-500/20 p-4 text-sm font-bold text-rose-600">${escS(error.message || 'Projects could not load.')}</div>`;
+  }
+}
+window.openStudioProjectLibrary = openStudioProjectLibrary;
+
+function openStudioProject(designId) {
+  document.getElementById('studio-action-sheet')?.remove();
+  window.openMarketSyncStudio(designId, { tab: 'create' });
+}
+window.openStudioProject = openStudioProject;
 
 async function loadStudioBrandKit(force = false) {
   if (!force && window.__studioBrandKit) return window.__studioBrandKit;
@@ -1268,6 +1387,8 @@ function studioVehiclePhoto(v) {
 async function loadStudioTemplate(tmplKey) {
   const tmpl = STUDIO_TEMPLATES_CATALOG[tmplKey] || STUDIO_TEMPLATES_CATALOG.tmpl_spotlight_square;
   const scene = JSON.parse(JSON.stringify(tmpl.scene));
+  window.__studioAppliedTemplateKey = tmpl.template_key || tmplKey;
+  window.__studioAppliedTemplateId = tmpl.template_id || tmpl.id || null;
 
   // If a vehicle is selected (e.g. via "Create from vehicle"), populate the template
   // with its real photo and details instead of the template's stock placeholder photo.
@@ -1286,6 +1407,11 @@ async function loadStudioTemplate(tmplKey) {
   if (window.__studioAdapter) {
     await window.__studioAdapter.renderScene(boundScene);
   }
+  const documentScene = window.msStudioSceneToDocument ? window.msStudioSceneToDocument(boundScene) : boundScene;
+  documentScene.metadata = { ...(documentScene.metadata || {}), source_template_key: window.__studioAppliedTemplateKey };
+  window.__studioDocument = documentScene;
+  window.__msStudioStore?.update(documentScene);
+  window.msStudioScheduleAutosave?.(boundScene);
   const container = document.getElementById('studio-artboard-container');
   if (container) { container.style.width = `${boundScene.width}px`; container.style.height = `${boundScene.height}px`; }
   const picker = document.getElementById('studio-format-picker');
@@ -1802,12 +1928,15 @@ async function saveStudioDesign() {
   const name = document.getElementById('studio-design-name')?.value || 'Untitled Design';
 
   const persistedScene = window.msStudioSceneToDocument ? window.msStudioSceneToDocument(scene, { title: name }) : scene;
+  persistedScene.metadata = { ...(persistedScene.metadata || {}), source_template_key: window.__studioAppliedTemplateKey || persistedScene.metadata?.source_template_key || null };
+  const templateId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(window.__studioAppliedTemplateId || '')) ? window.__studioAppliedTemplateId : null;
   const payload = {
     name,
     format_key: scene.format_key || 'square',
     width: scene.width,
     height: scene.height,
     scene: persistedScene,
+    template_id: templateId,
     change_summary: 'Saved Studio draft',
     vehicle_id: window.__studioCurrentVehicle?.id || null
   };
