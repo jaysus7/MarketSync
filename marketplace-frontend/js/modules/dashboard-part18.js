@@ -1554,10 +1554,52 @@ const DEMO_CAMPAIGNS = [
   }
 ];
 
+let __dealerCampaigns = [];
+let __dealerCampaignsLoaded = false;
+let __dealerCampaignsLoading = false;
+let __dealerCampaignsError = '';
+
+function normalizeDealerCampaign(c) {
+  const channels = Array.isArray(c.segment?.channels) && c.segment.channels.length ? c.segment.channels : ['email'];
+  return {
+    ...c,
+    channel: channels.map(ch => ch === 'sms' ? 'SMS' : 'Email').join(' + '),
+    audience: c.segment?.name || c.segment?.key?.replace(/_/g, ' ') || 'All opted-in contacts',
+    sms_message: c.segment?.sms_message || '',
+    date: c.sent_at ? new Date(c.sent_at).toLocaleDateString() : c.scheduled_at ? new Date(c.scheduled_at).toLocaleString() : (c.status || 'draft'),
+    open_rate: 'Not measured', click_rate: 'Not measured', reply_rate: 'Not measured', rev: 'Not measured',
+    blocks_preview: [],
+  };
+}
+
+async function loadDealerCampaigns(force = false) {
+  if (__dealerCampaignsLoading || (__dealerCampaignsLoaded && !force)) return __dealerCampaigns;
+  __dealerCampaignsLoading = true;
+  __dealerCampaignsError = '';
+  try {
+    const result = await apiGetJson('/dealer/email/campaigns');
+    __dealerCampaigns = (result?.campaigns || []).map(normalizeDealerCampaign);
+    __dealerCampaignsLoaded = true;
+  } catch (error) {
+    __dealerCampaignsError = error.message || 'Campaigns could not be loaded.';
+    __dealerCampaignsLoaded = true;
+  } finally {
+    __dealerCampaignsLoading = false;
+  }
+  return __dealerCampaigns;
+}
+window.loadDealerCampaigns = loadDealerCampaigns;
+
 function renderAutoCampaignsTab(container) {
   const statuses = ['all', 'draft', 'scheduled', 'sending', 'sent', 'failed'];
 
-  const filtered = DEMO_CAMPAIGNS.filter(c => {
+  if (!__dealerCampaignsLoaded && !__dealerCampaignsLoading) {
+    container.innerHTML = '<div class="py-12 text-center text-sm text-slate-500">Loading tenant campaigns…</div>';
+    loadDealerCampaigns().then(() => { if (container?.isConnected) renderAutoCampaignsTab(container); });
+    return;
+  }
+
+  const filtered = __dealerCampaigns.filter(c => {
     if (__campaignStatusFilter === 'all') return true;
     return c.status === __campaignStatusFilter;
   });
@@ -1598,9 +1640,9 @@ function renderAutoCampaignsTab(container) {
       <!-- Campaigns List -->
       <div class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
         ${filtered.length ? filtered.map(c => {
-          const tpl = DEFAULT_COMMUNICATION_TEMPLATES.find(t => t.id === c.template_id);
+          const tpl = getAvailableEmailTemplates().find(t => t.id === c.template_id);
           const tplName = tpl ? tpl.name : 'Custom Layout';
-          const blocks = c.blocks_preview || (tpl?.blocks ? tpl.blocks.map(b => b.type.replace('_', ' ')) : ['Header', 'Message', 'CTA']);
+          const blocks = c.blocks_preview?.length ? c.blocks_preview : (tpl?.blocks ? tpl.blocks.map(b => b.type.replace('_', ' ')) : []);
 
           return `
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between gap-3.5 hover:border-indigo-400 dark:hover:border-indigo-600 transition group">
@@ -1682,7 +1724,7 @@ function renderAutoCampaignsTab(container) {
               </div>
 
               <div class="grid grid-cols-2 gap-2">
-                <button onclick="openCampaignBuilder({ name: '${esc(c.name)}', templateId: '${c.template_id || ''}', audienceName: '${esc(c.audience || '')}' })" class="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer">
+                <button onclick="editDealerCampaign('${c.id}')" class="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
                   <span>Edit Campaign</span>
                 </button>
@@ -1696,13 +1738,41 @@ function renderAutoCampaignsTab(container) {
           </div>
         `}).join('') : `
           <div class="col-span-full py-12 text-center text-sm text-slate-400 italic bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
-            No campaigns matching this filter. Click <b>+ New Campaign</b> to start one.
+            ${__dealerCampaignsError ? esc(__dealerCampaignsError) : 'No tenant campaigns match this filter. Click <b>+ New Campaign</b> to start one.'}
           </div>
         `}
       </div>
     </div>
   `;
 }
+
+function editDealerCampaign(id) {
+  const campaign = __dealerCampaigns.find(c => c.id === id);
+  if (!campaign) return;
+  openCampaignBuilder({ __draft: {
+    id: campaign.id,
+    name: campaign.name,
+    objective: campaign.segment?.objective || 'promotion',
+    audience: campaign.segment?.key || 'all_contacts',
+    audienceName: campaign.segment?.name || campaign.audience,
+    channels: campaign.segment?.channels || ['email'],
+    templateId: campaign.template_id || null,
+    templateName: '',
+    sms: campaign.segment?.sms_message || '',
+    subject: campaign.subject || '',
+    scheduledAt: campaign.scheduled_at ? 'scheduled' : '',
+    step: 1,
+  } });
+}
+window.editDealerCampaign = editDealerCampaign;
+
+function previewCampaignModal(id) {
+  const campaign = __dealerCampaigns.find(c => c.id === id);
+  if (!campaign) return;
+  const template = getAvailableEmailTemplates().find(t => t.id === campaign.template_id);
+  crmOverlay(`<div class="p-6 space-y-4"><div class="flex items-start justify-between gap-4"><div><span class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-300">Tenant campaign preview</span><h3 class="mt-1 text-xl font-black text-slate-900 dark:text-white">${esc(campaign.name)}</h3><p class="mt-1 text-xs text-slate-500">${esc(campaign.audience)} · ${esc(campaign.channel)}</p></div><button type="button" onclick="this.closest('.fixed').remove()" class="text-2xl text-slate-400">×</button></div><div class="rounded-xl border border-slate-200 dark:border-slate-700 p-4"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Subject</div><div class="mt-1 text-sm font-bold">${esc(campaign.subject || template?.subject || 'No subject')}</div></div><div class="rounded-xl border border-slate-200 dark:border-slate-700 p-4 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">${esc(campaign.body || campaign.sms_message || template?.sms_message || 'No message content saved.')}</div></div>`, 'max-w-2xl');
+}
+window.previewCampaignModal = previewCampaignModal;
 
 // ── Complete Canonical Communication Templates Registry ───────────────────────
 const DEFAULT_COMMUNICATION_TEMPLATES = [
@@ -2102,8 +2172,14 @@ let __savedEmailTemplates = [];
 let __emailTemplatesLoaded = false;
 function normalizeSavedEmailTemplate(t) {
   let parsed = {};
-  try { parsed = typeof t.body === 'string' ? JSON.parse(t.body) : (t.body || {}); } catch (e) {}
-  return { ...t, channel: 'Email', desc: 'Saved Email Builder content', blocks: parsed.blocks || [] };
+  let wasPlainText = false;
+  try { parsed = typeof t.body === 'string' ? JSON.parse(t.body) : (t.body || {}); } catch (e) {
+    wasPlainText = true;
+    parsed = { blocks: t.body && !t.sms_enabled ? [{ id: `saved-text-${t.id}`, type: 'text', data: { text: String(t.body).replace(/\n/g, '<br>') } }] : [] };
+  }
+  const smsMessage = parsed.sms_message || (t.sms_enabled && wasPlainText ? String(t.body || '') : '');
+  const channel = t.sms_enabled ? ((t.subject || parsed.blocks?.length) ? 'Email + SMS' : 'SMS') : 'Email';
+  return { ...t, channel, desc: 'Saved tenant content', blocks: parsed.blocks || [], sms_message: smsMessage, preheader: parsed.preheader || '' };
 }
 function getAvailableEmailTemplates() {
   return [...__savedEmailTemplates, ...DEFAULT_COMMUNICATION_TEMPLATES.filter(t => !__savedEmailTemplates.some(s => s.id === t.id))];
@@ -2114,7 +2190,9 @@ function renderAutoTemplatesTab(container) {
     apiGetJson('/dealer/email/templates').then(result => {
       __savedEmailTemplates = (result?.templates || []).map(normalizeSavedEmailTemplate);
       if (container?.isConnected) renderAutoTemplatesTab(container);
-    }).catch(() => {});
+    }).catch(error => {
+      if (container?.isConnected) container.innerHTML = `<div class="rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/30 p-5 text-sm text-rose-700 dark:text-rose-300">${esc(error.message || 'Tenant templates could not be loaded.')}</div>`;
+    });
   }
   const cats = ['all', 'Sales', 'Service', 'Follow-up', 'Promotions', 'Newsletter', 'Review', 'Referral', 'Holiday', 'Vehicle', 'Custom'];
   const templates = getAvailableEmailTemplates();
@@ -2201,17 +2279,18 @@ function renderAutoTemplatesTab(container) {
                 ${blockTypes.length > 4 ? `<span class="text-[9px] font-bold text-slate-400">+${blockTypes.length - 4} more</span>` : ''}
               </div>
 
-              <div class="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold pt-0.5">Used by ${t.used_by || 1} active workflow${t.used_by === 1 ? '' : 's'}</div>
+              <div class="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold pt-0.5">${t.dealership_id ? 'Saved tenant template' : t.used_by ? `Used by ${t.used_by} active workflow${t.used_by === 1 ? '' : 's'}` : 'Ready to customize'}</div>
             </div>
 
             <!-- Action Buttons -->
-            <div class="pt-2 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-2 gap-1.5">
-              <button onclick="openEmailSmsBuilder({ templateId: '${t.id}', mode: '${t.channel.includes('SMS') ? 'sms' : 'email'}', isTemplate: true, returnToTemplates: true })" class="py-1.5 px-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition text-center cursor-pointer flex items-center justify-center gap-1">
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-3 gap-1.5">
+              <button onclick="editEmailSmsTemplate(decodeURIComponent('${encodeURIComponent(t.id)}'))" class="py-1.5 px-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition text-center cursor-pointer flex items-center justify-center gap-1">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
                 <span>Edit</span>
               </button>
-              <button onclick="openCampaignBuilder({ templateId: '${t.id}', name: '${esc(t.name)}' })" class="py-1.5 px-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition text-center cursor-pointer">
-                Use Template
+              <button onclick="previewEmailSmsTemplate(decodeURIComponent('${encodeURIComponent(t.id)}'))" class="py-1.5 px-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition text-center cursor-pointer">Preview</button>
+              <button onclick="useEmailSmsTemplate(decodeURIComponent('${encodeURIComponent(t.id)}'))" class="py-1.5 px-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition text-center cursor-pointer">
+                Use
               </button>
             </div>
           </div>
@@ -2222,20 +2301,71 @@ function renderAutoTemplatesTab(container) {
   `;
 }
 
+function editEmailSmsTemplate(id) {
+  const template = getAvailableEmailTemplates().find(t => t.id === id);
+  if (!template) return;
+  openEmailSmsBuilder({ templateId: id, mode: template.channel.includes('SMS') ? 'sms' : 'email', isTemplate: true, returnToTemplates: true });
+}
+
+function useEmailSmsTemplate(id) {
+  const template = getAvailableEmailTemplates().find(t => t.id === id);
+  if (!template) return;
+  openCampaignBuilder({ templateId: id, templateName: template.name, name: `Campaign · ${template.name}`, channels: template.channel.includes('SMS') ? ['email', 'sms'] : ['email'], sms: template.sms_message || '' });
+}
+
+function previewEmailSmsTemplate(id) {
+  const template = getAvailableEmailTemplates().find(t => t.id === id);
+  if (!template) return;
+  crmOverlay(`<div class="p-6 space-y-4"><div class="flex items-start justify-between gap-4"><div><span class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-300">Template preview</span><h3 class="mt-1 text-xl font-black">${esc(template.name)}</h3><p class="mt-1 text-xs text-slate-500">${esc(template.channel)} · ${esc(template.category)}</p></div><button type="button" onclick="this.closest('.fixed').remove()" class="text-2xl text-slate-400">×</button></div>${template.subject ? `<div class="rounded-xl border border-slate-200 dark:border-slate-700 p-4"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400">Subject</div><div class="mt-1 text-sm font-bold">${esc(template.subject)}</div></div>` : ''}<div class="rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-sm text-slate-600 dark:text-slate-300">${template.blocks?.length ? `${template.blocks.length} editable email blocks` : 'No email blocks'}${template.sms_message ? `<div class="mt-3 border-t border-slate-200 dark:border-slate-700 pt-3 whitespace-pre-wrap"><b>SMS:</b> ${esc(template.sms_message)}</div>` : ''}</div><div class="grid grid-cols-2 gap-2"><button type="button" onclick="this.closest('.fixed').remove(); editEmailSmsTemplate(decodeURIComponent('${encodeURIComponent(id)}'))" class="rounded-xl border border-slate-300 dark:border-slate-700 px-4 py-2.5 text-xs font-black">Edit</button><button type="button" onclick="this.closest('.fixed').remove(); useEmailSmsTemplate(decodeURIComponent('${encodeURIComponent(id)}'))" class="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-black text-white">Use template</button></div></div>`, 'max-w-2xl');
+}
+Object.assign(window, { editEmailSmsTemplate, useEmailSmsTemplate, previewEmailSmsTemplate });
+
 
 // ── Render Audiences Tab ──────────────────────────────────────────────────────
 const CRM_AUDIENCE_SEGMENTS = [
-  { key: 'all_contacts', name: 'All Opted-in Contacts', count: '14,820', compliant: '100% Opt-in', desc: 'Full active customer & prospect database with express email/SMS consent.' },
-  { key: 'active_leads', name: 'Active Internet Leads (Unsold)', count: '482', compliant: '100% CASL / TCPA', desc: 'Inbound internet leads from website, Facebook, and Marketplace within last 60 days.' },
-  { key: 'service_due', name: 'Service Due (Next 30 Days)', count: '1,240', compliant: '100% Verified', desc: 'Vehicles reaching 6-month or mileage maintenance threshold based on DMS records.' },
-  { key: 'sold_recent', name: 'Sold Customers (Last 12 Mos)', count: '640', compliant: '100% Verified', desc: 'Delivered vehicle buyers within the past calendar year for retention and reviews.' },
-  { key: 'high_equity', name: 'High-Equity Vehicle Owners', count: '390', compliant: '100% Verified', desc: 'Customers with > $2,500 calculated positive trade equity based on Equity Radar.' },
-  { key: 'lost_leads', name: 'Lost / Dormant Leads (> 60 Days)', count: '2,150', compliant: '100% Verified', desc: 'Inactive prospects to target with VIP private clearance and win-back promotions.' },
-  { key: 'truck_owners', name: 'Truck & SUV Owners', count: '1,890', compliant: '100% Verified', desc: 'Past buyers who purchased light-duty, heavy-duty, or full-size utility vehicles.' },
-  { key: 'fleet_commercial', name: 'Commercial Fleet Accounts', count: '115', compliant: '100% Verified', desc: 'Business tax entities with multiple registered fleet and service vehicles.' },
+  { key: 'all_contacts', name: 'All Contacts', desc: 'Every active CRM contact, split by channel consent.' },
+  { key: 'active_leads', name: 'Active Leads', desc: 'Open and working CRM opportunities that have not been marked lost.' },
+  { key: 'service_customers', name: 'Service Customers', desc: 'Contacts identified by the canonical CRM as service customers.' },
+  { key: 'sold_customers', name: 'Sold Customers', desc: 'Contacts with a recorded sold date in the canonical CRM.' },
+  { key: 'lost_leads', name: 'Lost or Inactive Leads', desc: 'CRM contacts currently marked lost, dead, or inactive.' },
 ];
 
+let __audiencesLoaded = false;
+let __audiencesLoading = false;
+let __audiencesError = '';
+async function loadTenantAudienceCounts(force = false) {
+  if (__audiencesLoading || (__audiencesLoaded && !force)) return CRM_AUDIENCE_SEGMENTS;
+  __audiencesLoading = true;
+  __audiencesError = '';
+  try {
+    const counts = await Promise.all(CRM_AUDIENCE_SEGMENTS.map(seg => apiSendJson('/dealer/email/segment-count', 'POST', { segment: { key: seg.key } })));
+    counts.forEach((count, index) => { CRM_AUDIENCE_SEGMENTS[index].counts = count; });
+    __audiencesLoaded = true;
+  } catch (error) {
+    __audiencesError = error.message || 'Audience counts could not be loaded.';
+    __audiencesLoaded = true;
+  } finally {
+    __audiencesLoading = false;
+  }
+  return CRM_AUDIENCE_SEGMENTS;
+}
+window.loadTenantAudienceCounts = loadTenantAudienceCounts;
+
+function audienceCountLabel(seg) {
+  if (!seg.counts) return '—';
+  return `${Number(seg.counts.email_reachable || 0).toLocaleString()} email · ${Number(seg.counts.sms_reachable || 0).toLocaleString()} SMS`;
+}
+
 function renderAutoAudiencesTab(container) {
+  if (!__audiencesLoaded && !__audiencesLoading) {
+    container.innerHTML = '<div class="py-12 text-center text-sm text-slate-500">Counting consent-filtered tenant audiences…</div>';
+    loadTenantAudienceCounts().then(() => { if (container?.isConnected) renderAutoAudiencesTab(container); });
+    return;
+  }
+  if (__audiencesError) {
+    container.innerHTML = `<div class="rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/30 p-5 text-sm text-rose-700 dark:text-rose-300">${esc(__audiencesError)}</div>`;
+    return;
+  }
   container.innerHTML = `
     <div class="space-y-6">
       <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
@@ -2257,8 +2387,8 @@ function renderAutoAudiencesTab(container) {
           <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:border-indigo-500 transition flex flex-col justify-between space-y-4">
             <div class="space-y-2">
               <div class="flex items-center justify-between">
-                <span class="text-2xl font-black text-slate-900 dark:text-white font-mono">${seg.count}</span>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">${seg.compliant}</span>
+                <span class="text-sm font-black text-slate-900 dark:text-white font-mono">${audienceCountLabel(seg)}</span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">Consent filtered</span>
               </div>
               <h4 class="text-sm font-black text-slate-900 dark:text-white">${esc(seg.name)}</h4>
               <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${esc(seg.desc)}</p>
@@ -2276,8 +2406,28 @@ function renderAutoAudiencesTab(container) {
   `;
 }
 
-// ── Render Performance Tab ────────────────────────────────────────────────────
+// ── Render Results Tab ────────────────────────────────────────────────────────
+function renderTenantResultsTab(container) {
+  if (!__dealerCampaignsLoaded && !__dealerCampaignsLoading) {
+    container.innerHTML = '<div class="py-12 text-center text-sm text-slate-500">Loading measured tenant results…</div>';
+    loadDealerCampaigns().then(() => { if (container?.isConnected) renderTenantResultsTab(container); });
+    return;
+  }
+  if (__dealerCampaignsError) {
+    container.innerHTML = `<div class="rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/30 p-5 text-sm text-rose-700 dark:text-rose-300">${esc(__dealerCampaignsError)}</div>`;
+    return;
+  }
+  const totalRecipients = __dealerCampaigns.reduce((sum, campaign) => sum + (Number(campaign.recipient_count) || 0), 0);
+  const totalSent = __dealerCampaigns.reduce((sum, campaign) => sum + (Number(campaign.sent_count) || 0), 0);
+  const failed = __dealerCampaigns.filter(campaign => campaign.status === 'failed').length;
+  const activeJourneys = Array.isArray(__autoCfg?.campaigns) ? __autoCfg.campaigns.filter(campaign => campaign.is_active !== false).length : 0;
+  const resultKpi = (label, value, note) => `<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs"><div class="text-[10px] font-black uppercase tracking-wider text-slate-400">${label}</div><div class="text-2xl font-black text-slate-900 dark:text-white mt-1">${value}</div><div class="text-[11px] text-slate-500 mt-0.5">${note}</div></div>`;
+  container.innerHTML = `<div class="space-y-6"><div class="grid grid-cols-2 lg:grid-cols-4 gap-3">${resultKpi('Campaigns', __dealerCampaigns.length.toLocaleString(), 'Tenant campaign records')}${resultKpi('Recipients', totalRecipients.toLocaleString(), 'Resolved before send')}${resultKpi('Sent', totalSent.toLocaleString(), 'Provider-accepted sends')}${resultKpi('Active automations', activeJourneys.toLocaleString(), 'Canonical automation engine')}</div><div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5"><div class="flex items-start justify-between gap-4"><div><h3 class="text-lg font-black">Campaign delivery evidence</h3><p class="mt-1 text-xs text-slate-500">Only persisted send counts and provider failures are reported. Opens, clicks, replies, and attributed revenue remain unavailable until those event sources are connected.</p></div>${failed ? `<span class="rounded-full bg-rose-500/15 px-3 py-1 text-xs font-black text-rose-600">${failed} failed</span>` : ''}</div><div class="mt-4 overflow-x-auto"><table class="w-full text-left text-xs"><thead><tr class="border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase tracking-wider text-slate-400"><th class="px-2 py-3">Campaign</th><th class="px-2 py-3">Audience</th><th class="px-2 py-3">Status</th><th class="px-2 py-3">Recipients</th><th class="px-2 py-3">Sent</th><th class="px-2 py-3">Evidence</th></tr></thead><tbody>${__dealerCampaigns.map(campaign => `<tr class="border-b border-slate-100 dark:border-slate-800/70"><td class="px-2 py-3 font-bold">${esc(campaign.name)}</td><td class="px-2 py-3">${esc(campaign.audience)}</td><td class="px-2 py-3 capitalize">${esc(campaign.status)}</td><td class="px-2 py-3 font-mono">${Number(campaign.recipient_count || 0).toLocaleString()}</td><td class="px-2 py-3 font-mono">${Number(campaign.sent_count || 0).toLocaleString()}</td><td class="px-2 py-3 text-slate-500">${campaign.last_error ? esc(campaign.last_error) : campaign.sent_at ? `Sent ${esc(new Date(campaign.sent_at).toLocaleString())}` : 'No send evidence yet'}</td></tr>`).join('') || '<tr><td colspan="6" class="px-2 py-10 text-center text-slate-400">No tenant campaign results yet.</td></tr>'}</tbody></table></div></div></div>`;
+}
+
 function renderAutoPerformanceTab(container) {
+  renderTenantResultsTab(container);
+  return;
   const rows = [
     { name: 'Instant New Lead 90-Second Response', channel: 'SMS', sent: 3420, delivered: '99.8%', opened: '94.2%', replied: '26.4%', appts: 18, sales: 8, rev: '$84,000' },
     { name: '48-Hour Google Review Router', channel: 'SMS', sent: 1140, delivered: '99.9%', opened: '96.1%', replied: '48.2%', appts: '—', sales: '—', rev: '4.9 Star Rating' },
@@ -4766,7 +4916,7 @@ function renderCampaignBuilder() {
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">${[['sell_inventory','Sell Inventory'],['trade_upgrade','Trade Upgrade'],['service_reminder','Service Reminder'],['retention','Customer Retention'],['event','Event'],['promotion','Promotion'],['review_request','Review Request'],['lead_follow_up','Lead Follow-Up'],['custom','Custom']].map(([v,l]) => `<button type="button" onclick="__campaignDraft.objective='${v}';renderCampaignBuilder()" class="p-3 rounded-xl border text-left text-xs font-bold ${d.objective === v ? 'border-indigo-500 bg-indigo-500/15 text-indigo-300' : 'border-slate-700 bg-slate-900/60 text-slate-300'}">${l}</button>`).join('')}</div>`
   : d.step === 2 ? `
     <label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">CRM audience</label>
-    <div class="space-y-2">${CRM_AUDIENCE_SEGMENTS.map(s => `<button type="button" onclick="__campaignDraft.audience='${s.key}';__campaignDraft.audienceName='${esc(s.name)}';renderCampaignBuilder()" class="w-full flex items-center justify-between gap-3 p-3 rounded-xl border text-left ${d.audience === s.key ? 'border-indigo-500 bg-indigo-500/15' : 'border-slate-700 bg-slate-900/60'}"><span><b class="text-sm text-white">${esc(s.name)}</b><span class="block text-[11px] text-slate-400 mt-0.5">${esc(s.desc)}</span></span><span class="text-sm font-black text-indigo-300">${esc(s.count)}</span></button>`).join('')}</div>`
+    <div class="space-y-2">${CRM_AUDIENCE_SEGMENTS.map(s => `<button type="button" onclick="__campaignDraft.audience='${s.key}';__campaignDraft.audienceName='${esc(s.name)}';renderCampaignBuilder()" class="w-full flex items-center justify-between gap-3 p-3 rounded-xl border text-left ${d.audience === s.key ? 'border-indigo-500 bg-indigo-500/15' : 'border-slate-700 bg-slate-900/60'}"><span><b class="text-sm text-white">${esc(s.name)}</b><span class="block text-[11px] text-slate-400 mt-0.5">${esc(s.desc)}</span></span><span class="text-sm font-black text-indigo-300">${esc(audienceCountLabel(s))}</span></button>`).join('')}</div>`
   : d.step === 3 ? `<label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">Delivery channels</label><div class="grid sm:grid-cols-2 gap-3">${[['email','Email'],['sms','SMS']].map(([v,l]) => `<button type="button" onclick="campaignToggleChannel('${v}')" class="p-4 rounded-xl border text-left ${d.channels.includes(v) ? 'border-indigo-500 bg-indigo-500/15' : 'border-slate-700 bg-slate-900/60'}"><span class="text-sm font-black text-white">${d.channels.includes(v) ? '✓ ' : ''}${l}</span><span class="block text-xs text-slate-400 mt-1">${v === 'email' ? 'Use a reusable Email Builder asset.' : 'Write a compliant follow-up message.'}</span></button>`).join('')}</div>`
   : d.step === 4 ? `<div class="space-y-4">${d.channels.includes('email') ? `<div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4"><div class="flex items-center justify-between"><div><div class="text-xs font-black uppercase tracking-wider text-indigo-300">Email content</div><div class="text-sm font-bold text-white mt-1">${tpl ? esc(tpl.name) : 'No email selected'}</div></div><button type="button" onclick="campaignSelectTemplate()" class="px-3 py-2 rounded-lg bg-slate-800 text-xs font-bold text-slate-200">Select template</button></div><button type="button" onclick="openEmailSmsBuilder({mode:'email',isNewTemplate:true,returnCampaign:true})" class="mt-3 w-full px-3 py-2.5 rounded-lg bg-indigo-600 text-white text-xs font-black">Create New Email</button></div>` : ''}${d.channels.includes('sms') ? `<div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4"><label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1">SMS content</label><textarea id="cb-sms" rows="5" oninput="__campaignDraft.sms=this.value" class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-white" placeholder="Write the follow-up message…">${esc(d.sms)}</textarea><div class="text-right text-[11px] text-slate-400 mt-1">${d.sms.length}/320</div></div>` : ''}</div>`
   : d.step === 5 ? `<label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1">Send time</label><select onchange="__campaignDraft.scheduledAt=this.value" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2.5 text-sm text-white"><option value="">Send now</option><option value="scheduled">Schedule for later</option></select><p class="text-xs text-slate-400 mt-3">Timezone and recipient count are confirmed during review. Recurring sends stay in Automations until production scheduling is enabled.</p>`
@@ -4775,17 +4925,38 @@ function renderCampaignBuilder() {
   document.getElementById('cb-name')?.addEventListener('input', e => { d.name = e.target.value; });
 }
 function campaignBuilderBack() { if (__campaignDraft?.step > 1) { __campaignDraft.step--; renderCampaignBuilder(); } }
-function campaignBuilderNext() {
+function communicationTemplatePlainText(template) {
+  if (!template) return '';
+  if (template.body) {
+    try {
+      const parsed = JSON.parse(template.body);
+      if (Array.isArray(parsed.blocks)) return parsed.blocks.map(block => block.data?.text || block.data?.title || block.data?.headline || block.data?.sub || '').filter(Boolean).join('\n\n').replace(/<[^>]+>/g, ' ');
+    } catch (e) {
+      return String(template.body);
+    }
+  }
+  return (template.blocks || []).map(block => block.data?.text || block.data?.title || block.data?.headline || block.data?.sub || '').filter(Boolean).join('\n\n').replace(/<[^>]+>/g, ' ');
+}
+async function campaignBuilderNext() {
   if (!__campaignDraft) return;
   if (__campaignDraft.step < 6) { __campaignDraft.step++; renderCampaignBuilder(); return; }
   const d = __campaignDraft;
   const tpl = d.templateId ? getAvailableEmailTemplates().find(t => t.id === d.templateId) : null;
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(d.templateId || ''));
-  apiSendJson('/dealer/email/campaigns', 'POST', {
-    name: d.name || 'New Campaign', segment: { key: d.audience, name: d.audienceName },
-    template_id: uuid ? d.templateId : null, subject: tpl?.subject || d.subject || '', body: d.sms || '',
+  const payload = {
+    name: d.name || 'New Campaign', segment: { key: d.audience, name: d.audienceName, objective: d.objective, channels: d.channels, sms_message: d.sms || '' },
+    template_id: uuid ? d.templateId : null, subject: tpl?.subject || d.subject || '', body: d.channels.includes('email') ? communicationTemplatePlainText(tpl) : (d.sms || ''),
     scheduled_at: d.scheduledAt === 'scheduled' ? new Date(Date.now() + 86400000).toISOString() : null
-  }).then(() => { document.getElementById('campaign-builder-modal')?.remove(); showToast('Campaign draft saved', 'success'); if (typeof engineTab === 'function') engineTab('marketing-overview', 'campaigns', true); }).catch(e => showToast(e.message || 'Campaign could not be saved', 'error'));
+  };
+  try {
+    await apiSendJson(d.id ? `/dealer/email/campaigns/${d.id}` : '/dealer/email/campaigns', d.id ? 'PATCH' : 'POST', payload);
+    await loadDealerCampaigns(true);
+    document.getElementById('campaign-builder-modal')?.remove();
+    showToast('Campaign draft saved', 'success');
+    autoTab('campaigns');
+  } catch (e) {
+    showToast(e.message || 'Campaign could not be saved', 'error');
+  }
 }
 function campaignToggleChannel(channel) { const i = __campaignDraft.channels.indexOf(channel); if (i >= 0 && __campaignDraft.channels.length > 1) __campaignDraft.channels.splice(i,1); else if (i < 0) __campaignDraft.channels.push(channel); renderCampaignBuilder(); }
 function campaignSelectTemplate() {
@@ -4812,23 +4983,22 @@ function openEmailSmsBuilder(opts = {}) {
   if (opts.campaignId) __esb.campaignId = opts.campaignId;
 
   if (opts.templateId) {
-    const tpl = DEFAULT_COMMUNICATION_TEMPLATES.find(t => t.id === opts.templateId);
+    const tpl = getAvailableEmailTemplates().find(t => t.id === opts.templateId);
     if (tpl) {
       __esb.campaignName = tpl.name;
-      if (tpl.subject) __esb.email.subject = tpl.subject;
-      if (tpl.sms_message) __esb.sms.message = tpl.sms_message;
-      if (tpl.blocks && Array.isArray(tpl.blocks) && tpl.blocks.length > 0) {
-        __esb.email.blocks = JSON.parse(JSON.stringify(tpl.blocks));
-        __esb.email.selectedBlockId = tpl.blocks[0].id;
-      }
+      __esb.email.subject = tpl.subject || '';
+      __esb.email.preheader = tpl.preheader || '';
+      __esb.sms.message = tpl.sms_message || '';
+      __esb.email.blocks = Array.isArray(tpl.blocks) ? JSON.parse(JSON.stringify(tpl.blocks)) : [];
+      __esb.email.selectedBlockId = __esb.email.blocks[0]?.id || null;
       if (tpl.channel === 'SMS') __esb.mode = 'sms';
     }
   } else if (opts.campaignId) {
-    const cmp = DEMO_CAMPAIGNS.find(c => c.id === opts.campaignId);
+    const cmp = __dealerCampaigns.find(c => c.id === opts.campaignId);
     if (cmp) {
       __esb.campaignName = cmp.name;
       if (cmp.template_id) {
-        const tpl = DEFAULT_COMMUNICATION_TEMPLATES.find(t => t.id === cmp.template_id);
+        const tpl = getAvailableEmailTemplates().find(t => t.id === cmp.template_id);
         if (tpl) {
           if (tpl.subject) __esb.email.subject = tpl.subject;
           if (tpl.sms_message) __esb.sms.message = tpl.sms_message;
@@ -4846,6 +5016,7 @@ function openEmailSmsBuilder(opts = {}) {
   if (opts.isNewTemplate) {
     __esb.campaignName = 'Untitled Email Template';
     __esb.templateId = null;
+    if (__esb.mode === 'email') __esb.sms.message = '';
   }
 
   let modal = document.getElementById('email-sms-builder-modal');
@@ -5791,22 +5962,30 @@ async function saveEsbContent() {
     return;
   }
   if (__esb.isTemplate) {
+    const smsEnabled = !!(__esb.sms.message || '').trim();
     const payload = {
       name: __esb.campaignName || 'Untitled Email Template',
       subject: __esb.email.subject || '',
-      body: JSON.stringify({ version: 1, preheader: __esb.email.preheader || '', blocks: __esb.email.blocks || [] }),
-      category: 'Custom', active: true, sms_enabled: false
+      body: JSON.stringify({ version: 1, preheader: __esb.email.preheader || '', blocks: __esb.email.blocks || [], sms_message: __esb.sms.message || '' }),
+      category: 'Custom', active: true, sms_enabled: smsEnabled
     };
     try {
-      const result = await apiSendJson('/dealer/email/templates', 'POST', payload);
+      const existingId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(__esb.templateId || '')) ? __esb.templateId : null;
+      const result = existingId
+        ? await apiSendJson(`/dealer/email/templates/${existingId}`, 'PATCH', payload)
+        : await apiSendJson('/dealer/email/templates', 'POST', payload);
       const saved = result?.template || result;
-      if (saved?.id) __savedEmailTemplates.unshift(normalizeSavedEmailTemplate(saved));
+      if (saved?.id) {
+        const normalized = normalizeSavedEmailTemplate(saved);
+        const index = __savedEmailTemplates.findIndex(t => t.id === saved.id);
+        if (index >= 0) __savedEmailTemplates.splice(index, 1, normalized); else __savedEmailTemplates.unshift(normalized);
+      }
       if (__esb.returnCampaign && __campaignDraft) {
         __campaignDraft.templateId = saved?.id || null;
         __campaignDraft.templateName = payload.name;
         __campaignDraft.subject = payload.subject;
       }
-      showToast('Email template saved', 'success');
+      showToast(smsEnabled ? 'Email/SMS template saved' : 'Email template saved', 'success');
       closeEmailSmsBuilder();
     } catch (e) {
       showToast(e.message || 'Email template could not be saved', 'error');

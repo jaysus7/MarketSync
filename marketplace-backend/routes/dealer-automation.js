@@ -18,6 +18,20 @@ import { audit } from '../audit.js'
 
 const nowIso = () => new Date().toISOString()
 const clean = (s) => String(s == null ? '' : s).trim()
+const cleanDate = (value) => value && !Number.isNaN(Date.parse(value)) ? new Date(value).toISOString() : null
+
+const SEGMENT_PRESETS = Object.freeze({
+  all_contacts: {},
+  active_leads: { status: ['new', 'open', 'active', 'working', 'contacted'] },
+  service_customers: { service_customer: true },
+  sold_customers: { sold: true },
+  lost_leads: { status: ['lost', 'dead', 'inactive'] },
+})
+
+function normalizedSegment(seg = {}) {
+  const key = clean(seg.key)
+  return { ...(SEGMENT_PRESETS[key] || {}), ...seg, key }
+}
 
 // Starter templates seeded once per dealership. {{first_name}} / {{full_name}} /
 // {{dealership}} merge fields are substituted at send time.
@@ -36,6 +50,8 @@ const SEED_TEMPLATES = [
     body: 'Hi {{first_name}},\n\nJust checking in now that you’ve had your vehicle for a bit — how is everything going? If you have any questions at all, I’m one reply away. Enjoy the drive!' },
   { name: 'Review request', category: 'retention', subject: 'Would you share your experience with {{dealership}}?',
     body: 'Hi {{first_name}},\n\nIt was a pleasure working with you! If you have a moment, a quick review would mean the world to our team and helps other shoppers find us. Thank you!' },
+  { name: 'Appointment reminder text', category: 'appointment', subject: '', sms_enabled: true,
+    body: 'Hi {{first_name}}, this is a reminder about your upcoming appointment at {{dealership}}. Reply here if you need to adjust the time. Reply STOP to opt out.' },
 ]
 
 function renderMerge(text, contact, dealerName) {
@@ -46,10 +62,23 @@ function renderMerge(text, contact, dealerName) {
     .replace(/\{\{\s*dealership\s*\}\}/gi, dealerName || 'our dealership')
 }
 
+function plainTemplateBody(value) {
+  const raw = String(value || '')
+  try {
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed.blocks)) return raw
+    return parsed.blocks.map(block => block?.data?.text || block?.data?.title || block?.data?.headline || block?.data?.sub || '')
+      .filter(Boolean).join('\n\n').replace(/<[^>]+>/g, ' ')
+  } catch {
+    return raw
+  }
+}
+
 // Build a filtered contacts query for a segment (excludes the dealership .eq, added by caller).
 // Consent is filtered in JS after fetch (booleans may be null) to mirror single-send opt-out rules.
 function segmentFilters(q, seg = {}) {
-  q = q.is('deleted_at', null).not('email', 'is', null).neq('email', '')
+  seg = normalizedSegment(seg)
+  q = q.is('deleted_at', null)
   const arr = (v) => Array.isArray(v) ? v.filter(Boolean) : []
   if (arr(seg.status).length) q = q.in('status', arr(seg.status))
   if (arr(seg.source).length) q = q.in('source', arr(seg.source))
@@ -62,6 +91,7 @@ function segmentFilters(q, seg = {}) {
 
 // Emailable = has an address and hasn't opted out (mirrors /crm/contacts/:id/email).
 const emailable = (c) => !!clean(c.email) && c.dnc !== true && c.opt_out !== true && c.consent_email !== false
+const smsable = (c) => !!clean(c.phone_mobile || c.phone) && c.dnc !== true && c.opt_out !== true && c.consent_sms !== false
 
 export function registerDealerEmailMarketing(app) {
   const guards = [requireAuth, requireMfa, requireAnyFeature('email.campaigns', 'email.templates', 'email.audiences', 'email.automations', 'os.email_marketing')]
@@ -93,7 +123,9 @@ export function registerDealerEmailMarketing(app) {
     const { data, error } = await req.supabase.from('dealer_email_templates').insert({
       dealership_id: req.dealershipId, name,
       subject: clean(req.body?.subject), body: clean(req.body?.body),
-      category: clean(req.body?.category) || 'general', created_by: req.user.id,
+      category: clean(req.body?.category) || 'general',
+      active: req.body?.active !== false, sms_enabled: req.body?.sms_enabled === true,
+      created_by: req.user.id,
     }).select().single()
     if (error) return res.status(500).json({ error: error.message })
     res.json({ template: data })
@@ -123,13 +155,14 @@ export function registerDealerEmailMarketing(app) {
     if (!req.dealershipId) return res.status(400).json({ error: 'No dealership' })
     const seg = req.body?.segment || {}
     let q = req.supabase.from('contacts')
-      .select('id, email, consent_email, opt_out, dnc').eq('dealership_id', req.dealershipId).limit(10000)
+      .select('id, email, phone, phone_mobile, consent_email, consent_sms, opt_out, dnc').eq('dealership_id', req.dealershipId).limit(10000)
     q = segmentFilters(q, seg)
     const { data, error } = await q
     if (error) return res.status(500).json({ error: error.message })
     const matched = (data || []).length
-    const reachable = (data || []).filter(emailable).length
-    res.json({ matched, reachable })
+    const emailReachable = (data || []).filter(emailable).length
+    const smsReachable = (data || []).filter(smsable).length
+    res.json({ matched, reachable: emailReachable, email_reachable: emailReachable, sms_reachable: smsReachable, segment: normalizedSegment(seg) })
   })
 
   // ── Campaigns ────────────────────────────────────────────────────────────────
@@ -150,7 +183,7 @@ export function registerDealerEmailMarketing(app) {
       segment: req.body?.segment || {},
       template_id: req.body?.template_id || null,
       subject: clean(req.body?.subject), body: clean(req.body?.body),
-      status: 'draft', created_by: req.user.id,
+      status: req.body?.scheduled_at ? 'scheduled' : 'draft', scheduled_at: cleanDate(req.body?.scheduled_at), created_by: req.user.id,
     }).select().single()
     if (error) return res.status(500).json({ error: error.message })
     res.json({ campaign: data })
@@ -161,6 +194,10 @@ export function registerDealerEmailMarketing(app) {
     for (const k of ['name', 'subject', 'body']) if (req.body?.[k] !== undefined) patch[k] = clean(req.body[k])
     if (req.body?.segment !== undefined) patch.segment = req.body.segment || {}
     if (req.body?.template_id !== undefined) patch.template_id = req.body.template_id || null
+    if (req.body?.scheduled_at !== undefined) {
+      patch.scheduled_at = cleanDate(req.body.scheduled_at)
+      patch.status = patch.scheduled_at ? 'scheduled' : 'draft'
+    }
     const { data, error } = await req.supabase.from('dealer_campaigns')
       .update(patch).eq('id', req.params.id).eq('dealership_id', req.dealershipId).select().single()
     if (error) return res.status(500).json({ error: error.message })
@@ -189,6 +226,7 @@ export function registerDealerEmailMarketing(app) {
         .select('subject, body').eq('id', c.template_id).eq('dealership_id', req.dealershipId).maybeSingle()
       if (t) { subject = subject || clean(t.subject); body = body || clean(t.body) }
     }
+    body = plainTemplateBody(body)
     if (!subject || !body) return res.status(400).json({ error: 'Campaign needs a subject and message (or a template)' })
 
     let q = req.supabase.from('contacts')
