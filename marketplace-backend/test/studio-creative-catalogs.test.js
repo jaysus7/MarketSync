@@ -7,7 +7,8 @@ const theme = readFileSync(new URL('../../marketplace-frontend/css/marketsync-th
 
 function evaluateCatalog(name, nextName) {
   const start = studio.indexOf(`const ${name} = `)
-  const end = studio.indexOf(`const ${nextName}`, start)
+  const nextMarker = nextName.startsWith('function ') ? nextName : `const ${nextName}`
+  const end = studio.indexOf(nextMarker, start)
   assert.ok(start >= 0 && end > start, `${name} catalog was not found`)
   const declaration = studio.slice(start, end).trim().replace(`const ${name} = `, 'return ').replace(/;$/, '')
   return Function(declaration)()
@@ -26,16 +27,21 @@ test('text catalog contains genuinely varied two-layer compositions', () => {
   assert.match(addText, /new window\.fabric\.ActiveSelection/)
 })
 
-test('elements use purpose-specific geometry and remain grouped compositions', () => {
-  const catalog = evaluateCatalog('STUDIO_PREMADE_ELEMENTS', 'STUDIO_ELEMENT_CATEGORY_META')
-  assert.ok(catalog.length >= 44)
-  assert.ok(new Set(catalog.map(item => item.kind)).size >= 12)
-  assert.ok(catalog.every(item => item.icon && item.text && item.subtext))
+test('elements are a broad visual asset library rather than repeated callout cards', () => {
+  const catalog = evaluateCatalog('STUDIO_VISUAL_ELEMENTS', 'function loadStudioGoogleFonts')
+  assert.ok(catalog.length >= 85)
+  assert.ok(new Set(catalog.map(item => item.category)).size >= 9)
+  assert.ok(new Set(catalog.map(item => item.kind)).size >= 6)
+  for (const category of ['Shapes','Graphics','Animations','Icons','Frames','Grids','Charts','Tables','Social']) assert.ok(catalog.some(item => item.category === category))
+  assert.ok(catalog.filter(item => item.category === 'Social').every(item => item.library || item.icon === 'share-2'))
+  assert.ok(catalog.filter(item => item.category === 'Animations').every(item => ['float','pulse','spin','bounce'].includes(item.animation)))
 
-  const layouts = studio.slice(studio.indexOf('function studioElementLayout'), studio.indexOf('function studioAddPremade'))
-  for (const kind of ['badge','ribbon','button','trust','callout','card','header','legal','social','rating','date','quote','stat','arrow']) assert.match(layouts, new RegExp(`${kind}: \\{`))
-  assert.ok(new Set([...layouts.matchAll(/width:(\d+)/g)].map(match => match[1])).size >= 10)
-  assert.match(studio, /Grouped icon \+ title \+ supporting text/)
+  const addVisual = studio.slice(studio.indexOf('function studioAddVisualElement'), studio.indexOf('window.studioAddVisualElement'))
+  assert.match(addVisual, /studioIconUrl\(item\.icon, item\.library \|\| 'lucide', item\.color \|\| '#2563EB'\)/)
+  assert.match(addVisual, /adapter\.setSelectedAnimation\(item\.animation\)/)
+  assert.match(addVisual, /new window\.fabric\.ActiveSelection/)
+  assert.match(addVisual, /adapter\.addShape/)
+  assert.match(studio, /Visual building blocks for the canvas/)
 })
 
 test('large creative catalogs progressively render and expose visual categories', () => {
@@ -46,6 +52,8 @@ test('large creative catalogs progressively render and expose visual categories'
   assert.match(studio, /Browse categories/)
   assert.match(studio, /Search fonts and combinations/)
   assert.match(theme, /\.studio-element-categories \{ display:grid;/)
+  assert.match(theme, /\.studio-element-library \{ display:grid; grid-template-columns:repeat\(3/)
+  assert.match(theme, /\.dark #ms-studio-master-modal \.studio-visual-element-preview/)
   assert.match(theme, /\.studio-icon-categories,[\s\S]*overflow-x:auto/)
   assert.match(theme, /\.studio-text-template-library \{ display:grid;/)
 })

@@ -190,6 +190,60 @@ const STUDIO_ELEMENT_CATEGORY_META = {
 };
 const STUDIO_ELEMENT_FEATURED_IDS = ['sale-badge','cta-primary','review-badge','trade-callout','dealer-header','instagram-follow','event-date','quote-card','clearance-ribbon','disclaimer-apr','feature-stat','arrow-callout'];
 
+const STUDIO_VISUAL_ELEMENT_CATEGORIES = {
+  All: ['layout-grid', '#EEF2FF', '#4F46E5'],
+  Shapes: ['shapes', '#ECFEFF', '#0891B2'],
+  Graphics: ['sparkles', '#FFF7ED', '#EA580C'],
+  Animations: ['play-circle', '#F5F3FF', '#7C3AED'],
+  Icons: ['badge-check', '#EFF6FF', '#2563EB'],
+  Frames: ['frame', '#FDF2F8', '#DB2777'],
+  Grids: ['grid-2x2', '#F0FDF4', '#16A34A'],
+  Charts: ['chart-no-axes-combined', '#FEFCE8', '#CA8A04'],
+  Tables: ['table-2', '#F8FAFC', '#475569'],
+  Social: ['instagram', '#FAF5FF', '#9333EA']
+};
+
+const STUDIO_VISUAL_ELEMENTS = [
+  ...[
+    ['shape-circle','Circle','circle','#111827'], ['shape-ring','Outline circle','ring','#2563EB'], ['shape-square','Square','rect','#7C3AED'], ['shape-round','Rounded square','rounded','#EC4899'],
+    ['shape-triangle','Triangle','triangle','#F97316'], ['shape-diamond','Diamond','diamond','#06B6D4'], ['shape-star','Star','star','#EAB308'], ['shape-heart','Heart','heart','#E11D48'],
+    ['shape-hexagon','Hexagon','hexagon','#0F766E'], ['shape-pill','Pill','badge','#4F46E5'], ['shape-line','Line','line','#334155'], ['shape-arrow','Arrow','arrow','#EA580C']
+  ].map(([id,name,shape,color]) => ({ id,name,category:'Shapes',kind:'shape',shape,color })),
+  ...[
+    ['graphic-sparkles','Sparkles','sparkles','#7C3AED'], ['graphic-sun','Sun burst','sun','#F59E0B'], ['graphic-zap','Lightning','zap','#EAB308'], ['graphic-flame','Flame','flame','#EF4444'],
+    ['graphic-megaphone','Megaphone','megaphone','#2563EB'], ['graphic-gift','Gift','gift','#DB2777'], ['graphic-trophy','Trophy','trophy','#D97706'], ['graphic-quote','Quote marks','quote','#0F766E'],
+    ['graphic-location','Location','map-pin','#DC2626'], ['graphic-road','Direction','navigation','#0284C7'], ['graphic-check','Approval check','badge-check','#16A34A'], ['graphic-shield','Shield','shield-check','#4F46E5']
+  ].map(([id,name,icon,color]) => ({ id,name,category:'Graphics',kind:'icon',icon,color })),
+  ...[
+    ['animation-sparkle','Floating sparkle','sparkles','#7C3AED','float'], ['animation-heart','Pulsing heart','heart','#E11D48','pulse'], ['animation-star','Bouncing star','star','#EAB308','bounce'], ['animation-gear','Spinning gear','settings','#2563EB','spin'],
+    ['animation-arrow','Bouncing arrow','arrow-right','#EA580C','bounce'], ['animation-bell','Floating bell','bell','#D97706','float'], ['animation-badge','Pulsing badge','badge-check','#16A34A','pulse'], ['animation-flame','Floating flame','flame','#EF4444','float']
+  ].map(([id,name,icon,color,animation]) => ({ id,name,category:'Animations',kind:'icon',icon,color,animation })),
+  ...[
+    ['icon-car','Car','car'], ['icon-key','Key','key-round'], ['icon-phone','Phone','phone'], ['icon-mail','Email','mail'], ['icon-calendar','Calendar','calendar'], ['icon-clock','Clock','clock'],
+    ['icon-user','Person','user'], ['icon-team','Team','users'], ['icon-camera','Camera','camera'], ['icon-video','Video','video'], ['icon-home','Building','building-2'], ['icon-globe','Website','globe-2'],
+    ['icon-tag','Price tag','tag'], ['icon-card','Payment','credit-card'], ['icon-wrench','Service','wrench'], ['icon-search','Search','search'], ['icon-share','Share','share-2'], ['icon-qr','QR code','qr-code']
+  ].map(([id,name,icon]) => ({ id,name,category:'Icons',kind:'icon',icon,color:'#2563EB' })),
+  ...[
+    ['frame-classic','Classic frame','classic'], ['frame-round','Rounded frame','round'], ['frame-circle','Circle frame','circle'], ['frame-polaroid','Polaroid frame','polaroid'],
+    ['frame-phone','Phone frame','phone'], ['frame-window','Browser frame','window'], ['frame-arch','Arch frame','arch'], ['frame-double','Double frame','double']
+  ].map(([id,name,style]) => ({ id,name,category:'Frames',kind:'frame',style,color:'#8B5CF6' })),
+  ...[
+    ['grid-halves','Two columns','halves'], ['grid-stack','Two rows','stack'], ['grid-feature','Feature grid','feature'], ['grid-thirds','Three columns','thirds'],
+    ['grid-collage','Photo collage','collage'], ['grid-mosaic','Mosaic','mosaic'], ['grid-sidebar','Sidebar grid','sidebar'], ['grid-four','Four tiles','four']
+  ].map(([id,name,style]) => ({ id,name,category:'Grids',kind:'grid',style,color:'#0EA5E9' })),
+  ...[
+    ['chart-bars','Bar chart','bars'], ['chart-columns','Column chart','columns'], ['chart-donut','Donut chart','donut'], ['chart-progress','Progress rings','progress'],
+    ['chart-line','Line chart','line'], ['chart-kpi','KPI card','kpi']
+  ].map(([id,name,style]) => ({ id,name,category:'Charts',kind:'chart',style,color:'#4F46E5' })),
+  ...[
+    ['table-simple','Simple table','simple'], ['table-header','Header table','header'], ['table-price','Price list','price'], ['table-compare','Comparison','compare'], ['table-schedule','Schedule','schedule'], ['table-specs','Vehicle specs','specs']
+  ].map(([id,name,style]) => ({ id,name,category:'Tables',kind:'table',style,color:'#334155' })),
+  ...[
+    ['social-instagram','Instagram','instagram'], ['social-facebook','Facebook','facebook'], ['social-linkedin','LinkedIn','linkedin'], ['social-youtube','YouTube','youtube'],
+    ['social-tiktok','TikTok','tiktok'], ['social-x','X','x-twitter'], ['social-pinterest','Pinterest','pinterest'], ['social-share','Share','share-2']
+  ].map(([id,name,icon]) => ({ id,name,category:'Social',kind:'icon',icon,color:'#111827',library:icon === 'share-2' ? 'lucide' : 'fontawesome-brands' }))
+];
+
 function loadStudioGoogleFonts() {
   if (document.getElementById('studio-google-fonts-link')) return;
   const link = document.createElement('link');
@@ -222,7 +276,7 @@ function studioAddSticker(emoji) {
 window.studioAddSticker = studioAddSticker;
 
 function studioCatalogButtons(items, query, render) { const needle = String(query || '').toLowerCase(); return items.filter(item => !needle || `${item.name} ${item.label || ''} ${item.value || ''}`.toLowerCase().includes(needle)).map(render).join('') || '<div class="col-span-4 p-4 text-center text-xs text-slate-500">Nothing matches that search.</div>'; }
-window.__studioCatalogLimits = { icons: 28, elements: 12, text: 12, ...(window.__studioCatalogLimits || {}) };
+window.__studioCatalogLimits = { icons: 28, elements: 24, text: 12, ...(window.__studioCatalogLimits || {}) };
 window.__studioCatalogObservers = window.__studioCatalogObservers || {};
 function studioCatalogMore(kind, remaining) { return remaining > 0 ? `<button type="button" data-studio-lazy="${kind}" onclick="loadMoreStudioCatalog('${kind}')" class="studio-catalog-more">Loading ${Math.min(12, remaining)} more…</button>` : ''; }
 function wireStudioLazyCatalog(kind) {
@@ -256,7 +310,7 @@ const STUDIO_ICON_SLUGS = {
   tabler: { 'screwdriver-wrench':'tools', gear:'settings', 'circle-info':'info-circle', envelope:'mail', globe:'world', house:'home', image:'photo', 'location-dot':'map-pin', 'magnifying-glass':'search', message:'message', 'mobile-screen':'device-mobile', 'paper-plane':'send', print:'printer', 'share-nodes':'share', shop:'building-store', xmark:'x' },
   material: { 'screwdriver-wrench':'build', gear:'settings', 'circle-info':'info', envelope:'mail', globe:'public', house:'home', image:'image', 'location-dot':'location_on', 'magnifying-glass':'search', message:'chat_bubble', 'mobile-screen':'smartphone', 'paper-plane':'send', print:'print', 'share-nodes':'share', shop:'storefront', xmark:'close' }
 };
-function studioIconUrl(name, library = 'lucide') { const [label, prefix] = STUDIO_ICON_LIBRARIES[library] || STUDIO_ICON_LIBRARIES.lucide; const slug = STUDIO_ICON_SLUGS[library]?.[name] || name; return `https://api.iconify.design/${encodeURIComponent(prefix)}/${encodeURIComponent(slug)}.svg?color=%232563EB`; }
+function studioIconUrl(name, library = 'lucide', color = '#2563EB') { const [, prefix] = STUDIO_ICON_LIBRARIES[library] || STUDIO_ICON_LIBRARIES.lucide; const slug = STUDIO_ICON_SLUGS[library]?.[name] || name; return `https://api.iconify.design/${encodeURIComponent(prefix)}/${encodeURIComponent(slug)}.svg?color=${encodeURIComponent(color)}`; }
 function studioIconCategory(item) { return Object.entries(STUDIO_ICON_CATEGORY_NAMES).find(([, names]) => names.has(item.name))?.[0] || 'business'; }
 function renderStudioIconCategories() { return Object.entries(STUDIO_ICON_CATEGORIES).map(([key, [label, icon]]) => `<button type="button" onclick="setStudioIconCategory('${key}')" aria-current="${(window.__studioIconCategory || 'all') === key}" class="studio-category-chip"><img src="${studioIconUrl(icon)}" loading="lazy" decoding="async" alt=""><span>${label}</span></button>`).join(''); }
 function setStudioIconCategory(category) { window.__studioIconCategory = category; window.__studioCatalogLimits.icons = 28; document.getElementById('studio-icon-categories')?.querySelectorAll('button').forEach(button => button.setAttribute('aria-current', String(button.textContent.trim().toLowerCase() === STUDIO_ICON_CATEGORIES[category]?.[0].toLowerCase()))); filterStudioIcons(false); }
@@ -283,10 +337,35 @@ async function searchStudioGifs() {
   }
 }
 window.searchStudioGifs = searchStudioGifs; window.studioGifPresetSearch = studioGifPresetSearch;
-function renderStudioElementCategories() { return Object.entries(STUDIO_ELEMENT_CATEGORY_META).map(([category, [icon, background, color]]) => `<button type="button" onclick="setStudioElementCategory('${category}')" class="studio-element-category" style="--category-bg:${background};--category-color:${color}"><span>${icon}</span><b>${category}</b></button>`).join(''); }
-function setStudioElementCategory(category) { const select = document.getElementById('studio-premade-category'); if (select) select.value = category; window.__studioCatalogLimits.elements = 12; filterStudioPremadeElements(false); }
-function renderStudioPremadeElements(query = '', category = 'all') { const needle = String(query || '').toLowerCase(); let matches = STUDIO_PREMADE_ELEMENTS.filter(item => (!needle || `${item.name} ${item.category} ${item.text}`.toLowerCase().includes(needle)) && (category === 'all' || item.category === category)); if (category === 'all' && !needle) matches = matches.slice().sort((a,b) => { const ai=STUDIO_ELEMENT_FEATURED_IDS.indexOf(a.id), bi=STUDIO_ELEMENT_FEATURED_IDS.indexOf(b.id); return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi); }); const limit = Number(window.__studioCatalogLimits.elements || 12); const cards = matches.slice(0, limit).map(item => `<button type="button" onclick="studioAddPremade('${item.id}')" class="studio-element-card"><div class="studio-element-preview studio-element-preview-${item.kind}"><span class="studio-element-preview-icon">${item.icon}</span><span><b>${escS(item.text)}</b><small>${escS(item.subtext)}</small></span></div><div class="studio-catalog-card-copy"><b>${escS(item.name)}</b><span>${escS(item.category)} · grouped and editable</span></div></button>`).join(''); return cards + studioCatalogMore('elements', matches.length - limit) || '<div class="col-span-2 p-4 text-center text-xs text-slate-500">No elements match.</div>'; }
-function filterStudioPremadeElements(reset = true) { if (reset) window.__studioCatalogLimits.elements = 12; const el = document.getElementById('studio-premade-library'); if (el) { el.innerHTML = renderStudioPremadeElements(document.getElementById('studio-premade-query')?.value, document.getElementById('studio-premade-category')?.value || 'all'); setTimeout(() => wireStudioLazyCatalog('elements'), 0); } }
+function studioVisualElementPreview(item) {
+  const color = item.color || '#4F46E5';
+  if (item.kind === 'icon') return `<img src="${studioIconUrl(item.icon, item.library || 'lucide', color)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">`;
+  if (item.kind === 'shape') {
+    if (item.shape === 'ring') return `<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="23" fill="none" stroke="${color}" stroke-width="7"/></svg>`;
+    return `<span style="color:${color}">${STUDIO_SHAPE_PREVIEW[item.shape] || STUDIO_SHAPE_PREVIEW.rect}</span>`;
+  }
+  if (item.kind === 'frame') {
+    const round = item.style === 'circle' ? 50 : item.style === 'round' || item.style === 'arch' ? 24 : 7;
+    const footer = item.style === 'polaroid' ? '<rect x="16" y="48" width="32" height="7" rx="2" fill="#e2e8f0"/>' : '';
+    const browser = item.style === 'window' ? '<circle cx="20" cy="17" r="2" fill="#f87171"/><circle cx="27" cy="17" r="2" fill="#fbbf24"/><circle cx="34" cy="17" r="2" fill="#34d399"/>' : '';
+    return `<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="10" y="9" width="44" height="46" rx="${round}" fill="#fff" stroke="${color}" stroke-width="3"/>${item.style === 'double' ? `<rect x="16" y="15" width="32" height="34" rx="5" fill="none" stroke="${color}" stroke-width="2"/>` : ''}${footer}${browser}<circle cx="25" cy="29" r="5" fill="#c4b5fd"/><path d="M14 48 29 34l8 7 8-6 9 10" fill="none" stroke="${color}" stroke-width="3"/></svg>`;
+  }
+  if (item.kind === 'grid') {
+    const layouts = { halves:[[8,10,22,44],[34,10,22,44]], stack:[[8,10,48,20],[8,34,48,20]], feature:[[8,10,30,44],[42,10,14,20],[42,34,14,20]], thirds:[[6,10,16,44],[24,10,16,44],[42,10,16,44]], collage:[[8,10,30,26],[42,10,14,26],[8,40,14,14],[26,40,30,14]], mosaic:[[8,10,20,20],[32,10,24,32],[8,34,20,20],[32,46,24,8]], sidebar:[[8,10,14,44],[26,10,30,20],[26,34,30,20]], four:[[8,10,22,20],[34,10,22,20],[8,34,22,20],[34,34,22,20]] };
+    return `<svg viewBox="0 0 64 64" aria-hidden="true">${(layouts[item.style] || layouts.four).map(([x,y,w,h], index) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="${index % 2 ? '#c7d2fe' : color}"/>`).join('')}</svg>`;
+  }
+  if (item.kind === 'chart') {
+    if (item.style === 'donut' || item.style === 'progress') return `<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="20" fill="none" stroke="#e2e8f0" stroke-width="10"/><circle cx="32" cy="32" r="20" fill="none" stroke="${color}" stroke-width="10" stroke-dasharray="78 126" transform="rotate(-90 32 32)"/>${item.style === 'progress' ? '<text x="32" y="36" text-anchor="middle" font-size="10" font-weight="800" fill="#334155">62%</text>' : ''}</svg>`;
+    if (item.style === 'line') return `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M8 52V12M8 52h48" stroke="#cbd5e1" stroke-width="2"/><path d="m10 45 12-13 10 6 12-20 12 7" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    return `<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="9" y="34" width="9" height="20" rx="3" fill="#c7d2fe"/><rect x="22" y="22" width="9" height="32" rx="3" fill="${color}"/><rect x="35" y="29" width="9" height="25" rx="3" fill="#818cf8"/><rect x="48" y="12" width="9" height="42" rx="3" fill="#4f46e5"/></svg>`;
+  }
+  return `<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="9" width="52" height="46" rx="5" fill="#fff" stroke="${color}" stroke-width="2.5"/><rect x="6" y="9" width="52" height="12" rx="5" fill="${color}"/><path d="M6 32h52M6 43h52M25 21v34M43 21v34" stroke="#cbd5e1" stroke-width="2"/></svg>`;
+}
+function renderStudioElementCategories() { return Object.entries(STUDIO_VISUAL_ELEMENT_CATEGORIES).filter(([category]) => category !== 'All').map(([category, [icon, background, color]]) => `<button type="button" onclick="setStudioElementCategory('${category}')" aria-current="${(window.__studioElementCategory || 'All') === category}" class="studio-element-category" style="--category-bg:${background};--category-color:${color}"><span><img src="${studioIconUrl(icon, 'lucide', color)}" alt="" loading="lazy" decoding="async" onerror="this.remove()"></span><b>${category}</b></button>`).join(''); }
+function setStudioElementCategory(category) { window.__studioElementCategory = category || 'All'; window.__studioCatalogLimits.elements = 24; document.querySelectorAll('.studio-element-category').forEach(button => button.setAttribute('aria-current', String(button.textContent.trim() === category))); filterStudioPremadeElements(false); }
+function renderStudioRecentVisualElements() { const ids = window.__studioRecentVisualElements?.length ? window.__studioRecentVisualElements : ['shape-circle','shape-ring','graphic-sparkles','icon-car','frame-round']; return ids.slice(0, 6).map(id => { const item = STUDIO_VISUAL_ELEMENTS.find(element => element.id === id); return item ? `<button type="button" onclick="studioAddVisualElement('${item.id}')" title="${escS(item.name)}" class="studio-element-recent"><span>${studioVisualElementPreview(item)}</span></button>` : ''; }).join(''); }
+function renderStudioPremadeElements(query = '', category = window.__studioElementCategory || 'All') { const needle = String(query || '').toLowerCase(); const matches = STUDIO_VISUAL_ELEMENTS.filter(item => (!needle || `${item.name} ${item.category} ${item.style || ''} ${item.icon || ''}`.toLowerCase().includes(needle)) && (category === 'All' || item.category === category)); const limit = Number(window.__studioCatalogLimits.elements || 24); const cards = matches.slice(0, limit).map(item => `<button type="button" onclick="studioAddVisualElement('${item.id}')" class="studio-element-card" title="Add ${escS(item.name)}"><div class="studio-visual-element-preview" style="--element-color:${item.color || '#4F46E5'}">${studioVisualElementPreview(item)}</div><div class="studio-catalog-card-copy"><b>${escS(item.name)}</b><span>${escS(item.category)}</span></div></button>`).join(''); return cards + studioCatalogMore('elements', matches.length - limit) || '<div class="col-span-3 p-4 text-center text-xs text-slate-500">No elements match.</div>'; }
+function filterStudioPremadeElements(reset = true) { if (reset) window.__studioCatalogLimits.elements = 24; const el = document.getElementById('studio-premade-library'); if (el) { const category = window.__studioElementCategory || 'All'; el.innerHTML = renderStudioPremadeElements(document.getElementById('studio-premade-query')?.value, category); const heading = document.getElementById('studio-element-result-heading'); if (heading) heading.textContent = category === 'All' ? 'Recommended for you' : category; const recent = document.getElementById('studio-element-recent'); if (recent) recent.innerHTML = renderStudioRecentVisualElements(); setTimeout(() => wireStudioLazyCatalog('elements'), 0); } }
 const STUDIO_TEXT_TEMPLATES = [
   ['bold-title','Bold split title','Titles','MAKE YOUR','MOVE TODAY','#f97316','#475569',-5,'wide','Anton','Dancing Script'],
   ['gradient-title','Road ready stack','Titles','THE ROAD','STARTS HERE','#2563eb','#0f766e',3,'tall','Archivo Black','Satisfy'],
@@ -337,6 +416,77 @@ function studioAddTextTemplate(id) {
   if (typeof showToast === 'function') showToast(`${item.name} added — ungroup to edit both text layers`, 'success');
 }
 window.studioAddTextTemplate = studioAddTextTemplate;
+
+function rememberStudioVisualElement(id) {
+  window.__studioRecentVisualElements = [id, ...(window.__studioRecentVisualElements || []).filter(item => item !== id)].slice(0, 6);
+}
+
+function studioAddVisualElement(id) {
+  const item = STUDIO_VISUAL_ELEMENTS.find(element => element.id === id), adapter = window.__studioAdapter, canvas = adapter?.fabricCanvas;
+  if (!item || !adapter || !canvas) return;
+  rememberStudioVisualElement(id);
+  if (item.kind === 'icon') {
+    adapter.addImage(studioIconUrl(item.icon, item.library || 'lucide', item.color || '#2563EB'), item.name).then(image => {
+      if (image) {
+        image.msData = { ...(image.msData || {}), name: item.name, visualElementId: item.id, mediaType: 'svg-icon', iconLibrary:item.library || 'lucide' };
+        if (item.animation && typeof adapter.setSelectedAnimation === 'function') adapter.setSelectedAnimation(item.animation);
+        adapter.saveHistory();
+      }
+      filterStudioPremadeElements(false);
+    });
+    return;
+  }
+  if (item.kind === 'shape') {
+    const shapeType = item.shape === 'ring' || item.shape === 'rounded' ? (item.shape === 'ring' ? 'circle' : 'rect') : item.shape;
+    adapter.addShape(shapeType, item.color);
+    const shape = canvas.getActiveObject();
+    if (shape) {
+      if (item.shape === 'ring') shape.set({ fill: 'rgba(255,255,255,0)', stroke: item.color, strokeWidth: 18 });
+      if (item.shape === 'rounded') shape.set({ rx: 54, ry: 54 });
+      shape.msData = { ...(shape.msData || {}), name: item.name, visualElementId: item.id };
+      shape.setCoords(); canvas.requestRenderAll(); adapter.saveHistory();
+    }
+    filterStudioPremadeElements(false);
+    return;
+  }
+
+  const center = canvas.getCenter(), left = center.left - 250, top = center.top - 180, objects = [];
+  const addRect = (x, y, width, height, fill, options = {}) => {
+    adapter.addShape(options.circle ? 'circle' : 'rect', fill);
+    const object = canvas.getActiveObject();
+    if (!object) return;
+    object.set({ left:left+x, top:top+y, width, height, ...(options.circle ? { radius: Math.min(width, height) / 2 } : { rx:options.radius || 14, ry:options.radius || 14 }), fill, stroke:options.stroke || null, strokeWidth:options.stroke ? (options.strokeWidth || 5) : 0, angle:options.angle || 0 });
+    object.msData = { ...(object.msData || {}), name: options.name || item.name, visualElementId: item.id };
+    object.setCoords(); objects.push(object);
+  };
+  const accent = item.color || '#4F46E5';
+
+  if (item.kind === 'frame') {
+    const circle = item.style === 'circle';
+    addRect(55, 25, 390, 310, 'rgba(255,255,255,0.01)', { circle, radius:item.style === 'round' || item.style === 'arch' ? 70 : 18, stroke:accent, strokeWidth:12, name:`${item.name} border` });
+    if (item.style === 'double') addRect(82, 52, 336, 256, 'rgba(255,255,255,0.01)', { radius:12, stroke:accent, strokeWidth:5, name:'Inner border' });
+    if (item.style === 'polaroid') addRect(85, 285, 330, 42, '#F8FAFC', { radius:4, name:'Caption area' });
+    if (item.style === 'window') { addRect(55, 25, 390, 48, accent, { radius:18, name:'Browser top bar' }); ['#F87171','#FBBF24','#34D399'].forEach((color,index) => addRect(78+index*30,40,16,16,color,{circle:true,name:'Window control'})); }
+    if (item.style === 'phone') addRect(205, 39, 90, 12, accent, { radius:6, name:'Phone speaker' });
+  } else if (item.kind === 'grid') {
+    const layouts = { halves:[[20,35,220,290],[260,35,220,290]], stack:[[20,25,460,145],[20,190,460,145]], feature:[[20,25,290,310],[330,25,150,145],[330,190,150,145]], thirds:[[15,25,150,310],[175,25,150,310],[335,25,150,310]], collage:[[20,25,285,185],[325,25,155,185],[20,230,155,105],[195,230,285,105]], mosaic:[[20,25,190,135],[230,25,250,205],[20,180,190,155],[230,250,250,85]], sidebar:[[20,25,130,310],[170,25,310,145],[170,190,310,145]], four:[[20,25,220,145],[260,25,220,145],[20,190,220,145],[260,190,220,145]] };
+    (layouts[item.style] || layouts.four).forEach(([x,y,w,h], index) => addRect(x,y,w,h,index % 2 ? '#C7D2FE' : accent,{radius:18,name:`Grid cell ${index + 1}`}));
+  } else if (item.kind === 'chart') {
+    if (item.style === 'donut' || item.style === 'progress') { addRect(105,35,290,290,'rgba(255,255,255,0.01)',{circle:true,stroke:'#E2E8F0',strokeWidth:42,name:'Chart track'}); addRect(105,35,290,290,'rgba(255,255,255,0.01)',{circle:true,stroke:accent,strokeWidth:20,name:'Chart value'}); }
+    else { [150,245,195,300].forEach((height,index) => addRect(35+index*115,335-height,80,height,index % 2 ? accent : '#A5B4FC',{radius:15,name:`Chart series ${index + 1}`})); }
+  } else {
+    addRect(20,25,460,310,'#FFFFFF',{radius:18,stroke:'#CBD5E1',strokeWidth:5,name:'Table frame'});
+    addRect(20,25,460,62,accent,{radius:18,name:'Table header'});
+    [145,205,265].forEach((y,index) => addRect(20,y,460,4,'#CBD5E1',{radius:0,name:`Row divider ${index + 1}`}));
+    [175,330].forEach((x,index) => addRect(x,87,4,248,'#E2E8F0',{radius:0,name:`Column divider ${index + 1}`}));
+  }
+  if (objects.length > 1) { canvas.discardActiveObject(); canvas.setActiveObject(new window.fabric.ActiveSelection(objects, { canvas })); adapter.groupSelected(); }
+  else if (objects[0]) canvas.setActiveObject(objects[0]);
+  canvas.requestRenderAll(); adapter.saveHistory(); filterStudioPremadeElements(false);
+  if (typeof showToast === 'function') showToast(`${item.name} added`, 'success');
+}
+window.studioAddVisualElement = studioAddVisualElement;
+
 function studioElementLayout(item) {
   const layouts = {
     badge: { shape:'circle', width:210, height:210, fill:'#1D4ED8', radius:105, iconX:75, iconY:30, iconW:60, iconSize:38, titleX:22, titleY:92, titleW:166, titleSize:23, subX:28, subY:128, subW:154, subSize:13, align:'center' },
@@ -1274,7 +1424,7 @@ function renderStudioToolPanelContent(tool) {
       </div>
     `;
   } else if (tool === 'elements') {
-    return `<div class="p-4 space-y-4"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Elements</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Complete editable compositions—not generic buttons. Grouped icon + title + supporting text, with a shape designed for each purpose.</p></div><input id="studio-premade-query" oninput="filterStudioPremadeElements()" placeholder="Search badges, graphics, CTAs…" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs"><div><div class="studio-catalog-heading"><b>Browse categories</b><span>Tap to filter</span></div><div class="studio-element-categories">${renderStudioElementCategories()}</div></div><div class="flex items-center justify-between gap-2"><div class="studio-catalog-heading"><b>Recommended</b><span>Grouped and editable</span></div><select id="studio-premade-category" onchange="filterStudioPremadeElements()" class="w-24 px-1 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[10px]"><option value="all">All</option>${Object.keys(STUDIO_ELEMENT_CATEGORY_META).map(category => `<option value="${category}">${category}</option>`).join('')}</select></div><div id="studio-premade-library" class="studio-catalog-scroll studio-element-library">${renderStudioPremadeElements()}</div></div>`;
+    return `<div class="p-4 space-y-4"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Elements</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Visual building blocks for the canvas. Add one, then resize, recolour, rotate or combine it with anything else.</p></div><label class="studio-element-search"><span>＋</span><input id="studio-premade-query" oninput="filterStudioPremadeElements()" placeholder="Search shapes, graphics, frames…"><span>⌕</span></label><div><div class="studio-catalog-heading"><b>Recently used</b><span>Tap to add</span></div><div id="studio-element-recent" class="studio-element-recent-row">${renderStudioRecentVisualElements()}</div></div><div><div class="studio-catalog-heading"><b>Browse categories</b><button type="button" onclick="setStudioElementCategory('All')">See all</button></div><div class="studio-element-categories">${renderStudioElementCategories()}</div></div><div><div class="studio-catalog-heading"><b id="studio-element-result-heading">${window.__studioElementCategory && window.__studioElementCategory !== 'All' ? escS(window.__studioElementCategory) : 'Recommended for you'}</b><span>${STUDIO_VISUAL_ELEMENTS.length} editable assets</span></div><div id="studio-premade-library" class="studio-catalog-scroll studio-element-library">${renderStudioPremadeElements()}</div></div></div>`;
   } else if (tool === 'inventory') {
     return `
       <div class="p-4 space-y-3">
