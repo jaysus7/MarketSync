@@ -3555,6 +3555,18 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 .studio-mobile-scrim { display: none; }
 #ms-studio-master-modal .canvas-container,
 #ms-studio-master-modal .upper-canvas { touch-action: none; user-select: none; -webkit-user-select: none; }
+#studio-context-menu { max-height: calc(100dvh - 16px); overflow-y: auto; overscroll-behavior: contain; }
+#studio-context-menu .studio-context-menu-heading { display: flex; align-items: center; justify-content: space-between; min-height: 34px; padding: 2px 8px 4px 12px; color: #64748b; font: 900 10px/1 ui-sans-serif,sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+#studio-context-menu .studio-context-menu-heading button { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px; color: #64748b; font: 500 22px/1 ui-sans-serif,sans-serif; }
+#studio-context-menu .studio-context-menu-heading button:hover { background: #f1f5f9; color: #0f172a; }
+#studio-context-menu .studio-context-menu-item { min-height: 36px; padding-top: 7px; padding-bottom: 7px; }
+@media (max-width: 768px) {
+  #studio-context-menu { left: 8px !important; right: 8px !important; top: auto !important; bottom: max(8px, env(safe-area-inset-bottom)) !important; width: auto; max-height: min(72dvh, 620px); border-radius: 20px; padding: 8px 6px 10px; box-shadow: 0 24px 65px rgba(2,6,23,.48); }
+  #studio-context-menu .studio-context-menu-item { min-height: 44px; padding: 10px 12px; font-size: 13px; }
+  #studio-context-menu .studio-context-menu-heading { min-height: 40px; padding-left: 12px; }
+}
+.dark #studio-context-menu .studio-context-menu-heading { color: #94a3b8; }
+.dark #studio-context-menu .studio-context-menu-heading button:hover { background: #1e293b; color: #f8fafc; }
 .ms-studio-grid-on::before { content:""; position:absolute; inset:0; pointer-events:none; z-index:19; background-image:linear-gradient(rgba(96,165,250,.16) 1px, transparent 1px),linear-gradient(90deg, rgba(96,165,250,.16) 1px, transparent 1px); background-size:40px 40px; }
 #ms-studio-master-modal [class*="bg-blue-500"],
 #ms-studio-master-modal [class*="bg-blue-600"],

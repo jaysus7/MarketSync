@@ -6,7 +6,7 @@ const html = readFileSync(new URL('../../marketplace-frontend/dashboard.html', i
 const loader = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part2.js', import.meta.url), 'utf8')
 const version = '20260902_staging_repair_v1'
 const builderVersion = '20260903_dark_button_contrast_v1'
-const studioDepthVersion = '20260903_studio_mobile_dark_v1'
+const studioDepthVersion = '20260903_studio_context_actions_v1'
 const previewBootVersion = '20260903_public_site_routing_v1'
 
 test('every frontend asset edited by the staging repair has the release cache version', () => {

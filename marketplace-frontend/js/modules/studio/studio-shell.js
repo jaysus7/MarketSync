@@ -1199,25 +1199,69 @@ async function initStudioAdapter(scene) {
   wireStudioContextMenu(window.__studioAdapter);
 }
 
-// Right-click on the artboard — the same actions already on the toolbar/keyboard
-// shortcuts (Copy/Cut/Paste/Duplicate, layer order, Group/Ungroup, Delete), just
-// reachable without knowing the shortcut exists.
+// Right-click or press-and-hold on the artboard. Both gestures open the same action
+// surface and call the adapter's canonical edit/history methods, so touch does not
+// grow a second implementation of delete, arrange, undo, etc.
+const STUDIO_LONG_PRESS_MS = 560;
+const STUDIO_LONG_PRESS_MOVE_PX = 12;
+
+function selectStudioContextTarget(canvas, event) {
+  const target = canvas.findTarget(event, false);
+  if (target && !canvas.getActiveObjects().includes(target)) {
+    canvas.discardActiveObject();
+    canvas.setActiveObject(target);
+    canvas.requestRenderAll();
+  } else if (!target) {
+    canvas.discardActiveObject();
+    canvas.requestRenderAll();
+  }
+  return target;
+}
+
 function wireStudioContextMenu(adapter) {
   const canvas = adapter?.fabricCanvas;
   if (!canvas?.upperCanvasEl) return;
-  canvas.upperCanvasEl.addEventListener('contextmenu', (e) => {
+  const surface = canvas.upperCanvasEl;
+  surface.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    const target = canvas.findTarget(e, false);
-    if (target && !canvas.getActiveObjects().includes(target)) {
-      canvas.discardActiveObject();
-      canvas.setActiveObject(target);
-      canvas.requestRenderAll();
-    } else if (!target) {
-      canvas.discardActiveObject();
-      canvas.requestRenderAll();
-    }
+    const target = selectStudioContextTarget(canvas, e);
     showStudioContextMenu(e.clientX, e.clientY, !!target);
   });
+
+  let press = null;
+  let pressTimer = null;
+  let suppressClickUntil = 0;
+  const clearPress = () => {
+    if (pressTimer) window.clearTimeout(pressTimer);
+    pressTimer = null;
+    press = null;
+  };
+  surface.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' || e.button !== 0) return;
+    clearPress();
+    press = { x: e.clientX, y: e.clientY, event: e };
+    pressTimer = window.setTimeout(() => {
+      if (!press) return;
+      const target = selectStudioContextTarget(canvas, press.event);
+      suppressClickUntil = Date.now() + 700;
+      showStudioContextMenu(press.x, press.y, !!target);
+      if (navigator.vibrate) navigator.vibrate(12);
+      pressTimer = null;
+    }, STUDIO_LONG_PRESS_MS);
+  }, { passive: true });
+  surface.addEventListener('pointermove', (e) => {
+    if (!press) return;
+    if (Math.hypot(e.clientX - press.x, e.clientY - press.y) > STUDIO_LONG_PRESS_MOVE_PX) clearPress();
+  }, { passive: true });
+  surface.addEventListener('pointerup', clearPress, { passive: true });
+  surface.addEventListener('pointercancel', clearPress, { passive: true });
+  // Mobile browsers synthesize a click after a long press. Consume only that one
+  // click or it immediately closes the action sheet that the hold just opened.
+  surface.addEventListener('click', (e) => {
+    if (Date.now() >= suppressClickUntil) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }, true);
 }
 
 function closeStudioContextMenu() {
@@ -1233,12 +1277,23 @@ function showStudioContextMenu(x, y, hasTarget) {
   const active = adapter?.fabricCanvas?.getActiveObject();
   const isSelection = active?.type === 'activeSelection';
   const isGroup = active?.type === 'group';
-  const item = (label, method, opts = {}) => `<button type="button" onclick="studioCtxAction('${method}')" ${opts.disabled ? 'disabled' : ''} class="w-full text-left px-3 py-1.5 flex items-center justify-between gap-4 transition ${opts.disabled ? 'opacity-40 cursor-default' : 'hover:bg-slate-100 dark:hover:bg-slate-800'} ${opts.danger && !opts.disabled ? 'text-rose-400' : ''}"><span>${label}</span>${opts.shortcut ? `<span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">${opts.shortcut}</span>` : ''}</button>`;
+  const canUndo = (adapter?.undoStack?.length || 0) > 1;
+  const canRedo = (adapter?.redoStack?.length || 0) > 0;
+  const item = (label, method, opts = {}) => `<button type="button" role="menuitem" onclick="studioCtxAction('${method}')" ${opts.disabled ? 'disabled' : ''} class="studio-context-menu-item w-full text-left px-3 flex items-center justify-between gap-4 transition ${opts.disabled ? 'opacity-40 cursor-default' : 'hover:bg-slate-100 dark:hover:bg-slate-800'} ${opts.danger && !opts.disabled ? 'text-rose-500 dark:text-rose-400' : ''}"><span>${label}</span>${opts.shortcut ? `<span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">${opts.shortcut}</span>` : ''}</button>`;
   const divider = '<div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>';
   const menu = document.createElement('div');
   menu.id = 'studio-context-menu';
-  menu.className = 'fixed z-[100000] min-w-[190px] py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-2xl text-xs font-bold text-slate-700 dark:text-slate-200';
+  menu.setAttribute('role', 'menu');
+  menu.setAttribute('aria-label', hasTarget ? 'Selected element actions' : 'Canvas actions');
+  menu.className = 'fixed z-[100000] min-w-[230px] py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-2xl text-xs font-bold text-slate-700 dark:text-slate-200';
   menu.innerHTML = [
+    `<div class="studio-context-menu-heading"><span>${hasTarget ? 'Element actions' : 'Canvas actions'}</span><button type="button" onclick="closeStudioContextMenu()" aria-label="Close actions">&times;</button></div>`,
+    item('Undo', 'undo', { disabled: !canUndo, shortcut: 'Ctrl+Z' }),
+    item('Redo', 'redo', { disabled: !canRedo, shortcut: 'Ctrl+Shift+Z' }),
+    divider,
+    item('Transform / position…', 'openTransformControls', { disabled: !hasTarget }),
+    item('Delete', 'deleteSelected', { disabled: !hasTarget, danger: true }),
+    divider,
     item('Copy', 'copySelected', { disabled: !hasTarget, shortcut: 'Ctrl+C' }),
     item('Cut', 'cutSelected', { disabled: !hasTarget, shortcut: 'Ctrl+X' }),
     item('Paste', 'pasteClipboard', { disabled: !adapter?._clipboard, shortcut: 'Ctrl+V' }),
@@ -1251,8 +1306,6 @@ function showStudioContextMenu(x, y, hasTarget) {
     divider,
     item('Group', 'groupSelected', { disabled: !isSelection, shortcut: 'Ctrl+G' }),
     item('Ungroup', 'ungroupSelected', { disabled: !isGroup, shortcut: 'Ctrl+Shift+G' }),
-    divider,
-    item('Delete', 'deleteSelected', { disabled: !hasTarget, danger: true }),
   ].join('');
   document.body.appendChild(menu);
   const rect = menu.getBoundingClientRect();
@@ -1265,8 +1318,27 @@ function showStudioContextMenu(x, y, hasTarget) {
 }
 window.showStudioContextMenu = showStudioContextMenu;
 
+function openStudioTransformControls() {
+  const adapter = window.__studioAdapter;
+  const active = adapter?.fabricCanvas?.getActiveObject();
+  if (!active) return;
+  active.set({ hasControls: true, hasBorders: true });
+  active.setCoords();
+  adapter.fabricCanvas.setActiveObject(active);
+  adapter.fabricCanvas.requestRenderAll();
+  window.__studioInspectorTab = 'position';
+  const panel = document.getElementById('studio-inspector-panel');
+  if (panel) {
+    panel.innerHTML = renderStudioProfessionalInspectorHtml([active]);
+    panel.classList.remove('hidden');
+  }
+  if (studioIsMobile()) openStudioMobilePanel('inspector');
+}
+window.openStudioTransformControls = openStudioTransformControls;
+
 function studioCtxAction(method) {
   closeStudioContextMenu();
+  if (method === 'openTransformControls') return openStudioTransformControls();
   const adapter = window.__studioAdapter;
   if (adapter && typeof adapter[method] === 'function') adapter[method]();
 }
