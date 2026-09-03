@@ -76,6 +76,10 @@ test('Brand Kit, collaboration, approvals, governance, image controls, exports, 
   for (const format of ["exportStudioFile('png')", "exportStudioFile('jpeg')", "exportStudioFile('transparent')"]) assert.ok(shell.includes(format), format)
   assert.match(css, /@media \(max-width: 768px\)/)
   assert.match(css, /ms-studio-mobile-open/)
+  assert.match(adapter, /allowTouchScrolling: false/)
+  assert.match(adapter, /enablePointerEvents: true/)
+  assert.match(adapter, /upperCanvasEl\.style\.touchAction = 'none'/)
+  assert.match(adapter, /scene = this\.normalizeScene\(scene\)/)
 })
 
 test('old demo vehicle fallback records are removed from Design Studio', () => {

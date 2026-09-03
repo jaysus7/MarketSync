@@ -39,7 +39,7 @@ class StudioFabricAdapter {
 
   async init(scene, vehicle = null) {
     const fabric = await loadFabricJs();
-    this.currentScene = scene || window.msCreateDefaultScene();
+    this.currentScene = this.normalizeScene(scene || window.msCreateDefaultScene());
     this.currentVehicle = vehicle;
 
     if (this.fabricCanvas) {
@@ -51,12 +51,23 @@ class StudioFabricAdapter {
       height: this.currentScene.height,
       backgroundColor: this.currentScene.background?.color || '#0F172A',
       preserveObjectStacking: true,
-      selection: true
+      selection: true,
+      allowTouchScrolling: false,
+      enablePointerEvents: true
     });
+    if (this.fabricCanvas.upperCanvasEl) this.fabricCanvas.upperCanvasEl.style.touchAction = 'none';
+    if (this.fabricCanvas.wrapperEl) this.fabricCanvas.wrapperEl.style.touchAction = 'none';
 
     this.bindEvents();
     await this.renderScene(this.currentScene);
     this.startAnimationLoop();
+  }
+
+  normalizeScene(scene) {
+    if (window.msStudioSceneToDocument && window.msStudioDocumentToScene) {
+      return window.msStudioDocumentToScene(window.msStudioSceneToDocument(scene));
+    }
+    return scene || window.msCreateDefaultScene();
   }
 
   startAnimationLoop() {
@@ -165,17 +176,22 @@ class StudioFabricAdapter {
   async renderScene(scene) {
     if (!this.fabricCanvas) return;
     this.isRendering = true;
+    scene = this.normalizeScene(scene);
     this.currentScene = scene;
     const fabric = window.fabric;
     const shadowFor = (value) => value ? new fabric.Shadow({ color: value.color || 'rgba(15,23,42,.28)', blur: Number(value.blur ?? 18), offsetX: Number(value.offsetX ?? 0), offsetY: Number(value.offsetY ?? 8) }) : null;
-
-    this.fabricCanvas.setDimensions({ width: scene.width || 1080, height: scene.height || 1080 });
-
-    this.fabricCanvas.clear();
-    this.fabricCanvas.setBackgroundColor(scene.background?.color || '#0F172A', () => this.fabricCanvas.renderAll());
-
     const page = Array.isArray(scene.pages) ? (scene.pages.find(p => p.id === this.activePageId) || scene.pages[0]) : null;
     if (page) this.activePageId = page.id;
+    const pageWidth = page?.width || scene.width || 1080;
+    const pageHeight = page?.height || scene.height || 1080;
+    const pageBackground = page?.background?.color || scene.background?.color || '#0F172A';
+    this.fabricCanvas.setDimensions({ width: pageWidth, height: pageHeight });
+    const artboard = document.getElementById('studio-artboard-container');
+    if (artboard) { artboard.style.width = `${pageWidth}px`; artboard.style.height = `${pageHeight}px`; }
+
+    this.fabricCanvas.clear();
+    this.fabricCanvas.setBackgroundColor(pageBackground, () => this.fabricCanvas.renderAll());
+
     const elements = [...(page?.objects || scene.elements || scene.layers || [])];
     const repeaters = Array.isArray(scene.components) ? scene.components.filter(component => component.type === 'repeater') : [];
     if (repeaters.length) {

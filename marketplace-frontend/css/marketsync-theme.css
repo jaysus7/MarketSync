@@ -3373,15 +3373,16 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
   background: #f7f8fa !important;
   color: #0f172a;
 }
-#ms-studio-master-modal > .flex-shrink-0:first-child > header {
+#ms-studio-master-modal .studio-identity-bar {
   background: linear-gradient(100deg, #0ea5c9 0%, #2563eb 48%, #7c3aed 100%) !important;
   color: #fff !important;
   border-bottom-color: rgba(255,255,255,.2) !important;
   min-height: 58px;
 }
-#ms-studio-master-modal > .flex-shrink-0:first-child > header input { color: #fff !important; }
-#ms-studio-master-modal > .flex-shrink-0:first-child > header input::placeholder { color: rgba(255,255,255,.72) !important; }
-#ms-studio-master-modal > .flex-shrink-0:first-child > div:nth-child(2) {
+#ms-studio-master-modal .studio-identity-bar input { color: #fff !important; }
+#ms-studio-master-modal .studio-identity-bar input::placeholder { color: rgba(255,255,255,.72) !important; }
+#ms-studio-master-modal .studio-header-stack > nav,
+#ms-studio-master-modal .studio-command-bar {
   background: rgba(255,255,255,.88) !important;
   border-bottom-color: #dbe3ef !important;
 }
@@ -3550,6 +3551,10 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 #ms-studio-master-modal .studio-page-stage-label { position: absolute; left: 162px; top: 16px; z-index: 25; display: flex; align-items: center; gap: 8px; color: #334155; font: 800 12px/1 ui-sans-serif, sans-serif; }
 #ms-studio-master-modal .studio-page-stage-actions { display: flex; gap: 4px; }
 .studio-mobile-panel-button { display: none; }
+.studio-back-short,
+.studio-mobile-scrim { display: none; }
+#ms-studio-master-modal .canvas-container,
+#ms-studio-master-modal .upper-canvas { touch-action: none; user-select: none; -webkit-user-select: none; }
 .ms-studio-grid-on::before { content:""; position:absolute; inset:0; pointer-events:none; z-index:19; background-image:linear-gradient(rgba(96,165,250,.16) 1px, transparent 1px),linear-gradient(90deg, rgba(96,165,250,.16) 1px, transparent 1px); background-size:40px 40px; }
 #ms-studio-master-modal [class*="bg-blue-500"],
 #ms-studio-master-modal [class*="bg-blue-600"],
@@ -3583,31 +3588,101 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 #ms-studio-master-modal .studio-gif-status-error { border-color: #fbbf24; color: #92400e; background: #fffbeb; }
 #ms-studio-master-modal .studio-gif-status-error span { color: #a16207; }
 @media (max-width: 768px) {
-  #ms-studio-master-modal { overflow: hidden !important; }
-  #ms-studio-master-modal > .flex-shrink-0:first-child { min-height: 0; }
-  #ms-studio-master-modal header { height: auto !important; min-height: 58px; padding: 8px 12px !important; }
-  #ms-studio-master-modal header > div { min-width: 0; gap: 7px !important; }
-  #ms-studio-master-modal header img { width: 44px; height: auto; object-fit: contain; }
-  #ms-studio-master-modal header input { min-width: 0; max-width: 120px; font-size: 13px !important; }
-  #ms-studio-master-modal header button { white-space: normal; line-height: 1.15; }
+  #ms-studio-master-modal { height: 100dvh !important; max-height: 100dvh !important; overflow: hidden !important; }
+  #ms-studio-master-modal .studio-header-stack { min-height: 0; }
+  #ms-studio-master-modal .studio-identity-bar { height: 54px !important; min-height: 54px; padding: 6px 8px !important; }
+  #ms-studio-master-modal .studio-identity-main { min-width: 0; width: 100%; gap: 6px !important; }
+  #ms-studio-master-modal .studio-back-long,
+  #ms-studio-master-modal .studio-brand-divider,
+  #ms-studio-master-modal .studio-brand-logo { display: none !important; }
+  #ms-studio-master-modal .studio-back-short { display: inline; }
+  #ms-studio-master-modal .studio-identity-bar input { flex: 1 1 110px; width: auto; min-width: 70px; max-width: none; font-size: 13px !important; }
+  #ms-studio-master-modal .studio-identity-bar button { flex: 0 0 auto; white-space: nowrap; line-height: 1.15; }
+  #ms-studio-master-modal .studio-title-badge { flex: 0 0 auto; }
+  #ms-studio-master-modal #studio-save-status { flex: 0 0 auto; padding-inline: 6px; }
+  #ms-studio-master-modal [role="tablist"][aria-label="Design Studio"] { display: none !important; }
   #ms-studio-master-modal .studio-mobile-panel-button { display: inline-flex; align-items: center; justify-content: center; }
-  #ms-studio-master-modal > .flex-shrink-0:first-child > div:nth-child(2) { height: auto !important; min-height: 54px; padding: 7px 10px !important; overflow-x: auto; }
-  #ms-studio-master-modal > .flex-shrink-0:first-child > div:nth-child(2) > div:first-child { display: none; }
-  #ms-studio-master-modal > .flex-shrink-0:first-child > div:nth-child(2) > div:last-child { width: 100%; overflow-x: auto; justify-content: flex-start; }
-  #ms-studio-master-modal > .flex-1 { display: flex !important; flex-direction: column; position: relative; overflow: hidden !important; min-height: 0; }
-  #ms-studio-master-modal > .flex-1 > [data-studio-region="rail"] { display: flex !important; flex-direction: row; align-items: center; gap: 6px; width: 100% !important; height: 72px; min-height: 72px; padding: 6px 10px; overflow-x: auto; overflow-y: hidden; border-right: 0; border-bottom: 1px solid #dbe3ef; order: 2; z-index: 30; background: rgba(255,255,255,.97) !important; backdrop-filter: blur(18px) saturate(1.35); }
-  #ms-studio-master-modal > .flex-1 > [data-studio-region="rail"] button { flex: 0 0 70px; width: 70px; height: 58px; min-height: 58px; white-space: nowrap; }
-  #ms-studio-master-modal #studio-canvas-viewport { position: relative; flex: 1 1 auto; width: 100%; height: auto; min-height: 0; overflow: auto; padding: 22px 16px 32px; order: 1; }
-  #ms-studio-master-modal .studio-page-stack { left: 10px; top: 12px; bottom: 12px; width: 86px; }
-  #ms-studio-master-modal .studio-page-stage-label { left: 108px; top: 10px; }
+  #ms-studio-master-modal .studio-command-bar { height: 52px !important; min-height: 52px; padding: 5px 8px !important; gap: 6px !important; overflow: hidden; }
+  #ms-studio-master-modal .studio-command-scroll { flex: 0 0 auto; min-width: 0; overflow: visible; padding: 0; }
+  #ms-studio-master-modal .studio-command-scroll > :not(.studio-zoom-controls) { display: none !important; }
+  #ms-studio-master-modal .studio-zoom-controls { height: 40px; padding: 2px !important; }
+  #ms-studio-master-modal .studio-zoom-controls button { min-width: 28px; padding: 5px 7px !important; }
+  #ms-studio-master-modal .studio-zoom-controls #studio-zoom-display { min-width: 40px; padding: 0 4px !important; text-align: center; }
+  #ms-studio-master-modal .studio-primary-actions { flex: 1 1 auto; width: auto; max-width: none; margin-left: auto; padding: 0; border-left: 0; overflow: visible; justify-content: flex-end; gap: 5px !important; }
+  #ms-studio-master-modal .studio-primary-actions .studio-desktop-action { display: none !important; }
+  #ms-studio-master-modal .studio-primary-actions > button { min-height: 40px; padding: 7px 10px !important; }
+  #ms-studio-master-modal .studio-workspace-body { display: flex !important; flex-direction: column; position: relative; overflow: hidden !important; min-height: 0; }
+  #ms-studio-master-modal .studio-workspace-body > [data-studio-region="rail"] { display: flex !important; flex-direction: row; align-items: center; gap: 4px; width: 100% !important; height: 64px; min-height: 64px; padding: 3px 7px; overflow-x: auto; overflow-y: hidden; border-right: 0; border-bottom: 0; border-top: 1px solid #dbe3ef; order: 2; z-index: 30; background: rgba(255,255,255,.97) !important; backdrop-filter: blur(18px) saturate(1.35); }
+  #ms-studio-master-modal .studio-workspace-body > [data-studio-region="rail"] button { flex: 0 0 64px; width: 64px; height: 56px; min-height: 56px; padding: 3px 2px; white-space: nowrap; font-size: 10px; }
+  #ms-studio-master-modal #studio-canvas-viewport { position: relative; flex: 1 1 auto; width: 100%; height: auto; min-height: 0; overflow: auto; padding: 38px 12px 24px; order: 1; overscroll-behavior: contain; }
+  #ms-studio-master-modal .studio-page-stack { display: none !important; }
+  #ms-studio-master-modal .studio-page-stage-label { left: 12px; top: 12px; }
   #ms-studio-master-modal #studio-artboard-container { position: absolute; left: 50%; top: 50%; max-width: none; }
+  #ms-studio-master-modal .studio-mobile-drawer-open .studio-mobile-scrim,
+  #ms-studio-master-modal.studio-mobile-drawer-open .studio-mobile-scrim { display: block; position: absolute; inset: 0; z-index: 45; border: 0; background: rgba(2,6,23,.48); backdrop-filter: blur(2px); }
   #ms-studio-master-modal #studio-tool-panel,
   #ms-studio-master-modal #studio-inspector-panel { position: absolute; top: 0; bottom: 0; width: min(88vw, 340px) !important; max-width: 340px; height: auto; z-index: 50; box-shadow: 0 18px 45px rgba(15,23,42,.28); transition: transform .2s ease; }
   #ms-studio-master-modal #studio-tool-panel { left: 0; transform: translateX(-105%); }
   #ms-studio-master-modal #studio-inspector-panel { right: 0; transform: translateX(105%); }
   #ms-studio-master-modal #studio-tool-panel.ms-studio-mobile-open,
   #ms-studio-master-modal #studio-inspector-panel.ms-studio-mobile-open { transform: translateX(0); }
-  #ms-studio-master-modal > footer { min-height: 72px; height: auto !important; padding: 8px 10px !important; flex-wrap: nowrap; overflow-x: auto; }
-  #ms-studio-master-modal > footer .ml-auto { margin-left: 0 !important; }
+  #ms-studio-master-modal > footer { min-height: 50px; height: 50px !important; padding: 5px 10px !important; flex-wrap: nowrap; overflow: hidden; }
+  #ms-studio-master-modal > footer .studio-footer-text-control { display: none !important; }
+  #ms-studio-master-modal > footer select { flex: 1 1 auto; max-width: none; }
   #ms-studio-master-modal .w-60 { width: min(86vw, 330px) !important; }
+}
+
+/* The Studio owns its dark surfaces. Utility classes alone cannot override the
+ * deliberately strong light-workspace rules above, so dark mode gets an equally
+ * explicit palette without recolouring the artwork inside template previews. */
+.dark #ms-studio-master-modal { background: #07101f !important; color: #e7eef8 !important; }
+.dark #ms-studio-master-modal .studio-header-stack > nav,
+.dark #ms-studio-master-modal .studio-command-bar,
+.dark #ms-studio-master-modal [data-studio-region="rail"],
+.dark #ms-studio-master-modal [data-studio-region="drawer"],
+.dark #ms-studio-master-modal [data-studio-region="inspector"],
+.dark #ms-studio-master-modal [data-studio-region="footer"] { background: rgba(13,23,41,.98) !important; border-color: #293c5b !important; color: #e7eef8 !important; }
+.dark #ms-studio-master-modal [data-studio-region="canvas"] { background-color: #07101f !important; background-image: radial-gradient(#263a58 1px, transparent 1px) !important; }
+.dark #ms-studio-master-modal .studio-tool-rail-button { color: #b8c7dc !important; }
+.dark #ms-studio-master-modal .studio-tool-rail-button:hover,
+.dark #ms-studio-master-modal .studio-tool-rail-button[aria-current="page"] { color: #f8fafc !important; }
+.dark #ms-studio-master-modal .studio-tool-rail-button .studio-tool-icon { color: #93a4ba !important; }
+.dark #ms-studio-master-modal .studio-tool-rail-button[aria-current="page"] .studio-tool-icon { color: #60a5fa !important; }
+.dark #ms-studio-master-modal #studio-tool-panel { color: #e5edf8 !important; }
+.dark #ms-studio-master-modal #studio-tool-panel input,
+.dark #ms-studio-master-modal #studio-tool-panel select,
+.dark #ms-studio-master-modal #studio-tool-panel textarea { background: #091426 !important; color: #f8fafc !important; border-color: #344866 !important; }
+.dark #ms-studio-master-modal #studio-tool-panel input::placeholder,
+.dark #ms-studio-master-modal #studio-tool-panel textarea::placeholder { color: #8fa0b7 !important; }
+.dark #ms-studio-master-modal #studio-tool-panel button[class*="bg-slate-100"],
+.dark #ms-studio-master-modal #studio-tool-panel button[class*="bg-slate-50"],
+.dark #ms-studio-master-modal #studio-tool-panel button[class*="bg-slate-800"] { background: #182740 !important; color: #e7eef8 !important; border-color: #344866 !important; }
+.dark #ms-studio-master-modal #studio-tool-panel button[class*="bg-indigo-500/20"] { background: #1e3053 !important; color: #93c5fd !important; }
+.dark #ms-studio-master-modal #studio-tool-panel .text-slate-900,
+.dark #ms-studio-master-modal #studio-tool-panel .text-slate-300 { color: #e7eef8 !important; }
+.dark #ms-studio-master-modal #studio-tool-panel .text-slate-500,
+.dark #ms-studio-master-modal #studio-tool-panel .text-slate-400 { color: #9aabc1 !important; }
+.dark #ms-studio-master-modal .studio-template-card,
+.dark #ms-studio-master-modal .studio-element-card,
+.dark #ms-studio-master-modal .studio-text-template-card,
+.dark #ms-studio-master-modal .studio-gif-card,
+.dark #ms-studio-master-modal .studio-gif-result { background: #111d32 !important; color: #e7eef8 !important; border-color: #2d405f !important; }
+.dark #ms-studio-master-modal .studio-template-card .text-slate-900,
+.dark #ms-studio-master-modal .studio-element-card .text-slate-900,
+.dark #ms-studio-master-modal .studio-text-template-card .text-slate-900,
+.dark #ms-studio-master-modal .studio-gif-card span,
+.dark #ms-studio-master-modal .studio-gif-result-title { color: #e7eef8 !important; }
+.dark #ms-studio-master-modal .studio-gif-search-row input,
+.dark #ms-studio-master-modal .studio-gif-search-row select,
+.dark #ms-studio-master-modal .studio-gif-paste input { background: #091426; color: #f8fafc; border-color: #344866; }
+.dark #ms-studio-master-modal .studio-gif-filter { background: #15243b; color: #cbd5e1; border-color: #344866; }
+.dark #ms-studio-master-modal .studio-upload-dropzone { background: linear-gradient(145deg, #101d32, #0a1527); border-color: #415574; box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
+.dark #ms-studio-master-modal .studio-upload-action { background: #182740; color: #bfdbfe; border-color: #415574; }
+.dark #ms-studio-master-modal .studio-upload-action-primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+.dark #ms-studio-master-modal .studio-shape-colour-row label { color: #b8c7dc; }
+.dark #ms-studio-master-modal [data-studio-region="footer"] button,
+.dark #ms-studio-master-modal [data-studio-region="footer"] select { color: #e7eef8 !important; }
+.dark #ms-studio-master-modal .studio-page-card { color: #cbd5e1; }
+@media (max-width: 768px) {
+  .dark #ms-studio-master-modal .studio-workspace-body > [data-studio-region="rail"] { background: rgba(13,23,41,.98) !important; border-color: #293c5b !important; }
 }

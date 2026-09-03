@@ -273,8 +273,10 @@ function zoomStudioFit() {
   if (!mainEl) return;
   const availW = Math.max(120, mainEl.clientWidth - 32);
   const availH = Math.max(120, mainEl.clientHeight - 32);
-  const canvasW = window.__studioAdapter?.currentScene?.width || 1080;
-  const canvasH = window.__studioAdapter?.currentScene?.height || 1080;
+  const adapter = window.__studioAdapter;
+  const activePage = adapter?.currentScene?.pages?.find(page => page.id === adapter.activePageId);
+  const canvasW = activePage?.width || adapter?.currentScene?.width || 1080;
+  const canvasH = activePage?.height || adapter?.currentScene?.height || 1080;
   const scaleW = availW / canvasW;
   const scaleH = availH / canvasH;
   window.__studioZoomLevel = Math.max(0.08, Math.min(1.25, Math.min(scaleW, scaleH)));
@@ -402,16 +404,16 @@ function renderStudioWorkspaceHtml(designName, scene) {
          Split out of one crowded row so the toolbar (zoom, undo/redo, format,
          Save/Schedule/Render) has its own layer instead of fighting the logo/back
          button/name field for space. -->
-    <div class="flex-shrink-0 z-20">
-    <header class="h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between">
-      <div class="flex items-center gap-3">
+    <div class="studio-header-stack flex-shrink-0 z-20">
+    <header class="studio-identity-bar h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between">
+      <div class="studio-identity-main flex items-center gap-3">
         <button onclick="closeMarketSyncStudio()" class="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5 text-xs font-bold">
-          ${typeof isDesignStudioOnlyWorkspace === 'function' && isDesignStudioOnlyWorkspace() ? '← Settings' : '← Back to Marketing'}
+          <span class="studio-back-long">${typeof isDesignStudioOnlyWorkspace === 'function' && isDesignStudioOnlyWorkspace() ? '← Settings' : '← Back to Marketing'}</span><span class="studio-back-short">← Back</span>
         </button>
-        <div class="h-5 w-px bg-slate-100 dark:bg-slate-800"></div>
-        <img src="/assets/brand/marketsync-logo-primary.png" alt="MarketSync" class="h-8 w-auto dark:hidden">
-        <img src="/assets/brand/marketsync-logo-white.png" alt="MarketSync" class="h-8 w-auto hidden dark:block">
-        <span class="px-2 py-0.5 rounded-lg text-[11px] font-black bg-indigo-600 text-white dark:bg-indigo-600/20 dark:text-indigo-400 border border-indigo-600 dark:border-indigo-500/40 tracking-wide uppercase">Design Studio</span>
+        <div class="studio-brand-divider h-5 w-px bg-slate-100 dark:bg-slate-800"></div>
+        <img src="/assets/brand/marketsync-logo-primary.png" alt="MarketSync" class="studio-brand-logo h-8 w-auto dark:hidden">
+        <img src="/assets/brand/marketsync-logo-white.png" alt="MarketSync" class="studio-brand-logo h-8 w-auto hidden dark:block">
+        <span class="studio-title-badge px-2 py-0.5 rounded-lg text-[11px] font-black bg-indigo-600 text-white dark:bg-indigo-600/20 dark:text-indigo-300 border border-indigo-600 dark:border-indigo-500/40 tracking-wide uppercase">Studio</span>
         <input type="text" id="studio-design-name" value="${escS(designName)}" onchange="saveStudioDesignName(this.value)" class="bg-transparent text-sm font-black text-slate-900 dark:text-white focus:bg-slate-100 dark:focus:bg-slate-800 px-2 py-1 rounded-lg border border-transparent hover:border-slate-300 dark:hover:border-slate-700 transition">
         <span id="studio-save-status" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-emerald-600 text-white dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-600 dark:border-emerald-500/40">SAVED</span>
       </div>
@@ -428,7 +430,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
            Schedule + Render weren't visible on laptop widths. -->
       <div class="studio-command-scroll flex items-center gap-2 min-w-0 overflow-x-auto">
         <!-- Zoom Controls -->
-        <div class="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-300 dark:border-slate-700">
+        <div class="studio-zoom-controls flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-300 dark:border-slate-700">
           <button onclick="zoomStudioOut()" title="Zoom Out" class="px-2.5 py-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-black text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">-</button>
           <span id="studio-zoom-display" class="px-2 text-xs font-mono font-bold text-indigo-600 dark:text-sky-400">55%</span>
           <button onclick="zoomStudioIn()" title="Zoom In" class="px-2.5 py-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-black text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">+</button>
@@ -465,15 +467,15 @@ function renderStudioWorkspaceHtml(designName, scene) {
         <button onclick="saveStudioDesign()" class="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition flex items-center gap-1.5">
           <svg class="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>Save
         </button>
-        <button onclick="openStudioRevisionHistory()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition">History</button>
-        <button onclick="openStudioCollaboration()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition">Review</button>
-        <button onclick="openStudioAiDesign()" class="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-black transition">✦ AI Design</button>
-        <button onclick="openStudioExport()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition">Export</button>
-        <button onclick="publishStudioDesign()" class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-lg transition">Publish</button>
-        <button onclick="if(typeof openStudioSchedulerWithEntitlementCheck === 'function') openStudioSchedulerWithEntitlementCheck()" class="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition flex items-center gap-1.5">
+        <button onclick="openStudioRevisionHistory()" class="studio-desktop-action px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition">History</button>
+        <button onclick="openStudioCollaboration()" class="studio-desktop-action px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition">Review</button>
+        <button onclick="openStudioAiDesign()" class="studio-desktop-action px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-black transition">✦ AI Design</button>
+        <button onclick="openStudioExport()" class="studio-desktop-action px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition">Export</button>
+        <button onclick="publishStudioDesign()" class="studio-desktop-action px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-lg transition">Publish</button>
+        <button onclick="if(typeof openStudioSchedulerWithEntitlementCheck === 'function') openStudioSchedulerWithEntitlementCheck()" class="studio-desktop-action px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold transition flex items-center gap-1.5">
           <svg class="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Schedule
         </button>
-        <button onclick="renderStudioDesignAndPublish()" class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-lg transition flex items-center gap-1.5">
+        <button onclick="renderStudioDesignAndPublish()" class="studio-desktop-action px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-lg transition flex items-center gap-1.5">
           <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.684A1.85 1.85 0 014.28 11.5c0-.853.585-1.572 1.4-1.782m0 0A3.001 3.001 0 0111 8.5h6.25a2.25 2.25 0 012.25 2.25v2.25a2.25 2.25 0 01-2.25 2.25H11a3 3 0 01-5.564-1.566z"/></svg>Render &amp; Publish to Social
         </button>
       </div>
@@ -481,12 +483,14 @@ function renderStudioWorkspaceHtml(designName, scene) {
     </div>
 
     <!-- Main Workspace Body -->
-    <div class="flex-1 flex overflow-hidden relative">
+    <div class="studio-workspace-body flex-1 flex overflow-hidden relative">
+      <button type="button" class="studio-mobile-scrim" onclick="closeStudioMobilePanels()" aria-label="Close Studio panel"></button>
       <!-- Left Tool Rail -->
       <nav data-studio-region="rail" class="w-16 bg-slate-50 dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 flex flex-col items-center py-3 gap-3 flex-shrink-0 z-10">
         <button onclick="setStudioTool('templates')" id="tool-btn-templates" data-studio-tool="templates" aria-current="${window.__studioActiveTool === 'templates' ? 'page' : 'false'}" class="studio-tool-rail-button">
           <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Templates
         </button>
+        <button onclick="setDesignStudioTab('projects')" id="tool-btn-projects" data-studio-tool="projects" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base mb-0.5">▣</span>Projects</button>
         <button onclick="setStudioTool('elements')" id="tool-btn-elements" data-studio-tool="elements" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base mb-0.5">✦</span>Elements</button>
         <button onclick="setStudioTool('inventory')" id="tool-btn-inventory" data-studio-tool="inventory" aria-current="false" class="studio-tool-rail-button">
           <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 17a2 2 0 100 4 2 2 0 000-4zm10 0a2 2 0 100 4 2 2 0 000-4zM4 9h16l-1.5 5H5.5L4 9z"/></svg>Inventory
@@ -542,21 +546,21 @@ function renderStudioWorkspaceHtml(designName, scene) {
         ${renderStudioProfessionalInspectorHtml(null)}
       </aside>
     </div>
-    <footer data-studio-region="footer" class="h-16 flex-shrink-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-3 flex items-center gap-2 overflow-x-auto z-30">
+    <footer data-studio-region="footer" class="studio-page-footer h-16 flex-shrink-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-3 flex items-center gap-2 overflow-x-auto z-30">
       <span class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Pages</span>
       <select onchange="setStudioPage(this.value)" class="max-w-28 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1.5 text-xs font-bold">${(scene.pages || [{ id: 'page-1', name: 'Page 1' }]).map((page, index) => `<option value="${escS(page.id || `page-${index + 1}`)}">${escS(page.name || `Page ${index + 1}`)}</option>`).join('')}</select>
       <button onclick="addStudioPage()" class="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-700 text-xs font-black">+ Page</button>
-      <div class="h-7 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
-      <span class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-1">Text</span>
-      <button onclick="studioAddText('heading')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black">+ Heading</button>
-      <button onclick="studioAddText('subheading')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold">+ Subheading</button>
-      <button onclick="studioAddText('body')" class="whitespace-nowrap px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-medium">+ Body text</button>
-      <div class="h-7 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
-      <label class="text-[11px] text-slate-500 dark:text-slate-400 font-bold">Size</label>
-      <select onchange="studioSetTextStyle('fontSize', Number(this.value))" class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1.5 text-xs"><option>18</option><option>24</option><option selected>36</option><option>48</option><option>64</option><option>88</option></select>
-      <button onclick="studioSetTextStyle('fontWeight', '900')" class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 font-black">B</button>
-      <label class="flex items-center gap-2 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold">Colour <input type="color" value="#ffffff" onchange="studioSetTextStyle('fill', this.value)" class="w-6 h-6 rounded cursor-pointer bg-transparent"></label>
-      <span id="studio-text-hint" class="ml-auto whitespace-nowrap text-[11px] text-slate-500 dark:text-slate-400">Select text to format it</span>
+      <div class="studio-footer-text-control h-7 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
+      <span class="studio-footer-text-control text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-1">Text</span>
+      <button onclick="studioAddText('heading')" class="studio-footer-text-control whitespace-nowrap px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black">+ Heading</button>
+      <button onclick="studioAddText('subheading')" class="studio-footer-text-control whitespace-nowrap px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold">+ Subheading</button>
+      <button onclick="studioAddText('body')" class="studio-footer-text-control whitespace-nowrap px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-medium">+ Body text</button>
+      <div class="studio-footer-text-control h-7 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
+      <label class="studio-footer-text-control text-[11px] text-slate-500 dark:text-slate-400 font-bold">Size</label>
+      <select onchange="studioSetTextStyle('fontSize', Number(this.value))" class="studio-footer-text-control bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1.5 text-xs"><option>18</option><option>24</option><option selected>36</option><option>48</option><option>64</option><option>88</option></select>
+      <button onclick="studioSetTextStyle('fontWeight', '900')" class="studio-footer-text-control w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 font-black">B</button>
+      <label class="studio-footer-text-control flex items-center gap-2 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold">Colour <input type="color" value="#ffffff" onchange="studioSetTextStyle('fill', this.value)" class="w-6 h-6 rounded cursor-pointer bg-transparent"></label>
+      <span id="studio-text-hint" class="studio-footer-text-control ml-auto whitespace-nowrap text-[11px] text-slate-500 dark:text-slate-400">Select text to format it</span>
     </footer>
   `;
 }
@@ -884,7 +888,7 @@ function renderStudioTemplateCards(filter = window.__studioTemplateFormat || 'al
   const cards = matches.slice(0, limit).map(t => {
     const format = STUDIO_SOCIAL_FORMATS[t.format_key];
     const encodedKey = encodeURIComponent(t.template_key);
-    return `<button onclick="previewStudioTemplate(decodeURIComponent('${encodedKey}'))" class="w-full text-left rounded-2xl overflow-hidden bg-white border border-slate-200 hover:border-blue-500 hover:shadow-lg transition group"><div class="relative overflow-hidden bg-slate-950">${templatePreviewMarkup(t)}<span class="absolute left-2 top-2 px-2 py-1 rounded-lg bg-slate-950/80 text-[9px] font-black text-blue-100">${format ? `${format.w}×${format.h}` : 'READY'}</span></div><div class="p-3"><div class="text-xs font-black text-slate-900 group-hover:text-blue-600">${escS(t.name)}</div><div class="mt-1 text-[10px] text-slate-500">${escS(t.desc)}</div><div class="mt-2 text-[10px] font-black text-indigo-600">Preview template →</div></div></button>`;
+    return `<button onclick="previewStudioTemplate(decodeURIComponent('${encodedKey}'))" class="studio-template-card w-full text-left rounded-2xl overflow-hidden bg-white border border-slate-200 hover:border-blue-500 hover:shadow-lg transition group"><div class="relative overflow-hidden bg-slate-950">${templatePreviewMarkup(t)}<span class="absolute left-2 top-2 px-2 py-1 rounded-lg bg-slate-950/80 text-[9px] font-black text-blue-100">${format ? `${format.w}×${format.h}` : 'READY'}</span></div><div class="p-3"><div class="text-xs font-black text-slate-900 group-hover:text-blue-600">${escS(t.name)}</div><div class="mt-1 text-[10px] text-slate-500">${escS(t.desc)}</div><div class="mt-2 text-[10px] font-black text-indigo-600">Preview template →</div></div></button>`;
   }).join('');
   return cards + (matches.length > limit ? `<button type="button" onclick="loadMoreStudioTemplates()" class="w-full py-3 rounded-2xl border border-slate-300 dark:border-slate-700 text-xs font-black">Show more templates (${matches.length - limit})</button>` : '');
 }
@@ -1282,6 +1286,7 @@ function setStudioTool(tool) {
   });
   const panel = document.getElementById('studio-tool-panel');
   if (panel) panel.innerHTML = renderStudioToolPanelContent(tool);
+  if (studioIsMobile()) openStudioMobilePanel('tool');
   if (tool === 'photos') setTimeout(() => searchStudioLibrary('car dealership'), 0);
   if (tool === 'videos') setTimeout(() => searchStudioVideos('car dealership'), 0);
   if (tool === 'inventory') setTimeout(() => searchStudioInventory(''), 0);
@@ -1298,7 +1303,12 @@ function setDesignStudioTab(tab) {
   window.__studioWorkspaceTab = tab;
   const studioTabs = document.querySelector('[role="tablist"][aria-label="Design Studio"]');
   if (studioTabs) studioTabs.innerHTML = renderDesignStudioTabsHtml();
-  if (tab === 'projects') { openStudioProjectLibrary(); return; }
+  if (tab === 'projects') {
+    document.querySelectorAll('[data-studio-tool]').forEach(button => button.setAttribute('aria-current', button.dataset.studioTool === 'projects' ? 'page' : 'false'));
+    closeStudioMobilePanels();
+    openStudioProjectLibrary();
+    return;
+  }
   document.getElementById('studio-action-sheet')?.remove();
   setStudioTool(definition[2] || 'elements');
 }
@@ -2205,15 +2215,47 @@ function closeMarketSyncStudio() {
   }
 }
 
+function studioIsMobile() {
+  return Boolean(window.matchMedia?.('(max-width: 768px)').matches);
+}
+
+function closeStudioMobilePanels() {
+  document.getElementById('studio-tool-panel')?.classList.remove('ms-studio-mobile-open');
+  document.getElementById('studio-inspector-panel')?.classList.remove('ms-studio-mobile-open');
+  document.getElementById('ms-studio-master-modal')?.classList.remove('studio-mobile-drawer-open');
+}
+
+function openStudioMobilePanel(kind) {
+  if (!studioIsMobile()) return;
+  const toolPanel = document.getElementById('studio-tool-panel');
+  const inspectorPanel = document.getElementById('studio-inspector-panel');
+  const target = kind === 'inspector' ? inspectorPanel : toolPanel;
+  const other = kind === 'inspector' ? toolPanel : inspectorPanel;
+  other?.classList.remove('ms-studio-mobile-open');
+  target?.classList.add('ms-studio-mobile-open');
+  document.getElementById('ms-studio-master-modal')?.classList.add('studio-mobile-drawer-open');
+}
+
 function toggleStudioToolPanel() {
   const panel = document.getElementById('studio-tool-panel');
-  if (panel) { if (window.matchMedia?.('(max-width: 768px)').matches) panel.classList.toggle('ms-studio-mobile-open'); else panel.classList.toggle('hidden'); setTimeout(zoomStudioFit, 50); }
+  if (!panel) return;
+  if (studioIsMobile()) {
+    if (panel.classList.contains('ms-studio-mobile-open')) closeStudioMobilePanels();
+    else openStudioMobilePanel('tool');
+  } else panel.classList.toggle('hidden');
+  setTimeout(zoomStudioFit, 50);
 }
 function toggleStudioInspectorPanel() {
   const panel = document.getElementById('studio-inspector-panel');
-  if (panel) { if (window.matchMedia?.('(max-width: 768px)').matches) panel.classList.toggle('ms-studio-mobile-open'); else panel.classList.toggle('hidden'); setTimeout(zoomStudioFit, 50); }
+  if (!panel) return;
+  if (studioIsMobile()) {
+    if (panel.classList.contains('ms-studio-mobile-open')) closeStudioMobilePanels();
+    else openStudioMobilePanel('inspector');
+  } else panel.classList.toggle('hidden');
+  setTimeout(zoomStudioFit, 50);
 }
 
+window.closeStudioMobilePanels = closeStudioMobilePanels;
 window.toggleStudioToolPanel = toggleStudioToolPanel;
 window.toggleStudioInspectorPanel = toggleStudioInspectorPanel;
 window.openMarketSyncStudio = openMarketSyncStudio;

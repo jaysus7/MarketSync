@@ -26,7 +26,22 @@ test('Templates fits the rail and the Heading action remains legible', () => {
 });
 
 test('the deployed dashboard requests the corrected Studio assets', () => {
-  assert.match(loader, /studio-shell\.js\?v=20260902_studio_depth_v1/g);
-  assert.match(dashboard, /marketsync-theme\.css\?v=20260902_studio_depth_v1/);
-  assert.match(dashboard, /dashboard-part2\.js\?v=20260902_studio_depth_v1/);
+  assert.match(loader, /studio-shell\.js\?v=20260903_studio_mobile_dark_v1/g);
+  assert.match(dashboard, /marketsync-theme\.css\?v=20260903_studio_mobile_dark_v1/);
+  assert.match(dashboard, /dashboard-part2\.js\?v=20260903_studio_mobile_dark_v1/);
+});
+
+test('dark mode gives Studio drawers, cards, icons, and canvas explicit contrast', () => {
+  assert.match(theme, /\.dark #ms-studio-master-modal \{ background: #07101f !important; color: #e7eef8 !important;/);
+  assert.match(theme, /\.dark #ms-studio-master-modal \.studio-template-card,[\s\S]*background: #111d32 !important; color: #e7eef8 !important;/);
+  assert.match(theme, /\.dark #ms-studio-master-modal \.studio-tool-rail-button\[aria-current="page"\] \.studio-tool-icon \{ color: #60a5fa !important;/);
+  assert.match(theme, /\.dark #ms-studio-master-modal \[data-studio-region="canvas"\][\s\S]*radial-gradient\(#263a58/);
+});
+
+test('phone Studio has one header, compact controls, and tool drawers that open from the dock', () => {
+  assert.match(theme, /\[role="tablist"\]\[aria-label="Design Studio"\] \{ display: none !important; \}/);
+  assert.match(theme, /\.studio-primary-actions \.studio-desktop-action \{ display: none !important; \}/);
+  assert.match(theme, /> footer \.studio-footer-text-control \{ display: none !important; \}/);
+  assert.match(shell, /if \(studioIsMobile\(\)\) openStudioMobilePanel\('tool'\)/);
+  assert.match(shell, /class="studio-mobile-scrim" onclick="closeStudioMobilePanels\(\)"/);
 });
