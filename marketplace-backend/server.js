@@ -43,6 +43,7 @@ import { registerMarketing } from './routes/marketing.js'
 import { registerBulk } from './routes/bulk.js'
 import { registerService } from './routes/service.js'
 import { registerReports } from './routes/reports.js'
+import { registerReportingIntelligence } from './routes/reporting-intelligence.js'
 import { registerEsign } from './routes/esign.js'
 import registerSeoRoutes from './routes/seo.js'
 import registerDiscoverabilityRoutes from './routes/discoverability.js'
@@ -184,6 +185,7 @@ registerMarketing(app)
 registerBulk(app)
 registerService(app)
 registerReports(app)
+registerReportingIntelligence(app)
 registerEsign(app)
 registerCalendar(app)
 registerAdSpend(app)
