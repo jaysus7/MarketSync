@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366F1">
+  <title>Report Lab — Build your own report | MarketSync</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" type="image/png" href="/assets/brand/favicon.png">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/reporting-intelligence.css">
+</head>
+<body class="ri-body" data-ri-mode="lab">
+  <div class="ri-bar">
+    <a href="/dashboard.html">← Dashboard</a>
+    <a href="/reporting.html">All departments</a>
+  </div>
+  <main class="ri-page" id="ri-app">
+    <div class="ri-top">
+      <div>
+        <div class="ri-kicker">Reporting intelligence</div>
+        <h1>Report Lab</h1>
+        <p class="ri-lead">Mix approved metrics and up to five dimensions. The lab compiles a plan — it does not invent formulas or financial values.</p>
+      </div>
+    </div>
+    <nav class="ri-nav">
+      <a href="/reporting.html">Department reports</a>
+      <a href="/report-lab.html" class="ri-btn-p">Report Lab</a>
+    </nav>
+    <div class="ri-lab">
+      <aside class="ri-panel">
+        <div class="ri-field">
+          <label for="ri-name">Report name</label>
+          <input id="ri-name" placeholder="White Civics in summer">
+        </div>
+        <div class="ri-field">
+          <label for="ri-metric">Metric</label>
+          <select id="ri-metric"></select>
+        </div>
+        <div class="ri-field"><label for="ri-dim1">Dimension 1</label><select id="ri-dim1"></select></div>
+        <div class="ri-field"><label for="ri-dim2">Dimension 2</label><select id="ri-dim2"></select></div>
+        <div class="ri-field"><label for="ri-dim3">Dimension 3</label><select id="ri-dim3"></select></div>
+        <div class="ri-field"><label for="ri-dim4">Dimension 4</label><select id="ri-dim4"></select></div>
+        <div class="ri-field"><label for="ri-dim5">Dimension 5</label><select id="ri-dim5"></select></div>
+        <div class="ri-field">
+          <label for="ri-viz">Visualization</label>
+          <select id="ri-viz"></select>
+        </div>
+        <div class="ri-field">
+          <label for="ri-compare">Compare</label>
+          <select id="ri-compare"></select>
+        </div>
+        <div class="ri-field">
+          <label for="ri-days">Window (days)</label>
+          <input id="ri-days" type="number" min="1" max="365" value="30">
+        </div>
+        <label class="ri-check"><input id="ri-used" type="checkbox"> Used vehicles only</label>
+        <div class="ri-actions">
+          <button type="button" class="ri-btn ri-btn-p" id="ri-run"><i class="fa-solid fa-play"></i> Run report</button>
+          <button type="button" class="ri-btn" id="ri-save"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+        </div>
+        <div class="ri-status" id="ri-status">Pick a metric, then run.</div>
+      </aside>
+      <section class="ri-panel" id="ri-results">
+        <p class="ri-hint">Example: Units Sold × Model × Exterior Colour × Season. Invalid mixes are rejected by the registry.</p>
+      </section>
+    </div>
+  </main>
+  <script src="/js/modules/reporting-intelligence-ui.js"></script>
+</body>
+</html>

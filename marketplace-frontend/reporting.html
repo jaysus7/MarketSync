@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366F1">
+  <title>Reporting — Departments | MarketSync</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" type="image/png" href="/assets/brand/favicon.png">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/reporting-intelligence.css">
+</head>
+<body class="ri-body" data-ri-mode="hub">
+  <div class="ri-bar">
+    <a href="/dashboard.html">← Dashboard</a>
+    <a href="/report-lab.html">Report Lab</a>
+  </div>
+  <main class="ri-page" id="ri-app">
+    <div class="ri-top">
+      <div>
+        <div class="ri-kicker">Reporting intelligence</div>
+        <h1>Department reports</h1>
+        <p class="ri-lead">One page per department — not one page per report. Open a department, pick a definition, or build your own in Report Lab.</p>
+      </div>
+    </div>
+    <nav class="ri-nav">
+      <a href="/reporting.html" class="ri-btn-p">Departments</a>
+      <a href="/report-lab.html">Report Lab</a>
+    </nav>
+    <div class="ri-grid" id="ri-dept-grid"></div>
+  </main>
+  <script>
+    (function () {
+      var dept = new URLSearchParams(location.search).get('dept')
+      if (dept) document.body.setAttribute('data-ri-mode', 'dept')
+    })()
+  </script>
+  <script src="/js/modules/reporting-intelligence-ui.js"></script>
+  <template id="ri-dept-shell">
+    <div class="ri-top">
+      <div>
+        <div class="ri-kicker">Department</div>
+        <h1 id="ri-dept-title">Reports</h1>
+        <p class="ri-lead" id="ri-dept-blurb"></p>
+      </div>
+      <div>
+        <div id="ri-count" class="ri-status"></div>
+        <a class="ri-btn" href="/report-lab.html">Build in Report Lab</a>
+      </div>
+    </div>
+    <nav class="ri-nav">
+      <a href="/reporting.html">All departments</a>
+      <a href="/report-lab.html">Report Lab</a>
+    </nav>
+    <div class="ri-lab">
+      <aside class="ri-panel">
+        <div class="ri-field">
+          <label for="ri-search">Search definitions</label>
+          <input id="ri-search" placeholder="colour, season, salesperson…">
+        </div>
+        <div id="ri-report-list"></div>
+      </aside>
+      <section class="ri-panel" id="ri-dept-results">
+        <p class="ri-hint">Choose a definition on the left. Values run through the shared query engine.</p>
+      </section>
+    </div>
+  </template>
+  <script>
+    (function () {
+      if (document.body.getAttribute('data-ri-mode') !== 'dept') return
+      var tpl = document.getElementById('ri-dept-shell')
+      var app = document.getElementById('ri-app')
+      app.innerHTML = ''
+      app.appendChild(tpl.content.cloneNode(true))
+    })()
+  </script>
+</body>
+</html>
