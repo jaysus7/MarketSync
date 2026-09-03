@@ -3621,7 +3621,8 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 #ms-studio-master-modal .studio-magic-write summary::-webkit-details-marker { display:none; }
 #ms-studio-master-modal .studio-magic-write[open] summary { border-bottom:1px solid #e2e8f0; }
 #ms-studio-master-modal .studio-magic-write > div { padding:10px; }
-#ms-studio-master-modal .studio-template-preview { position: relative; width: 100%; overflow: hidden; background-position: center; }
+#ms-studio-master-modal .studio-template-preview { position: relative; width: 100%; overflow: hidden; background-position: center; container-type:inline-size; }
+#ms-studio-master-modal .studio-home-template-card { align-self:start; }
 #ms-studio-master-modal .studio-template-preview img { display: block; max-width: none; }
 #ms-studio-master-modal .studio-template-preview > div { pointer-events: none; }
 #ms-studio-master-modal .studio-home { overscroll-behavior: contain; scrollbar-gutter: stable; }

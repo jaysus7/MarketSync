@@ -1043,87 +1043,128 @@ const STUDIO_FORMAT_PURPOSES = {
 };
 
 Object.entries(STUDIO_SOCIAL_FORMATS).forEach(([formatKey, format], index) => {
-  const portrait = format.h > format.w;
-  const compact = format.w < 500 || format.h < 300;
   const print = format.channel === 'print' || ['letterhead','business_card','postcard','flyer','brochure'].includes(formatKey);
   const purpose = STUDIO_FORMAT_PURPOSES[formatKey] || [`${format.label} Campaign`,'CAMPAIGN','Editable campaign layout.'];
-  const pad = Math.round(format.w * 0.07);
-  const headlineY = Math.round(format.h * (portrait ? 0.62 : 0.48));
-  const ctaY = Math.round(format.h * (1 - format.safe[2] / 100 - 0.09));
   const key = `social_ready_${formatKey}`;
+  const setIndex = index % STUDIO_DESIGN_SETS.length;
+  const set = STUDIO_DESIGN_SETS[setIndex];
+  const scene = studioDesignSetScene(formatKey, format, set, setIndex, purpose);
   STUDIO_TEMPLATES_CATALOG[key] = {
     template_key: key, name: purpose[0], category: print ? 'Print & stationery' : formatKey === 'presentation' ? 'Presentations' : formatKey.startsWith('display_') ? 'Display advertising' : 'Social media',
     desc: `${format.w}×${format.h} • ${purpose[2]}`, format_key: formatKey,
     width: format.w, height: format.h,
-    preview: index % 3 === 0 ? 'linear-gradient(135deg,#0f172a,#2563eb)' : index % 3 === 1 ? 'linear-gradient(135deg,#172554,#06b6d4)' : 'linear-gradient(135deg,#111827,#7c3aed)',
-    scene: { version: 1, format_key: formatKey, width: format.w, height: format.h, background: { color: '#0F172A' }, elements: [
-      { id: `${key}-bg`, type: 'shape', shapeType: 'rect', x: 0, y: 0, width: format.w, height: format.h, fill: '#0F172A', gradient: { colors: index % 3 === 0 ? ['#0F172A','#2563EB'] : index % 3 === 1 ? ['#172554','#06B6D4'] : ['#111827','#7C3AED'] }, name: 'Background Gradient', z: 1 },
-      { id: `${key}-orb`, type: 'shape', shapeType: 'circle', x: Math.round(format.w * .68), y: Math.round(format.h * .08), width: Math.round(format.w * .42), height: Math.round(format.w * .42), fill: '#60A5FA', opacity: .22, name: 'Accent Shape', z: 2 },
-      { id: `${key}-tag`, type: 'shape', shapeType: 'badge', x: pad, y: Math.round(format.h * .1), width: Math.round(format.w * .34), height: Math.round(format.h * .055), fill: '#FFFFFF', opacity: .18, rx: 28, name: 'Campaign Tag', z: 3 },
-      { id: `${key}-tagtext`, type: 'text', x: pad + 24, y: Math.round(format.h * .115), width: Math.round(format.w * .3), text: 'MARKETSYNC MOTORS', fontSize: Math.max(18, Math.round(format.w * .018)), fontWeight: '800', fill: '#FFFFFF', name: 'Brand Label', z: 4 },
-      { id: `${key}-title`, type: 'text', x: pad, y: headlineY, width: Math.round(format.w * .82), text: purpose[1], fontSize: Math.max(compact ? 16 : 38, Math.round(format.w * (portrait ? .065 : .06))), fontWeight: '900', fill: '#FFFFFF', name: 'Headline', z: 5 },
-      { id: `${key}-sub`, type: 'text', x: pad, y: headlineY + Math.round(format.h * (compact ? .16 : .1)), width: Math.round(format.w * .72), text: print ? 'Add your dealership details, date, address and contact information.' : purpose[2], fontSize: Math.max(compact ? 9 : 22, Math.round(format.w * .028)), fontWeight: '600', fill: '#DBEAFE', name: 'Supporting Text', z: 6 },
-      { id: `${key}-cta`, type: 'shape', shapeType: 'badge', x: pad, y: ctaY, width: Math.round(format.w * .42), height: Math.round(format.h * .075), fill: '#FFFFFF', rx: 24, name: 'CTA Button', z: 7 },
-      { id: `${key}-ctatxt`, type: 'text', x: pad + 32, y: ctaY + Math.round(format.h * .02), width: Math.round(format.w * .35), text: 'LEARN MORE →', fontSize: Math.max(20, Math.round(format.w * .025)), fontWeight: '900', fill: '#1D4ED8', name: 'CTA Text', z: 8 }
-    ] }
+    preview: `linear-gradient(135deg,${set.background},${set.accent})`,
+    scene
   };
 });
 
 function studioDesignSetScene(formatKey, format, set, setIndex, purpose) {
-  const w = format.w, h = format.h;
-  const portrait = h > w * 1.15;
-  const compact = w < 500 || h < 300;
-  const print = format.channel === 'print';
-  const pad = Math.max(18, Math.round(Math.min(w, h) * .07));
-  const titleSize = Math.max(compact ? 14 : 30, Math.round(Math.min(w, h) * (portrait ? .075 : .09)));
-  const bodySize = Math.max(compact ? 8 : 16, Math.round(Math.min(w, h) * .033));
+  const w = format.w, h = format.h, baseId = `set-${set.id}-${formatKey}`;
   const isLight = set.id === 'paper_ledger';
-  const ink = isLight ? '#18181B' : '#FFFFFF';
-  const muted = isLight ? '#52525B' : set.secondary;
-  const photo = STUDIO_FREE_PHOTOS[(setIndex * 4 + Object.keys(STUDIO_SOCIAL_FORMATS).indexOf(formatKey)) % STUDIO_FREE_PHOTOS.length].url;
-  const imageHeight = portrait ? Math.round(h * .49) : Math.round(h * .58);
-  const imageWidth = portrait ? w : Math.round(w * .52);
-  const copyX = portrait ? pad : (setIndex % 2 ? pad : Math.round(w * .56));
-  const copyY = portrait ? Math.round(h * .57) : pad;
-  const copyWidth = portrait ? w - pad * 2 : Math.round(w * .39);
-  const visualX = portrait ? 0 : (setIndex % 2 ? Math.round(w * .48) : 0);
-  const visualY = portrait ? 0 : 0;
-  const visualWidth = portrait ? w : imageWidth;
-  const visualHeight = portrait ? imageHeight : h;
-  const baseId = `set-${set.id}-${formatKey}`;
-  const elements = [
-    { id: `${baseId}-background`, type: 'shape', shapeType: 'rect', name: 'Background', x: 0, y: 0, width: w, height: h, fill: set.background, z: 1 },
-    ...(!print && !compact ? [{ id: `${baseId}-photo`, type: 'vehicle-image', name: 'Feature photo', src: photo, x: visualX, y: visualY, width: visualWidth, height: visualHeight, fit: 'cover', opacity: isLight ? .9 : .82, z: 2 }] : []),
-    { id: `${baseId}-angle`, type: 'shape', shapeType: 'rect', name: 'Angled accent', x: setIndex % 2 ? Math.round(w * .58) : -Math.round(w * .08), y: Math.round(h * .1), width: Math.round(w * .5), height: Math.max(16, Math.round(h * .13)), fill: set.accent, opacity: setIndex === 2 ? .95 : .88, angle: setIndex % 2 ? -8 : 8, z: 3 },
-    { id: `${baseId}-eyebrow`, type: 'text', name: 'Collection label', text: set.eyebrow.toUpperCase(), x: copyX, y: copyY, width: copyWidth, height: Math.round(bodySize * 1.5), fontFamily: set.font, fontSize: Math.max(9, Math.round(bodySize * .72)), fontWeight: '800', fill: set.accent, charSpacing: 80, z: 4 },
-    { id: `${baseId}-headline`, type: 'text', name: 'Headline', text: purpose[1], x: copyX, y: copyY + Math.round(bodySize * 1.8), width: copyWidth, height: Math.round(titleSize * 2.25), fontFamily: set.font, fontSize: titleSize, fontWeight: '900', fill: ink, lineHeight: .95, z: 5 },
-    { id: `${baseId}-body`, type: 'text', name: 'Supporting copy', text: print ? 'Dealership name · Address · Phone · Website' : purpose[2], x: copyX, y: copyY + Math.round(titleSize * 2.45), width: copyWidth, height: Math.round(bodySize * 3.2), fontFamily: setIndex === 2 ? 'Manrope' : set.font, fontSize: bodySize, fontWeight: '600', fill: muted, lineHeight: 1.15, z: 6 },
-    { id: `${baseId}-rule`, type: 'shape', shapeType: 'rect', name: 'Accent rule', x: copyX, y: Math.min(h - pad * 1.8, copyY + Math.round(titleSize * 4.1)), width: Math.max(28, Math.round(copyWidth * .28)), height: Math.max(3, Math.round(Math.min(w, h) * .008)), fill: set.accent, z: 7 }
-  ];
+  const ink = isLight ? '#18181B' : '#FFFFFF', muted = isLight ? '#52525B' : set.secondary;
+  const formatIndex = Math.max(0, Object.keys(STUDIO_SOCIAL_FORMATS).indexOf(formatKey));
+  const photo = STUDIO_FREE_PHOTOS[(setIndex * 4 + formatIndex) % STUDIO_FREE_PHOTOS.length].url;
+  let z = 0;
+  const shape = (name, x, y, width, height, fill, options = {}) => ({ id:`${baseId}-${name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-${++z}`, type:'shape', shapeType:options.shapeType || 'rect', name, x, y, width, height, fill, rx:options.rx || 0, opacity:options.opacity ?? 1, angle:options.angle || 0, z });
+  const text = (name, value, x, y, width, height, fontSize, fill, options = {}) => ({ id:`${baseId}-${name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-${++z}`, type:'text', name, text:value, x, y, width, height, fontFamily:options.fontFamily || set.font, fontSize, fontWeight:options.fontWeight || '700', fill, lineHeight:options.lineHeight || 1.08, charSpacing:options.charSpacing || 0, textAlign:options.textAlign || 'left', z });
+  const image = (name, x, y, width, height, source = photo, options = {}) => ({ id:`${baseId}-${name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-${++z}`, type:'vehicle-image', name, src:source, x, y, width, height, fit:options.fit || 'cover', opacity:options.opacity ?? 1, z });
+  const page = (suffix, name, objects, background = set.background) => ({ id:`${baseId}-${suffix}`, name, format_key:formatKey, width:w, height:h, background:{ color:background }, objects:JSON.parse(JSON.stringify(objects)), duration_ms:5000, transition:'none' });
+  let elements = [], pages = [];
 
-  if (compact) {
-    elements.splice(1, 0, { id: `${baseId}-compact-block`, type: 'shape', shapeType: 'rect', name: 'Campaign block', x: setIndex % 2 ? Math.round(w * .64) : 0, y: 0, width: Math.round(w * .36), height: h, fill: set.accent, opacity: .95, z: 2 });
-  }
-
-  const makePage = (suffix, name, pageElements) => ({ id: `${baseId}-${suffix}`, name, format_key: formatKey, width: w, height: h, background: { color: set.background }, objects: JSON.parse(JSON.stringify(pageElements)), duration_ms: 5000, transition: 'none' });
-  const pages = [makePage('front', ['business_card','postcard','brochure'].includes(formatKey) ? 'Front' : formatKey === 'presentation' ? 'Title slide' : 'Page 1', elements)];
-
-  if (['business_card','postcard','brochure'].includes(formatKey)) {
-    const back = [
-      { id: `${baseId}-back-bg`, type: 'shape', shapeType: 'rect', name: 'Back background', x: 0, y: 0, width: w, height: h, fill: isLight ? '#FFFFFF' : '#F8FAFC', z: 1 },
-      { id: `${baseId}-back-mark`, type: 'shape', shapeType: setIndex % 2 ? 'circle' : 'rect', name: 'Logo mark', x: pad, y: pad, width: Math.round(Math.min(w, h) * .24), height: Math.round(Math.min(w, h) * .24), fill: set.accent, angle: setIndex === 3 ? 12 : 0, z: 2 },
-      { id: `${baseId}-back-name`, type: 'text', name: 'Name / dealership', text: '{{salesperson.name|YOUR NAME}}\n{{dealership.name|MARKETSYNC MOTORS}}', x: Math.round(w * .34), y: Math.round(h * .22), width: Math.round(w * .57), height: Math.round(h * .24), fontFamily: set.font, fontSize: Math.max(18, Math.round(Math.min(w, h) * .065)), fontWeight: '900', fill: '#18181B', lineHeight: 1.05, z: 3 },
-      { id: `${baseId}-back-contact`, type: 'text', name: 'Contact details', text: '{{salesperson.phone|555 555 5555}}  ·  {{dealership.website|marketsync.ca}}\n123 Dealership Road · Your City', x: Math.round(w * .34), y: Math.round(h * .55), width: Math.round(w * .57), height: Math.round(h * .22), fontFamily: 'Manrope', fontSize: Math.max(13, Math.round(Math.min(w, h) * .035)), fontWeight: '600', fill: '#52525B', lineHeight: 1.25, z: 4 }
+  if (formatKey === 'business_card') {
+    elements = [
+      shape('Paper',0,0,w,h,'#FFFFFF'), shape('Brand panel',0,0,340,h,set.background), shape('Accent edge',325,0,15,h,set.accent),
+      shape('Logo mark',70,70,92,92,set.accent,{ shapeType:setIndex % 2 ? 'circle' : 'rect', rx:18 }), text('Logo initial','M',92,85,50,58,46,'#FFFFFF',{ fontWeight:'900', textAlign:'center' }),
+      text('Dealership','MARKETSYNC\nMOTORS',65,205,225,100,34,'#FFFFFF',{ fontWeight:'900', lineHeight:.9, charSpacing:35 }),
+      text('Salesperson name','{{salesperson.name|JORDAN LEE}}',405,92,560,76,56,'#0F172A',{ fontWeight:'900' }), text('Role','SALES & LEASING CONSULTANT',408,174,520,42,23,set.accent,{ fontWeight:'900', charSpacing:45 }),
+      shape('Name rule',408,238,180,6,set.accent), text('Contact details','{{salesperson.phone|555 555 5555}}\n{{salesperson.email|jordan@dealership.ca}}\n{{dealership.website|marketsync.ca}}',408,278,550,172,25,'#475569',{ fontFamily:'Manrope', fontWeight:'600', lineHeight:1.45 }),
+      text('Address','123 Dealership Road · Toronto, ON',408,500,550,38,18,'#94A3B8',{ fontFamily:'Manrope', fontWeight:'600' })
     ];
-    pages.push(makePage('back', 'Back', back));
+    const back = [
+      shape('Back paper',0,0,w,h,set.background), shape('Back accent',0,500,w,100,set.accent), shape('Back logo',420,120,210,210,set.accent,{ shapeType:setIndex % 2 ? 'circle' : 'rect', rx:36 }),
+      text('Back initial','M',470,158,110,110,92,'#FFFFFF',{ fontWeight:'900', textAlign:'center' }), text('Back dealership','MARKETSYNC MOTORS',225,365,600,65,42,'#FFFFFF',{ fontWeight:'900', textAlign:'center', charSpacing:40 }),
+      text('Back website','MARKETSYNC.CA',300,447,450,38,20,muted,{ fontFamily:'Manrope', fontWeight:'800', textAlign:'center', charSpacing:80 })
+    ];
+    pages = [page('front','Front',elements,'#FFFFFF'), page('back','Back',back,set.background)];
+  } else if (formatKey === 'letterhead') {
+    elements = [
+      shape('Paper',0,0,w,h,'#FFFFFF'), shape('Top brand band',0,0,w,290,set.background), shape('Top accent',0,290,w,22,set.accent), shape('Logo mark',150,68,130,130,set.accent,{ rx:24 }),
+      text('Logo initial','M',184,88,64,76,62,'#FFFFFF',{ fontWeight:'900', textAlign:'center' }), text('Dealership name','{{dealership.name|MARKETSYNC MOTORS}}',340,70,1050,100,82,'#FFFFFF',{ fontWeight:'900' }),
+      text('Header contact','123 Dealership Road · Toronto, ON\n{{dealership.phone|555 555 5555}} · {{dealership.website|marketsync.ca}}',1540,74,820,110,38,'#E2E8F0',{ fontFamily:'Manrope', fontWeight:'600', textAlign:'right', lineHeight:1.35 }),
+      text('Date','SEPTEMBER 3, 2026',190,475,650,62,42,set.accent,{ fontFamily:'Manrope', fontWeight:'900', charSpacing:60 }), text('Recipient','CUSTOMER NAME\nCompany or address\nToronto, Ontario',190,630,860,220,48,'#475569',{ fontFamily:'Manrope', fontWeight:'600', lineHeight:1.4 }),
+      text('Letter subject','A CLEAR, PROFESSIONAL LETTER TITLE',190,980,2050,110,82,'#0F172A',{ fontWeight:'900' }), shape('Subject rule',190,1120,420,12,set.accent),
+      text('Letter copy','Thank you for choosing our dealership. Use this editable letterhead for customer correspondence, purchase documentation, service communication and dealership announcements.',190,1220,2050,330,50,'#475569',{ fontFamily:'Manrope', fontWeight:'500', lineHeight:1.5 }),
+      shape('Body line 1',190,1660,1950,10,'#E2E8F0',{ rx:5 }), shape('Body line 2',190,1775,2100,10,'#E2E8F0',{ rx:5 }), shape('Body line 3',190,1890,1800,10,'#E2E8F0',{ rx:5 }), shape('Body line 4',190,2005,2050,10,'#E2E8F0',{ rx:5 }),
+      text('Signoff','Sincerely,\n\nYOUR NAME\nSales & Leasing Consultant',190,2300,900,330,46,'#334155',{ fontFamily:'Manrope', fontWeight:'600', lineHeight:1.35 }),
+      shape('Footer rule',190,2980,2170,8,set.accent), text('Footer','MARKETSYNC MOTORS  ·  SALES  ·  SERVICE  ·  PARTS',190,3040,2170,62,38,'#64748B',{ fontFamily:'Manrope', fontWeight:'800', textAlign:'center', charSpacing:55 })
+    ];
+    pages = [page('front','Letterhead',elements,'#FFFFFF')];
   } else if (formatKey === 'presentation') {
-    const content = JSON.parse(JSON.stringify(elements));
-    content.forEach(element => { if (element.type === 'text' && element.name === 'Headline') element.text = 'A CLEAR STORY, BEAUTIFULLY PRESENTED'; if (element.type === 'text' && element.name === 'Supporting copy') element.text = 'Add key ideas, performance highlights and next steps. Every object remains editable.'; });
-    pages.push(makePage('content', 'Content slide', content));
-    pages.push(makePage('closing', 'Closing slide', elements.map(element => ({ ...element, text: element.type === 'text' && element.name === 'Headline' ? 'THANK YOU' : element.text }))));
+    elements = [
+      shape('Background',0,0,w,h,set.background), image('Cover photo',900,0,1020,h), shape('Photo overlay',900,0,1020,h,set.background,{ opacity:.18 }), shape('Accent bar',0,0,32,h,set.accent),
+      text('Collection','MARKETSYNC MOTORS · 2026',115,112,650,48,26,set.accent,{ fontFamily:'Manrope', fontWeight:'900', charSpacing:75 }), text('Headline',purpose[1],115,255,700,250,94,ink,{ fontWeight:'900', lineHeight:.9 }),
+      shape('Title rule',115,548,230,10,set.accent), text('Supporting copy','A polished, editable presentation for dealership updates, customer proposals and performance reviews.',115,610,650,175,32,muted,{ fontFamily:'Manrope', fontWeight:'500', lineHeight:1.35 }),
+      text('Footer','{{dealership.website|marketsync.ca}}  ·  CONFIDENTIAL',115,952,690,38,20,muted,{ fontFamily:'Manrope', fontWeight:'800', charSpacing:55 })
+    ];
+    const content = [
+      shape('Content background',0,0,w,h,'#F8FAFC'), shape('Content rail',0,0,36,h,set.accent), text('Content eyebrow','PERFORMANCE OVERVIEW',110,82,700,42,24,set.accent,{ fontFamily:'Manrope', fontWeight:'900', charSpacing:70 }), text('Content title','A CLEAR STORY,\nBEAUTIFULLY PRESENTED',110,150,1050,180,70,'#0F172A',{ fontWeight:'900', lineHeight:.95 }),
+      text('Content intro','Add your key ideas, performance highlights and next steps. Every card and text layer remains editable.',110,365,1040,95,28,'#64748B',{ fontFamily:'Manrope', fontWeight:'500', lineHeight:1.35 }),
+      ...[0,1,2].flatMap(index => [shape(`Metric card ${index + 1}`,110 + index*570,550,510,330,index === 1 ? set.background : '#FFFFFF',{ rx:26 }), text(`Metric value ${index + 1}`,['28%','142','4.9★'][index],150 + index*570,600,430,100,70,index === 1 ? '#FFFFFF' : '#0F172A',{ fontFamily:'Manrope', fontWeight:'900' }), text(`Metric label ${index + 1}`,['YEAR-OVER-YEAR GROWTH','VEHICLES DELIVERED','CUSTOMER RATING'][index],150 + index*570,725,420,80,23,index === 1 ? muted : '#64748B',{ fontFamily:'Manrope', fontWeight:'800', charSpacing:35 })])
+    ];
+    const closing = [shape('Closing background',0,0,w,h,set.background), shape('Closing accent',1450,-80,560,1240,set.accent,{ angle:8 }), text('Closing headline','THANK YOU',140,300,1100,190,120,'#FFFFFF',{ fontWeight:'900' }), shape('Closing rule',145,535,300,12,set.accent), text('Closing contact','{{dealership.name|MARKETSYNC MOTORS}}\n{{dealership.phone|555 555 5555}} · {{dealership.website|marketsync.ca}}',145,615,1000,130,32,muted,{ fontFamily:'Manrope', fontWeight:'600', lineHeight:1.4 })];
+    pages = [page('front','Title slide',elements), page('content','Content slide',content,'#F8FAFC'), page('closing','Closing slide',closing)];
+  } else if (formatKey === 'postcard') {
+    elements = [
+      shape('Background',0,0,w,h,set.background), image('Event photo',790,0,1010,h), shape('Photo shade',790,0,1010,h,'#000000',{ opacity:.14 }), shape('Accent slash',710,-80,160,1400,set.accent,{ angle:6 }),
+      text('Event label','EXCLUSIVE SALES EVENT',100,105,570,45,27,set.accent,{ fontFamily:'Manrope', fontWeight:'900', charSpacing:65 }), text('Headline',purpose[1],100,250,590,250,105,'#FFFFFF',{ fontWeight:'900', lineHeight:.9 }), text('Event details','SATURDAY · SEPTEMBER 12\n9:00 AM — 6:00 PM',105,575,560,110,38,muted,{ fontFamily:'Manrope', fontWeight:'800', lineHeight:1.35 }),
+      shape('Event CTA',100,820,480,105,set.accent,{ rx:24 }), text('Event CTA text','SAVE YOUR SPOT →',145,850,390,48,30,'#FFFFFF',{ fontFamily:'Manrope', fontWeight:'900', textAlign:'center' }), text('Event dealer','{{dealership.name|MARKETSYNC MOTORS}} · {{dealership.phone|555 555 5555}}',100,1055,590,50,23,muted,{ fontFamily:'Manrope', fontWeight:'700' })
+    ];
+    const back = [shape('Back paper',0,0,w,h,'#FFFFFF'), shape('Back accent',0,0,54,h,set.accent), text('Back headline','A BETTER WAY TO\nFIND YOUR NEXT VEHICLE.',115,130,700,170,64,'#0F172A',{ fontWeight:'900', lineHeight:.95 }), text('Back copy','Bring this card to the dealership and ask about current inventory, trade appraisal options and available financing.',115,365,650,165,30,'#64748B',{ fontFamily:'Manrope', fontWeight:'500', lineHeight:1.4 }), shape('Mail divider',900,110,5,940,'#E2E8F0'), shape('Stamp box',1510,110,180,150,'#F8FAFC',{ rx:12 }), text('Stamp','STAMP',1540,168,120,35,20,'#94A3B8',{ fontFamily:'Manrope', fontWeight:'800', textAlign:'center' }), ...[0,1,2,3].map(index => shape(`Address line ${index+1}`,1050,455+index*100,560,7,'#CBD5E1',{ rx:4 })), text('Back footer','{{dealership.name|MARKETSYNC MOTORS}} · {{dealership.website|marketsync.ca}}',115,1030,650,42,23,set.accent,{ fontFamily:'Manrope', fontWeight:'800' })];
+    pages = [page('front','Front',elements), page('back','Mailing side',back,'#FFFFFF')];
+  } else if (formatKey === 'flyer') {
+    elements = [
+      shape('Background',0,0,w,h,set.background), image('Hero photo',0,0,w,1540), shape('Hero shade',0,0,w,1540,'#07111F',{ opacity:.32 }), shape('Accent ribbon',0,1390,w,190,set.accent,{ angle:-2 }),
+      text('Event label','DEALERSHIP EVENT · ONE DAY ONLY',175,150,1600,70,48,'#FFFFFF',{ fontFamily:'Manrope', fontWeight:'900', charSpacing:65 }), text('Headline',purpose[1],175,1660,2160,420,210,'#FFFFFF',{ fontWeight:'900', lineHeight:.88 }),
+      text('Event copy','Explore featured inventory, appraisal opportunities and a better dealership experience.',185,2170,1850,200,74,muted,{ fontFamily:'Manrope', fontWeight:'500', lineHeight:1.35 }),
+      shape('Date card',180,2520,970,330,isLight ? '#FFFFFF' : '#FFFFFF',{ rx:28 }), text('Date title','SATURDAY',245,2580,790,75,52,set.accent,{ fontFamily:'Manrope', fontWeight:'900', charSpacing:55 }), text('Date details','SEPTEMBER 12 · 9 AM—6 PM',245,2680,790,65,43,'#0F172A',{ fontFamily:'Manrope', fontWeight:'800' }),
+      shape('Location card',1210,2520,1160,330,set.accent,{ rx:28 }), text('Location title','VISIT THE SHOWROOM',1280,2580,1000,78,52,'#FFFFFF',{ fontFamily:'Manrope', fontWeight:'900' }), text('Location details','123 DEALERSHIP ROAD\n{{dealership.phone|555 555 5555}}',1280,2680,1000,110,39,'#FFFFFF',{ fontFamily:'Manrope', fontWeight:'600', lineHeight:1.3 }),
+      text('Flyer footer','{{dealership.name|MARKETSYNC MOTORS}}  ·  {{dealership.website|marketsync.ca}}',180,3120,2190,70,42,muted,{ fontFamily:'Manrope', fontWeight:'800', textAlign:'center', charSpacing:38 })
+    ];
+    pages = [page('front','Flyer',elements)];
+  } else if (formatKey === 'brochure') {
+    const third = Math.round(w / 3);
+    elements = [
+      shape('Brochure paper',0,0,w,h,'#FFFFFF'), image('Left panel photo',0,0,third,h), shape('Left shade',0,0,third,h,set.background,{ opacity:.48 }), shape('Centre panel',third,0,third,h,set.background), image('Right panel photo',third*2,0,w-third*2,h,photo,{ opacity:.9 }),
+      shape('Fold one',third-3,0,6,h,'#CBD5E1'), shape('Fold two',third*2-3,0,6,h,'#CBD5E1'), text('Left label','WELCOME TO',95,140,third-190,70,42,set.accent,{ fontFamily:'Manrope', fontWeight:'900', charSpacing:80 }), text('Left title','A BETTER\nDEALERSHIP\nEXPERIENCE',95,300,third-190,430,116,'#FFFFFF',{ fontWeight:'900', lineHeight:.86 }),
+      text('Centre label','WHY CHOOSE US',third+95,160,third-190,60,40,set.accent,{ fontFamily:'Manrope', fontWeight:'900', charSpacing:65 }), text('Centre title','SALES. SERVICE.\nEVERYTHING\nCONNECTED.',third+95,320,third-190,360,100,'#FFFFFF',{ fontWeight:'900', lineHeight:.9 }), text('Centre copy','Connected inventory\nTransparent trade appraisals\nCustomer-first service\nSimple financing options',third+95,850,third-190,410,52,muted,{ fontFamily:'Manrope', fontWeight:'600', lineHeight:1.55 }),
+      shape('Centre CTA',third+95,1900,third-190,150,set.accent,{ rx:24 }), text('Centre CTA text','VISIT MARKETSYNC.CA',third+145,1948,third-290,55,38,'#FFFFFF',{ fontFamily:'Manrope', fontWeight:'900', textAlign:'center' }),
+      shape('Right contact panel',third*2+75,1600,third-150,700,'#FFFFFF',{ rx:28, opacity:.94 }), text('Right title','COME SEE US',third*2+140,1690,third-280,90,58,'#0F172A',{ fontWeight:'900' }), text('Right contact','{{dealership.name|MARKETSYNC MOTORS}}\n123 Dealership Road\n{{dealership.phone|555 555 5555}}\n{{dealership.website|marketsync.ca}}',third*2+140,1840,third-280,330,40,'#475569',{ fontFamily:'Manrope', fontWeight:'600', lineHeight:1.45 })
+    ];
+    const back = elements.map(element => ({ ...element, id:`${element.id}-back` }));
+    back.forEach(element => { if (element.name === 'Left title') element.text = 'OUR\nSTORY'; if (element.name === 'Centre title') element.text = 'YOUR NEXT\nVEHICLE\nSTARTS HERE.'; });
+    pages = [page('front','Outside',elements,'#FFFFFF'), page('back','Inside',back,'#FFFFFF')];
+  } else if (formatKey === 'display_728x90') {
+    elements = [shape('Banner background',0,0,w,h,set.background), shape('Banner accent',0,0,16,h,set.accent), text('Banner dealer','MARKETSYNC MOTORS',34,18,180,24,13,set.accent,{ fontFamily:'Manrope', fontWeight:'900', charSpacing:35 }), text('Banner headline',purpose[1],230,17,300,42,24,'#FFFFFF',{ fontWeight:'900' }), shape('Banner CTA',565,14,145,62,set.accent,{ rx:12 }), text('Banner CTA text','VIEW EVENT →',578,34,120,22,13,'#FFFFFF',{ fontFamily:'Manrope', fontWeight:'900', textAlign:'center' })];
+    pages = [page('front','Banner',elements)];
+  } else if (formatKey === 'display_160x600') {
+    elements = [shape('Skyscraper background',0,0,w,h,set.background), image('Skyscraper photo',0,0,w,250), shape('Skyscraper shade',0,0,w,250,'#07111F',{ opacity:.18 }), text('Skyscraper label','FEATURED',14,278,132,22,13,set.accent,{ fontFamily:'Manrope', fontWeight:'900', charSpacing:45 }), text('Skyscraper title','VEHICLE\nOF THE\nWEEK',14,318,132,112,28,'#FFFFFF',{ fontWeight:'900', lineHeight:.86 }), text('Skyscraper copy','Shop connected inventory today.',14,452,132,50,13,muted,{ fontFamily:'Manrope', fontWeight:'600', lineHeight:1.25 }), shape('Skyscraper CTA',14,520,132,54,set.accent,{ rx:12 }), text('Skyscraper CTA text','VIEW NOW',25,538,110,20,13,'#FFFFFF',{ fontFamily:'Manrope', fontWeight:'900', textAlign:'center' })];
+    pages = [page('front','Skyscraper',elements)];
+  } else if (formatKey === 'display_300x250') {
+    elements = [shape('Ad background',0,0,w,h,set.background), image('Ad photo',0,0,w,112), shape('Ad shade',0,0,w,112,'#07111F',{ opacity:.15 }), text('Ad label','MARKETSYNC MOTORS',18,126,180,18,11,set.accent,{ fontFamily:'Manrope', fontWeight:'900', charSpacing:35 }), text('Ad headline',purpose[1],18,151,180,45,24,'#FFFFFF',{ fontWeight:'900' }), shape('Ad CTA',205,145,78,68,set.accent,{ rx:12 }), text('Ad CTA text','SHOP\nNOW',217,158,54,38,12,'#FFFFFF',{ fontFamily:'Manrope', fontWeight:'900', textAlign:'center', lineHeight:1 })];
+    pages = [page('front','Display ad',elements)];
+  } else {
+    const portrait = h > w * 1.15, pad = Math.max(24, Math.round(Math.min(w,h) * .065));
+    if (portrait) {
+      const photoH = Math.round(h * .54), copyY = Math.round(h * .58), titleSize = Math.round(w * .078);
+      elements = [shape('Background',0,0,w,h,set.background), image('Feature photo',0,0,w,photoH), shape('Photo shade',0,0,w,photoH,'#07111F',{ opacity:.2 }), shape('Accent tab',pad,photoH-35,Math.round(w*.28),70,set.accent,{ rx:18 }), text('Accent label','MARKETSYNC MOTORS',pad+20,photoH-12,Math.round(w*.24),25,16,'#FFFFFF',{ fontFamily:'Manrope', fontWeight:'900', textAlign:'center' }), text('Headline',purpose[1],pad,copyY,w-pad*2,Math.round(h*.15),titleSize,ink,{ fontWeight:'900', lineHeight:.9 }), text('Supporting copy',purpose[2],pad,copyY+Math.round(h*.16),w-pad*2,Math.round(h*.09),Math.round(w*.03),muted,{ fontFamily:'Manrope', fontWeight:'500', lineHeight:1.3 }), shape('CTA',pad,h-pad-105,Math.round(w*.48),88,set.accent,{ rx:22 }), text('CTA text','EXPLORE NOW →',pad+28,h-pad-77,Math.round(w*.42),32,Math.round(w*.024),'#FFFFFF',{ fontFamily:'Manrope', fontWeight:'900', textAlign:'center' })];
+    } else {
+      const photoLeft = setIndex % 2 === 1, photoW = Math.round(w * .54), copyX = photoLeft ? Math.round(w*.59) : pad, visualX = photoLeft ? 0 : w-photoW;
+      elements = [shape('Background',0,0,w,h,set.background), image('Feature photo',visualX,0,photoW,h), shape('Photo shade',visualX,0,photoW,h,'#07111F',{ opacity:.16 }), shape('Accent rule',copyX,pad,Math.round(w*.14),Math.max(6,Math.round(h*.015)),set.accent), text('Collection label','MARKETSYNC MOTORS',copyX,pad+Math.round(h*.06),Math.round(w*.34),Math.round(h*.06),Math.max(12,Math.round(w*.017)),set.accent,{ fontFamily:'Manrope', fontWeight:'900', charSpacing:55 }), text('Headline',purpose[1],copyX,Math.round(h*.28),Math.round(w*.35),Math.round(h*.25),Math.max(24,Math.round(w*.052)),ink,{ fontWeight:'900', lineHeight:.9 }), text('Supporting copy',purpose[2],copyX,Math.round(h*.58),Math.round(w*.34),Math.round(h*.14),Math.max(13,Math.round(w*.019)),muted,{ fontFamily:'Manrope', fontWeight:'500', lineHeight:1.3 }), shape('CTA',copyX,Math.round(h*.79),Math.round(w*.25),Math.round(h*.12),set.accent,{ rx:18 }), text('CTA text','LEARN MORE →',copyX+18,Math.round(h*.825),Math.round(w*.21),Math.round(h*.05),Math.max(12,Math.round(w*.017)),'#FFFFFF',{ fontFamily:'Manrope', fontWeight:'900', textAlign:'center' })];
+    }
+    pages = [page('front','Page 1',elements)];
   }
 
-  return { version: 3, format_key: formatKey, width: w, height: h, background: { color: set.background }, elements, pages, metadata: { design_set: set.id, editable: true } };
+  return { version:4, format_key:formatKey, width:w, height:h, background:{ color:elements[0]?.fill || set.background }, elements, pages, metadata:{ design_set:set.id, editable:true, format_specific:true } };
 }
 
 // Four coordinated collections across every supported output size. This produces
@@ -1216,16 +1257,22 @@ function templatePreviewMarkup(tmpl) {
   const width = Number(scene.width || tmpl.width || 1080);
   const height = Number(scene.height || tmpl.height || 1080);
   const elements = (scene.elements || []).slice().sort((a, b) => Number(a.z || 0) - Number(b.z || 0));
-  const previewText = value => String(value || '').replace(/\{\{[^}]+\}\}/g, '2024 Vehicle').replace(/\s+/g, ' ').trim();
+  const previewSamples = {
+    'vehicle.year':'2026', 'vehicle.make':'Honda', 'vehicle.model':'CR-V', 'vehicle.trim':'Touring', 'vehicle.stock_number':'A1042', 'vehicle.price':'$38,995', 'vehicle.mileage':'24,800', 'vehicle.sale_price':'$36,995',
+    'dealership.name':'MARKETSYNC MOTORS', 'dealership.phone':'(416) 555-0148', 'dealership.website':'marketsync.ca',
+    'salesperson.name':'JORDAN LEE', 'salesperson.phone':'(416) 555-0198', 'salesperson.email':'jordan@marketsync.ca'
+  };
+  const previewText = value => String(value || '').replace(/\{\{\s*([^}|]+)(?:\|([^}]+))?\s*\}\}/g, (_, key, fallback) => previewSamples[String(key).trim()] || String(fallback || 'Your details').trim()).trim();
   const nodes = elements.map(element => {
     const left = `${(Number(element.x || 0) / width) * 100}%`;
     const top = `${(Number(element.y || 0) / height) * 100}%`;
     const w = `${(Number(element.width || width) / width) * 100}%`;
     const h = `${(Number(element.height || height) / height) * 100}%`;
-    const base = `position:absolute;left:${left};top:${top};width:${w};height:${h};opacity:${element.opacity == null ? 1 : element.opacity};`;
+    const transform = Number(element.angle || element.rotation || 0) ? `transform:rotate(${Number(element.angle || element.rotation)}deg);transform-origin:center;` : '';
+    const base = `position:absolute;left:${left};top:${top};width:${w};height:${h};opacity:${element.opacity == null ? 1 : element.opacity};${transform}`;
     if (element.type === 'vehicle-image' || element.type === 'image') return element.src ? `<img src="${escS(element.src)}" alt="" loading="lazy" style="${base}object-fit:${element.fit === 'contain' ? 'contain' : 'cover'};" onerror="this.style.display='none'">` : '';
-    if (element.type === 'shape') { const background = element.gradient?.colors?.length > 1 ? `linear-gradient(135deg,${element.gradient.colors.join(',')})` : (element.fill || '#2563eb'); return `<div style="${base}background:${escS(background)};border-radius:${Math.min(50, Number(element.rx || 0) / Math.max(1, Number(element.width || width)) * 100)}%;"></div>`; }
-    if (element.type === 'text') return `<div style="${base}color:${escS(element.fill || '#fff')};font-size:${Math.max(6, Math.min(34, Number(element.fontSize || 24) * 0.22))}px;font-weight:${escS(element.fontWeight || '700')};font-family:Manrope,Arial,sans-serif;line-height:1.05;overflow:hidden;">${escS(previewText(element.text))}</div>`;
+    if (element.type === 'shape') { const background = element.gradient?.colors?.length > 1 ? `linear-gradient(135deg,${element.gradient.colors.join(',')})` : (element.fill || '#2563eb'); const radius = element.shapeType === 'circle' ? 50 : Math.min(50, Number(element.rx || 0) / Math.max(1, Number(element.width || width)) * 100); return `<div style="${base}background:${escS(background)};border-radius:${radius}%;"></div>`; }
+    if (element.type === 'text') { const fontSize = Number(element.fontSize || 24); const previewPx = Math.max(4, Math.min(30, fontSize * .18)); const previewCqw = Math.max(.6, fontSize / width * 100); return `<div style="${base}color:${escS(element.fill || '#fff')};font-size:${previewPx}px;font-size:${previewCqw}cqw;font-weight:${escS(element.fontWeight || '700')};font-family:'${escS(element.fontFamily || 'Manrope')}',Manrope,Arial,sans-serif;line-height:${Number(element.lineHeight || 1.05)};letter-spacing:${Number(element.charSpacing || 0) / 1000}em;text-align:${escS(element.textAlign || 'left')};white-space:pre-line;overflow:hidden;">${escS(previewText(element.text))}</div>`; }
     return '';
   }).join('');
   return `<div class="studio-template-preview" style="aspect-ratio:${width}/${height};background:${escS(scene.background?.color || '#0f172a')};">${nodes}</div>`;
@@ -1284,7 +1331,7 @@ function renderStudioHomeDesignSets() {
 function renderStudioHomeHtml() {
   window.__studioHomeDesignSet = window.__studioHomeDesignSet || 'all';
   window.__studioHomeFormat = window.__studioHomeFormat || 'all';
-  return `<header class="flex h-16 flex-shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/90 sm:px-6"><div class="flex min-w-0 items-center gap-3"><button type="button" onclick="closeMarketSyncStudio()" class="rounded-xl px-3 py-2 text-xs font-black text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10">← Marketing</button><div class="h-7 w-px bg-slate-200 dark:bg-white/10"></div><div class="min-w-0"><div class="truncate text-lg font-black text-slate-950 dark:text-white">Design Studio</div><div class="hidden text-xs text-slate-500 sm:block">Projects, templates and complete campaign sets</div></div></div><button type="button" onclick="openStudioSizePicker('new')" class="whitespace-nowrap rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500">+ Create design</button></header><main class="studio-home flex-1 overflow-y-auto bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-white"><div class="mx-auto max-w-[1560px] space-y-10 px-4 py-6 sm:px-6 lg:px-8"><section class="studio-home-hero relative overflow-hidden rounded-[32px] px-5 py-10 shadow-2xl sm:px-10 sm:py-14"><div class="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/15 blur-3xl"></div><div class="relative max-w-3xl"><div class="studio-home-hero-eyebrow text-xs font-black uppercase tracking-[.2em]">MarketSync creative home</div><h1 class="mt-3 text-3xl font-black tracking-tight sm:text-5xl">What will you design today?</h1><p class="studio-home-hero-copy mt-3 max-w-2xl text-sm sm:text-base">Start with an exact output size, explore coordinated design sets, or reopen a saved project. Every template stays fully editable.</p><label class="mt-6 flex max-w-2xl items-center gap-3 rounded-2xl bg-white px-4 py-3 text-slate-900 shadow-xl"><svg class="h-5 w-5 flex-none text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" oninput="studioFilterHomeTemplates(this.value)" placeholder="Search business cards, Instagram posts, letterhead…" class="min-w-0 flex-1 border-0 bg-transparent text-base outline-none placeholder:text-slate-400"></label></div></section><section class="space-y-5"><div class="flex items-end justify-between gap-3"><div><div class="text-xs font-black uppercase tracking-[.16em] text-indigo-600 dark:text-indigo-300">Choose a format</div><h2 class="mt-1 text-2xl font-black">Create at the right size</h2></div><button type="button" onclick="openStudioSizePicker('new')" class="text-sm font-black text-indigo-700 dark:text-indigo-300">View every size →</button></div>${renderStudioHomeFormatShortcuts()}</section><section class="space-y-4"><div><div class="text-xs font-black uppercase tracking-[.16em] text-indigo-600 dark:text-indigo-300">Coordinated collections</div><h2 class="mt-1 text-2xl font-black">Design sets</h2><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Carry one polished look across social posts, stationery, presentations and ads.</p></div><div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">${renderStudioHomeDesignSets()}</div></section><section class="space-y-4" id="studio-home-templates"><div class="flex flex-wrap items-end justify-between gap-3"><div><div class="text-xs font-black uppercase tracking-[.16em] text-indigo-600 dark:text-indigo-300">Editable starting points</div><h2 class="mt-1 text-2xl font-black">Templates for you</h2></div><button type="button" onclick="studioResetHomeTemplateFilters()" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">Clear filters</button></div><div class="flex gap-2 overflow-x-auto pb-1"><button type="button" data-studio-home-format="all" onclick="studioFilterHomeFormat('all')" class="whitespace-nowrap rounded-full border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">All sizes</button>${STUDIO_FORMAT_GROUPS.flatMap(group => group.keys).map(key => `<button type="button" data-studio-home-format="${key}" onclick="studioFilterHomeFormat('${key}')" class="whitespace-nowrap rounded-full border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">${escS(STUDIO_SOCIAL_FORMATS[key].label)}</button>`).join('')}</div><div id="studio-home-template-grid" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">${studioHomeTemplateCards()}</div></section><section class="space-y-4"><div class="flex flex-wrap items-end justify-between gap-3"><div><div class="text-xs font-black uppercase tracking-[.16em] text-indigo-600 dark:text-indigo-300">Your work</div><h2 class="mt-1 text-2xl font-black">Projects & folders</h2></div><div class="flex gap-2"><button type="button" onclick="createStudioHomeFolder()" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">+ New folder</button><button type="button" onclick="openStudioSizePicker('new')" class="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white">+ New design</button></div></div><div id="studio-home-folders" class="flex gap-2 overflow-x-auto pb-1"><div class="text-sm text-slate-500">Loading folders…</div></div><div id="studio-home-projects" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"><div class="col-span-full py-8 text-center text-sm text-slate-500">Loading projects…</div></div></section></div></main>`;
+  return `<header class="flex h-16 flex-shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/90 sm:px-6"><div class="flex min-w-0 items-center gap-3"><button type="button" onclick="closeMarketSyncStudio()" class="rounded-xl px-3 py-2 text-xs font-black text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10">← Marketing</button><div class="h-7 w-px bg-slate-200 dark:bg-white/10"></div><div class="min-w-0"><div class="truncate text-lg font-black text-slate-950 dark:text-white">Design Studio</div><div class="hidden text-xs text-slate-500 sm:block">Projects, templates and complete campaign sets</div></div></div><button type="button" onclick="openStudioSizePicker('new')" class="whitespace-nowrap rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500">+ Create design</button></header><main class="studio-home flex-1 overflow-y-auto bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-white"><div class="mx-auto max-w-[1560px] space-y-10 px-4 py-6 sm:px-6 lg:px-8"><section class="studio-home-hero relative overflow-hidden rounded-[32px] px-5 py-10 shadow-2xl sm:px-10 sm:py-14"><div class="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/15 blur-3xl"></div><div class="relative max-w-3xl"><div class="studio-home-hero-eyebrow text-xs font-black uppercase tracking-[.2em]">MarketSync creative home</div><h1 class="mt-3 text-3xl font-black tracking-tight sm:text-5xl">What will you design today?</h1><p class="studio-home-hero-copy mt-3 max-w-2xl text-sm sm:text-base">Start with an exact output size, explore coordinated design sets, or reopen a saved project. Every template stays fully editable.</p><label class="mt-6 flex max-w-2xl items-center gap-3 rounded-2xl bg-white px-4 py-3 text-slate-900 shadow-xl"><svg class="h-5 w-5 flex-none text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" oninput="studioFilterHomeTemplates(this.value)" placeholder="Search business cards, Instagram posts, letterhead…" class="min-w-0 flex-1 border-0 bg-transparent text-base outline-none placeholder:text-slate-400"></label></div></section><section class="space-y-5"><div class="flex items-end justify-between gap-3"><div><div class="text-xs font-black uppercase tracking-[.16em] text-indigo-600 dark:text-indigo-300">Choose a format</div><h2 class="mt-1 text-2xl font-black">Create at the right size</h2></div><button type="button" onclick="openStudioSizePicker('new')" class="text-sm font-black text-indigo-700 dark:text-indigo-300">View every size →</button></div>${renderStudioHomeFormatShortcuts()}</section><section class="space-y-4"><div><div class="text-xs font-black uppercase tracking-[.16em] text-indigo-600 dark:text-indigo-300">Coordinated collections</div><h2 class="mt-1 text-2xl font-black">Design sets</h2><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Carry one polished look across social posts, stationery, presentations and ads.</p></div><div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">${renderStudioHomeDesignSets()}</div></section><section class="space-y-4" id="studio-home-templates"><div class="flex flex-wrap items-end justify-between gap-3"><div><div class="text-xs font-black uppercase tracking-[.16em] text-indigo-600 dark:text-indigo-300">Editable starting points</div><h2 class="mt-1 text-2xl font-black">Templates for you</h2></div><button type="button" onclick="studioResetHomeTemplateFilters()" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">Clear filters</button></div><div class="flex gap-2 overflow-x-auto pb-1"><button type="button" data-studio-home-format="all" onclick="studioFilterHomeFormat('all')" class="whitespace-nowrap rounded-full border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">All sizes</button>${STUDIO_FORMAT_GROUPS.flatMap(group => group.keys).map(key => `<button type="button" data-studio-home-format="${key}" onclick="studioFilterHomeFormat('${key}')" class="whitespace-nowrap rounded-full border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">${escS(STUDIO_SOCIAL_FORMATS[key].label)}</button>`).join('')}</div><div id="studio-home-template-grid" class="grid items-start grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">${studioHomeTemplateCards()}</div></section><section class="space-y-4"><div class="flex flex-wrap items-end justify-between gap-3"><div><div class="text-xs font-black uppercase tracking-[.16em] text-indigo-600 dark:text-indigo-300">Your work</div><h2 class="mt-1 text-2xl font-black">Projects & folders</h2></div><div class="flex gap-2"><button type="button" onclick="createStudioHomeFolder()" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">+ New folder</button><button type="button" onclick="openStudioSizePicker('new')" class="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white">+ New design</button></div></div><div id="studio-home-folders" class="flex gap-2 overflow-x-auto pb-1"><div class="text-sm text-slate-500">Loading folders…</div></div><div id="studio-home-projects" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"><div class="col-span-full py-8 text-center text-sm text-slate-500">Loading projects…</div></div></section></div></main>`;
 }
 
 async function loadStudioHomeProjects() {
