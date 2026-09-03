@@ -14,7 +14,10 @@ import { categorizeConversation, formatShownVehicles, summarizeConversation, ver
 import { aiAllowed, recordUsage } from '../../usage.js'
 import { offTopicRefusal, scopeClause, sanitizeTranscript, CHAT_LIMITS } from '../../chatGuard.js'
 
-const SITE_COLS = 'id, name, branding, site_published, site_slug, custom_domain, city, province, postal_code, website_url, photo_background_url, discovery_summary, discovery_terms, discovery_intents, discovery_enabled'
+// Discovery settings live inside dealerships.branding, not as dealership columns.
+// Asking PostgREST for the four branding keys as top-level columns makes the whole
+// select fail; the old route then misreported that database error as "Site not found."
+const SITE_COLS = 'id, name, branding, site_published, site_slug, custom_domain, city, province, postal_code, website_url, photo_background_url'
 
 // Placed widgets & typography presets
 const WIDGET_SLOTS = ['top_banner', 'hero_below', 'above_inventory', 'below_inventory', 'above_footer']
@@ -239,7 +242,11 @@ export function registerSitePublicRoutes(app) {
   app.get('/site/:slug', rateLimit('pub-site', 120, 60000), async (req, res) => {
     const slug = String(req.params.slug || '').toLowerCase().trim()
     if (!slug) return res.status(404).json({ error: 'Not found' })
-    const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS).ilike('site_slug', slug).maybeSingle()
+    const { data: d, error } = await supabaseAdmin.from('dealerships').select(SITE_COLS).ilike('site_slug', slug).maybeSingle()
+    if (error) {
+      console.error('[site-public] published site lookup failed:', error.message)
+      return res.status(503).json({ error: 'Site is temporarily unavailable' })
+    }
     if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
     res.json(await buildSiteResponse(d))
   })
@@ -268,8 +275,12 @@ export function registerSitePublicRoutes(app) {
   app.get('/site-head-metadata', rateLimit('pub-site-head-domain', 240, 60000), async (req, res) => {
     const host = String(req.query.host || '').toLowerCase().trim().replace(/^www\./, '').replace(/:\d+$/, '')
     if (!host) return res.status(404).json({ error: 'Not found' })
-    const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS)
+    const { data: d, error } = await supabaseAdmin.from('dealerships').select(SITE_COLS)
       .or(`custom_domain.ilike.${host},custom_domain.ilike.www.${host}`).maybeSingle()
+    if (error) {
+      console.error('[site-public] custom-domain lookup failed:', error.message)
+      return res.status(503).json({ error: 'Site is temporarily unavailable' })
+    }
     if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
     const response = await buildSiteResponse(d)
     const metadata = buildDealerSiteMetadata(response.site, { publicSiteOrigin: PUBLIC_SITE_ORIGIN })
@@ -292,8 +303,12 @@ export function registerSitePublicRoutes(app) {
   app.get('/site-by-domain', rateLimit('pub-site-domain', 120, 60000), async (req, res) => {
     const host = String(req.query.host || '').toLowerCase().trim().replace(/^www\./, '').replace(/:\d+$/, '')
     if (!host) return res.status(404).json({ error: 'Not found' })
-    const { data: d } = await supabaseAdmin.from('dealerships').select(SITE_COLS)
+    const { data: d, error } = await supabaseAdmin.from('dealerships').select(SITE_COLS)
       .or(`custom_domain.ilike.${host},custom_domain.ilike.www.${host}`).maybeSingle()
+    if (error) {
+      console.error('[site-public] public custom-domain lookup failed:', error.message)
+      return res.status(503).json({ error: 'Site is temporarily unavailable' })
+    }
     if (!d || !d.site_published) return res.status(404).json({ error: 'Site not found' })
     res.json(await buildSiteResponse(d))
   })

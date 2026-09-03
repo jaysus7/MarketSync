@@ -8,6 +8,15 @@ const FRONTEND = fileURLToPath(new URL('../../marketplace-frontend', import.meta
 const builder = readFileSync(path.join(FRONTEND, 'js', 'modules', 'dashboard-part17.js'), 'utf8')
 const site = readFileSync(path.join(FRONTEND, 'site.html'), 'utf8')
 
+test('public site shell reads from the backend matching its deployed environment', () => {
+  assert.match(site, /location\.hostname\.includes\('staging'\)/,
+    'the staging site shell must not query the production database')
+  assert.match(site, /https:\/\/marketsync-staging-backend\.onrender\.com/)
+  assert.match(site, /https:\/\/vehicle-marketplace-s0e4\.onrender\.com/)
+  assert.doesNotMatch(site, /const API='https:\/\/vehicle-marketplace-s0e4\.onrender\.com'/,
+    'the production backend cannot be an unconditional public-shell constant')
+})
+
 test('unpublished builder previews never race the public site endpoint', () => {
   const previewDeclaration = site.indexOf("const PREVIEW=SITE_QUERY.get('preview')==='1'")
   const bootDeclaration = site.indexOf('async function boot()')

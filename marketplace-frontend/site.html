@@ -44,7 +44,13 @@
   <div id="app"><div class="min-h-screen flex items-center justify-center text-slate-400 text-sm">Loading…</div></div>
 
   <script>
-    const API='https://vehicle-marketplace-s0e4.onrender.com';
+    // Keep the public shell in the same data environment as the host serving it.
+    // A staging dealership does not exist in the production Supabase project, so
+    // sending staging previews/live links to the production API makes a valid,
+    // published site look like it does not exist.
+    const API=location.hostname.includes('staging')
+      ? 'https://marketsync-staging-backend.onrender.com'
+      : 'https://vehicle-marketplace-s0e4.onrender.com';
     const SITE_QUERY=new URLSearchParams(location.search);
     const PREVIEW=SITE_QUERY.get('preview')==='1';
     let SLUG=(SITE_QUERY.get('d')||location.pathname.split('/').filter(Boolean).pop()||'').toLowerCase();
