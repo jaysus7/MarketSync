@@ -8,6 +8,19 @@ const FRONTEND = fileURLToPath(new URL('../../marketplace-frontend', import.meta
 const builder = readFileSync(path.join(FRONTEND, 'js', 'modules', 'dashboard-part17.js'), 'utf8')
 const site = readFileSync(path.join(FRONTEND, 'site.html'), 'utf8')
 
+test('unpublished builder previews never race the public site endpoint', () => {
+  const previewDeclaration = site.indexOf("const PREVIEW=SITE_QUERY.get('preview')==='1'")
+  const bootDeclaration = site.indexOf('async function boot()')
+  const publicFetch = site.indexOf('await fetch(`${API}/site/')
+  assert.ok(previewDeclaration > -1 && previewDeclaration < bootDeclaration,
+    'preview mode must be known before boot starts')
+  assert.ok(bootDeclaration > -1 && publicFetch > bootDeclaration,
+    'the public site request must remain inside boot')
+  const boot = site.slice(bootDeclaration, publicFetch)
+  assert.match(boot, /if\(PREVIEW\) return;/,
+    'draft/template previews must wait for their authenticated postMessage payload instead of fetching a published site')
+})
+
 // ── One builder, not two ─────────────────────────────────────────────────────
 // A second "classic" form-stack editor used to sit behind a localStorage flag, so
 // two people on the same account could be looking at completely different editors

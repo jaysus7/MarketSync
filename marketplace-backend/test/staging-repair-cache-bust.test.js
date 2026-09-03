@@ -7,6 +7,7 @@ const loader = readFileSync(new URL('../../marketplace-frontend/js/modules/dashb
 const version = '20260902_staging_repair_v1'
 const builderVersion = '20260902_builder_workbench_v1'
 const studioDepthVersion = '20260902_studio_depth_v1'
+const previewBootVersion = '20260902_preview_boot_v1'
 
 test('every frontend asset edited by the staging repair has the release cache version', () => {
   for (const asset of [
@@ -20,9 +21,11 @@ test('every frontend asset edited by the staging repair has the release cache ve
     assert.ok(html.includes(`${asset}?v=${builderVersion}`), `${asset} builder cache version is stale`)
   }
 
-  for (const asset of ['css/marketsync-theme.css', 'js/modules/dashboard-part2.js', 'js/modules/dashboard-part17.js']) {
+  for (const asset of ['css/marketsync-theme.css', 'js/modules/dashboard-part2.js']) {
     assert.ok(html.includes(`${asset}?v=${studioDepthVersion}`), `${asset} Studio depth cache version is stale`)
   }
+
+  assert.ok(html.includes(`js/modules/dashboard-part17.js?v=${previewBootVersion}`), 'website preview cache version is stale')
 
   assert.equal((loader.match(new RegExp(`js/modules/studio/studio-shell\\.js\\?v=${studioDepthVersion}`, 'g')) || []).length, 2)
 })

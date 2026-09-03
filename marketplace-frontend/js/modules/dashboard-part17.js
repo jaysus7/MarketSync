@@ -2018,7 +2018,7 @@ function wsOpenDraftPreview() {
   if (!slug) { showToast('Save a site address before opening preview', 'error'); return; }
   try { __draftPreviewToken = crypto.randomUUID(); } catch { __draftPreviewToken = Math.random().toString(36).slice(2); }
   __draftPreviewReady = false;
-  __draftPreviewWindow = window.open(`${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1&draft_preview=1&builder_v=20260829_draft_preview_v1`, '_blank');
+  __draftPreviewWindow = window.open(`${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1&draft_preview=1&builder_v=20260902_preview_boot_v1`, '_blank');
   if (!__draftPreviewWindow) { showToast('Preview was blocked by the browser. Allow pop-ups for this site and try again.', 'error'); return; }
   setTimeout(() => { if (__draftPreviewWindow && !__draftPreviewWindow.closed) livePreviewPush(); }, 250);
 }
@@ -3052,7 +3052,7 @@ function renderLiveBuilder(body) {
         <!-- Center Full-Screen Live Web Canvas -->
         <main class="w-full h-full flex items-center justify-center p-0 overflow-hidden relative z-0">
           <div id="ws-frame-wrapper" data-ws-device="${__wsActiveDeviceView}" class="${__wsActiveDeviceView === 'mobile' ? 'w-[375px] h-[92%]' : (__wsActiveDeviceView === 'tablet' ? 'w-[768px] h-[92%]' : 'w-full h-full')} ${__wsActiveDeviceView === 'desktop' ? 'border-0' : 'rounded-3xl border-4 border-slate-500 dark:border-slate-700 shadow-2xl'} bg-white transition-all duration-300 overflow-hidden relative z-0">
-            <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1&builder_v=20260825_builder_click_edit_v1" onload="window.livePreviewLoaded && window.livePreviewLoaded()" class="w-full h-full border-0 pointer-events-auto" title="Live Website Canvas"></iframe>
+            <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1&builder_v=20260902_preview_boot_v1" onload="window.livePreviewLoaded && window.livePreviewLoaded()" class="w-full h-full border-0 pointer-events-auto" title="Live Website Canvas"></iframe>
           </div>
         </main>
 
@@ -3172,7 +3172,7 @@ function showWebsiteTemplateBrowser(template, payload) {
   overlay.id = 'ws-template-browser';
   overlay.className = 'fixed inset-0 z-[100000] bg-slate-950 flex flex-col';
   const pageOptions = [`<option value="home">Home</option>`, ...(payload.site.pages || []).map(page => `<option value="page:${esc(page.slug || slugifyTitle(page.title || page.id))}">${esc(page.title || 'Page')}</option>`), ...Object.entries(payload.site.builtins || {}).filter(([,page]) => page?.enabled !== false).map(([key,page]) => `<option value="${esc(key === 'contact' ? 'inquiry' : key)}">${esc(page.title || key.replace(/_/g,' '))}</option>`)].join('');
-  overlay.innerHTML = `<header class="ws-template-browser-bar"><div class="min-w-0"><span>Live theme preview</span><strong>${esc(template.name)}</strong></div><label>Page<select id="ws-template-preview-page">${pageOptions}</select></label><div class="ws-template-preview-devices"><button type="button" data-width="100%" aria-current="true">Desktop</button><button type="button" data-width="768px">Tablet</button><button type="button" data-width="390px">Mobile</button></div><button type="button" class="ws-template-preview-use">Use &amp; publish</button><button type="button" class="ws-template-preview-close" aria-label="Close preview">×</button></header><main class="ws-template-browser-stage"><div id="ws-template-preview-wrap"><iframe id="ws-template-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1&template_preview=1&builder_v=20260902_template_browser_v1" title="${esc(template.name)} full website preview"></iframe></div></main>`;
+  overlay.innerHTML = `<header class="ws-template-browser-bar"><div class="min-w-0"><span>Live theme preview</span><strong>${esc(template.name)}</strong></div><label>Page<select id="ws-template-preview-page">${pageOptions}</select></label><div class="ws-template-preview-devices"><button type="button" data-width="100%" aria-current="true">Desktop</button><button type="button" data-width="768px">Tablet</button><button type="button" data-width="390px">Mobile</button></div><button type="button" class="ws-template-preview-use">Use &amp; publish</button><button type="button" class="ws-template-preview-close" aria-label="Close preview">×</button></header><main class="ws-template-browser-stage"><div id="ws-template-preview-wrap"><iframe id="ws-template-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1&template_preview=1&builder_v=20260902_preview_boot_v1" title="${esc(template.name)} full website preview"></iframe></div></main>`;
   document.body.appendChild(overlay);
   const frame = overlay.querySelector('iframe'), select = overlay.querySelector('select'), wrap = overlay.querySelector('#ws-template-preview-wrap');
   let view = 'home';

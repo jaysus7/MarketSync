@@ -45,7 +45,9 @@
 
   <script>
     const API='https://vehicle-marketplace-s0e4.onrender.com';
-    let SLUG=(new URLSearchParams(location.search).get('d')||location.pathname.split('/').filter(Boolean).pop()||'').toLowerCase();
+    const SITE_QUERY=new URLSearchParams(location.search);
+    const PREVIEW=SITE_QUERY.get('preview')==='1';
+    let SLUG=(SITE_QUERY.get('d')||location.pathname.split('/').filter(Boolean).pop()||'').toLowerCase();
     if(SLUG.endsWith('.html')) SLUG='';   // custom-domain root → resolve by hostname instead
     const esc=(s)=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     // Rich text for description fields & custom pages: allows a safe subset of HTML so AI-inserted
@@ -112,6 +114,11 @@
     let DATA=null, FILTERED=[], FILTERS={q:'',condition:'',body:'',sort:'newest'}, VIEW='home', BLOG_CACHE=null;
 
     async function boot(){
+      // Builder/template previews are powered by an authenticated draft payload
+      // posted by the dashboard. Never race that payload against the public site
+      // endpoint: unpublished drafts correctly 404 there and the late response
+      // would overwrite an already-rendered preview with the unavailable page.
+      if(PREVIEW) return;
       try{
         const r = SLUG
           ? await fetch(`${API}/site/${encodeURIComponent(SLUG)}`)
@@ -1522,7 +1529,6 @@
     // re-renders from config posted by the parent (never saving), so edits show
     // instantly. It also outlines home sections and reports clicks so the builder
     // can select/edit the section you click. Same origin → postMessage is safe.
-    const PREVIEW = new URLSearchParams(location.search).get('preview')==='1';
     const previewHost = window.opener && window.opener !== window ? window.opener : parent;
     let previewSession = null;
     const postPreview=(message)=>{ try{ previewHost.postMessage({...message,session:previewSession},location.origin); }catch(e){} };
