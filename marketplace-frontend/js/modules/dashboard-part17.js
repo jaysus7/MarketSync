@@ -390,10 +390,11 @@ function applyBuilderTheme() {
 
   const container = document.getElementById('page-content-website');
   const root = document.getElementById('website-root');
+  const studio = document.querySelector('.ws-studio-container');
   const body = document.body;
   const html = document.documentElement;
 
-  [container, root, body, html].forEach(el => {
+  [container, root, studio, body, html].forEach(el => {
     if (!el) return;
     el.setAttribute('data-ws-theme', effectiveTheme);
     el.classList.toggle('ws-theme-dark', effectiveTheme === 'dark');
@@ -3098,6 +3099,10 @@ function renderLiveBuilder(body) {
     </div>
   `;
 
+  // The workbench is inserted after renderWebsitePage's initial theme pass.
+  // Theme the new owner immediately so its local CSS variables do not fall
+  // back to the dark defaults while the rest of the dashboard is light.
+  applyBuilderTheme();
   renderWsLayersTree();
 }
 function wsBlog() {

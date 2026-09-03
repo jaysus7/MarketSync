@@ -7,7 +7,7 @@ const loader = readFileSync(new URL('../../marketplace-frontend/js/modules/dashb
 const version = '20260902_staging_repair_v1'
 const builderVersion = '20260903_dark_button_contrast_v1'
 const studioDepthVersion = '20260903_studio_context_actions_v1'
-const previewBootVersion = '20260903_public_site_routing_v1'
+const previewBootVersion = '20260903_website_light_theme_v1'
 
 test('every frontend asset edited by the staging repair has the release cache version', () => {
   for (const asset of [
