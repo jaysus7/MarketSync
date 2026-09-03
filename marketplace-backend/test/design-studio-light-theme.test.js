@@ -26,9 +26,9 @@ test('Templates fits the rail and the Heading action remains legible', () => {
 });
 
 test('the deployed dashboard requests the corrected Studio assets', () => {
-  assert.match(loader, /studio-shell\.js\?v=20260903_studio_creative_catalogs_v1/g);
-  assert.match(dashboard, /marketsync-theme\.css\?v=20260903_studio_creative_catalogs_v1/);
-  assert.match(dashboard, /dashboard-part2\.js\?v=20260903_studio_creative_catalogs_v1/);
+  assert.match(loader, /studio-shell\.js\?v=20260903_studio_home_templates_v1/g);
+  assert.match(dashboard, /marketsync-theme\.css\?v=20260903_studio_home_templates_v1/);
+  assert.match(dashboard, /dashboard-part2\.js\?v=20260903_studio_home_templates_v1/);
 });
 
 test('dark mode gives Studio drawers, cards, icons, and canvas explicit contrast', () => {

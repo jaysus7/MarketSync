@@ -70,6 +70,30 @@ const STUDIO_SOCIAL_FORMATS = {
   brochure: { label: 'Tri-fold Brochure · Letter', w: 3300, h: 2550, safe: [5, 5, 5, 5], note: 'Keep copy clear of folds and trim', channel: 'print' }
 };
 
+// Keep blank-canvas creation on the same complete format catalogue as templates,
+// resize, previews and exports. scene-model.js intentionally stays lightweight;
+// Studio replaces its four-format bootstrap map once the full shell is available.
+window.__MS_STUDIO_FORMATS = Object.fromEntries(Object.entries(STUDIO_SOCIAL_FORMATS).map(([key, format]) => [key, {
+  name: format.label,
+  width: format.w,
+  height: format.h,
+  channel: format.channel || (key.startsWith('display_') ? 'display' : 'social')
+}]));
+
+const STUDIO_FORMAT_GROUPS = [
+  { id: 'social', label: 'Social posts', description: 'Feed, story, video cover and channel-specific artwork', keys: ['square','portrait','story','tiktok','facebook_post','facebook_story','linkedin','x_landscape','youtube','pinterest'] },
+  { id: 'stationery', label: 'Print & stationery', description: 'Professional pieces prepared at print resolution', keys: ['business_card','letterhead','postcard','flyer','brochure'] },
+  { id: 'presentation', label: 'Presentations', description: 'Widescreen decks and customer-facing slides', keys: ['presentation'] },
+  { id: 'digital', label: 'Digital marketing', description: 'Marketplace, email, website and display advertising', keys: ['marketplace','email_hero','website_banner','display_300x250','display_728x90','display_160x600','landscape'] }
+];
+
+const STUDIO_DESIGN_SETS = [
+  { id: 'midnight_luxe', name: 'Midnight Luxe', eyebrow: 'Premium collection', description: 'Deep navy, warm gold and editorial spacing.', background: '#07111F', accent: '#D4A94F', secondary: '#DCE7F7', font: 'Playfair Display' },
+  { id: 'electric_current', name: 'Electric Current', eyebrow: 'Modern collection', description: 'Electric blue, cyan highlights and energetic framing.', background: '#102A56', accent: '#2DD4BF', secondary: '#DBEAFE', font: 'Montserrat' },
+  { id: 'paper_ledger', name: 'Paper & Ledger', eyebrow: 'Editorial collection', description: 'Warm paper, charcoal type and restrained rules.', background: '#F4EFE6', accent: '#9F1239', secondary: '#27272A', font: 'Libre Baskerville' },
+  { id: 'signal_red', name: 'Signal Red', eyebrow: 'Campaign collection', description: 'High-impact red, cream and angled graphic blocks.', background: '#B91C1C', accent: '#FDE68A', secondary: '#FFF7ED', font: 'Archivo Black' }
+];
+
 // Small inline SVG previews so each Shapes button shows the actual shape, not just
 // its name — mirrors the geometry fabric-adapter.js's addShape() draws on canvas.
 const STUDIO_SHAPE_PREVIEW = {
@@ -405,8 +429,18 @@ window.openMarketSyncStudio = async function(designId = null, initialOptions = {
     document.body.appendChild(modal);
   }
 
+  // A blank launch now opens the creative home. Existing projects and explicit
+  // size/template launches still go directly to the editor.
+  if (!designId && !initialOptions.bypassHome && !initialOptions.formatKey && !initialOptions.templateKey) {
+    window.__studioAdapter = null;
+    await renderStudioHome(modal);
+    return;
+  }
+
   // Load existing design or default blank scene
-  let scene = window.msCreateDefaultScene(initialOptions.formatKey || 'square');
+  let scene = initialOptions.formatKey === 'custom'
+    ? { version: 3, format_key: 'custom', width: Number(initialOptions.customWidth) || 1080, height: Number(initialOptions.customHeight) || 1080, background: { color: '#0F172A' }, elements: [] }
+    : window.msCreateDefaultScene(initialOptions.formatKey || 'square');
   let designName = 'Untitled Design';
 
   if (designId) {
@@ -422,6 +456,9 @@ window.openMarketSyncStudio = async function(designId = null, initialOptions = {
     } catch (e) { /* fallback */ }
   }
 
+  window.__studioInitialScene = scene;
+  window.__studioTemplateFormat = scene.format_key || initialOptions.formatKey || 'square';
+  window.__studioTemplateCategory = 'all';
   modal.innerHTML = renderStudioWorkspaceHtml(designName, scene);
   window.__studioDocument = window.msStudioSceneToDocument ? window.msStudioSceneToDocument(scene, { title: designName }) : scene;
   if (window.__msStudioStore) {
@@ -440,6 +477,7 @@ window.openMarketSyncStudio = async function(designId = null, initialOptions = {
     window.__studioKeydownBound = true;
     document.addEventListener('keydown', studioKeydownHandler);
   }
+  if (initialOptions.templateKey) await loadStudioTemplate(initialOptions.templateKey);
 };
 
 function renderDesignStudioTabsHtml() {
@@ -881,6 +919,86 @@ Object.entries(STUDIO_SOCIAL_FORMATS).forEach(([formatKey, format], index) => {
   };
 });
 
+function studioDesignSetScene(formatKey, format, set, setIndex, purpose) {
+  const w = format.w, h = format.h;
+  const portrait = h > w * 1.15;
+  const compact = w < 500 || h < 300;
+  const print = format.channel === 'print';
+  const pad = Math.max(18, Math.round(Math.min(w, h) * .07));
+  const titleSize = Math.max(compact ? 14 : 30, Math.round(Math.min(w, h) * (portrait ? .075 : .09)));
+  const bodySize = Math.max(compact ? 8 : 16, Math.round(Math.min(w, h) * .033));
+  const isLight = set.id === 'paper_ledger';
+  const ink = isLight ? '#18181B' : '#FFFFFF';
+  const muted = isLight ? '#52525B' : set.secondary;
+  const photo = STUDIO_FREE_PHOTOS[(setIndex * 4 + Object.keys(STUDIO_SOCIAL_FORMATS).indexOf(formatKey)) % STUDIO_FREE_PHOTOS.length].url;
+  const imageHeight = portrait ? Math.round(h * .49) : Math.round(h * .58);
+  const imageWidth = portrait ? w : Math.round(w * .52);
+  const copyX = portrait ? pad : (setIndex % 2 ? pad : Math.round(w * .56));
+  const copyY = portrait ? Math.round(h * .57) : pad;
+  const copyWidth = portrait ? w - pad * 2 : Math.round(w * .39);
+  const visualX = portrait ? 0 : (setIndex % 2 ? Math.round(w * .48) : 0);
+  const visualY = portrait ? 0 : 0;
+  const visualWidth = portrait ? w : imageWidth;
+  const visualHeight = portrait ? imageHeight : h;
+  const baseId = `set-${set.id}-${formatKey}`;
+  const elements = [
+    { id: `${baseId}-background`, type: 'shape', shapeType: 'rect', name: 'Background', x: 0, y: 0, width: w, height: h, fill: set.background, z: 1 },
+    ...(!print && !compact ? [{ id: `${baseId}-photo`, type: 'vehicle-image', name: 'Feature photo', src: photo, x: visualX, y: visualY, width: visualWidth, height: visualHeight, fit: 'cover', opacity: isLight ? .9 : .82, z: 2 }] : []),
+    { id: `${baseId}-angle`, type: 'shape', shapeType: 'rect', name: 'Angled accent', x: setIndex % 2 ? Math.round(w * .58) : -Math.round(w * .08), y: Math.round(h * .1), width: Math.round(w * .5), height: Math.max(16, Math.round(h * .13)), fill: set.accent, opacity: setIndex === 2 ? .95 : .88, angle: setIndex % 2 ? -8 : 8, z: 3 },
+    { id: `${baseId}-eyebrow`, type: 'text', name: 'Collection label', text: set.eyebrow.toUpperCase(), x: copyX, y: copyY, width: copyWidth, height: Math.round(bodySize * 1.5), fontFamily: set.font, fontSize: Math.max(9, Math.round(bodySize * .72)), fontWeight: '800', fill: set.accent, charSpacing: 80, z: 4 },
+    { id: `${baseId}-headline`, type: 'text', name: 'Headline', text: purpose[1], x: copyX, y: copyY + Math.round(bodySize * 1.8), width: copyWidth, height: Math.round(titleSize * 2.25), fontFamily: set.font, fontSize: titleSize, fontWeight: '900', fill: ink, lineHeight: .95, z: 5 },
+    { id: `${baseId}-body`, type: 'text', name: 'Supporting copy', text: print ? 'Dealership name · Address · Phone · Website' : purpose[2], x: copyX, y: copyY + Math.round(titleSize * 2.45), width: copyWidth, height: Math.round(bodySize * 3.2), fontFamily: setIndex === 2 ? 'Manrope' : set.font, fontSize: bodySize, fontWeight: '600', fill: muted, lineHeight: 1.15, z: 6 },
+    { id: `${baseId}-rule`, type: 'shape', shapeType: 'rect', name: 'Accent rule', x: copyX, y: Math.min(h - pad * 1.8, copyY + Math.round(titleSize * 4.1)), width: Math.max(28, Math.round(copyWidth * .28)), height: Math.max(3, Math.round(Math.min(w, h) * .008)), fill: set.accent, z: 7 }
+  ];
+
+  if (compact) {
+    elements.splice(1, 0, { id: `${baseId}-compact-block`, type: 'shape', shapeType: 'rect', name: 'Campaign block', x: setIndex % 2 ? Math.round(w * .64) : 0, y: 0, width: Math.round(w * .36), height: h, fill: set.accent, opacity: .95, z: 2 });
+  }
+
+  const makePage = (suffix, name, pageElements) => ({ id: `${baseId}-${suffix}`, name, format_key: formatKey, width: w, height: h, background: { color: set.background }, objects: JSON.parse(JSON.stringify(pageElements)), duration_ms: 5000, transition: 'none' });
+  const pages = [makePage('front', ['business_card','postcard','brochure'].includes(formatKey) ? 'Front' : formatKey === 'presentation' ? 'Title slide' : 'Page 1', elements)];
+
+  if (['business_card','postcard','brochure'].includes(formatKey)) {
+    const back = [
+      { id: `${baseId}-back-bg`, type: 'shape', shapeType: 'rect', name: 'Back background', x: 0, y: 0, width: w, height: h, fill: isLight ? '#FFFFFF' : '#F8FAFC', z: 1 },
+      { id: `${baseId}-back-mark`, type: 'shape', shapeType: setIndex % 2 ? 'circle' : 'rect', name: 'Logo mark', x: pad, y: pad, width: Math.round(Math.min(w, h) * .24), height: Math.round(Math.min(w, h) * .24), fill: set.accent, angle: setIndex === 3 ? 12 : 0, z: 2 },
+      { id: `${baseId}-back-name`, type: 'text', name: 'Name / dealership', text: '{{salesperson.name|YOUR NAME}}\n{{dealership.name|MARKETSYNC MOTORS}}', x: Math.round(w * .34), y: Math.round(h * .22), width: Math.round(w * .57), height: Math.round(h * .24), fontFamily: set.font, fontSize: Math.max(18, Math.round(Math.min(w, h) * .065)), fontWeight: '900', fill: '#18181B', lineHeight: 1.05, z: 3 },
+      { id: `${baseId}-back-contact`, type: 'text', name: 'Contact details', text: '{{salesperson.phone|555 555 5555}}  ·  {{dealership.website|marketsync.ca}}\n123 Dealership Road · Your City', x: Math.round(w * .34), y: Math.round(h * .55), width: Math.round(w * .57), height: Math.round(h * .22), fontFamily: 'Manrope', fontSize: Math.max(13, Math.round(Math.min(w, h) * .035)), fontWeight: '600', fill: '#52525B', lineHeight: 1.25, z: 4 }
+    ];
+    pages.push(makePage('back', 'Back', back));
+  } else if (formatKey === 'presentation') {
+    const content = JSON.parse(JSON.stringify(elements));
+    content.forEach(element => { if (element.type === 'text' && element.name === 'Headline') element.text = 'A CLEAR STORY, BEAUTIFULLY PRESENTED'; if (element.type === 'text' && element.name === 'Supporting copy') element.text = 'Add key ideas, performance highlights and next steps. Every object remains editable.'; });
+    pages.push(makePage('content', 'Content slide', content));
+    pages.push(makePage('closing', 'Closing slide', elements.map(element => ({ ...element, text: element.type === 'text' && element.name === 'Headline' ? 'THANK YOU' : element.text }))));
+  }
+
+  return { version: 3, format_key: formatKey, width: w, height: h, background: { color: set.background }, elements, pages, metadata: { design_set: set.id, editable: true } };
+}
+
+// Four coordinated collections across every supported output size. This produces
+// a useful starting library (92 editable templates) while keeping each collection
+// visually consistent across social, stationery, presentations and digital ads.
+Object.entries(STUDIO_SOCIAL_FORMATS).forEach(([formatKey, format]) => {
+  const purpose = STUDIO_FORMAT_PURPOSES[formatKey];
+  STUDIO_DESIGN_SETS.forEach((set, setIndex) => {
+    const key = `design_set_${set.id}_${formatKey}`;
+    const group = STUDIO_FORMAT_GROUPS.find(item => item.keys.includes(formatKey));
+    const scene = studioDesignSetScene(formatKey, format, set, setIndex, purpose);
+    STUDIO_TEMPLATES_CATALOG[key] = {
+      template_key: key,
+      name: `${purpose[0]} · ${set.name}`,
+      category: group?.label || 'Design templates',
+      design_set: set.id,
+      desc: `${format.w}×${format.h} · ${set.description}`,
+      format_key: formatKey,
+      width: format.w,
+      height: format.h,
+      scene
+    };
+  });
+});
+
 // The professional template catalogue is generated as editable scene JSON by the
 // shared document schema. It extends this existing picker instead of introducing
 // another template system or flattened artwork format.
@@ -978,14 +1096,146 @@ async function applyStudioTemplate(templateKey) {
 }
 window.applyStudioTemplate = applyStudioTemplate;
 
-function renderStudioTemplateCards(filter = window.__studioTemplateFormat || 'all', category = window.__studioTemplateCategory || 'all', limit = window.__studioTemplateLimit || 24) {
-  const matches = Object.values(STUDIO_TEMPLATES_CATALOG).filter(t => (filter === 'all' || t.format_key === filter) && (category === 'all' || t.category === category));
+function studioHomeTemplateCards(limit = 36) {
+  const query = String(window.__studioHomeTemplateQuery || '').trim().toLowerCase();
+  const setFilter = window.__studioHomeDesignSet || 'all';
+  const formatFilter = window.__studioHomeFormat || 'all';
+  const templates = Object.values(STUDIO_TEMPLATES_CATALOG).filter(template => {
+    const searchable = `${template.name || ''} ${template.desc || ''} ${template.category || ''} ${template.design_set || ''}`.toLowerCase();
+    return (!query || searchable.includes(query)) && (setFilter === 'all' || template.design_set === setFilter) && (formatFilter === 'all' || template.format_key === formatFilter);
+  });
+  const cards = templates.slice(0, limit).map(template => {
+    const key = encodeURIComponent(template.template_key);
+    const format = STUDIO_SOCIAL_FORMATS[template.format_key];
+    return `<button type="button" onclick="startStudioTemplate(decodeURIComponent('${key}'))" class="studio-home-template-card group min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-400 hover:shadow-xl dark:border-white/10 dark:bg-slate-900"><div class="relative flex min-h-40 items-center justify-center overflow-hidden bg-slate-100 p-3 dark:bg-slate-950">${templatePreviewMarkup(template)}<span class="absolute left-2 top-2 rounded-lg bg-slate-950/80 px-2 py-1 text-[9px] font-black text-white">${Number(template.width || template.scene?.width)} × ${Number(template.height || template.scene?.height)}</span>${template.scene?.pages?.length > 1 ? `<span class="absolute right-2 top-2 rounded-lg bg-white/90 px-2 py-1 text-[9px] font-black text-slate-800">${template.scene.pages.length} pages</span>` : ''}</div><div class="p-3"><div class="truncate text-sm font-black text-slate-950 group-hover:text-indigo-700 dark:text-white dark:group-hover:text-indigo-300">${escS(template.name)}</div><div class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">${escS(format?.label || template.category || 'Editable design')}</div></div></button>`;
+  }).join('');
+  if (cards) return cards;
+  return '<div class="col-span-full rounded-3xl border border-dashed border-slate-300 px-6 py-12 text-center dark:border-slate-700"><h3 class="font-black text-slate-900 dark:text-white">No matching templates</h3><p class="mt-1 text-sm text-slate-500">Try another search, collection or output size.</p><button type="button" onclick="studioResetHomeTemplateFilters()" class="mt-4 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-black text-white">Show all templates</button></div>';
+}
+
+function renderStudioHomeTemplateGrid() {
+  const host = document.getElementById('studio-home-template-grid');
+  if (host) host.innerHTML = studioHomeTemplateCards();
+  document.querySelectorAll('[data-studio-home-set]').forEach(button => button.setAttribute('aria-pressed', String((window.__studioHomeDesignSet || 'all') === button.dataset.studioHomeSet)));
+  document.querySelectorAll('[data-studio-home-format]').forEach(button => button.setAttribute('aria-pressed', String((window.__studioHomeFormat || 'all') === button.dataset.studioHomeFormat)));
+}
+
+function renderStudioHomeFormatShortcuts() {
+  return STUDIO_FORMAT_GROUPS.map(group => `<section class="space-y-2"><div><h3 class="text-sm font-black text-slate-950 dark:text-white">${escS(group.label)}</h3><p class="text-xs text-slate-500 dark:text-slate-400">${escS(group.description)}</p></div><div class="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">${group.keys.map(key => { const format = STUDIO_SOCIAL_FORMATS[key]; return `<button type="button" onclick="startStudioBlankDesign('${key}')" class="group rounded-2xl border border-slate-200/80 bg-white/80 p-3 text-left shadow-sm transition hover:border-indigo-400 hover:shadow-md dark:border-white/10 dark:bg-slate-900/75"><span class="mb-3 flex h-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-500 text-white shadow-sm"><span class="block rounded border border-white/70" style="width:${Math.max(12, Math.min(34, 34 * format.w / Math.max(format.w, format.h)))}px;height:${Math.max(12, Math.min(34, 34 * format.h / Math.max(format.w, format.h)))}px"></span></span><b class="block text-xs leading-tight text-slate-900 group-hover:text-indigo-700 dark:text-white dark:group-hover:text-indigo-300">${escS(format.label)}</b><span class="mt-1 block text-[10px] text-slate-500">${format.w} × ${format.h}</span></button>`; }).join('')}</div></section>`).join('');
+}
+
+function renderStudioHomeDesignSets() {
+  return STUDIO_DESIGN_SETS.map(set => {
+    const template = STUDIO_TEMPLATES_CATALOG[`design_set_${set.id}_business_card`] || STUDIO_TEMPLATES_CATALOG[`design_set_${set.id}_square`];
+    return `<button type="button" data-studio-home-set="${set.id}" aria-pressed="false" onclick="studioFilterHomeDesignSet('${set.id}')" class="studio-home-set-card group overflow-hidden rounded-3xl border border-slate-200/80 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-400 hover:shadow-xl dark:border-white/10 dark:bg-slate-900"><div class="relative h-48 overflow-hidden p-4" style="background:linear-gradient(135deg,${set.background},${set.accent})"><div class="absolute -right-10 -top-12 h-40 w-40 rotate-12 rounded-[36px] bg-white/15"></div><div class="relative mx-auto max-w-[82%] overflow-hidden rounded-xl border border-white/20 shadow-2xl">${templatePreviewMarkup(template)}</div></div><div class="p-4"><div class="text-[10px] font-black uppercase tracking-[.16em] text-indigo-600 dark:text-indigo-300">${escS(set.eyebrow)}</div><h3 class="mt-1 text-lg font-black text-slate-950 dark:text-white">${escS(set.name)}</h3><p class="mt-1 text-xs text-slate-500 dark:text-slate-400">${escS(set.description)}</p><div class="mt-3 text-xs font-black text-indigo-700 dark:text-indigo-300">${Object.keys(STUDIO_SOCIAL_FORMATS).length} matching sizes →</div></div></button>`;
+  }).join('');
+}
+
+function renderStudioHomeHtml() {
+  window.__studioHomeDesignSet = window.__studioHomeDesignSet || 'all';
+  window.__studioHomeFormat = window.__studioHomeFormat || 'all';
+  return `<header class="flex h-16 flex-shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/90 sm:px-6"><div class="flex min-w-0 items-center gap-3"><button type="button" onclick="closeMarketSyncStudio()" class="rounded-xl px-3 py-2 text-xs font-black text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10">← Marketing</button><div class="h-7 w-px bg-slate-200 dark:bg-white/10"></div><div class="min-w-0"><div class="truncate text-lg font-black text-slate-950 dark:text-white">Design Studio</div><div class="hidden text-xs text-slate-500 sm:block">Projects, templates and complete campaign sets</div></div></div><button type="button" onclick="openStudioSizePicker('new')" class="whitespace-nowrap rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500">+ Create design</button></header><main class="studio-home flex-1 overflow-y-auto bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-white"><div class="mx-auto max-w-[1560px] space-y-10 px-4 py-6 sm:px-6 lg:px-8"><section class="studio-home-hero relative overflow-hidden rounded-[32px] px-5 py-10 shadow-2xl sm:px-10 sm:py-14"><div class="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/15 blur-3xl"></div><div class="relative max-w-3xl"><div class="studio-home-hero-eyebrow text-xs font-black uppercase tracking-[.2em]">MarketSync creative home</div><h1 class="mt-3 text-3xl font-black tracking-tight sm:text-5xl">What will you design today?</h1><p class="studio-home-hero-copy mt-3 max-w-2xl text-sm sm:text-base">Start with an exact output size, explore coordinated design sets, or reopen a saved project. Every template stays fully editable.</p><label class="mt-6 flex max-w-2xl items-center gap-3 rounded-2xl bg-white px-4 py-3 text-slate-900 shadow-xl"><svg class="h-5 w-5 flex-none text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" oninput="studioFilterHomeTemplates(this.value)" placeholder="Search business cards, Instagram posts, letterhead…" class="min-w-0 flex-1 border-0 bg-transparent text-base outline-none placeholder:text-slate-400"></label></div></section><section class="space-y-5"><div class="flex items-end justify-between gap-3"><div><div class="text-xs font-black uppercase tracking-[.16em] text-indigo-600 dark:text-indigo-300">Choose a format</div><h2 class="mt-1 text-2xl font-black">Create at the right size</h2></div><button type="button" onclick="openStudioSizePicker('new')" class="text-sm font-black text-indigo-700 dark:text-indigo-300">View every size →</button></div>${renderStudioHomeFormatShortcuts()}</section><section class="space-y-4"><div><div class="text-xs font-black uppercase tracking-[.16em] text-indigo-600 dark:text-indigo-300">Coordinated collections</div><h2 class="mt-1 text-2xl font-black">Design sets</h2><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Carry one polished look across social posts, stationery, presentations and ads.</p></div><div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">${renderStudioHomeDesignSets()}</div></section><section class="space-y-4" id="studio-home-templates"><div class="flex flex-wrap items-end justify-between gap-3"><div><div class="text-xs font-black uppercase tracking-[.16em] text-indigo-600 dark:text-indigo-300">Editable starting points</div><h2 class="mt-1 text-2xl font-black">Templates for you</h2></div><button type="button" onclick="studioResetHomeTemplateFilters()" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">Clear filters</button></div><div class="flex gap-2 overflow-x-auto pb-1"><button type="button" data-studio-home-format="all" onclick="studioFilterHomeFormat('all')" class="whitespace-nowrap rounded-full border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">All sizes</button>${STUDIO_FORMAT_GROUPS.flatMap(group => group.keys).map(key => `<button type="button" data-studio-home-format="${key}" onclick="studioFilterHomeFormat('${key}')" class="whitespace-nowrap rounded-full border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">${escS(STUDIO_SOCIAL_FORMATS[key].label)}</button>`).join('')}</div><div id="studio-home-template-grid" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">${studioHomeTemplateCards()}</div></section><section class="space-y-4"><div class="flex flex-wrap items-end justify-between gap-3"><div><div class="text-xs font-black uppercase tracking-[.16em] text-indigo-600 dark:text-indigo-300">Your work</div><h2 class="mt-1 text-2xl font-black">Projects & folders</h2></div><div class="flex gap-2"><button type="button" onclick="createStudioHomeFolder()" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">+ New folder</button><button type="button" onclick="openStudioSizePicker('new')" class="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white">+ New design</button></div></div><div id="studio-home-folders" class="flex gap-2 overflow-x-auto pb-1"><div class="text-sm text-slate-500">Loading folders…</div></div><div id="studio-home-projects" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"><div class="col-span-full py-8 text-center text-sm text-slate-500">Loading projects…</div></div></section></div></main>`;
+}
+
+async function loadStudioHomeProjects() {
+  try {
+    const [designResponse, folderResponse] = await Promise.all([apiGetJson('/marketing/studio/designs'), apiGetJson('/marketing/studio/folders')]);
+    window.__studioHomeDesigns = designResponse?.designs || [];
+    window.__studioHomeFolders = folderResponse?.folders || [];
+  } catch (error) {
+    window.__studioHomeDesigns = [];
+    window.__studioHomeFolders = [];
+    const host = document.getElementById('studio-home-projects');
+    if (host) host.innerHTML = `<div class="col-span-full rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">${escS(error.message || 'Projects could not load.')}</div>`;
+  }
+  renderStudioHomeProjects();
+}
+
+function renderStudioHomeProjects() {
+  const folderHost = document.getElementById('studio-home-folders');
+  const projectHost = document.getElementById('studio-home-projects');
+  if (!folderHost || !projectHost) return;
+  const folders = window.__studioHomeFolders || [];
+  const designs = window.__studioHomeDesigns || [];
+  const activeFolder = window.__studioHomeFolder || 'all';
+  const folderButton = (id, label, count) => `<button type="button" onclick="studioSetHomeFolder('${id}')" aria-pressed="${activeFolder === id}" class="flex min-w-40 items-center justify-between gap-3 whitespace-nowrap rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-black shadow-sm aria-pressed:border-indigo-500 aria-pressed:bg-indigo-50 aria-pressed:text-indigo-800 dark:border-white/10 dark:bg-slate-900 dark:aria-pressed:bg-indigo-500/15 dark:aria-pressed:text-indigo-200"><span>${escS(label)}</span><span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500 dark:bg-white/10 dark:text-slate-300">${count}</span></button>`;
+  folderHost.innerHTML = folderButton('all', 'All projects', designs.length) + folderButton('unfiled', 'Unfiled', designs.filter(item => !item.folder_id).length) + folders.map(folder => folderButton(folder.id, folder.name, designs.filter(item => item.folder_id === folder.id).length)).join('');
+  const visible = designs.filter(design => activeFolder === 'all' || (activeFolder === 'unfiled' ? !design.folder_id : design.folder_id === activeFolder));
+  projectHost.innerHTML = visible.length ? visible.map(design => `<button type="button" onclick="openMarketSyncStudio('${escS(design.id)}', { bypassHome: true })" class="group overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-400 hover:shadow-lg dark:border-white/10 dark:bg-slate-900"><div class="overflow-hidden bg-slate-100 dark:bg-slate-950">${studioProjectPreviewMarkup(design)}</div><div class="p-3"><div class="truncate text-sm font-black text-slate-950 dark:text-white">${escS(design.name || 'Untitled Design')}</div><div class="mt-1 text-xs text-slate-500">${Number(design.width) || 1080} × ${Number(design.height) || 1080} · ${escS(design.status || 'draft')}</div></div></button>`).join('') : '<div class="col-span-full rounded-3xl border border-dashed border-slate-300 px-6 py-10 text-center dark:border-slate-700"><h3 class="font-black text-slate-900 dark:text-white">No projects in this folder</h3><p class="mt-1 text-sm text-slate-500">Choose a size or template to create the first one.</p><button type="button" onclick="openStudioSizePicker(\'new\')" class="mt-4 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-black text-white">Create design</button></div>';
+}
+
+async function renderStudioHome(modal) {
+  window.__studioHomeFolder = 'all';
+  modal.innerHTML = renderStudioHomeHtml();
+  renderStudioHomeTemplateGrid();
+  await loadStudioHomeProjects();
+}
+
+function openStudioSizePicker(mode = 'new') {
+  const groups = STUDIO_FORMAT_GROUPS.map(group => `<section class="space-y-2"><div><h3 class="font-black">${escS(group.label)}</h3><p class="text-xs text-slate-500 dark:text-slate-400">${escS(group.description)}</p></div><div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">${group.keys.map(key => { const format = STUDIO_SOCIAL_FORMATS[key]; return `<button type="button" onclick="studioChooseFormat('${key}','${mode}')" class="flex items-center gap-3 rounded-2xl border border-slate-200 p-3 text-left hover:border-indigo-500 hover:bg-indigo-50 dark:border-slate-700 dark:hover:bg-indigo-500/10"><span class="flex h-12 w-14 flex-none items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-cyan-500"><span class="block rounded-sm border border-white/80" style="width:${Math.max(10, Math.min(28, 28 * format.w / Math.max(format.w, format.h)))}px;height:${Math.max(10, Math.min(28, 28 * format.h / Math.max(format.w, format.h)))}px"></span></span><span class="min-w-0"><b class="block text-sm leading-tight">${escS(format.label)}</b><span class="mt-1 block text-xs text-slate-500">${format.w} × ${format.h}</span></span></button>`; }).join('')}</div></section>`).join('');
+  const custom = mode === 'new' ? `<section class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700"><h3 class="font-black">Custom size</h3><form onsubmit="event.preventDefault();startStudioCustomDesign()" class="mt-3 grid grid-cols-[1fr_auto_1fr] items-end gap-2"><label class="text-xs font-bold text-slate-500">Width (px)<input id="studio-custom-width" type="number" min="100" max="8000" value="1080" class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"></label><span class="pb-2 font-black text-slate-400">×</span><label class="text-xs font-bold text-slate-500">Height (px)<input id="studio-custom-height" type="number" min="100" max="8000" value="1080" class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"></label><button class="col-span-3 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-black text-white dark:bg-white dark:text-slate-950">Create custom design</button></form></section>` : '';
+  openStudioSheet(mode === 'resize' ? 'Change design size' : 'Choose a design size', `<div class="space-y-6"><p class="text-sm text-slate-600 dark:text-slate-300">${mode === 'resize' ? 'The current design will be reflowed to the selected dimensions. The Templates panel will then show only exact matches.' : 'Choose the final output first. The editor and its template library will open at these exact dimensions.'}</p>${groups}${custom}</div>`);
+}
+
+async function studioChooseFormat(formatKey, mode = 'new') {
+  document.getElementById('studio-action-sheet')?.remove();
+  if (mode === 'resize') { await changeStudioFormat(formatKey); setStudioTool('templates'); return; }
+  await startStudioBlankDesign(formatKey);
+}
+
+async function startStudioBlankDesign(formatKey) {
+  document.getElementById('studio-action-sheet')?.remove();
+  return window.openMarketSyncStudio(null, { formatKey, bypassHome: true, tab: 'templates' });
+}
+
+async function startStudioCustomDesign() {
+  const width = Math.max(100, Math.min(8000, Number(document.getElementById('studio-custom-width')?.value) || 1080));
+  const height = Math.max(100, Math.min(8000, Number(document.getElementById('studio-custom-height')?.value) || 1080));
+  document.getElementById('studio-action-sheet')?.remove();
+  return window.openMarketSyncStudio(null, { formatKey: 'custom', customWidth: width, customHeight: height, bypassHome: true, tab: 'templates' });
+}
+
+async function startStudioTemplate(templateKey) {
+  const template = STUDIO_TEMPLATES_CATALOG[templateKey];
+  if (!template) return;
+  return window.openMarketSyncStudio(null, { formatKey: template.format_key, templateKey, bypassHome: true, tab: 'templates' });
+}
+
+function studioFilterHomeTemplates(value) { window.__studioHomeTemplateQuery = value || ''; renderStudioHomeTemplateGrid(); document.getElementById('studio-home-templates')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+function studioFilterHomeDesignSet(value) { window.__studioHomeDesignSet = window.__studioHomeDesignSet === value ? 'all' : value; renderStudioHomeTemplateGrid(); document.getElementById('studio-home-templates')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+function studioFilterHomeFormat(value) { window.__studioHomeFormat = value || 'all'; renderStudioHomeTemplateGrid(); }
+function studioResetHomeTemplateFilters() { window.__studioHomeTemplateQuery = ''; window.__studioHomeDesignSet = 'all'; window.__studioHomeFormat = 'all'; const search = document.querySelector('.studio-home input[type="search"]'); if (search) search.value = ''; renderStudioHomeTemplateGrid(); }
+function studioSetHomeFolder(folderId) { window.__studioHomeFolder = folderId || 'all'; renderStudioHomeProjects(); }
+async function createStudioHomeFolder() { const name = window.prompt('New folder name')?.trim(); if (!name) return; try { const response = await apiSendJson('/marketing/studio/folders', 'POST', { name, color: '#4F46E5' }); window.__studioHomeFolders = [...(window.__studioHomeFolders || []), response.folder]; window.__studioHomeFolder = response.folder.id; renderStudioHomeProjects(); if (typeof showToast === 'function') showToast(`${response.folder.name} folder created`, 'success'); } catch (error) { if (typeof showToast === 'function') showToast(error.message || 'Folder could not be created.', 'error'); } }
+
+Object.assign(window, { openStudioSizePicker, studioChooseFormat, startStudioBlankDesign, startStudioCustomDesign, startStudioTemplate, studioFilterHomeTemplates, studioFilterHomeDesignSet, studioFilterHomeFormat, studioResetHomeTemplateFilters, studioSetHomeFolder, createStudioHomeFolder });
+
+function studioTemplateSize(template) {
+  return { width: Number(template?.scene?.width || template?.width) || 1080, height: Number(template?.scene?.height || template?.height) || 1080 };
+}
+
+function studioActiveCanvasSize() {
+  const adapter = window.__studioAdapter;
+  const activePage = adapter?.currentScene?.pages?.find(page => page.id === adapter.activePageId);
+  const scene = activePage || adapter?.currentScene || window.__studioInitialScene || {};
+  return { width: Number(scene.width) || 1080, height: Number(scene.height) || 1080, formatKey: scene.format_key || adapter?.currentScene?.format_key || 'square' };
+}
+
+function studioTemplateFitsCanvas(template, canvas = studioActiveCanvasSize()) {
+  const size = studioTemplateSize(template);
+  return size.width === canvas.width && size.height === canvas.height;
+}
+
+function renderStudioTemplateCards(_filter = window.__studioTemplateFormat || 'canvas', category = window.__studioTemplateCategory || 'all', limit = window.__studioTemplateLimit || 24) {
+  const canvas = studioActiveCanvasSize();
+  const matches = Object.values(STUDIO_TEMPLATES_CATALOG).filter(t => studioTemplateFitsCanvas(t, canvas) && (category === 'all' || t.category === category));
   const cards = matches.slice(0, limit).map(t => {
     const format = STUDIO_SOCIAL_FORMATS[t.format_key];
     const encodedKey = encodeURIComponent(t.template_key);
     return `<button onclick="previewStudioTemplate(decodeURIComponent('${encodedKey}'))" class="studio-template-card w-full text-left rounded-2xl overflow-hidden bg-white border border-slate-200 hover:border-blue-500 hover:shadow-lg transition group"><div class="relative overflow-hidden bg-slate-950">${templatePreviewMarkup(t)}<span class="absolute left-2 top-2 px-2 py-1 rounded-lg bg-slate-950/80 text-[9px] font-black text-blue-100">${format ? `${format.w}×${format.h}` : 'READY'}</span></div><div class="p-3"><div class="text-xs font-black text-slate-900 group-hover:text-blue-600">${escS(t.name)}</div><div class="mt-1 text-[10px] text-slate-500">${escS(t.desc)}</div><div class="mt-2 text-[10px] font-black text-indigo-600">Preview template →</div></div></button>`;
   }).join('');
-  return cards + (matches.length > limit ? `<button type="button" onclick="loadMoreStudioTemplates()" class="w-full py-3 rounded-2xl border border-slate-300 dark:border-slate-700 text-xs font-black">Show more templates (${matches.length - limit})</button>` : '');
+  const empty = `<div class="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-5 text-center"><div class="text-sm font-black text-slate-900 dark:text-white">No templates at ${canvas.width} × ${canvas.height}</div><p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Choose a different design size to see its matching templates.</p><button type="button" onclick="openStudioSizePicker('resize')" class="mt-3 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white">Change design size</button></div>`;
+  return (cards || empty) + (matches.length > limit ? `<button type="button" onclick="loadMoreStudioTemplates()" class="w-full py-3 rounded-2xl border border-slate-300 dark:border-slate-700 text-xs font-black">Show more templates (${matches.length - limit})</button>` : '');
 }
 
 function renderStudioToolPanelContent(tool) {
@@ -1007,10 +1257,12 @@ function renderStudioToolPanelContent(tool) {
     return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Layers</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Select and reorder the current page. Groups and component children remain part of the document model.</p></div><div class="grid grid-cols-2 gap-2"><button type="button" onclick="addStudioStructure('component')" class="px-2 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-[10px] font-black text-white">+ Component</button><button type="button" onclick="addStudioStructure('repeater')" class="px-2 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-[10px] font-black text-white">+ Repeater</button></div><div class="space-y-1.5 max-h-[55vh] overflow-y-auto">${rows || '<p class="text-xs text-slate-500">No layers yet.</p>'}</div>${structures.length ? `<div class="pt-2 border-t border-slate-800"><div class="text-[10px] font-black uppercase text-sky-400 mb-1">Structured elements</div>${structures.map((item, index) => `<button type="button" onclick="editStudioStructure(${index})" class="w-full flex items-center justify-between text-left text-xs text-slate-300 py-1 hover:text-white"><span>${item.type === 'repeater' ? '↻' : '◇'} ${escS(item.name)}</span><span class="text-[10px] text-sky-400">Edit</span></button>`).join('')}</div>` : ''}</div>`;
   }
   if (tool === 'templates') {
+    const canvas = studioActiveCanvasSize();
+    const canvasFormat = STUDIO_SOCIAL_FORMATS[canvas.formatKey];
     return `
       <div class="p-4 space-y-3">
-        <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Social Templates</h3><p class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Ready-made layouts with gradients, shapes and safe text placement.</p></div>
-        <select onchange="filterStudioTemplates(this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white"><option value="all">All output sizes</option>${Object.entries(STUDIO_SOCIAL_FORMATS).map(([key,f]) => `<option value="${key}">${f.label}</option>`).join('')}</select>
+        <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Templates for this design</h3><p class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Only templates that exactly fit the active canvas are shown.</p></div>
+        <button type="button" onclick="openStudioSizePicker('resize')" class="w-full flex items-center justify-between gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-left text-xs text-indigo-900 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-100"><span><b class="block">${escS(canvasFormat?.label || 'Custom design')}</b><span>${canvas.width} × ${canvas.height}</span></span><span class="font-black">Change →</span></button>
         <select onchange="filterStudioTemplateCategory(this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white"><option value="all">All categories</option>${[...new Set(Object.values(STUDIO_TEMPLATES_CATALOG).map(template => template.category).filter(Boolean))].map(category => `<option value="${escS(category)}">${escS(category)}</option>`).join('')}</select>
         <div id="studio-template-cards" class="space-y-3">${renderStudioTemplateCards()}</div>
         <div class="pt-3 mt-1 border-t border-slate-200 dark:border-slate-800 space-y-2">
@@ -1650,7 +1902,13 @@ async function loadStudioTemplate(tmplKey) {
   if (container) { container.style.width = `${boundScene.width}px`; container.style.height = `${boundScene.height}px`; }
   const picker = document.getElementById('studio-format-picker');
   if (picker && STUDIO_SOCIAL_FORMATS[boundScene.format_key]) picker.value = boundScene.format_key;
+  window.__studioInitialScene = boundScene;
+  window.__studioTemplateFormat = boundScene.format_key || 'square';
   updateStudioSafeGuides(boundScene.format_key || 'square');
+  if (window.__studioActiveTool === 'templates') {
+    const panel = document.getElementById('studio-tool-panel');
+    if (panel) panel.innerHTML = renderStudioToolPanelContent('templates');
+  }
   zoomStudioFit();
   if (typeof showToast === 'function') showToast(`Loaded ${tmpl.name}`, 'success');
 }
@@ -2100,9 +2358,25 @@ async function changeStudioFormat(formatKey) {
   if (window.__studioAdapter) {
     const current = window.__studioAdapter.exportScene();
     const reflowed = window.msDesignStudioSchema?.reflowScene(current, formatKey);
-    if (reflowed) await window.__studioAdapter.renderScene(reflowed); else window.__studioAdapter.resizeCanvas(sz.w, sz.h);
+    if (reflowed) {
+      // The persisted model is page-based. Keep the active page and top-level
+      // compatibility scene in sync so resize is not discarded by normalization.
+      if (Array.isArray(reflowed.pages) && reflowed.pages.length) {
+        const activeId = window.__studioAdapter.activePageId || reflowed.pages[0].id;
+        reflowed.pages = reflowed.pages.map(page => page.id === activeId ? { ...page, format_key: formatKey, width: sz.w, height: sz.h, background: reflowed.background, objects: JSON.parse(JSON.stringify(reflowed.elements || [])) } : page);
+      }
+      await window.__studioAdapter.renderScene(reflowed);
+      window.__studioDocument = window.msStudioSceneToDocument?.(reflowed) || reflowed;
+      window.__msStudioStore?.update(window.__studioDocument);
+    } else window.__studioAdapter.resizeCanvas(sz.w, sz.h);
   }
+  window.__studioInitialScene = window.__studioAdapter?.exportScene?.() || { format_key: formatKey, width: sz.w, height: sz.h };
+  window.__studioTemplateFormat = formatKey;
   updateStudioSafeGuides(formatKey);
+  if (window.__studioActiveTool === 'templates') {
+    const panel = document.getElementById('studio-tool-panel');
+    if (panel) panel.innerHTML = renderStudioToolPanelContent('templates');
+  }
   zoomStudioFit();
   if (typeof showToast === 'function') showToast(`Format set to ${formatKey.toUpperCase()}`, 'info');
 }
@@ -2120,7 +2394,9 @@ function setStudioBreakpoint(breakpoint) {
 window.setStudioBreakpoint = setStudioBreakpoint;
 
 function filterStudioTemplates(formatKey) {
-  window.__studioTemplateFormat = formatKey; window.__studioTemplateLimit = 24;
+  // Kept for the public panel API; cards remain constrained to the real canvas
+  // dimensions even if an older integration passes a different format key.
+  window.__studioTemplateFormat = formatKey || studioActiveCanvasSize().formatKey; window.__studioTemplateLimit = 24;
   const cards = document.getElementById('studio-template-cards');
   if (cards) cards.innerHTML = renderStudioTemplateCards(formatKey);
 }
