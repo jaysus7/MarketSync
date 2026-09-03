@@ -27,3 +27,21 @@
 /upgrade        /upgrade.html        200
 /training       /training.html       200
 /verify         /verify.html         200
+
+# Reporting intelligence (staging)
+/reporting                 /reporting.html                 200
+/report-lab                /report-lab.html                200
+/reports-executive         /reports-executive.html         200
+/reports-sales             /reports-sales.html             200
+/reports-inventory         /reports-inventory.html         200
+/reports-crm               /reports-crm.html               200
+/reports-marketing         /reports-marketing.html         200
+/reports-website           /reports-website.html           200
+/reports-fni               /reports-fni.html               200
+/reports-service           /reports-service.html           200
+/reports-parts             /reports-parts.html             200
+/reports-accounting        /reports-accounting.html        200
+/reports-people            /reports-people.html            200
+/reports-customers         /reports-customers.html         200
+/reports-communications    /reports-communications.html    200
+/reports-automations       /reports-automations.html       200
