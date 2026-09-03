@@ -15,3 +15,9 @@ test('Website Builder chrome uses solid workbench semantics instead of liquid gl
   assert.match(workbench, /backdrop-filter: none !important/)
   assert.doesNotMatch(workbench, /var\(--ms-glass-(?:light|dark|canvas|shadow|blur)/)
 })
+
+test('secondary actions retain a dark surface behind their light dark-mode text', () => {
+  assert.match(glass,
+    /html\[data-ms-glass="global"\]\.dark :is\(button,a\)\.bg-white\s*\{[^}]*background:\s*rgba\(15,23,42,\.92\)\s*!important;/,
+    'the important light glass button rule needs an equally-specific dark counterpart')
+})

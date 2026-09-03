@@ -138,6 +138,12 @@ html[data-ms-glass="global"].dark {
   --ms-chrome-line: var(--ms-glass-line-dark);
   --ms-chrome-shadow: var(--ms-glass-shadow-dark);
 }
+/* A bg-white control commonly pairs with dark:bg-slate-900. The light glass
+   rule above is !important, so without an equally-specific dark counterpart it
+   wins the cascade and produces white buttons with light text in dark mode. */
+html[data-ms-glass="global"].dark :is(button,a).bg-white {
+  background: rgba(15,23,42,.92) !important;
+}
 html[data-ms-glass="global"].dark :is(.ms-surface,.ms-surface-raised,.ms-inspector-panel,#ws-inspector-panel,form) {
   background: var(--ms-glass-dark-strong) !important;
   border-color: var(--ms-glass-line-dark) !important;

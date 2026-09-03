@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 const html = readFileSync(new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8')
 const loader = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part2.js', import.meta.url), 'utf8')
 const version = '20260902_staging_repair_v1'
-const builderVersion = '20260902_builder_workbench_v1'
+const builderVersion = '20260903_dark_button_contrast_v1'
 const studioDepthVersion = '20260902_studio_depth_v1'
 const previewBootVersion = '20260902_preview_boot_v1'
 
