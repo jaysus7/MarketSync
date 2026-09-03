@@ -16,6 +16,14 @@ test('website SEO and Discovery share the same persisted semantic fields', () =>
   assert.match(siteRoute, /rawBody\.content && typeof rawBody\.content === 'object'/)
 })
 
+test('public site lookup selects real dealership columns while reading discovery from branding', () => {
+  const selection = publicRoute.match(/const SITE_COLS = '([^']+)'/)?.[1] || ''
+  for (const field of ['discovery_summary', 'discovery_terms', 'discovery_intents', 'discovery_enabled']) {
+    assert.doesNotMatch(selection, new RegExp(field), `${field} is a branding key, not a dealerships column`)
+    assert.match(publicRoute, new RegExp(`b\\.${field}`), `${field} must still be exposed from branding`)
+  }
+})
+
 test('published sites expose a machine-readable Discovery document', () => {
   assert.match(publicRoute, /app\.get\('\/site\/:slug\/discovery'/)
   assert.match(publicRoute, /type: 'dealership-discovery'/)

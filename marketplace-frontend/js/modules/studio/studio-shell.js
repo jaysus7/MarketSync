@@ -70,6 +70,30 @@ const STUDIO_SOCIAL_FORMATS = {
   brochure: { label: 'Tri-fold Brochure · Letter', w: 3300, h: 2550, safe: [5, 5, 5, 5], note: 'Keep copy clear of folds and trim', channel: 'print' }
 };
 
+// Keep blank-canvas creation on the same complete format catalogue as templates,
+// resize, previews and exports. scene-model.js intentionally stays lightweight;
+// Studio replaces its four-format bootstrap map once the full shell is available.
+window.__MS_STUDIO_FORMATS = Object.fromEntries(Object.entries(STUDIO_SOCIAL_FORMATS).map(([key, format]) => [key, {
+  name: format.label,
+  width: format.w,
+  height: format.h,
+  channel: format.channel || (key.startsWith('display_') ? 'display' : 'social')
+}]));
+
+const STUDIO_FORMAT_GROUPS = [
+  { id: 'social', label: 'Social posts', description: 'Feed, story, video cover and channel-specific artwork', keys: ['square','portrait','story','tiktok','facebook_post','facebook_story','linkedin','x_landscape','youtube','pinterest'] },
+  { id: 'stationery', label: 'Print & stationery', description: 'Professional pieces prepared at print resolution', keys: ['business_card','letterhead','postcard','flyer','brochure'] },
+  { id: 'presentation', label: 'Presentations', description: 'Widescreen decks and customer-facing slides', keys: ['presentation'] },
+  { id: 'digital', label: 'Digital marketing', description: 'Marketplace, email, website and display advertising', keys: ['marketplace','email_hero','website_banner','display_300x250','display_728x90','display_160x600','landscape'] }
+];
+
+const STUDIO_DESIGN_SETS = [
+  { id: 'midnight_luxe', name: 'Midnight Luxe', eyebrow: 'Premium collection', description: 'Deep navy, warm gold and editorial spacing.', background: '#07111F', accent: '#D4A94F', secondary: '#DCE7F7', font: 'Playfair Display' },
+  { id: 'electric_current', name: 'Electric Current', eyebrow: 'Modern collection', description: 'Electric blue, cyan highlights and energetic framing.', background: '#102A56', accent: '#2DD4BF', secondary: '#DBEAFE', font: 'Montserrat' },
+  { id: 'paper_ledger', name: 'Paper & Ledger', eyebrow: 'Editorial collection', description: 'Warm paper, charcoal type and restrained rules.', background: '#F4EFE6', accent: '#9F1239', secondary: '#27272A', font: 'Libre Baskerville' },
+  { id: 'signal_red', name: 'Signal Red', eyebrow: 'Campaign collection', description: 'High-impact red, cream and angled graphic blocks.', background: '#B91C1C', accent: '#FDE68A', secondary: '#FFF7ED', font: 'Archivo Black' }
+];
+
 // Small inline SVG previews so each Shapes button shows the actual shape, not just
 // its name — mirrors the geometry fabric-adapter.js's addShape() draws on canvas.
 const STUDIO_SHAPE_PREVIEW = {
@@ -106,7 +130,8 @@ const STUDIO_STICKER_LIBRARY = Array.from({ length: 120 }, (_, index) => {
 const STUDIO_GOOGLE_FONTS = [
   'Manrope', 'Inter', 'Poppins', 'Montserrat', 'Oswald', 'Bebas Neue',
   'Playfair Display', 'Anton', 'Archivo Black', 'Roboto Condensed',
-  'DM Sans', 'Barlow Condensed', 'Teko', 'Righteous',
+  'DM Sans', 'Barlow Condensed', 'Teko', 'Righteous', 'Dancing Script',
+  'Satisfy', 'Permanent Marker', 'Lobster', 'Orbitron', 'Chakra Petch',
 ];
 
 const STUDIO_FONT_CATEGORIES = { all: 'All fonts', sans: 'Sans serif', display: 'Display', serif: 'Serif', mono: 'Monospace', script: 'Script / hand' };
@@ -114,6 +139,26 @@ const STUDIO_FONT_CATEGORY_FOR = font => /serif|merriweather|garamond|crimson|lo
 const STUDIO_FONT_CATALOG = Array.from(new Set([...STUDIO_GOOGLE_FONTS, 'Roboto','Open Sans','Lato','Nunito','Raleway','Merriweather','Source Sans 3','Source Serif 4','Work Sans','Rubik','Outfit','Space Grotesk','Plus Jakarta Sans','Sora','Urbanist','Figtree','Geologica','Albert Sans','Archivo','Barlow','Cabin','Catamaran','Chakra Petch','Chivo','Commissioner','Comfortaa','Cormorant Garamond','Crimson Text','Dancing Script','Dela Gothic One','EB Garamond','Exo 2','Fira Sans','Fjalla One','Fraunces','Gabarito','Heebo','Hind','IBM Plex Sans','IBM Plex Serif','Inconsolata','Josefin Sans','Kanit','Karla','Khand','Libre Baskerville','Libre Franklin','Lobster','Lora','Marcellus','Maven Pro','Michroma','Mitr','Mukta','Noto Sans','Noto Serif','Oleo Script','Onest','Orbitron','Patrick Hand','Permanent Marker','Philosopher','Play','Prata','Public Sans','Quicksand','Rajdhani','Red Hat Display','Rokkitt','Russo One','Saira','Satisfy','Sen','Signika','Skranji','Slabo 27px','Spectral','Staatliches','Syne','Titillium Web','Trispace','Ubuntu','Unbounded','Varela Round','Vollkorn','Walter Turncoat','Yanone Kaffeesatz','Zilla Slab']));
 const STUDIO_SHAPE_LIBRARY = ['rect','badge','circle','ellipse','triangle','diamond','pentagon','hexagon','star','line','arrow','heart','speech'].map((base, index) => ({ id: `shape-${index + 1}`, base, name: base.replace(/^./, char => char.toUpperCase()) }));
 const STUDIO_ICON_LIBRARY = ['car','truck','bus','bike','motorcycle','fuel','battery-charging','ev-station','gauge','route','navigation','map','map-pin','building-2','warehouse','store','shopping-cart','tag','tags','badge-percent','badge-dollar-sign','receipt','credit-card','wallet','banknote','calculator','calendar','clock','alarm-clock','phone','smartphone','mail','send','message-circle','messages-square','user','users','user-round-check','contact','handshake','heart','star','thumbs-up','award','trophy','shield','shield-check','lock','key-round','check','circle-check','info','circle-help','triangle-alert','x','plus','minus','search','filter','sliders-horizontal','settings','wrench','hammer','screwdriver','drill','tool-case','sparkles','wand-sparkles','lightbulb','rocket','zap','flame','gift','party-popper','megaphone','bell','camera','image','images','video','play','pause','music','mic','upload','download','share-2','link','external-link','globe-2','home','building','briefcase-business','file-text','folder','printer','qr-code','chart-line','chart-pie','chart-no-axes-combined','trending-up','eye','palette','type','shapes','layers-3','layout-template','instagram','facebook','linkedin','youtube'].map((name, index) => ({ id: `icon-${index + 1}`, name, label: name.replace(/-/g, ' ') }));
+const STUDIO_ICON_CATEGORIES = {
+  all: ['All', 'shapes'],
+  automotive: ['Automotive', 'car'],
+  social: ['Social', 'heart'],
+  offers: ['Offers', 'badge-percent'],
+  contact: ['Contact', 'message-circle'],
+  business: ['Business', 'briefcase-business'],
+  media: ['Media', 'camera'],
+  navigation: ['Navigation', 'map-pin'],
+  service: ['Service', 'wrench'],
+};
+const STUDIO_ICON_CATEGORY_NAMES = {
+  automotive: new Set(['car','truck','bus','bike','motorcycle','fuel','battery-charging','ev-station','gauge','route','navigation']),
+  social: new Set(['heart','star','thumbs-up','award','trophy','gift','party-popper','sparkles','flame','instagram','facebook','linkedin','youtube']),
+  offers: new Set(['tag','tags','badge-percent','badge-dollar-sign','receipt','credit-card','wallet','banknote','calculator','shopping-cart']),
+  contact: new Set(['phone','smartphone','mail','send','message-circle','messages-square','user','users','user-round-check','contact','handshake']),
+  media: new Set(['camera','image','images','video','play','pause','music','mic','upload','download','share-2']),
+  navigation: new Set(['route','navigation','map','map-pin','globe-2','home','building','external-link','link']),
+  service: new Set(['settings','wrench','hammer','screwdriver','drill','tool-case','shield','shield-check','lock','key-round']),
+};
 const STUDIO_GIF_LIBRARY = [['Celebration','https://media.giphy.com/media/g9582DNuQppxC/giphy.gif'],['Applause','https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif'],['Rocket','https://media.giphy.com/media/26tOZ6e9jD8ZP7jK8/giphy.gif'],['Sparkles','https://media.giphy.com/media/26AHONQ79FdWZhAI0/giphy.gif']];
 const STUDIO_GIF_PRESETS = (() => {
   const groups = {
@@ -131,12 +176,73 @@ const STUDIO_PREMADE_ELEMENTS = [
   ['review-badge','Review badge','Trust','trust','CUSTOMER REVIEWS'], ['guarantee-badge','Dealer commitment badge','Trust','trust','OUR DEALER COMMITMENT'], ['one-owner','One owner badge','Trust','badge','ONE OWNER'], ['certified-badge','Certified badge','Trust','badge','CERTIFIED PRE-OWNED'], ['no-credit','Apply online','Trust','trust','APPLY ONLINE'], ['fast-approval','Pre-approval CTA','Trust','trust','START PRE-APPROVAL'],
   ['trade-callout','Trade-in callout','Automotive','callout','REQUEST A TRADE VALUE'], ['inventory-label','Inventory label','Automotive','badge','IN STOCK'], ['vehicle-specs','Vehicle specs','Automotive','card','YEAR • BODY • DRIVETRAIN'], ['featured-vehicle','Featured vehicle','Automotive','card','FEATURED VEHICLE'], ['electric-label','Electric label','Automotive','badge','ELECTRIC VEHICLE'], ['fuel-saver','Fuel saver','Automotive','badge','FUEL EFFICIENT'],
   ['dealer-header','Dealership header','Brand','header','DEALERSHIP NAME'], ['hours-card','Hours card','Brand','card','VIEW TODAY\'S HOURS'], ['contact-card','Contact card','Brand','card','CALL OUR TEAM'], ['location-card','Location card','Brand','card','VISIT OUR SHOWROOM'], ['social-follow','Social follow','Brand','button','FOLLOW US'], ['newsletter','Newsletter CTA','Brand','button','GET OUR SPECIALS'],
+  ['instagram-follow','Instagram follow','Social','social','FOLLOW ON INSTAGRAM'], ['facebook-follow','Facebook follow','Social','social','FOLLOW ON FACEBOOK'], ['youtube-watch','YouTube channel','Social','social','WATCH OUR VIDEOS'], ['review-stars','Five-star review','Trust','rating','5-STAR REVIEWS'],
+  ['event-date','Event date card','Graphics','date','SAT • SEPT 12'], ['quote-card','Customer quote','Graphics','quote','“A BETTER WAY TO BUY.”'], ['feature-stat','Feature statistic','Graphics','stat','100+ VEHICLES'], ['arrow-callout','Arrow callout','Graphics','arrow','SHOP THIS WAY'],
   ['disclaimer-apr','APR disclaimer','Legal','legal','O.A.C. • Terms and conditions apply.'], ['disclaimer-price','Price disclaimer','Legal','legal','Plus taxes, licensing and applicable fees.'], ['disclaimer-inventory','Inventory disclaimer','Legal','legal','Vehicle availability subject to change.'], ['disclaimer-trade','Trade disclaimer','Legal','legal','Trade values subject to in-person appraisal.']
 ].map(([id,name,category,kind,text]) => ({
   id, name, category, kind, text,
-  icon: category === 'Offers' ? '🏷' : category === 'Buttons' ? '→' : category === 'Trust' ? '✓' : category === 'Automotive' ? '🚗' : category === 'Brand' ? '◆' : 'ⓘ',
+  icon: kind === 'social' ? (id.startsWith('instagram') ? '◎' : id.startsWith('facebook') ? 'f' : '▶') : kind === 'rating' ? '★★★★★' : kind === 'date' ? '▣' : kind === 'quote' ? '“' : kind === 'stat' ? '↗' : kind === 'arrow' ? '➜' : category === 'Offers' ? '🏷' : category === 'Buttons' ? '→' : category === 'Trust' ? '✓' : category === 'Automotive' ? '🚗' : category === 'Brand' ? '◆' : 'ⓘ',
   subtext: kind === 'legal' ? 'Editable disclosure copy' : category === 'Offers' ? 'Add approved offer details' : category === 'Buttons' ? 'Editable call to action' : category === 'Trust' ? 'Add verified supporting details' : category === 'Automotive' ? 'Connected inventory content' : 'Dealership information'
 }));
+const STUDIO_ELEMENT_CATEGORY_META = {
+  Offers: ['%', '#fff7ed', '#f97316'], Buttons: ['↗', '#eff6ff', '#2563eb'], Trust: ['✓', '#ecfdf5', '#059669'], Automotive: ['🚗', '#eef2ff', '#4f46e5'],
+  Brand: ['◆', '#f5f3ff', '#7c3aed'], Social: ['◎', '#fdf2f8', '#db2777'], Graphics: ['✦', '#ecfeff', '#0891b2'], Legal: ['§', '#f8fafc', '#475569'],
+};
+const STUDIO_ELEMENT_FEATURED_IDS = ['sale-badge','cta-primary','review-badge','trade-callout','dealer-header','instagram-follow','event-date','quote-card','clearance-ribbon','disclaimer-apr','feature-stat','arrow-callout'];
+
+const STUDIO_VISUAL_ELEMENT_CATEGORIES = {
+  All: ['layout-grid', '#EEF2FF', '#4F46E5'],
+  Shapes: ['shapes', '#ECFEFF', '#0891B2'],
+  Graphics: ['sparkles', '#FFF7ED', '#EA580C'],
+  Animations: ['play-circle', '#F5F3FF', '#7C3AED'],
+  Icons: ['badge-check', '#EFF6FF', '#2563EB'],
+  Frames: ['frame', '#FDF2F8', '#DB2777'],
+  Grids: ['grid-2x2', '#F0FDF4', '#16A34A'],
+  Charts: ['chart-no-axes-combined', '#FEFCE8', '#CA8A04'],
+  Tables: ['table-2', '#F8FAFC', '#475569'],
+  Social: ['instagram', '#FAF5FF', '#9333EA']
+};
+
+const STUDIO_VISUAL_ELEMENTS = [
+  ...[
+    ['shape-circle','Circle','circle','#111827'], ['shape-ring','Outline circle','ring','#2563EB'], ['shape-square','Square','rect','#7C3AED'], ['shape-round','Rounded square','rounded','#EC4899'],
+    ['shape-triangle','Triangle','triangle','#F97316'], ['shape-diamond','Diamond','diamond','#06B6D4'], ['shape-star','Star','star','#EAB308'], ['shape-heart','Heart','heart','#E11D48'],
+    ['shape-hexagon','Hexagon','hexagon','#0F766E'], ['shape-pill','Pill','badge','#4F46E5'], ['shape-line','Line','line','#334155'], ['shape-arrow','Arrow','arrow','#EA580C']
+  ].map(([id,name,shape,color]) => ({ id,name,category:'Shapes',kind:'shape',shape,color })),
+  ...[
+    ['graphic-sparkles','Sparkles','sparkles','#7C3AED'], ['graphic-sun','Sun burst','sun','#F59E0B'], ['graphic-zap','Lightning','zap','#EAB308'], ['graphic-flame','Flame','flame','#EF4444'],
+    ['graphic-megaphone','Megaphone','megaphone','#2563EB'], ['graphic-gift','Gift','gift','#DB2777'], ['graphic-trophy','Trophy','trophy','#D97706'], ['graphic-quote','Quote marks','quote','#0F766E'],
+    ['graphic-location','Location','map-pin','#DC2626'], ['graphic-road','Direction','navigation','#0284C7'], ['graphic-check','Approval check','badge-check','#16A34A'], ['graphic-shield','Shield','shield-check','#4F46E5']
+  ].map(([id,name,icon,color]) => ({ id,name,category:'Graphics',kind:'icon',icon,color })),
+  ...[
+    ['animation-sparkle','Floating sparkle','sparkles','#7C3AED','float'], ['animation-heart','Pulsing heart','heart','#E11D48','pulse'], ['animation-star','Bouncing star','star','#EAB308','bounce'], ['animation-gear','Spinning gear','settings','#2563EB','spin'],
+    ['animation-arrow','Bouncing arrow','arrow-right','#EA580C','bounce'], ['animation-bell','Floating bell','bell','#D97706','float'], ['animation-badge','Pulsing badge','badge-check','#16A34A','pulse'], ['animation-flame','Floating flame','flame','#EF4444','float']
+  ].map(([id,name,icon,color,animation]) => ({ id,name,category:'Animations',kind:'icon',icon,color,animation })),
+  ...[
+    ['icon-car','Car','car'], ['icon-key','Key','key-round'], ['icon-phone','Phone','phone'], ['icon-mail','Email','mail'], ['icon-calendar','Calendar','calendar'], ['icon-clock','Clock','clock'],
+    ['icon-user','Person','user'], ['icon-team','Team','users'], ['icon-camera','Camera','camera'], ['icon-video','Video','video'], ['icon-home','Building','building-2'], ['icon-globe','Website','globe-2'],
+    ['icon-tag','Price tag','tag'], ['icon-card','Payment','credit-card'], ['icon-wrench','Service','wrench'], ['icon-search','Search','search'], ['icon-share','Share','share-2'], ['icon-qr','QR code','qr-code']
+  ].map(([id,name,icon]) => ({ id,name,category:'Icons',kind:'icon',icon,color:'#2563EB' })),
+  ...[
+    ['frame-classic','Classic frame','classic'], ['frame-round','Rounded frame','round'], ['frame-circle','Circle frame','circle'], ['frame-polaroid','Polaroid frame','polaroid'],
+    ['frame-phone','Phone frame','phone'], ['frame-window','Browser frame','window'], ['frame-arch','Arch frame','arch'], ['frame-double','Double frame','double']
+  ].map(([id,name,style]) => ({ id,name,category:'Frames',kind:'frame',style,color:'#8B5CF6' })),
+  ...[
+    ['grid-halves','Two columns','halves'], ['grid-stack','Two rows','stack'], ['grid-feature','Feature grid','feature'], ['grid-thirds','Three columns','thirds'],
+    ['grid-collage','Photo collage','collage'], ['grid-mosaic','Mosaic','mosaic'], ['grid-sidebar','Sidebar grid','sidebar'], ['grid-four','Four tiles','four']
+  ].map(([id,name,style]) => ({ id,name,category:'Grids',kind:'grid',style,color:'#0EA5E9' })),
+  ...[
+    ['chart-bars','Bar chart','bars'], ['chart-columns','Column chart','columns'], ['chart-donut','Donut chart','donut'], ['chart-progress','Progress rings','progress'],
+    ['chart-line','Line chart','line'], ['chart-kpi','KPI card','kpi']
+  ].map(([id,name,style]) => ({ id,name,category:'Charts',kind:'chart',style,color:'#4F46E5' })),
+  ...[
+    ['table-simple','Simple table','simple'], ['table-header','Header table','header'], ['table-price','Price list','price'], ['table-compare','Comparison','compare'], ['table-schedule','Schedule','schedule'], ['table-specs','Vehicle specs','specs']
+  ].map(([id,name,style]) => ({ id,name,category:'Tables',kind:'table',style,color:'#334155' })),
+  ...[
+    ['social-instagram','Instagram','instagram'], ['social-facebook','Facebook','facebook'], ['social-linkedin','LinkedIn','linkedin'], ['social-youtube','YouTube','youtube'],
+    ['social-tiktok','TikTok','tiktok'], ['social-x','X','x-twitter'], ['social-pinterest','Pinterest','pinterest'], ['social-share','Share','share-2']
+  ].map(([id,name,icon]) => ({ id,name,category:'Social',kind:'icon',icon,color:'#111827',library:icon === 'share-2' ? 'lucide' : 'fontawesome-brands' }))
+];
 
 function loadStudioGoogleFonts() {
   if (document.getElementById('studio-google-fonts-link')) return;
@@ -170,7 +276,24 @@ function studioAddSticker(emoji) {
 window.studioAddSticker = studioAddSticker;
 
 function studioCatalogButtons(items, query, render) { const needle = String(query || '').toLowerCase(); return items.filter(item => !needle || `${item.name} ${item.label || ''} ${item.value || ''}`.toLowerCase().includes(needle)).map(render).join('') || '<div class="col-span-4 p-4 text-center text-xs text-slate-500">Nothing matches that search.</div>'; }
-window.__studioCatalogLimits = window.__studioCatalogLimits || { icons: 28 };
+window.__studioCatalogLimits = { icons: 28, elements: 24, text: 12, ...(window.__studioCatalogLimits || {}) };
+window.__studioCatalogObservers = window.__studioCatalogObservers || {};
+function studioCatalogMore(kind, remaining) { return remaining > 0 ? `<button type="button" data-studio-lazy="${kind}" onclick="loadMoreStudioCatalog('${kind}')" class="studio-catalog-more">Loading ${Math.min(12, remaining)} more…</button>` : ''; }
+function wireStudioLazyCatalog(kind) {
+  const sentinel = document.querySelector(`[data-studio-lazy="${kind}"]`);
+  window.__studioCatalogObservers[kind]?.disconnect?.();
+  if (!sentinel || typeof IntersectionObserver === 'undefined') return;
+  const observer = new IntersectionObserver(entries => { if (entries.some(entry => entry.isIntersecting)) { observer.disconnect(); loadMoreStudioCatalog(kind); } }, { root: sentinel.closest('.studio-catalog-scroll'), rootMargin: '120px' });
+  window.__studioCatalogObservers[kind] = observer;
+  observer.observe(sentinel);
+}
+function loadMoreStudioCatalog(kind) {
+  window.__studioCatalogLimits[kind] = Number(window.__studioCatalogLimits[kind] || 12) + (kind === 'icons' ? 28 : 12);
+  if (kind === 'icons') filterStudioIcons(false);
+  if (kind === 'elements') filterStudioPremadeElements(false);
+  if (kind === 'text') filterStudioTextTemplates(false);
+}
+window.loadMoreStudioCatalog = loadMoreStudioCatalog;
 function renderStudioShapeLibrary(query = '') { return studioCatalogButtons(STUDIO_SHAPE_LIBRARY, query, item => `<button type="button" onclick="studioAddShape('${item.base}')" title="${escS(item.name)}" aria-label="Add ${escS(item.name)}" class="studio-shape-card aspect-square rounded-2xl bg-transparent hover:bg-blue-50 dark:hover:bg-slate-800/70 border border-transparent hover:border-blue-300 dark:hover:border-blue-500/60 text-slate-700 dark:text-slate-200 flex items-center justify-center transition"><span class="studio-shape-art">${STUDIO_SHAPE_PREVIEW[item.base] || '◆'}</span></button>`); }
 function filterStudioShapes() { const el = document.getElementById('studio-shape-library'); if (el) el.innerHTML = renderStudioShapeLibrary(document.getElementById('studio-shape-query')?.value); }
 function renderStudioStickerLibrary(query = '') { return studioCatalogButtons(STUDIO_STICKER_LIBRARY, query, item => `<button type="button" onclick="studioAddSticker('${item.value}')" title="${escS(item.name)}" class="aspect-square rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-500/20 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-2xl">${item.value}</button>`); }
@@ -182,15 +305,18 @@ const STUDIO_ICON_SYMBOLS = { car:'🚗', truck:'🚚', 'screwdriver-wrench':'�
 const STUDIO_BRAND_ICON_LIBRARY = ['facebook','instagram','linkedin','tiktok','youtube','x-twitter','whatsapp','telegram','discord','reddit','pinterest','snapchat','threads','twitch','spotify','apple','google','microsoft','amazon','github','gitlab','slack','figma','canva','wordpress','shopify','wix','squarespace','stripe','paypal','square','uber','lyft','airbnb','skype','vimeo','dribbble','behance','medium','tumblr','yelp','tripadvisor','wikipedia-w','stack-overflow','codepen','npm','node','react','vuejs','angular','svelte','html5','css3-alt','js','python','java','php','swift','android','chrome','firefox','safari','edge','opera','internet-explorer','linux','windows','docker','aws','cloudflare','mailchimp','hubspot','salesforce','intercom','hubspot','google-drive','dropbox','onedrive','box','evernote','jira','trello','asana','notion','meetup','sketch','adobe','autoprefixer','bootstrap','tailwind-css','sass','less','npm','git-alt','bitbucket','firstdraft','monday','readme','weixin','line','viber','signal-messenger','kickstarter','patreon','buy-n-large','product-hunt','steam','xbox','playstation','app-store','google-play','goodreads','lastfm','soundcloud','deezer','bandcamp','itunes','reddit-alien','facebook-messenger','google-business','google-pay','apple-pay','cc-visa','cc-mastercard','cc-amex','cc-paypal','cc-stripe','wifi','phone','envelope','globe'].filter((name, index, names) => names.indexOf(name) === index).map((name, index) => ({ id: `brand-icon-${index + 1}`, name, label: name.replace(/-/g, ' ') }));
 const STUDIO_ICON_LIBRARIES = { lucide: ['Lucide', 'lucide'], phosphor: ['Phosphor', 'ph'], tabler: ['Tabler', 'tabler'], material: ['Material Symbols', 'material-symbols'], heroicons: ['Heroicons', 'heroicons-outline'], bootstrap: ['Bootstrap Icons', 'bi'], remix: ['Remix Icon', 'ri'], iconoir: ['Iconoir', 'iconoir'], boxicons: ['Boxicons', 'bxs'], iconify: ['Iconify · Lucide set', 'lucide'], fontawesome: ['Font Awesome Free · Solid', 'fa6-solid'], 'fontawesome-brands': ['Font Awesome Free · Brands & Social', 'fa6-brands'] };
 const STUDIO_ICON_SLUGS = {
-  lucide: { 'screwdriver-wrench':'wrench', gear:'settings', 'circle-info':'info', comment:'message-circle', envelope:'mail', globe:'globe-2', house:'home', 'location-dot':'map-pin', 'magnifying-glass':'search', message:'message-square', 'mobile-screen':'smartphone', 'paper-plane':'send', print:'printer', 'share-nodes':'share-2', shop:'shopping-bag', 'wand-magic-sparkles':'wand-sparkles', xmark:'x' },
+  lucide: { motorcycle:'bike', 'ev-station':'battery-charging', 'screwdriver-wrench':'wrench', gear:'settings', 'circle-info':'info', comment:'message-circle', envelope:'mail', globe:'globe-2', house:'home', 'location-dot':'map-pin', 'magnifying-glass':'search', message:'message-square', 'mobile-screen':'smartphone', 'paper-plane':'send', print:'printer', 'share-nodes':'share-2', shop:'shopping-bag', 'wand-magic-sparkles':'wand-sparkles', xmark:'x' },
   phosphor: { 'screwdriver-wrench':'wrench', gear:'gear', 'circle-info':'info', envelope:'envelope', globe:'globe', house:'house', 'location-dot':'map-pin', 'magnifying-glass':'magnifying-glass', message:'chat', 'mobile-screen':'device-mobile', 'paper-plane':'paper-plane-tilt', print:'printer', 'share-nodes':'share-network', shop:'storefront', xmark:'x' },
   tabler: { 'screwdriver-wrench':'tools', gear:'settings', 'circle-info':'info-circle', envelope:'mail', globe:'world', house:'home', image:'photo', 'location-dot':'map-pin', 'magnifying-glass':'search', message:'message', 'mobile-screen':'device-mobile', 'paper-plane':'send', print:'printer', 'share-nodes':'share', shop:'building-store', xmark:'x' },
   material: { 'screwdriver-wrench':'build', gear:'settings', 'circle-info':'info', envelope:'mail', globe:'public', house:'home', image:'image', 'location-dot':'location_on', 'magnifying-glass':'search', message:'chat_bubble', 'mobile-screen':'smartphone', 'paper-plane':'send', print:'print', 'share-nodes':'share', shop:'storefront', xmark:'close' }
 };
-function studioIconUrl(name, library = 'lucide') { const [label, prefix] = STUDIO_ICON_LIBRARIES[library] || STUDIO_ICON_LIBRARIES.lucide; const slug = STUDIO_ICON_SLUGS[library]?.[name] || name; return `https://api.iconify.design/${encodeURIComponent(prefix)}/${encodeURIComponent(slug)}.svg?color=%232563EB`; }
-function renderStudioIconLibrary(query = '', library = document.getElementById('studio-icon-library-select')?.value || 'lucide') { const catalog = library === 'fontawesome-brands' ? STUDIO_BRAND_ICON_LIBRARY : STUDIO_ICON_LIBRARY; const needle = String(query || '').toLowerCase(); const matches = catalog.filter(item => !needle || `${item.name} ${item.label || ''}`.toLowerCase().includes(needle)); const limit = Number(window.__studioCatalogLimits.icons || 28); const cards = matches.slice(0, limit).map(item => { const fallback = STUDIO_ICON_SYMBOLS[item.name] || '✦'; const url = studioIconUrl(item.name, library); return `<button type="button" onclick="studioAddIcon('${item.id}')" title="${escS(item.label)}" aria-label="Add ${escS(item.label)} icon" class="studio-icon-card aspect-square rounded-2xl bg-transparent hover:bg-blue-50 dark:hover:bg-slate-800/70 border border-transparent hover:border-blue-300 dark:hover:border-blue-500/60 flex items-center justify-center text-blue-600 dark:text-blue-400 transition"><img src="${url}" alt="" loading="lazy" decoding="async" class="studio-icon-art object-contain" onerror="this.classList.add('hidden');this.nextElementSibling.classList.remove('hidden')"><span class="hidden text-4xl leading-none" aria-hidden="true">${fallback}</span></button>`; }).join(''); const more = matches.length > limit ? `<button type="button" onclick="loadMoreStudioIcons()" class="col-span-4 rounded-xl border border-slate-300 py-2 text-xs font-black">Load ${Math.min(28, matches.length - limit)} more icons</button>` : ''; return cards + more || '<div class="col-span-4 p-4 text-center text-xs text-slate-500">Nothing matches that search.</div>'; }
-function filterStudioIcons() { window.__studioCatalogLimits.icons = 28; const el = document.getElementById('studio-icon-library'); if (el) el.innerHTML = renderStudioIconLibrary(document.getElementById('studio-icon-query')?.value, document.getElementById('studio-icon-library-select')?.value || 'lucide'); }
-function loadMoreStudioIcons() { window.__studioCatalogLimits.icons += 28; const el = document.getElementById('studio-icon-library'); if (el) el.innerHTML = renderStudioIconLibrary(document.getElementById('studio-icon-query')?.value, document.getElementById('studio-icon-library-select')?.value || 'lucide'); }
+function studioIconUrl(name, library = 'lucide', color = '#2563EB') { const [, prefix] = STUDIO_ICON_LIBRARIES[library] || STUDIO_ICON_LIBRARIES.lucide; const slug = STUDIO_ICON_SLUGS[library]?.[name] || name; return `https://api.iconify.design/${encodeURIComponent(prefix)}/${encodeURIComponent(slug)}.svg?color=${encodeURIComponent(color)}`; }
+function studioIconCategory(item) { return Object.entries(STUDIO_ICON_CATEGORY_NAMES).find(([, names]) => names.has(item.name))?.[0] || 'business'; }
+function renderStudioIconCategories() { return Object.entries(STUDIO_ICON_CATEGORIES).map(([key, [label, icon]]) => `<button type="button" onclick="setStudioIconCategory('${key}')" aria-current="${(window.__studioIconCategory || 'all') === key}" class="studio-category-chip"><img src="${studioIconUrl(icon)}" loading="lazy" decoding="async" alt=""><span>${label}</span></button>`).join(''); }
+function setStudioIconCategory(category) { window.__studioIconCategory = category; window.__studioCatalogLimits.icons = 28; document.getElementById('studio-icon-categories')?.querySelectorAll('button').forEach(button => button.setAttribute('aria-current', String(button.textContent.trim().toLowerCase() === STUDIO_ICON_CATEGORIES[category]?.[0].toLowerCase()))); filterStudioIcons(false); }
+function renderStudioIconLibrary(query = '', library = document.getElementById('studio-icon-library-select')?.value || 'lucide') { const catalog = library === 'fontawesome-brands' ? STUDIO_BRAND_ICON_LIBRARY : STUDIO_ICON_LIBRARY; const needle = String(query || '').toLowerCase(); const category = window.__studioIconCategory || 'all'; const matches = catalog.filter(item => (!needle || `${item.name} ${item.label || ''}`.toLowerCase().includes(needle)) && (category === 'all' || library === 'fontawesome-brands' && category === 'social' || library !== 'fontawesome-brands' && studioIconCategory(item) === category)); const limit = Number(window.__studioCatalogLimits.icons || 28); const cards = matches.slice(0, limit).map(item => { const fallback = STUDIO_ICON_SYMBOLS[item.name] || '✦'; const url = studioIconUrl(item.name, library); return `<button type="button" onclick="studioAddIcon('${item.id}')" title="${escS(item.label)}" aria-label="Add ${escS(item.label)} icon" class="studio-icon-card"><span class="studio-icon-visual"><span aria-hidden="true">${fallback}</span><img src="${url}" alt="" loading="lazy" decoding="async" class="studio-icon-art object-contain" onload="this.previousElementSibling.hidden=true" onerror="this.remove()"></span><small>${escS(item.label)}</small></button>`; }).join(''); return cards + studioCatalogMore('icons', matches.length - limit) || '<div class="col-span-4 p-4 text-center text-xs text-slate-500">Nothing matches that search.</div>'; }
+function filterStudioIcons(reset = true) { if (reset) window.__studioCatalogLimits.icons = 28; const el = document.getElementById('studio-icon-library'); if (el) { el.innerHTML = renderStudioIconLibrary(document.getElementById('studio-icon-query')?.value, document.getElementById('studio-icon-library-select')?.value || 'lucide'); setTimeout(() => wireStudioLazyCatalog('icons'), 0); } }
+function loadMoreStudioIcons() { loadMoreStudioCatalog('icons'); }
 window.loadMoreStudioIcons = loadMoreStudioIcons;
 function studioAddIcon(id) { const library = document.getElementById('studio-icon-library-select')?.value || 'lucide'; const catalog = library === 'fontawesome-brands' ? STUDIO_BRAND_ICON_LIBRARY : STUDIO_ICON_LIBRARY; const item = catalog.find(icon => icon.id === id); const adapter = window.__studioAdapter; if (!item || !adapter) return; const url = studioIconUrl(item.name, library); adapter.addImage(url, `Icon: ${item.name}`).then((image) => { if (image) { image.msData = { ...(image.msData || {}), iconName: item.name, iconLibrary: library, mediaType: 'svg-icon' }; adapter.saveHistory(); if (typeof showToast === 'function') showToast(`${item.name} icon added`, 'success'); return; } adapter.addText(STUDIO_ICON_SYMBOLS[item.name] || '✦', { fontSize: 110, fontWeight: '900', name: `Icon: ${item.name}`, iconName: item.name, iconLibrary: library }); if (typeof showToast === 'function') showToast('Icon preview unavailable — added emoji fallback', 'info'); }); }
 function addStudioGifFromUrl(url) { const value = String(url || document.getElementById('studio-gif-url')?.value || '').trim(); if (!value) return; window.__studioAdapter?.addImage(value, 'Animated GIF').then((image) => { const active = image || window.__studioAdapter.fabricCanvas?.getActiveObject(); if (active) { active.msData = { ...(active.msData || {}), mediaType: 'gif' }; window.__studioAdapter.saveHistory(); } }); }
@@ -211,47 +337,190 @@ async function searchStudioGifs() {
   }
 }
 window.searchStudioGifs = searchStudioGifs; window.studioGifPresetSearch = studioGifPresetSearch;
-function renderStudioPremadeElements(query = '', category = 'all') { const needle = String(query || '').toLowerCase(); return STUDIO_PREMADE_ELEMENTS.filter(item => (!needle || `${item.name} ${item.category} ${item.text}`.toLowerCase().includes(needle)) && (category === 'all' || item.category === category)).map(item => { const isButton = item.kind === 'button'; const isRibbon = item.kind === 'ribbon'; const isLegal = item.kind === 'legal'; const previewStyle = isButton ? 'background:linear-gradient(135deg,#2563EB,#4F46E5);color:#fff;border-radius:14px;box-shadow:0 5px 14px rgba(37,99,235,.28)' : isRibbon ? 'background:linear-gradient(135deg,#E11D48,#FB7185);color:#fff;border-radius:10px;transform:rotate(-2deg)' : isLegal ? 'background:#F1F5F9;color:#334155;border-radius:10px' : 'background:linear-gradient(135deg,#172554,#2563EB);color:#fff;border-radius:18px;box-shadow:0 5px 14px rgba(37,99,235,.2)'; const labelSize = isLegal ? '9px' : isButton ? '12px' : '11px'; return `<button type="button" onclick="studioAddPremade('${item.id}')" class="studio-element-card text-left p-2.5 rounded-2xl bg-white dark:bg-slate-800 hover:border-blue-500 hover:shadow-md border border-slate-200 dark:border-slate-700 transition"><div class="flex items-center justify-between gap-2"><span class="text-[9px] uppercase tracking-wider font-black text-sky-500">${escS(item.category)}</span><span class="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 flex items-center justify-center text-xs">+</span></div><div class="mt-2 h-20 flex items-center gap-2 px-3 font-black overflow-hidden" style="${previewStyle};font-size:${labelSize};line-height:1.05"><span class="text-xl">${item.icon}</span><span><b class="block">${escS(item.text)}</b><small class="block mt-1 opacity-70 font-semibold">${escS(item.subtext)}</small></span></div><div class="mt-2 text-[10px] font-bold text-slate-800 dark:text-white truncate">${escS(item.name)}</div><div class="text-[9px] text-slate-500 dark:text-slate-400">Grouped icon + title + supporting text</div></button>`; }).join('') || '<div class="col-span-2 p-4 text-center text-xs text-slate-500">No elements match.</div>'; }
-function filterStudioPremadeElements() { const el = document.getElementById('studio-premade-library'); if (el) el.innerHTML = renderStudioPremadeElements(document.getElementById('studio-premade-query')?.value, document.getElementById('studio-premade-category')?.value || 'all'); }
+function studioVisualElementPreview(item) {
+  const color = item.color || '#4F46E5';
+  if (item.kind === 'icon') return `<img src="${studioIconUrl(item.icon, item.library || 'lucide', color)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">`;
+  if (item.kind === 'shape') {
+    if (item.shape === 'ring') return `<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="23" fill="none" stroke="${color}" stroke-width="7"/></svg>`;
+    return `<span style="color:${color}">${STUDIO_SHAPE_PREVIEW[item.shape] || STUDIO_SHAPE_PREVIEW.rect}</span>`;
+  }
+  if (item.kind === 'frame') {
+    const round = item.style === 'circle' ? 50 : item.style === 'round' || item.style === 'arch' ? 24 : 7;
+    const footer = item.style === 'polaroid' ? '<rect x="16" y="48" width="32" height="7" rx="2" fill="#e2e8f0"/>' : '';
+    const browser = item.style === 'window' ? '<circle cx="20" cy="17" r="2" fill="#f87171"/><circle cx="27" cy="17" r="2" fill="#fbbf24"/><circle cx="34" cy="17" r="2" fill="#34d399"/>' : '';
+    return `<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="10" y="9" width="44" height="46" rx="${round}" fill="#fff" stroke="${color}" stroke-width="3"/>${item.style === 'double' ? `<rect x="16" y="15" width="32" height="34" rx="5" fill="none" stroke="${color}" stroke-width="2"/>` : ''}${footer}${browser}<circle cx="25" cy="29" r="5" fill="#c4b5fd"/><path d="M14 48 29 34l8 7 8-6 9 10" fill="none" stroke="${color}" stroke-width="3"/></svg>`;
+  }
+  if (item.kind === 'grid') {
+    const layouts = { halves:[[8,10,22,44],[34,10,22,44]], stack:[[8,10,48,20],[8,34,48,20]], feature:[[8,10,30,44],[42,10,14,20],[42,34,14,20]], thirds:[[6,10,16,44],[24,10,16,44],[42,10,16,44]], collage:[[8,10,30,26],[42,10,14,26],[8,40,14,14],[26,40,30,14]], mosaic:[[8,10,20,20],[32,10,24,32],[8,34,20,20],[32,46,24,8]], sidebar:[[8,10,14,44],[26,10,30,20],[26,34,30,20]], four:[[8,10,22,20],[34,10,22,20],[8,34,22,20],[34,34,22,20]] };
+    return `<svg viewBox="0 0 64 64" aria-hidden="true">${(layouts[item.style] || layouts.four).map(([x,y,w,h], index) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="${index % 2 ? '#c7d2fe' : color}"/>`).join('')}</svg>`;
+  }
+  if (item.kind === 'chart') {
+    if (item.style === 'donut' || item.style === 'progress') return `<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="20" fill="none" stroke="#e2e8f0" stroke-width="10"/><circle cx="32" cy="32" r="20" fill="none" stroke="${color}" stroke-width="10" stroke-dasharray="78 126" transform="rotate(-90 32 32)"/>${item.style === 'progress' ? '<text x="32" y="36" text-anchor="middle" font-size="10" font-weight="800" fill="#334155">62%</text>' : ''}</svg>`;
+    if (item.style === 'line') return `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M8 52V12M8 52h48" stroke="#cbd5e1" stroke-width="2"/><path d="m10 45 12-13 10 6 12-20 12 7" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    return `<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="9" y="34" width="9" height="20" rx="3" fill="#c7d2fe"/><rect x="22" y="22" width="9" height="32" rx="3" fill="${color}"/><rect x="35" y="29" width="9" height="25" rx="3" fill="#818cf8"/><rect x="48" y="12" width="9" height="42" rx="3" fill="#4f46e5"/></svg>`;
+  }
+  return `<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="9" width="52" height="46" rx="5" fill="#fff" stroke="${color}" stroke-width="2.5"/><rect x="6" y="9" width="52" height="12" rx="5" fill="${color}"/><path d="M6 32h52M6 43h52M25 21v34M43 21v34" stroke="#cbd5e1" stroke-width="2"/></svg>`;
+}
+function renderStudioElementCategories() { return Object.entries(STUDIO_VISUAL_ELEMENT_CATEGORIES).filter(([category]) => category !== 'All').map(([category, [icon, background, color]]) => `<button type="button" onclick="setStudioElementCategory('${category}')" aria-current="${(window.__studioElementCategory || 'All') === category}" class="studio-element-category" style="--category-bg:${background};--category-color:${color}"><span><img src="${studioIconUrl(icon, 'lucide', color)}" alt="" loading="lazy" decoding="async" onerror="this.remove()"></span><b>${category}</b></button>`).join(''); }
+function setStudioElementCategory(category) { window.__studioElementCategory = category || 'All'; window.__studioCatalogLimits.elements = 24; document.querySelectorAll('.studio-element-category').forEach(button => button.setAttribute('aria-current', String(button.textContent.trim() === category))); filterStudioPremadeElements(false); }
+function renderStudioRecentVisualElements() { const ids = window.__studioRecentVisualElements?.length ? window.__studioRecentVisualElements : ['shape-circle','shape-ring','graphic-sparkles','icon-car','frame-round']; return ids.slice(0, 6).map(id => { const item = STUDIO_VISUAL_ELEMENTS.find(element => element.id === id); return item ? `<button type="button" onclick="studioAddVisualElement('${item.id}')" title="${escS(item.name)}" class="studio-element-recent"><span>${studioVisualElementPreview(item)}</span></button>` : ''; }).join(''); }
+function renderStudioPremadeElements(query = '', category = window.__studioElementCategory || 'All') { const needle = String(query || '').toLowerCase(); const matches = STUDIO_VISUAL_ELEMENTS.filter(item => (!needle || `${item.name} ${item.category} ${item.style || ''} ${item.icon || ''}`.toLowerCase().includes(needle)) && (category === 'All' || item.category === category)); const limit = Number(window.__studioCatalogLimits.elements || 24); const cards = matches.slice(0, limit).map(item => `<button type="button" onclick="studioAddVisualElement('${item.id}')" class="studio-element-card" title="Add ${escS(item.name)}"><div class="studio-visual-element-preview" style="--element-color:${item.color || '#4F46E5'}">${studioVisualElementPreview(item)}</div><div class="studio-catalog-card-copy"><b>${escS(item.name)}</b><span>${escS(item.category)}</span></div></button>`).join(''); return cards + studioCatalogMore('elements', matches.length - limit) || '<div class="col-span-3 p-4 text-center text-xs text-slate-500">No elements match.</div>'; }
+function filterStudioPremadeElements(reset = true) { if (reset) window.__studioCatalogLimits.elements = 24; const el = document.getElementById('studio-premade-library'); if (el) { const category = window.__studioElementCategory || 'All'; el.innerHTML = renderStudioPremadeElements(document.getElementById('studio-premade-query')?.value, category); const heading = document.getElementById('studio-element-result-heading'); if (heading) heading.textContent = category === 'All' ? 'Recommended for you' : category; const recent = document.getElementById('studio-element-recent'); if (recent) recent.innerHTML = renderStudioRecentVisualElements(); setTimeout(() => wireStudioLazyCatalog('elements'), 0); } }
 const STUDIO_TEXT_TEMPLATES = [
-  ['bold-title','Bold split title','Titles','MAKE YOUR','MOVE TODAY','#0F172A','#60A5FA',-4,'wide'],
-  ['gradient-title','Stacked campaign','Titles','THE ROAD','STARTS HERE','#1D4ED8','#FFFFFF',3,'tall'],
-  ['outlined-title','Editorial contrast','Titles','BUILT FOR','WHAT IS NEXT','#111827','#F59E0B',-2,'wide'],
-  ['condensed-title','Angled event','Titles','WEEKEND','SALES EVENT','#BE123C','#FFFFFF',-6,'banner'],
-  ['sale-price','Price spotlight','Offers','SPECIAL','ASK FOR TODAY\'S PRICE','#047857','#D1FAE5',4,'card'],
-  ['monthly-price','Payment message','Offers','PAYMENT OPTIONS','AVAILABLE','#1D4ED8','#DBEAFE',-3,'banner'],
-  ['apr-callout','Finance message','Offers','FINANCE','OPTIONS AVAILABLE','#B45309','#FEF3C7',5,'card'],
-  ['limited-time','Limited event','Offers','LIMITED TIME','WHILE AVAILABLE','#BE123C','#FFE4E6',-5,'wide'],
-  ['eyebrow','Editorial label','Labels','FEATURED','INVENTORY','#172033','#93C5FD',-3,'compact'],
-  ['new-arrival','Arrival lockup','Labels','JUST','ARRIVED','#4338CA','#C7D2FE',5,'compact'],
-  ['certified','Certified lockup','Labels','CERTIFIED','PRE-OWNED','#0F766E','#CCFBF1',-4,'wide'],
-  ['stock-label','Inventory status','Labels','IN STOCK','READY TO VIEW','#172033','#FFFFFF',2,'banner'],
-  ['info-card','Hours block','Information','TODAY\'S HOURS','VIEW DETAILS','#1E293B','#93C5FD',-2,'card'],
-  ['phone-card','Contact block','Information','TALK TO OUR TEAM','CALL OR TEXT','#0F172A','#60A5FA',3,'wide'],
-  ['location-card','Location block','Information','VISIT THE SHOWROOM','GET DIRECTIONS','#334155','#F8FAFC',-3,'wide'],
-  ['disclaimer','Legal pairing','Information','OFFER DETAILS','TERMS AND CONDITIONS APPLY','#E2E8F0','#334155',0,'legal']
-].map(([id,name,category,kicker,headline,background,accent,angle,layout]) => ({ id,name,category,kicker,headline,background,accent,angle,layout }));
-function renderStudioTextTemplates(query = '') { return studioCatalogButtons(STUDIO_TEXT_TEMPLATES, query, item => `<button type="button" onclick="studioAddTextTemplate('${item.id}')" class="studio-text-template-card text-left p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-500/20 border border-slate-300 dark:border-slate-700 transition"><div class="studio-text-template-preview" style="background:${item.background};transform:rotate(${item.angle * .35}deg)"><small style="color:${item.accent}">${escS(item.kicker)}</small><strong>${escS(item.headline)}</strong></div><div class="mt-2 text-[10px] font-bold text-slate-900 dark:text-white truncate">${escS(item.name)}</div><div class="text-[9px] text-slate-500">${escS(item.category)} · ${item.angle ? `${item.angle}°` : 'stacked'}</div></button>`); }
-function filterStudioTextTemplates() { const el = document.getElementById('studio-text-template-library'); if (el) el.innerHTML = renderStudioTextTemplates(document.getElementById('studio-text-template-query')?.value || ''); }
+  ['bold-title','Bold split title','Titles','MAKE YOUR','MOVE TODAY','#f97316','#475569',-5,'wide','Anton','Dancing Script'],
+  ['gradient-title','Road ready stack','Titles','THE ROAD','STARTS HERE','#2563eb','#0f766e',3,'tall','Archivo Black','Satisfy'],
+  ['outlined-title','Editorial contrast','Titles','BUILT FOR','WHAT IS NEXT','#111827','#f59e0b',-2,'wide','Playfair Display','Montserrat'],
+  ['condensed-title','Angled event','Titles','WEEKEND','SALES EVENT','#e11d48','#2563eb',-7,'banner','Bebas Neue','Permanent Marker'],
+  ['thank-you','Thank you script','Social','FROM ALL OF US','THANK YOU!','#0284c7','#334155',-4,'script','Satisfy','Montserrat'],
+  ['big-news','Big news','Social','WE HAVE','BIG NEWS','#7c3aed','#ec4899',4,'tall','Righteous','Poppins'],
+  ['now-hiring','Now hiring','Social','JOIN OUR TEAM','NOW HIRING','#059669','#1e293b',-3,'wide','Archivo Black','Dancing Script'],
+  ['save-date','Save the date','Social','SAVE THE','DATE','#db2777','#7c3aed',5,'compact','Playfair Display','Satisfy'],
+  ['sale-price','Price spotlight','Offers','TODAY ONLY','SPECIAL PRICE','#047857','#f59e0b',4,'card','Anton','Montserrat'],
+  ['monthly-price','Payment message','Offers','PAYMENT OPTIONS','AVAILABLE','#1d4ed8','#0ea5e9',-3,'banner','Bebas Neue','Dancing Script'],
+  ['apr-callout','Finance message','Offers','FLEXIBLE','FINANCING','#b45309','#e11d48',5,'card','Oswald','Playfair Display'],
+  ['limited-time','Limited event','Offers','LIMITED TIME','WHILE AVAILABLE','#be123c','#f97316',-5,'wide','Archivo Black','Satisfy'],
+  ['eyebrow','Editorial label','Labels','FEATURED','INVENTORY','#172033','#2563eb',-3,'compact','Montserrat','Bebas Neue'],
+  ['new-arrival','Arrival lockup','Labels','JUST','ARRIVED','#4338ca','#0ea5e9',5,'compact','Anton','Dancing Script'],
+  ['certified','Certified lockup','Labels','CERTIFIED','PRE-OWNED','#0f766e','#1d4ed8',-4,'wide','Roboto Condensed','Playfair Display'],
+  ['staff-pick','Staff pick','Labels','OUR TEAM LOVES IT','STAFF PICK','#ea580c','#334155',3,'script','Permanent Marker','Montserrat'],
+  ['coffee-break','Coffee break','Playful','TAKE A','COFFEE BREAK','#047857','#854d0e',-2,'script','Lobster','Poppins'],
+  ['pixel-dreams','Pixel dreams','Playful','CREATE','PIXEL DREAMS','#a855f7','#06b6d4',0,'pixel','Orbitron','Chakra Petch'],
+  ['grand-opening','Grand opening','Playful','YOU ARE INVITED','GRAND OPENING','#dc2626','#f59e0b',-4,'tall','Righteous','Dancing Script'],
+  ['hello-summer','Hello summer','Playful','HELLO','SUMMER','#f97316','#06b6d4',6,'script','Satisfy','Bebas Neue'],
+  ['info-card','Hours block','Information','TODAY\'S HOURS','VIEW DETAILS','#1e293b','#2563eb',-2,'card','Montserrat','Inter'],
+  ['phone-card','Contact block','Information','TALK TO OUR TEAM','CALL OR TEXT','#0f172a','#0284c7',3,'wide','Archivo Black','Satisfy'],
+  ['location-card','Location block','Information','VISIT THE SHOWROOM','GET DIRECTIONS','#334155','#7c3aed',-3,'wide','Oswald','Montserrat'],
+  ['disclaimer','Legal pairing','Information','OFFER DETAILS','TERMS AND CONDITIONS APPLY','#334155','#64748b',0,'legal','Inter','Inter']
+].map(([id,name,category,kicker,headline,primary,accent,angle,layout,font,secondaryFont]) => ({ id,name,category,kicker,headline,primary,accent,angle,layout,font,secondaryFont }));
+const STUDIO_TEXT_CATEGORIES = ['All','Titles','Social','Offers','Labels','Playful','Information'];
+function renderStudioTextCategories() { return STUDIO_TEXT_CATEGORIES.map(category => `<button type="button" onclick="setStudioTextCategory('${category}')" aria-current="${(window.__studioTextCategory || 'All') === category}" class="studio-category-pill">${category}</button>`).join(''); }
+function setStudioTextCategory(category) { window.__studioTextCategory = category; window.__studioCatalogLimits.text = 12; document.querySelectorAll('#studio-text-categories button').forEach(button => button.setAttribute('aria-current', String(button.textContent === category))); filterStudioTextTemplates(false); }
+function renderStudioTextTemplates(query = '') { const needle = String(query || '').toLowerCase(); const category = window.__studioTextCategory || 'All'; const matches = STUDIO_TEXT_TEMPLATES.filter(item => (!needle || `${item.name} ${item.category} ${item.kicker} ${item.headline}`.toLowerCase().includes(needle)) && (category === 'All' || item.category === category)); const limit = Number(window.__studioCatalogLimits.text || 12); const cards = matches.slice(0, limit).map(item => `<button type="button" onclick="studioAddTextTemplate('${item.id}')" class="studio-text-template-card"><div class="studio-text-template-preview studio-text-layout-${item.layout}" style="--text-primary:${item.primary};--text-accent:${item.accent};--text-angle:${item.angle}deg;--text-font:'${item.font}',sans-serif;--text-secondary-font:'${item.secondaryFont}',sans-serif"><small>${escS(item.kicker)}</small><strong>${escS(item.headline)}</strong></div><div class="studio-catalog-card-copy"><b>${escS(item.name)}</b><span>${escS(item.category)} · grouped text</span></div></button>`).join(''); return cards + studioCatalogMore('text', matches.length - limit) || '<div class="col-span-2 p-4 text-center text-xs text-slate-500">No text styles match.</div>'; }
+function filterStudioTextTemplates(reset = true) { if (reset) window.__studioCatalogLimits.text = 12; const el = document.getElementById('studio-text-template-library'); if (el) { el.innerHTML = renderStudioTextTemplates(document.getElementById('studio-text-template-query')?.value || ''); setTimeout(() => wireStudioLazyCatalog('text'), 0); } }
 function studioAddTextTemplate(id) {
   const item = STUDIO_TEXT_TEMPLATES.find(template => template.id === id), adapter = window.__studioAdapter, canvas = adapter?.fabricCanvas;
   if (!item || !adapter || !canvas) return;
-  const center = canvas.getCenter(), compact = item.layout === 'compact', legal = item.layout === 'legal', tall = item.layout === 'tall';
-  const width = legal ? 680 : compact ? 330 : tall ? 520 : 620, height = legal ? 116 : tall ? 280 : compact ? 180 : 220, objects = [];
-  adapter.addShape(item.layout === 'banner' ? 'badge' : 'rect', item.background);
-  const shape = canvas.getActiveObject();
-  if (shape) { shape.set({ left: center.left - width / 2, top: center.top - height / 2, width, height, rx: compact ? 46 : 22, ry: compact ? 46 : 22, angle: item.angle }); shape.msData = { ...(shape.msData || {}), name: `${item.name} background`, textTemplateId: item.id }; objects.push(shape); }
-  const left = center.left - width / 2 + 34, top = center.top - height / 2 + (legal ? 22 : 32);
-  adapter.addText(item.kicker, { x: left, y: top, width: width - 68, fontSize: legal ? 18 : compact ? 22 : 25, fontWeight: '900', fill: item.accent, charSpacing: 80, angle: item.angle, name: `${item.name} kicker`, textTemplateId: item.id });
+  const center = canvas.getCenter(), compact = item.layout === 'compact', legal = item.layout === 'legal', tall = item.layout === 'tall', script = item.layout === 'script', pixel = item.layout === 'pixel';
+  const width = legal ? 720 : compact ? 380 : tall ? 520 : 640, height = legal ? 94 : tall ? 270 : compact ? 160 : 210, objects = [];
+  const left = center.left - width / 2, top = center.top - height / 2;
+  const centered = compact || tall || script || pixel;
+  adapter.addText(item.kicker, { x: left, y: top + (legal ? 8 : 16), width, fontSize: legal ? 17 : compact ? 20 : 24, fontWeight: '900', fill: item.accent, fontFamily: `'${item.secondaryFont}', sans-serif`, textAlign: centered ? 'center' : 'left', charSpacing: pixel ? 160 : 80, angle: item.angle * -.35, name: `${item.name} kicker`, textTemplateId: item.id });
   const kicker = canvas.getActiveObject(); if (kicker) objects.push(kicker);
-  adapter.addText(item.headline, { x: left, y: top + (legal ? 38 : 48), width: width - 68, fontSize: legal ? 20 : compact ? 38 : tall ? 58 : 48, fontWeight: legal ? '700' : '900', fill: legal ? '#334155' : '#FFFFFF', lineHeight: .92, angle: item.angle, name: `${item.name} headline`, textTemplateId: item.id });
-  const headline = canvas.getActiveObject(); if (headline) objects.push(headline);
+  adapter.addText(item.headline, { x: left, y: top + (legal ? 42 : compact ? 48 : 58), width, fontSize: legal ? 20 : compact ? 48 : tall ? 68 : script ? 64 : pixel ? 50 : 58, fontWeight: legal ? '700' : '900', fill: item.primary, fontFamily: `'${item.font}', sans-serif`, textAlign: centered ? 'center' : 'left', charSpacing: pixel ? 85 : 0, lineHeight: .86, angle: item.angle, name: `${item.name} headline`, textTemplateId: item.id });
+  const headline = canvas.getActiveObject();
+  if (headline) {
+    headline.set({ shadow: new window.fabric.Shadow({ color: 'rgba(15,23,42,.18)', blur: 2, offsetX: 2, offsetY: 3 }) });
+    objects.push(headline);
+  }
   if (objects.length > 1) { canvas.discardActiveObject(); canvas.setActiveObject(new window.fabric.ActiveSelection(objects, { canvas })); adapter.groupSelected(); }
   if (typeof showToast === 'function') showToast(`${item.name} added — ungroup to edit both text layers`, 'success');
 }
 window.studioAddTextTemplate = studioAddTextTemplate;
-function studioAddPremade(id) { const item = STUDIO_PREMADE_ELEMENTS.find(element => element.id === id), adapter = window.__studioAdapter, canvas = adapter?.fabricCanvas; if (!item || !adapter || !canvas) return; const center = canvas.getCenter(), objects = [], legal = item.kind === 'legal', ribbon = item.kind === 'ribbon', button = item.kind === 'button'; const fill = button ? '#2563EB' : ribbon ? '#E11D48' : legal ? '#E2E8F0' : '#172554'; const width = legal ? 720 : button ? 520 : 500, height = legal ? 126 : button ? 126 : 160, angle = ribbon ? -4 : 0; adapter.addShape(button || ribbon ? 'badge' : 'rect', fill); const shape = canvas.getActiveObject(); if (shape) { shape.set({ left:center.left-width/2, top:center.top-height/2, width, height, rx:button ? 34 : 20, ry:button ? 34 : 20, angle }); shape.msData={...(shape.msData||{}),name:`${item.name} background`,premadeId:item.id}; objects.push(shape); } adapter.addText(item.icon,{x:center.left-width/2+24,y:center.top-(legal?20:36),width:60,fontSize:legal?26:42,fontWeight:'900',fill:legal?'#334155':'#FFFFFF',angle,name:`${item.name} icon`,premadeId:item.id}); const icon=canvas.getActiveObject(); if(icon) objects.push(icon); adapter.addText(item.text,{x:center.left-width/2+92,y:center.top-height/2+26,width:width-120,fontSize:legal?18:button?28:26,fontWeight:legal?'700':'900',fill:legal?'#334155':'#FFFFFF',angle,name:`${item.name} title`,premadeId:item.id}); const title=canvas.getActiveObject(); if(title) objects.push(title); adapter.addText(item.subtext,{x:center.left-width/2+92,y:center.top-height/2+(legal?66:76),width:width-120,fontSize:legal?15:17,fontWeight:'600',fill:legal?'#64748B':'#BFDBFE',angle,name:`${item.name} supporting text`,premadeId:item.id}); const sub=canvas.getActiveObject(); if(sub) objects.push(sub); if(objects.length>1){canvas.discardActiveObject();canvas.setActiveObject(new window.fabric.ActiveSelection(objects,{canvas}));adapter.groupSelected();} if(typeof showToast==='function') showToast(`${item.name} added — ungroup to edit all layers`,'success'); }
-window.filterStudioShapes = filterStudioShapes; window.filterStudioStickers = filterStudioStickers; window.filterStudioFonts = filterStudioFonts; window.filterStudioIcons = filterStudioIcons; window.studioAddIcon = studioAddIcon; window.addStudioGifFromUrl = addStudioGifFromUrl; window.filterStudioPremadeElements = filterStudioPremadeElements; window.studioAddPremade = studioAddPremade; window.filterStudioTextTemplates = filterStudioTextTemplates;
+
+function rememberStudioVisualElement(id) {
+  window.__studioRecentVisualElements = [id, ...(window.__studioRecentVisualElements || []).filter(item => item !== id)].slice(0, 6);
+}
+
+function studioAddVisualElement(id) {
+  const item = STUDIO_VISUAL_ELEMENTS.find(element => element.id === id), adapter = window.__studioAdapter, canvas = adapter?.fabricCanvas;
+  if (!item || !adapter || !canvas) return;
+  rememberStudioVisualElement(id);
+  if (item.kind === 'icon') {
+    adapter.addImage(studioIconUrl(item.icon, item.library || 'lucide', item.color || '#2563EB'), item.name).then(image => {
+      if (image) {
+        image.msData = { ...(image.msData || {}), name: item.name, visualElementId: item.id, mediaType: 'svg-icon', iconLibrary:item.library || 'lucide' };
+        if (item.animation && typeof adapter.setSelectedAnimation === 'function') adapter.setSelectedAnimation(item.animation);
+        adapter.saveHistory();
+      }
+      filterStudioPremadeElements(false);
+    });
+    return;
+  }
+  if (item.kind === 'shape') {
+    const shapeType = item.shape === 'ring' || item.shape === 'rounded' ? (item.shape === 'ring' ? 'circle' : 'rect') : item.shape;
+    adapter.addShape(shapeType, item.color);
+    const shape = canvas.getActiveObject();
+    if (shape) {
+      if (item.shape === 'ring') shape.set({ fill: 'rgba(255,255,255,0)', stroke: item.color, strokeWidth: 18 });
+      if (item.shape === 'rounded') shape.set({ rx: 54, ry: 54 });
+      shape.msData = { ...(shape.msData || {}), name: item.name, visualElementId: item.id };
+      shape.setCoords(); canvas.requestRenderAll(); adapter.saveHistory();
+    }
+    filterStudioPremadeElements(false);
+    return;
+  }
+
+  const center = canvas.getCenter(), left = center.left - 250, top = center.top - 180, objects = [];
+  const addRect = (x, y, width, height, fill, options = {}) => {
+    adapter.addShape(options.circle ? 'circle' : 'rect', fill);
+    const object = canvas.getActiveObject();
+    if (!object) return;
+    object.set({ left:left+x, top:top+y, width, height, ...(options.circle ? { radius: Math.min(width, height) / 2 } : { rx:options.radius || 14, ry:options.radius || 14 }), fill, stroke:options.stroke || null, strokeWidth:options.stroke ? (options.strokeWidth || 5) : 0, angle:options.angle || 0 });
+    object.msData = { ...(object.msData || {}), name: options.name || item.name, visualElementId: item.id };
+    object.setCoords(); objects.push(object);
+  };
+  const accent = item.color || '#4F46E5';
+
+  if (item.kind === 'frame') {
+    const circle = item.style === 'circle';
+    addRect(55, 25, 390, 310, 'rgba(255,255,255,0.01)', { circle, radius:item.style === 'round' || item.style === 'arch' ? 70 : 18, stroke:accent, strokeWidth:12, name:`${item.name} border` });
+    if (item.style === 'double') addRect(82, 52, 336, 256, 'rgba(255,255,255,0.01)', { radius:12, stroke:accent, strokeWidth:5, name:'Inner border' });
+    if (item.style === 'polaroid') addRect(85, 285, 330, 42, '#F8FAFC', { radius:4, name:'Caption area' });
+    if (item.style === 'window') { addRect(55, 25, 390, 48, accent, { radius:18, name:'Browser top bar' }); ['#F87171','#FBBF24','#34D399'].forEach((color,index) => addRect(78+index*30,40,16,16,color,{circle:true,name:'Window control'})); }
+    if (item.style === 'phone') addRect(205, 39, 90, 12, accent, { radius:6, name:'Phone speaker' });
+  } else if (item.kind === 'grid') {
+    const layouts = { halves:[[20,35,220,290],[260,35,220,290]], stack:[[20,25,460,145],[20,190,460,145]], feature:[[20,25,290,310],[330,25,150,145],[330,190,150,145]], thirds:[[15,25,150,310],[175,25,150,310],[335,25,150,310]], collage:[[20,25,285,185],[325,25,155,185],[20,230,155,105],[195,230,285,105]], mosaic:[[20,25,190,135],[230,25,250,205],[20,180,190,155],[230,250,250,85]], sidebar:[[20,25,130,310],[170,25,310,145],[170,190,310,145]], four:[[20,25,220,145],[260,25,220,145],[20,190,220,145],[260,190,220,145]] };
+    (layouts[item.style] || layouts.four).forEach(([x,y,w,h], index) => addRect(x,y,w,h,index % 2 ? '#C7D2FE' : accent,{radius:18,name:`Grid cell ${index + 1}`}));
+  } else if (item.kind === 'chart') {
+    if (item.style === 'donut' || item.style === 'progress') { addRect(105,35,290,290,'rgba(255,255,255,0.01)',{circle:true,stroke:'#E2E8F0',strokeWidth:42,name:'Chart track'}); addRect(105,35,290,290,'rgba(255,255,255,0.01)',{circle:true,stroke:accent,strokeWidth:20,name:'Chart value'}); }
+    else { [150,245,195,300].forEach((height,index) => addRect(35+index*115,335-height,80,height,index % 2 ? accent : '#A5B4FC',{radius:15,name:`Chart series ${index + 1}`})); }
+  } else {
+    addRect(20,25,460,310,'#FFFFFF',{radius:18,stroke:'#CBD5E1',strokeWidth:5,name:'Table frame'});
+    addRect(20,25,460,62,accent,{radius:18,name:'Table header'});
+    [145,205,265].forEach((y,index) => addRect(20,y,460,4,'#CBD5E1',{radius:0,name:`Row divider ${index + 1}`}));
+    [175,330].forEach((x,index) => addRect(x,87,4,248,'#E2E8F0',{radius:0,name:`Column divider ${index + 1}`}));
+  }
+  if (objects.length > 1) { canvas.discardActiveObject(); canvas.setActiveObject(new window.fabric.ActiveSelection(objects, { canvas })); adapter.groupSelected(); }
+  else if (objects[0]) canvas.setActiveObject(objects[0]);
+  canvas.requestRenderAll(); adapter.saveHistory(); filterStudioPremadeElements(false);
+  if (typeof showToast === 'function') showToast(`${item.name} added`, 'success');
+}
+window.studioAddVisualElement = studioAddVisualElement;
+
+function studioElementLayout(item) {
+  const layouts = {
+    badge: { shape:'circle', width:210, height:210, fill:'#1D4ED8', radius:105, iconX:75, iconY:30, iconW:60, iconSize:38, titleX:22, titleY:92, titleW:166, titleSize:23, subX:28, subY:128, subW:154, subSize:13, align:'center' },
+    ribbon: { shape:'badge', width:630, height:112, fill:'#E11D48', radius:16, angle:-5, iconX:24, iconY:27, iconW:54, iconSize:38, titleX:92, titleY:22, titleW:500, titleSize:32, subX:94, subY:65, subW:480, subSize:14 },
+    button: { shape:'badge', width:520, height:108, fill:'#2563EB', radius:54, iconX:438, iconY:25, iconW:48, iconSize:34, titleX:34, titleY:20, titleW:390, titleSize:27, subX:35, subY:59, subW:360, subSize:14 },
+    trust: { shape:'rect', width:500, height:148, fill:'#ECFDF5', stroke:'#6EE7B7', radius:24, iconX:26, iconY:37, iconW:64, iconSize:46, iconFill:'#059669', titleX:106, titleY:25, titleW:360, titleSize:25, titleFill:'#064E3B', subX:107, subY:69, subW:340, subSize:15, subFill:'#047857' },
+    callout: { shape:'rect', width:650, height:230, fill:'#172554', radius:32, iconX:42, iconY:65, iconW:90, iconSize:68, titleX:150, titleY:48, titleW:450, titleSize:34, subX:152, subY:108, subW:420, subSize:18 },
+    card: { shape:'rect', width:560, height:255, fill:'#0F172A', radius:28, iconX:36, iconY:35, iconW:70, iconSize:50, titleX:36, titleY:116, titleW:488, titleSize:31, subX:38, subY:169, subW:460, subSize:17 },
+    header: { shape:'rect', width:720, height:156, fill:'#312E81', radius:12, iconX:34, iconY:43, iconW:70, iconSize:52, titleX:124, titleY:27, titleW:550, titleSize:38, subX:126, subY:85, subW:520, subSize:17 },
+    legal: { shape:'rect', width:760, height:106, fill:'#F8FAFC', stroke:'#CBD5E1', radius:12, iconX:18, iconY:27, iconW:44, iconSize:26, iconFill:'#475569', titleX:74, titleY:17, titleW:650, titleSize:18, titleFill:'#334155', subX:75, subY:52, subW:640, subSize:14, subFill:'#64748B' },
+    social: { shape:'circle', width:220, height:220, fill:'#111827', radius:110, iconX:65, iconY:30, iconW:90, iconSize:68, titleX:25, titleY:105, titleW:170, titleSize:19, subX:31, subY:143, subW:158, subSize:12, align:'center' },
+    rating: { shape:'badge', width:540, height:138, fill:'#FFFBEB', stroke:'#F59E0B', radius:24, iconX:25, iconY:24, iconW:180, iconSize:25, iconFill:'#F59E0B', titleX:214, titleY:20, titleW:290, titleSize:27, titleFill:'#78350F', subX:216, subY:64, subW:270, subSize:14, subFill:'#92400E' },
+    date: { shape:'rect', width:310, height:310, fill:'#7C3AED', radius:42, iconX:105, iconY:35, iconW:100, iconSize:64, titleX:30, titleY:132, titleW:250, titleSize:30, subX:35, subY:190, subW:240, subSize:16, align:'center' },
+    quote: { shape:'rect', width:650, height:250, fill:'#FFF7ED', stroke:'#FDBA74', radius:38, iconX:32, iconY:20, iconW:70, iconSize:72, iconFill:'#F97316', titleX:102, titleY:55, titleW:500, titleSize:32, titleFill:'#7C2D12', subX:106, subY:126, subW:470, subSize:17, subFill:'#9A3412' },
+    stat: { shape:'circle', width:320, height:320, fill:'#0E7490', radius:160, iconX:115, iconY:35, iconW:90, iconSize:58, titleX:38, titleY:126, titleW:244, titleSize:36, subX:48, subY:191, subW:224, subSize:16, align:'center' },
+    arrow: { shape:'arrow', width:610, height:150, fill:'#EA580C', iconX:450, iconY:41, iconW:90, iconSize:56, titleX:38, titleY:28, titleW:390, titleSize:34, subX:40, subY:83, subW:350, subSize:15 },
+  };
+  return layouts[item.kind] || layouts.card;
+}
+function studioAddPremade(id) {
+  const item = STUDIO_PREMADE_ELEMENTS.find(element => element.id === id), adapter = window.__studioAdapter, canvas = adapter?.fabricCanvas;
+  if (!item || !adapter || !canvas) return;
+  const center = canvas.getCenter(), layout = studioElementLayout(item), left = center.left - layout.width / 2, top = center.top - layout.height / 2, angle = layout.angle || 0, objects = [];
+  adapter.addShape(layout.shape, layout.fill);
+  const shape = canvas.getActiveObject();
+  if (shape) { shape.set({ left, top, width:layout.width, height:layout.height, rx:layout.radius || 0, ry:layout.radius || 0, angle, fill:layout.fill, stroke:layout.stroke || null, strokeWidth:layout.stroke ? 3 : 0 }); shape.msData={...(shape.msData||{}),name:`${item.name} background`,premadeId:item.id}; objects.push(shape); }
+  const addPart = (text, role, x, y, width, fontSize, fill, weight='900') => { adapter.addText(text,{x:left+x,y:top+y,width,fontSize,fontWeight:weight,fill,angle,textAlign:layout.align||'left',name:`${item.name} ${role}`,premadeId:item.id}); const object=canvas.getActiveObject(); if(object) objects.push(object); };
+  addPart(item.icon, 'icon', layout.iconX, layout.iconY, layout.iconW, layout.iconSize, layout.iconFill || '#FFFFFF');
+  addPart(item.text, 'title', layout.titleX, layout.titleY, layout.titleW, layout.titleSize, layout.titleFill || '#FFFFFF');
+  addPart(item.subtext, 'supporting text', layout.subX, layout.subY, layout.subW, layout.subSize, layout.subFill || '#BFDBFE', '600');
+  if(objects.length>1){canvas.discardActiveObject();canvas.setActiveObject(new window.fabric.ActiveSelection(objects,{canvas}));adapter.groupSelected();}
+  if(typeof showToast==='function') showToast(`${item.name} added — ungroup to edit all layers`,'success');
+}
+window.filterStudioShapes = filterStudioShapes; window.filterStudioStickers = filterStudioStickers; window.filterStudioFonts = filterStudioFonts; window.filterStudioIcons = filterStudioIcons; window.studioAddIcon = studioAddIcon; window.addStudioGifFromUrl = addStudioGifFromUrl; window.filterStudioPremadeElements = filterStudioPremadeElements; window.studioAddPremade = studioAddPremade; window.filterStudioTextTemplates = filterStudioTextTemplates; window.setStudioIconCategory = setStudioIconCategory; window.setStudioElementCategory = setStudioElementCategory; window.setStudioTextCategory = setStudioTextCategory;
 
 function escS(str) {
   if (str == null) return '';
@@ -310,8 +579,18 @@ window.openMarketSyncStudio = async function(designId = null, initialOptions = {
     document.body.appendChild(modal);
   }
 
+  // A blank launch now opens the creative home. Existing projects and explicit
+  // size/template launches still go directly to the editor.
+  if (!designId && !initialOptions.bypassHome && !initialOptions.formatKey && !initialOptions.templateKey) {
+    window.__studioAdapter = null;
+    await renderStudioHome(modal);
+    return;
+  }
+
   // Load existing design or default blank scene
-  let scene = window.msCreateDefaultScene(initialOptions.formatKey || 'square');
+  let scene = initialOptions.formatKey === 'custom'
+    ? { version: 3, format_key: 'custom', width: Number(initialOptions.customWidth) || 1080, height: Number(initialOptions.customHeight) || 1080, background: { color: '#0F172A' }, elements: [] }
+    : window.msCreateDefaultScene(initialOptions.formatKey || 'square');
   let designName = 'Untitled Design';
 
   if (designId) {
@@ -327,6 +606,9 @@ window.openMarketSyncStudio = async function(designId = null, initialOptions = {
     } catch (e) { /* fallback */ }
   }
 
+  window.__studioInitialScene = scene;
+  window.__studioTemplateFormat = scene.format_key || initialOptions.formatKey || 'square';
+  window.__studioTemplateCategory = 'all';
   modal.innerHTML = renderStudioWorkspaceHtml(designName, scene);
   window.__studioDocument = window.msStudioSceneToDocument ? window.msStudioSceneToDocument(scene, { title: designName }) : scene;
   if (window.__msStudioStore) {
@@ -345,6 +627,7 @@ window.openMarketSyncStudio = async function(designId = null, initialOptions = {
     window.__studioKeydownBound = true;
     document.addEventListener('keydown', studioKeydownHandler);
   }
+  if (initialOptions.templateKey) await loadStudioTemplate(initialOptions.templateKey);
 };
 
 function renderDesignStudioTabsHtml() {
@@ -786,6 +1069,86 @@ Object.entries(STUDIO_SOCIAL_FORMATS).forEach(([formatKey, format], index) => {
   };
 });
 
+function studioDesignSetScene(formatKey, format, set, setIndex, purpose) {
+  const w = format.w, h = format.h;
+  const portrait = h > w * 1.15;
+  const compact = w < 500 || h < 300;
+  const print = format.channel === 'print';
+  const pad = Math.max(18, Math.round(Math.min(w, h) * .07));
+  const titleSize = Math.max(compact ? 14 : 30, Math.round(Math.min(w, h) * (portrait ? .075 : .09)));
+  const bodySize = Math.max(compact ? 8 : 16, Math.round(Math.min(w, h) * .033));
+  const isLight = set.id === 'paper_ledger';
+  const ink = isLight ? '#18181B' : '#FFFFFF';
+  const muted = isLight ? '#52525B' : set.secondary;
+  const photo = STUDIO_FREE_PHOTOS[(setIndex * 4 + Object.keys(STUDIO_SOCIAL_FORMATS).indexOf(formatKey)) % STUDIO_FREE_PHOTOS.length].url;
+  const imageHeight = portrait ? Math.round(h * .49) : Math.round(h * .58);
+  const imageWidth = portrait ? w : Math.round(w * .52);
+  const copyX = portrait ? pad : (setIndex % 2 ? pad : Math.round(w * .56));
+  const copyY = portrait ? Math.round(h * .57) : pad;
+  const copyWidth = portrait ? w - pad * 2 : Math.round(w * .39);
+  const visualX = portrait ? 0 : (setIndex % 2 ? Math.round(w * .48) : 0);
+  const visualY = portrait ? 0 : 0;
+  const visualWidth = portrait ? w : imageWidth;
+  const visualHeight = portrait ? imageHeight : h;
+  const baseId = `set-${set.id}-${formatKey}`;
+  const elements = [
+    { id: `${baseId}-background`, type: 'shape', shapeType: 'rect', name: 'Background', x: 0, y: 0, width: w, height: h, fill: set.background, z: 1 },
+    ...(!print && !compact ? [{ id: `${baseId}-photo`, type: 'vehicle-image', name: 'Feature photo', src: photo, x: visualX, y: visualY, width: visualWidth, height: visualHeight, fit: 'cover', opacity: isLight ? .9 : .82, z: 2 }] : []),
+    { id: `${baseId}-angle`, type: 'shape', shapeType: 'rect', name: 'Angled accent', x: setIndex % 2 ? Math.round(w * .58) : -Math.round(w * .08), y: Math.round(h * .1), width: Math.round(w * .5), height: Math.max(16, Math.round(h * .13)), fill: set.accent, opacity: setIndex === 2 ? .95 : .88, angle: setIndex % 2 ? -8 : 8, z: 3 },
+    { id: `${baseId}-eyebrow`, type: 'text', name: 'Collection label', text: set.eyebrow.toUpperCase(), x: copyX, y: copyY, width: copyWidth, height: Math.round(bodySize * 1.5), fontFamily: set.font, fontSize: Math.max(9, Math.round(bodySize * .72)), fontWeight: '800', fill: set.accent, charSpacing: 80, z: 4 },
+    { id: `${baseId}-headline`, type: 'text', name: 'Headline', text: purpose[1], x: copyX, y: copyY + Math.round(bodySize * 1.8), width: copyWidth, height: Math.round(titleSize * 2.25), fontFamily: set.font, fontSize: titleSize, fontWeight: '900', fill: ink, lineHeight: .95, z: 5 },
+    { id: `${baseId}-body`, type: 'text', name: 'Supporting copy', text: print ? 'Dealership name · Address · Phone · Website' : purpose[2], x: copyX, y: copyY + Math.round(titleSize * 2.45), width: copyWidth, height: Math.round(bodySize * 3.2), fontFamily: setIndex === 2 ? 'Manrope' : set.font, fontSize: bodySize, fontWeight: '600', fill: muted, lineHeight: 1.15, z: 6 },
+    { id: `${baseId}-rule`, type: 'shape', shapeType: 'rect', name: 'Accent rule', x: copyX, y: Math.min(h - pad * 1.8, copyY + Math.round(titleSize * 4.1)), width: Math.max(28, Math.round(copyWidth * .28)), height: Math.max(3, Math.round(Math.min(w, h) * .008)), fill: set.accent, z: 7 }
+  ];
+
+  if (compact) {
+    elements.splice(1, 0, { id: `${baseId}-compact-block`, type: 'shape', shapeType: 'rect', name: 'Campaign block', x: setIndex % 2 ? Math.round(w * .64) : 0, y: 0, width: Math.round(w * .36), height: h, fill: set.accent, opacity: .95, z: 2 });
+  }
+
+  const makePage = (suffix, name, pageElements) => ({ id: `${baseId}-${suffix}`, name, format_key: formatKey, width: w, height: h, background: { color: set.background }, objects: JSON.parse(JSON.stringify(pageElements)), duration_ms: 5000, transition: 'none' });
+  const pages = [makePage('front', ['business_card','postcard','brochure'].includes(formatKey) ? 'Front' : formatKey === 'presentation' ? 'Title slide' : 'Page 1', elements)];
+
+  if (['business_card','postcard','brochure'].includes(formatKey)) {
+    const back = [
+      { id: `${baseId}-back-bg`, type: 'shape', shapeType: 'rect', name: 'Back background', x: 0, y: 0, width: w, height: h, fill: isLight ? '#FFFFFF' : '#F8FAFC', z: 1 },
+      { id: `${baseId}-back-mark`, type: 'shape', shapeType: setIndex % 2 ? 'circle' : 'rect', name: 'Logo mark', x: pad, y: pad, width: Math.round(Math.min(w, h) * .24), height: Math.round(Math.min(w, h) * .24), fill: set.accent, angle: setIndex === 3 ? 12 : 0, z: 2 },
+      { id: `${baseId}-back-name`, type: 'text', name: 'Name / dealership', text: '{{salesperson.name|YOUR NAME}}\n{{dealership.name|MARKETSYNC MOTORS}}', x: Math.round(w * .34), y: Math.round(h * .22), width: Math.round(w * .57), height: Math.round(h * .24), fontFamily: set.font, fontSize: Math.max(18, Math.round(Math.min(w, h) * .065)), fontWeight: '900', fill: '#18181B', lineHeight: 1.05, z: 3 },
+      { id: `${baseId}-back-contact`, type: 'text', name: 'Contact details', text: '{{salesperson.phone|555 555 5555}}  ·  {{dealership.website|marketsync.ca}}\n123 Dealership Road · Your City', x: Math.round(w * .34), y: Math.round(h * .55), width: Math.round(w * .57), height: Math.round(h * .22), fontFamily: 'Manrope', fontSize: Math.max(13, Math.round(Math.min(w, h) * .035)), fontWeight: '600', fill: '#52525B', lineHeight: 1.25, z: 4 }
+    ];
+    pages.push(makePage('back', 'Back', back));
+  } else if (formatKey === 'presentation') {
+    const content = JSON.parse(JSON.stringify(elements));
+    content.forEach(element => { if (element.type === 'text' && element.name === 'Headline') element.text = 'A CLEAR STORY, BEAUTIFULLY PRESENTED'; if (element.type === 'text' && element.name === 'Supporting copy') element.text = 'Add key ideas, performance highlights and next steps. Every object remains editable.'; });
+    pages.push(makePage('content', 'Content slide', content));
+    pages.push(makePage('closing', 'Closing slide', elements.map(element => ({ ...element, text: element.type === 'text' && element.name === 'Headline' ? 'THANK YOU' : element.text }))));
+  }
+
+  return { version: 3, format_key: formatKey, width: w, height: h, background: { color: set.background }, elements, pages, metadata: { design_set: set.id, editable: true } };
+}
+
+// Four coordinated collections across every supported output size. This produces
+// a useful starting library (92 editable templates) while keeping each collection
+// visually consistent across social, stationery, presentations and digital ads.
+Object.entries(STUDIO_SOCIAL_FORMATS).forEach(([formatKey, format]) => {
+  const purpose = STUDIO_FORMAT_PURPOSES[formatKey];
+  STUDIO_DESIGN_SETS.forEach((set, setIndex) => {
+    const key = `design_set_${set.id}_${formatKey}`;
+    const group = STUDIO_FORMAT_GROUPS.find(item => item.keys.includes(formatKey));
+    const scene = studioDesignSetScene(formatKey, format, set, setIndex, purpose);
+    STUDIO_TEMPLATES_CATALOG[key] = {
+      template_key: key,
+      name: `${purpose[0]} · ${set.name}`,
+      category: group?.label || 'Design templates',
+      design_set: set.id,
+      desc: `${format.w}×${format.h} · ${set.description}`,
+      format_key: formatKey,
+      width: format.w,
+      height: format.h,
+      scene
+    };
+  });
+});
+
 // The professional template catalogue is generated as editable scene JSON by the
 // shared document schema. It extends this existing picker instead of introducing
 // another template system or flattened artwork format.
@@ -883,14 +1246,146 @@ async function applyStudioTemplate(templateKey) {
 }
 window.applyStudioTemplate = applyStudioTemplate;
 
-function renderStudioTemplateCards(filter = window.__studioTemplateFormat || 'all', category = window.__studioTemplateCategory || 'all', limit = window.__studioTemplateLimit || 24) {
-  const matches = Object.values(STUDIO_TEMPLATES_CATALOG).filter(t => (filter === 'all' || t.format_key === filter) && (category === 'all' || t.category === category));
+function studioHomeTemplateCards(limit = 36) {
+  const query = String(window.__studioHomeTemplateQuery || '').trim().toLowerCase();
+  const setFilter = window.__studioHomeDesignSet || 'all';
+  const formatFilter = window.__studioHomeFormat || 'all';
+  const templates = Object.values(STUDIO_TEMPLATES_CATALOG).filter(template => {
+    const searchable = `${template.name || ''} ${template.desc || ''} ${template.category || ''} ${template.design_set || ''}`.toLowerCase();
+    return (!query || searchable.includes(query)) && (setFilter === 'all' || template.design_set === setFilter) && (formatFilter === 'all' || template.format_key === formatFilter);
+  });
+  const cards = templates.slice(0, limit).map(template => {
+    const key = encodeURIComponent(template.template_key);
+    const format = STUDIO_SOCIAL_FORMATS[template.format_key];
+    return `<button type="button" onclick="startStudioTemplate(decodeURIComponent('${key}'))" class="studio-home-template-card group min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-400 hover:shadow-xl dark:border-white/10 dark:bg-slate-900"><div class="relative flex min-h-40 items-center justify-center overflow-hidden bg-slate-100 p-3 dark:bg-slate-950">${templatePreviewMarkup(template)}<span class="absolute left-2 top-2 rounded-lg bg-slate-950/80 px-2 py-1 text-[9px] font-black text-white">${Number(template.width || template.scene?.width)} × ${Number(template.height || template.scene?.height)}</span>${template.scene?.pages?.length > 1 ? `<span class="absolute right-2 top-2 rounded-lg bg-white/90 px-2 py-1 text-[9px] font-black text-slate-800">${template.scene.pages.length} pages</span>` : ''}</div><div class="p-3"><div class="truncate text-sm font-black text-slate-950 group-hover:text-indigo-700 dark:text-white dark:group-hover:text-indigo-300">${escS(template.name)}</div><div class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">${escS(format?.label || template.category || 'Editable design')}</div></div></button>`;
+  }).join('');
+  if (cards) return cards;
+  return '<div class="col-span-full rounded-3xl border border-dashed border-slate-300 px-6 py-12 text-center dark:border-slate-700"><h3 class="font-black text-slate-900 dark:text-white">No matching templates</h3><p class="mt-1 text-sm text-slate-500">Try another search, collection or output size.</p><button type="button" onclick="studioResetHomeTemplateFilters()" class="mt-4 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-black text-white">Show all templates</button></div>';
+}
+
+function renderStudioHomeTemplateGrid() {
+  const host = document.getElementById('studio-home-template-grid');
+  if (host) host.innerHTML = studioHomeTemplateCards();
+  document.querySelectorAll('[data-studio-home-set]').forEach(button => button.setAttribute('aria-pressed', String((window.__studioHomeDesignSet || 'all') === button.dataset.studioHomeSet)));
+  document.querySelectorAll('[data-studio-home-format]').forEach(button => button.setAttribute('aria-pressed', String((window.__studioHomeFormat || 'all') === button.dataset.studioHomeFormat)));
+}
+
+function renderStudioHomeFormatShortcuts() {
+  return STUDIO_FORMAT_GROUPS.map(group => `<section class="space-y-2"><div><h3 class="text-sm font-black text-slate-950 dark:text-white">${escS(group.label)}</h3><p class="text-xs text-slate-500 dark:text-slate-400">${escS(group.description)}</p></div><div class="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">${group.keys.map(key => { const format = STUDIO_SOCIAL_FORMATS[key]; return `<button type="button" onclick="startStudioBlankDesign('${key}')" class="group rounded-2xl border border-slate-200/80 bg-white/80 p-3 text-left shadow-sm transition hover:border-indigo-400 hover:shadow-md dark:border-white/10 dark:bg-slate-900/75"><span class="mb-3 flex h-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-500 text-white shadow-sm"><span class="block rounded border border-white/70" style="width:${Math.max(12, Math.min(34, 34 * format.w / Math.max(format.w, format.h)))}px;height:${Math.max(12, Math.min(34, 34 * format.h / Math.max(format.w, format.h)))}px"></span></span><b class="block text-xs leading-tight text-slate-900 group-hover:text-indigo-700 dark:text-white dark:group-hover:text-indigo-300">${escS(format.label)}</b><span class="mt-1 block text-[10px] text-slate-500">${format.w} × ${format.h}</span></button>`; }).join('')}</div></section>`).join('');
+}
+
+function renderStudioHomeDesignSets() {
+  return STUDIO_DESIGN_SETS.map(set => {
+    const template = STUDIO_TEMPLATES_CATALOG[`design_set_${set.id}_business_card`] || STUDIO_TEMPLATES_CATALOG[`design_set_${set.id}_square`];
+    return `<button type="button" data-studio-home-set="${set.id}" aria-pressed="false" onclick="studioFilterHomeDesignSet('${set.id}')" class="studio-home-set-card group overflow-hidden rounded-3xl border border-slate-200/80 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-400 hover:shadow-xl dark:border-white/10 dark:bg-slate-900"><div class="relative h-48 overflow-hidden p-4" style="background:linear-gradient(135deg,${set.background},${set.accent})"><div class="absolute -right-10 -top-12 h-40 w-40 rotate-12 rounded-[36px] bg-white/15"></div><div class="relative mx-auto max-w-[82%] overflow-hidden rounded-xl border border-white/20 shadow-2xl">${templatePreviewMarkup(template)}</div></div><div class="p-4"><div class="text-[10px] font-black uppercase tracking-[.16em] text-indigo-600 dark:text-indigo-300">${escS(set.eyebrow)}</div><h3 class="mt-1 text-lg font-black text-slate-950 dark:text-white">${escS(set.name)}</h3><p class="mt-1 text-xs text-slate-500 dark:text-slate-400">${escS(set.description)}</p><div class="mt-3 text-xs font-black text-indigo-700 dark:text-indigo-300">${Object.keys(STUDIO_SOCIAL_FORMATS).length} matching sizes →</div></div></button>`;
+  }).join('');
+}
+
+function renderStudioHomeHtml() {
+  window.__studioHomeDesignSet = window.__studioHomeDesignSet || 'all';
+  window.__studioHomeFormat = window.__studioHomeFormat || 'all';
+  return `<header class="flex h-16 flex-shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/90 sm:px-6"><div class="flex min-w-0 items-center gap-3"><button type="button" onclick="closeMarketSyncStudio()" class="rounded-xl px-3 py-2 text-xs font-black text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10">← Marketing</button><div class="h-7 w-px bg-slate-200 dark:bg-white/10"></div><div class="min-w-0"><div class="truncate text-lg font-black text-slate-950 dark:text-white">Design Studio</div><div class="hidden text-xs text-slate-500 sm:block">Projects, templates and complete campaign sets</div></div></div><button type="button" onclick="openStudioSizePicker('new')" class="whitespace-nowrap rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500">+ Create design</button></header><main class="studio-home flex-1 overflow-y-auto bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-white"><div class="mx-auto max-w-[1560px] space-y-10 px-4 py-6 sm:px-6 lg:px-8"><section class="studio-home-hero relative overflow-hidden rounded-[32px] px-5 py-10 shadow-2xl sm:px-10 sm:py-14"><div class="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/15 blur-3xl"></div><div class="relative max-w-3xl"><div class="studio-home-hero-eyebrow text-xs font-black uppercase tracking-[.2em]">MarketSync creative home</div><h1 class="mt-3 text-3xl font-black tracking-tight sm:text-5xl">What will you design today?</h1><p class="studio-home-hero-copy mt-3 max-w-2xl text-sm sm:text-base">Start with an exact output size, explore coordinated design sets, or reopen a saved project. Every template stays fully editable.</p><label class="mt-6 flex max-w-2xl items-center gap-3 rounded-2xl bg-white px-4 py-3 text-slate-900 shadow-xl"><svg class="h-5 w-5 flex-none text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" oninput="studioFilterHomeTemplates(this.value)" placeholder="Search business cards, Instagram posts, letterhead…" class="min-w-0 flex-1 border-0 bg-transparent text-base outline-none placeholder:text-slate-400"></label></div></section><section class="space-y-5"><div class="flex items-end justify-between gap-3"><div><div class="text-xs font-black uppercase tracking-[.16em] text-indigo-600 dark:text-indigo-300">Choose a format</div><h2 class="mt-1 text-2xl font-black">Create at the right size</h2></div><button type="button" onclick="openStudioSizePicker('new')" class="text-sm font-black text-indigo-700 dark:text-indigo-300">View every size →</button></div>${renderStudioHomeFormatShortcuts()}</section><section class="space-y-4"><div><div class="text-xs font-black uppercase tracking-[.16em] text-indigo-600 dark:text-indigo-300">Coordinated collections</div><h2 class="mt-1 text-2xl font-black">Design sets</h2><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Carry one polished look across social posts, stationery, presentations and ads.</p></div><div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">${renderStudioHomeDesignSets()}</div></section><section class="space-y-4" id="studio-home-templates"><div class="flex flex-wrap items-end justify-between gap-3"><div><div class="text-xs font-black uppercase tracking-[.16em] text-indigo-600 dark:text-indigo-300">Editable starting points</div><h2 class="mt-1 text-2xl font-black">Templates for you</h2></div><button type="button" onclick="studioResetHomeTemplateFilters()" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">Clear filters</button></div><div class="flex gap-2 overflow-x-auto pb-1"><button type="button" data-studio-home-format="all" onclick="studioFilterHomeFormat('all')" class="whitespace-nowrap rounded-full border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">All sizes</button>${STUDIO_FORMAT_GROUPS.flatMap(group => group.keys).map(key => `<button type="button" data-studio-home-format="${key}" onclick="studioFilterHomeFormat('${key}')" class="whitespace-nowrap rounded-full border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">${escS(STUDIO_SOCIAL_FORMATS[key].label)}</button>`).join('')}</div><div id="studio-home-template-grid" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">${studioHomeTemplateCards()}</div></section><section class="space-y-4"><div class="flex flex-wrap items-end justify-between gap-3"><div><div class="text-xs font-black uppercase tracking-[.16em] text-indigo-600 dark:text-indigo-300">Your work</div><h2 class="mt-1 text-2xl font-black">Projects & folders</h2></div><div class="flex gap-2"><button type="button" onclick="createStudioHomeFolder()" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">+ New folder</button><button type="button" onclick="openStudioSizePicker('new')" class="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white">+ New design</button></div></div><div id="studio-home-folders" class="flex gap-2 overflow-x-auto pb-1"><div class="text-sm text-slate-500">Loading folders…</div></div><div id="studio-home-projects" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"><div class="col-span-full py-8 text-center text-sm text-slate-500">Loading projects…</div></div></section></div></main>`;
+}
+
+async function loadStudioHomeProjects() {
+  try {
+    const [designResponse, folderResponse] = await Promise.all([apiGetJson('/marketing/studio/designs'), apiGetJson('/marketing/studio/folders')]);
+    window.__studioHomeDesigns = designResponse?.designs || [];
+    window.__studioHomeFolders = folderResponse?.folders || [];
+  } catch (error) {
+    window.__studioHomeDesigns = [];
+    window.__studioHomeFolders = [];
+    const host = document.getElementById('studio-home-projects');
+    if (host) host.innerHTML = `<div class="col-span-full rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">${escS(error.message || 'Projects could not load.')}</div>`;
+  }
+  renderStudioHomeProjects();
+}
+
+function renderStudioHomeProjects() {
+  const folderHost = document.getElementById('studio-home-folders');
+  const projectHost = document.getElementById('studio-home-projects');
+  if (!folderHost || !projectHost) return;
+  const folders = window.__studioHomeFolders || [];
+  const designs = window.__studioHomeDesigns || [];
+  const activeFolder = window.__studioHomeFolder || 'all';
+  const folderButton = (id, label, count) => `<button type="button" onclick="studioSetHomeFolder('${id}')" aria-pressed="${activeFolder === id}" class="flex min-w-40 items-center justify-between gap-3 whitespace-nowrap rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-black shadow-sm aria-pressed:border-indigo-500 aria-pressed:bg-indigo-50 aria-pressed:text-indigo-800 dark:border-white/10 dark:bg-slate-900 dark:aria-pressed:bg-indigo-500/15 dark:aria-pressed:text-indigo-200"><span>${escS(label)}</span><span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500 dark:bg-white/10 dark:text-slate-300">${count}</span></button>`;
+  folderHost.innerHTML = folderButton('all', 'All projects', designs.length) + folderButton('unfiled', 'Unfiled', designs.filter(item => !item.folder_id).length) + folders.map(folder => folderButton(folder.id, folder.name, designs.filter(item => item.folder_id === folder.id).length)).join('');
+  const visible = designs.filter(design => activeFolder === 'all' || (activeFolder === 'unfiled' ? !design.folder_id : design.folder_id === activeFolder));
+  projectHost.innerHTML = visible.length ? visible.map(design => `<button type="button" onclick="openMarketSyncStudio('${escS(design.id)}', { bypassHome: true })" class="group overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-400 hover:shadow-lg dark:border-white/10 dark:bg-slate-900"><div class="overflow-hidden bg-slate-100 dark:bg-slate-950">${studioProjectPreviewMarkup(design)}</div><div class="p-3"><div class="truncate text-sm font-black text-slate-950 dark:text-white">${escS(design.name || 'Untitled Design')}</div><div class="mt-1 text-xs text-slate-500">${Number(design.width) || 1080} × ${Number(design.height) || 1080} · ${escS(design.status || 'draft')}</div></div></button>`).join('') : '<div class="col-span-full rounded-3xl border border-dashed border-slate-300 px-6 py-10 text-center dark:border-slate-700"><h3 class="font-black text-slate-900 dark:text-white">No projects in this folder</h3><p class="mt-1 text-sm text-slate-500">Choose a size or template to create the first one.</p><button type="button" onclick="openStudioSizePicker(\'new\')" class="mt-4 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-black text-white">Create design</button></div>';
+}
+
+async function renderStudioHome(modal) {
+  window.__studioHomeFolder = 'all';
+  modal.innerHTML = renderStudioHomeHtml();
+  renderStudioHomeTemplateGrid();
+  await loadStudioHomeProjects();
+}
+
+function openStudioSizePicker(mode = 'new') {
+  const groups = STUDIO_FORMAT_GROUPS.map(group => `<section class="space-y-2"><div><h3 class="font-black">${escS(group.label)}</h3><p class="text-xs text-slate-500 dark:text-slate-400">${escS(group.description)}</p></div><div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">${group.keys.map(key => { const format = STUDIO_SOCIAL_FORMATS[key]; return `<button type="button" onclick="studioChooseFormat('${key}','${mode}')" class="flex items-center gap-3 rounded-2xl border border-slate-200 p-3 text-left hover:border-indigo-500 hover:bg-indigo-50 dark:border-slate-700 dark:hover:bg-indigo-500/10"><span class="flex h-12 w-14 flex-none items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-cyan-500"><span class="block rounded-sm border border-white/80" style="width:${Math.max(10, Math.min(28, 28 * format.w / Math.max(format.w, format.h)))}px;height:${Math.max(10, Math.min(28, 28 * format.h / Math.max(format.w, format.h)))}px"></span></span><span class="min-w-0"><b class="block text-sm leading-tight">${escS(format.label)}</b><span class="mt-1 block text-xs text-slate-500">${format.w} × ${format.h}</span></span></button>`; }).join('')}</div></section>`).join('');
+  const custom = mode === 'new' ? `<section class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700"><h3 class="font-black">Custom size</h3><form onsubmit="event.preventDefault();startStudioCustomDesign()" class="mt-3 grid grid-cols-[1fr_auto_1fr] items-end gap-2"><label class="text-xs font-bold text-slate-500">Width (px)<input id="studio-custom-width" type="number" min="100" max="8000" value="1080" class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"></label><span class="pb-2 font-black text-slate-400">×</span><label class="text-xs font-bold text-slate-500">Height (px)<input id="studio-custom-height" type="number" min="100" max="8000" value="1080" class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"></label><button class="col-span-3 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-black text-white dark:bg-white dark:text-slate-950">Create custom design</button></form></section>` : '';
+  openStudioSheet(mode === 'resize' ? 'Change design size' : 'Choose a design size', `<div class="space-y-6"><p class="text-sm text-slate-600 dark:text-slate-300">${mode === 'resize' ? 'The current design will be reflowed to the selected dimensions. The Templates panel will then show only exact matches.' : 'Choose the final output first. The editor and its template library will open at these exact dimensions.'}</p>${groups}${custom}</div>`);
+}
+
+async function studioChooseFormat(formatKey, mode = 'new') {
+  document.getElementById('studio-action-sheet')?.remove();
+  if (mode === 'resize') { await changeStudioFormat(formatKey); setStudioTool('templates'); return; }
+  await startStudioBlankDesign(formatKey);
+}
+
+async function startStudioBlankDesign(formatKey) {
+  document.getElementById('studio-action-sheet')?.remove();
+  return window.openMarketSyncStudio(null, { formatKey, bypassHome: true, tab: 'templates' });
+}
+
+async function startStudioCustomDesign() {
+  const width = Math.max(100, Math.min(8000, Number(document.getElementById('studio-custom-width')?.value) || 1080));
+  const height = Math.max(100, Math.min(8000, Number(document.getElementById('studio-custom-height')?.value) || 1080));
+  document.getElementById('studio-action-sheet')?.remove();
+  return window.openMarketSyncStudio(null, { formatKey: 'custom', customWidth: width, customHeight: height, bypassHome: true, tab: 'templates' });
+}
+
+async function startStudioTemplate(templateKey) {
+  const template = STUDIO_TEMPLATES_CATALOG[templateKey];
+  if (!template) return;
+  return window.openMarketSyncStudio(null, { formatKey: template.format_key, templateKey, bypassHome: true, tab: 'templates' });
+}
+
+function studioFilterHomeTemplates(value) { window.__studioHomeTemplateQuery = value || ''; renderStudioHomeTemplateGrid(); document.getElementById('studio-home-templates')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+function studioFilterHomeDesignSet(value) { window.__studioHomeDesignSet = window.__studioHomeDesignSet === value ? 'all' : value; renderStudioHomeTemplateGrid(); document.getElementById('studio-home-templates')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+function studioFilterHomeFormat(value) { window.__studioHomeFormat = value || 'all'; renderStudioHomeTemplateGrid(); }
+function studioResetHomeTemplateFilters() { window.__studioHomeTemplateQuery = ''; window.__studioHomeDesignSet = 'all'; window.__studioHomeFormat = 'all'; const search = document.querySelector('.studio-home input[type="search"]'); if (search) search.value = ''; renderStudioHomeTemplateGrid(); }
+function studioSetHomeFolder(folderId) { window.__studioHomeFolder = folderId || 'all'; renderStudioHomeProjects(); }
+async function createStudioHomeFolder() { const name = window.prompt('New folder name')?.trim(); if (!name) return; try { const response = await apiSendJson('/marketing/studio/folders', 'POST', { name, color: '#4F46E5' }); window.__studioHomeFolders = [...(window.__studioHomeFolders || []), response.folder]; window.__studioHomeFolder = response.folder.id; renderStudioHomeProjects(); if (typeof showToast === 'function') showToast(`${response.folder.name} folder created`, 'success'); } catch (error) { if (typeof showToast === 'function') showToast(error.message || 'Folder could not be created.', 'error'); } }
+
+Object.assign(window, { openStudioSizePicker, studioChooseFormat, startStudioBlankDesign, startStudioCustomDesign, startStudioTemplate, studioFilterHomeTemplates, studioFilterHomeDesignSet, studioFilterHomeFormat, studioResetHomeTemplateFilters, studioSetHomeFolder, createStudioHomeFolder });
+
+function studioTemplateSize(template) {
+  return { width: Number(template?.scene?.width || template?.width) || 1080, height: Number(template?.scene?.height || template?.height) || 1080 };
+}
+
+function studioActiveCanvasSize() {
+  const adapter = window.__studioAdapter;
+  const activePage = adapter?.currentScene?.pages?.find(page => page.id === adapter.activePageId);
+  const scene = activePage || adapter?.currentScene || window.__studioInitialScene || {};
+  return { width: Number(scene.width) || 1080, height: Number(scene.height) || 1080, formatKey: scene.format_key || adapter?.currentScene?.format_key || 'square' };
+}
+
+function studioTemplateFitsCanvas(template, canvas = studioActiveCanvasSize()) {
+  const size = studioTemplateSize(template);
+  return size.width === canvas.width && size.height === canvas.height;
+}
+
+function renderStudioTemplateCards(_filter = window.__studioTemplateFormat || 'canvas', category = window.__studioTemplateCategory || 'all', limit = window.__studioTemplateLimit || 24) {
+  const canvas = studioActiveCanvasSize();
+  const matches = Object.values(STUDIO_TEMPLATES_CATALOG).filter(t => studioTemplateFitsCanvas(t, canvas) && (category === 'all' || t.category === category));
   const cards = matches.slice(0, limit).map(t => {
     const format = STUDIO_SOCIAL_FORMATS[t.format_key];
     const encodedKey = encodeURIComponent(t.template_key);
     return `<button onclick="previewStudioTemplate(decodeURIComponent('${encodedKey}'))" class="studio-template-card w-full text-left rounded-2xl overflow-hidden bg-white border border-slate-200 hover:border-blue-500 hover:shadow-lg transition group"><div class="relative overflow-hidden bg-slate-950">${templatePreviewMarkup(t)}<span class="absolute left-2 top-2 px-2 py-1 rounded-lg bg-slate-950/80 text-[9px] font-black text-blue-100">${format ? `${format.w}×${format.h}` : 'READY'}</span></div><div class="p-3"><div class="text-xs font-black text-slate-900 group-hover:text-blue-600">${escS(t.name)}</div><div class="mt-1 text-[10px] text-slate-500">${escS(t.desc)}</div><div class="mt-2 text-[10px] font-black text-indigo-600">Preview template →</div></div></button>`;
   }).join('');
-  return cards + (matches.length > limit ? `<button type="button" onclick="loadMoreStudioTemplates()" class="w-full py-3 rounded-2xl border border-slate-300 dark:border-slate-700 text-xs font-black">Show more templates (${matches.length - limit})</button>` : '');
+  const empty = `<div class="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-5 text-center"><div class="text-sm font-black text-slate-900 dark:text-white">No templates at ${canvas.width} × ${canvas.height}</div><p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Choose a different design size to see its matching templates.</p><button type="button" onclick="openStudioSizePicker('resize')" class="mt-3 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white">Change design size</button></div>`;
+  return (cards || empty) + (matches.length > limit ? `<button type="button" onclick="loadMoreStudioTemplates()" class="w-full py-3 rounded-2xl border border-slate-300 dark:border-slate-700 text-xs font-black">Show more templates (${matches.length - limit})</button>` : '');
 }
 
 function renderStudioToolPanelContent(tool) {
@@ -912,10 +1407,12 @@ function renderStudioToolPanelContent(tool) {
     return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Layers</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Select and reorder the current page. Groups and component children remain part of the document model.</p></div><div class="grid grid-cols-2 gap-2"><button type="button" onclick="addStudioStructure('component')" class="px-2 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-[10px] font-black text-white">+ Component</button><button type="button" onclick="addStudioStructure('repeater')" class="px-2 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-[10px] font-black text-white">+ Repeater</button></div><div class="space-y-1.5 max-h-[55vh] overflow-y-auto">${rows || '<p class="text-xs text-slate-500">No layers yet.</p>'}</div>${structures.length ? `<div class="pt-2 border-t border-slate-800"><div class="text-[10px] font-black uppercase text-sky-400 mb-1">Structured elements</div>${structures.map((item, index) => `<button type="button" onclick="editStudioStructure(${index})" class="w-full flex items-center justify-between text-left text-xs text-slate-300 py-1 hover:text-white"><span>${item.type === 'repeater' ? '↻' : '◇'} ${escS(item.name)}</span><span class="text-[10px] text-sky-400">Edit</span></button>`).join('')}</div>` : ''}</div>`;
   }
   if (tool === 'templates') {
+    const canvas = studioActiveCanvasSize();
+    const canvasFormat = STUDIO_SOCIAL_FORMATS[canvas.formatKey];
     return `
       <div class="p-4 space-y-3">
-        <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Social Templates</h3><p class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Ready-made layouts with gradients, shapes and safe text placement.</p></div>
-        <select onchange="filterStudioTemplates(this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white"><option value="all">All output sizes</option>${Object.entries(STUDIO_SOCIAL_FORMATS).map(([key,f]) => `<option value="${key}">${f.label}</option>`).join('')}</select>
+        <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Templates for this design</h3><p class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Only templates that exactly fit the active canvas are shown.</p></div>
+        <button type="button" onclick="openStudioSizePicker('resize')" class="w-full flex items-center justify-between gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-left text-xs text-indigo-900 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-100"><span><b class="block">${escS(canvasFormat?.label || 'Custom design')}</b><span>${canvas.width} × ${canvas.height}</span></span><span class="font-black">Change →</span></button>
         <select onchange="filterStudioTemplateCategory(this.value)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white"><option value="all">All categories</option>${[...new Set(Object.values(STUDIO_TEMPLATES_CATALOG).map(template => template.category).filter(Boolean))].map(category => `<option value="${escS(category)}">${escS(category)}</option>`).join('')}</select>
         <div id="studio-template-cards" class="space-y-3">${renderStudioTemplateCards()}</div>
         <div class="pt-3 mt-1 border-t border-slate-200 dark:border-slate-800 space-y-2">
@@ -927,7 +1424,7 @@ function renderStudioToolPanelContent(tool) {
       </div>
     `;
   } else if (tool === 'elements') {
-    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Premade Elements</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Editable grouped building blocks. Add one, then change the text, color, or duplicate it.</p></div><div class="flex gap-2"><input id="studio-premade-query" oninput="filterStudioPremadeElements()" placeholder="Search badges, CTAs, cards..." class="min-w-0 flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs"><select id="studio-premade-category" onchange="filterStudioPremadeElements()" class="w-24 px-1 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[10px]"><option value="all">All</option>${['Offers','Buttons','Trust','Automotive','Brand','Legal'].map(category => `<option value="${category}">${category}</option>`).join('')}</select></div><div id="studio-premade-library" class="grid grid-cols-2 gap-2 max-h-[68vh] overflow-y-auto">${renderStudioPremadeElements()}</div></div>`;
+    return `<div class="p-4 space-y-4"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Elements</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Visual building blocks for the canvas. Add one, then resize, recolour, rotate or combine it with anything else.</p></div><label class="studio-element-search"><span>＋</span><input id="studio-premade-query" oninput="filterStudioPremadeElements()" placeholder="Search shapes, graphics, frames…"><span>⌕</span></label><div><div class="studio-catalog-heading"><b>Recently used</b><span>Tap to add</span></div><div id="studio-element-recent" class="studio-element-recent-row">${renderStudioRecentVisualElements()}</div></div><div><div class="studio-catalog-heading"><b>Browse categories</b><button type="button" onclick="setStudioElementCategory('All')">See all</button></div><div class="studio-element-categories">${renderStudioElementCategories()}</div></div><div><div class="studio-catalog-heading"><b id="studio-element-result-heading">${window.__studioElementCategory && window.__studioElementCategory !== 'All' ? escS(window.__studioElementCategory) : 'Recommended for you'}</b><span>${STUDIO_VISUAL_ELEMENTS.length} editable assets</span></div><div id="studio-premade-library" class="studio-catalog-scroll studio-element-library">${renderStudioPremadeElements()}</div></div></div>`;
   } else if (tool === 'inventory') {
     return `
       <div class="p-4 space-y-3">
@@ -988,30 +1485,17 @@ function renderStudioToolPanelContent(tool) {
       </div>
     `;
   } else if (tool === 'icons') {
-    return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Icons</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Curated automotive, business, interface and social SVG icons. Results load in batches.</p></div><select id="studio-icon-library-select" onchange="filterStudioIcons()" class="w-full px-3 py-2 rounded-xl bg-slate-900 text-white border border-white/10 text-xs">${Object.entries(STUDIO_ICON_LIBRARIES).map(([key,[label]]) => `<option value="${key}">${label}</option>`).join('')}</select><input id="studio-icon-query" oninput="filterStudioIcons()" placeholder="Search icons..." class="w-full px-3 py-2 rounded-xl bg-slate-900 text-white placeholder:text-slate-500 border border-white/10 text-xs"><div id="studio-icon-library" class="grid grid-cols-4 gap-2 max-h-[65vh] overflow-y-auto">${renderStudioIconLibrary()}</div></div>`;
+    return `<div class="p-4 space-y-4"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Icons</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Searchable SVG icons for automotive, social, offers, contact, navigation and more. The catalog loads progressively as you scroll.</p></div><input id="studio-icon-query" oninput="filterStudioIcons()" placeholder="Search icons…" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 text-white placeholder:text-slate-500 border border-white/10 text-xs"><div id="studio-icon-categories" class="studio-icon-categories">${renderStudioIconCategories()}</div><div class="flex items-center justify-between gap-2"><div class="studio-catalog-heading"><b>Recommended</b><span>Tap to add</span></div><select id="studio-icon-library-select" onchange="filterStudioIcons()" class="w-36 px-2 py-1.5 rounded-lg bg-slate-900 text-white border border-white/10 text-[10px]">${Object.entries(STUDIO_ICON_LIBRARIES).map(([key,[label]]) => `<option value="${key}">${label}</option>`).join('')}</select></div><div id="studio-icon-library" class="studio-catalog-scroll studio-icon-library">${renderStudioIconLibrary()}</div></div>`;
   } else if (tool === 'text') {
     return `
-      <div class="p-4 space-y-5">
-        <!-- Font cards call studioPickFont(...) so selection applies to the active text or next insert. -->
-        <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Text</h3><p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Generate copy with AI, then pick a font and add it to the canvas.</p></div>
-
-        <div class="space-y-2 pb-4 border-b border-slate-200 dark:border-slate-800">
-          <h4 class="text-[11px] font-black uppercase tracking-wider text-sky-400">✦ Generate copy</h4>
-          <textarea id="studio-ai-prompt" rows="3" placeholder="Example: Write a short summer sales headline for our SUV event" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white resize-none"></textarea>
-          <button onclick="generateStudioAiCopy()" id="studio-ai-generate" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">✦ Generate content</button>
-          <div id="studio-ai-result" class="hidden p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-200 whitespace-pre-wrap"></div>
-        </div>
-
-        <div class="space-y-2 pb-4 border-b border-slate-200 dark:border-slate-800">
-          <div class="flex items-center justify-between gap-2">
-            <h4 class="text-[11px] font-black uppercase tracking-wider text-sky-400">Stylized text templates</h4>
-            <span class="text-[9px] text-slate-500 dark:text-slate-400">Editable after insert</span>
-          </div>
-          <input id="studio-text-template-query" oninput="filterStudioTextTemplates()" placeholder="Search titles, offers, info…" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white">
-          <div id="studio-text-template-library" class="grid grid-cols-2 gap-2 max-h-[34vh] overflow-y-auto">${renderStudioTextTemplates()}</div>
-        </div>
-
-        <div class="space-y-2">
+      <div class="p-4 space-y-4">
+        <div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Text</h3><p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Add plain text or choose a designed combination with multiple editable text layers.</p></div>
+        <input id="studio-text-template-query" oninput="filterStudioTextTemplates()" placeholder="Search fonts and combinations…" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white">
+        <button type="button" onclick="studioAddText('body')" class="studio-add-text-button"><span>T</span>Add a text box</button>
+        <details class="studio-magic-write"><summary>✦ Magic Write</summary><div class="space-y-2"><textarea id="studio-ai-prompt" rows="3" placeholder="Write a short summer sales headline for our SUV event" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white resize-none"></textarea><button onclick="generateStudioAiCopy()" id="studio-ai-generate" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-black">✦ Generate content</button><div id="studio-ai-result" class="hidden p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-200 whitespace-pre-wrap"></div></div></details>
+        <div id="studio-text-categories" class="studio-category-pills">${renderStudioTextCategories()}</div>
+        <div><div class="studio-catalog-heading"><b>Text combinations</b><span>Two editable layers</span></div><div id="studio-text-template-library" class="studio-catalog-scroll studio-text-template-library">${renderStudioTextTemplates()}</div></div>
+        <div class="space-y-2 pt-3 border-t border-slate-200 dark:border-slate-800">
           <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Fonts</h4>
           <p class="text-[10px] text-slate-500 dark:text-slate-400 -mt-1">Pick a font — applies to selected text, or the next text you add.</p>
           <div class="flex gap-2"><input id="studio-font-query" oninput="filterStudioFonts()" placeholder="Search 100+ Google fonts..." class="min-w-0 flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs"><select id="studio-font-category" onchange="filterStudioFonts()" class="w-28 px-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs">${Object.entries(STUDIO_FONT_CATEGORIES).map(([value,label]) => `<option value="${value}">${label}</option>`).join('')}</select></div>
@@ -1199,25 +1683,69 @@ async function initStudioAdapter(scene) {
   wireStudioContextMenu(window.__studioAdapter);
 }
 
-// Right-click on the artboard — the same actions already on the toolbar/keyboard
-// shortcuts (Copy/Cut/Paste/Duplicate, layer order, Group/Ungroup, Delete), just
-// reachable without knowing the shortcut exists.
+// Right-click or press-and-hold on the artboard. Both gestures open the same action
+// surface and call the adapter's canonical edit/history methods, so touch does not
+// grow a second implementation of delete, arrange, undo, etc.
+const STUDIO_LONG_PRESS_MS = 560;
+const STUDIO_LONG_PRESS_MOVE_PX = 12;
+
+function selectStudioContextTarget(canvas, event) {
+  const target = canvas.findTarget(event, false);
+  if (target && !canvas.getActiveObjects().includes(target)) {
+    canvas.discardActiveObject();
+    canvas.setActiveObject(target);
+    canvas.requestRenderAll();
+  } else if (!target) {
+    canvas.discardActiveObject();
+    canvas.requestRenderAll();
+  }
+  return target;
+}
+
 function wireStudioContextMenu(adapter) {
   const canvas = adapter?.fabricCanvas;
   if (!canvas?.upperCanvasEl) return;
-  canvas.upperCanvasEl.addEventListener('contextmenu', (e) => {
+  const surface = canvas.upperCanvasEl;
+  surface.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    const target = canvas.findTarget(e, false);
-    if (target && !canvas.getActiveObjects().includes(target)) {
-      canvas.discardActiveObject();
-      canvas.setActiveObject(target);
-      canvas.requestRenderAll();
-    } else if (!target) {
-      canvas.discardActiveObject();
-      canvas.requestRenderAll();
-    }
+    const target = selectStudioContextTarget(canvas, e);
     showStudioContextMenu(e.clientX, e.clientY, !!target);
   });
+
+  let press = null;
+  let pressTimer = null;
+  let suppressClickUntil = 0;
+  const clearPress = () => {
+    if (pressTimer) window.clearTimeout(pressTimer);
+    pressTimer = null;
+    press = null;
+  };
+  surface.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' || e.button !== 0) return;
+    clearPress();
+    press = { x: e.clientX, y: e.clientY, event: e };
+    pressTimer = window.setTimeout(() => {
+      if (!press) return;
+      const target = selectStudioContextTarget(canvas, press.event);
+      suppressClickUntil = Date.now() + 700;
+      showStudioContextMenu(press.x, press.y, !!target);
+      if (navigator.vibrate) navigator.vibrate(12);
+      pressTimer = null;
+    }, STUDIO_LONG_PRESS_MS);
+  }, { passive: true });
+  surface.addEventListener('pointermove', (e) => {
+    if (!press) return;
+    if (Math.hypot(e.clientX - press.x, e.clientY - press.y) > STUDIO_LONG_PRESS_MOVE_PX) clearPress();
+  }, { passive: true });
+  surface.addEventListener('pointerup', clearPress, { passive: true });
+  surface.addEventListener('pointercancel', clearPress, { passive: true });
+  // Mobile browsers synthesize a click after a long press. Consume only that one
+  // click or it immediately closes the action sheet that the hold just opened.
+  surface.addEventListener('click', (e) => {
+    if (Date.now() >= suppressClickUntil) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }, true);
 }
 
 function closeStudioContextMenu() {
@@ -1233,12 +1761,23 @@ function showStudioContextMenu(x, y, hasTarget) {
   const active = adapter?.fabricCanvas?.getActiveObject();
   const isSelection = active?.type === 'activeSelection';
   const isGroup = active?.type === 'group';
-  const item = (label, method, opts = {}) => `<button type="button" onclick="studioCtxAction('${method}')" ${opts.disabled ? 'disabled' : ''} class="w-full text-left px-3 py-1.5 flex items-center justify-between gap-4 transition ${opts.disabled ? 'opacity-40 cursor-default' : 'hover:bg-slate-100 dark:hover:bg-slate-800'} ${opts.danger && !opts.disabled ? 'text-rose-400' : ''}"><span>${label}</span>${opts.shortcut ? `<span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">${opts.shortcut}</span>` : ''}</button>`;
+  const canUndo = (adapter?.undoStack?.length || 0) > 1;
+  const canRedo = (adapter?.redoStack?.length || 0) > 0;
+  const item = (label, method, opts = {}) => `<button type="button" role="menuitem" onclick="studioCtxAction('${method}')" ${opts.disabled ? 'disabled' : ''} class="studio-context-menu-item w-full text-left px-3 flex items-center justify-between gap-4 transition ${opts.disabled ? 'opacity-40 cursor-default' : 'hover:bg-slate-100 dark:hover:bg-slate-800'} ${opts.danger && !opts.disabled ? 'text-rose-500 dark:text-rose-400' : ''}"><span>${label}</span>${opts.shortcut ? `<span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">${opts.shortcut}</span>` : ''}</button>`;
   const divider = '<div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>';
   const menu = document.createElement('div');
   menu.id = 'studio-context-menu';
-  menu.className = 'fixed z-[100000] min-w-[190px] py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-2xl text-xs font-bold text-slate-700 dark:text-slate-200';
+  menu.setAttribute('role', 'menu');
+  menu.setAttribute('aria-label', hasTarget ? 'Selected element actions' : 'Canvas actions');
+  menu.className = 'fixed z-[100000] min-w-[230px] py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-2xl text-xs font-bold text-slate-700 dark:text-slate-200';
   menu.innerHTML = [
+    `<div class="studio-context-menu-heading"><span>${hasTarget ? 'Element actions' : 'Canvas actions'}</span><button type="button" onclick="closeStudioContextMenu()" aria-label="Close actions">&times;</button></div>`,
+    item('Undo', 'undo', { disabled: !canUndo, shortcut: 'Ctrl+Z' }),
+    item('Redo', 'redo', { disabled: !canRedo, shortcut: 'Ctrl+Shift+Z' }),
+    divider,
+    item('Transform / position…', 'openTransformControls', { disabled: !hasTarget }),
+    item('Delete', 'deleteSelected', { disabled: !hasTarget, danger: true }),
+    divider,
     item('Copy', 'copySelected', { disabled: !hasTarget, shortcut: 'Ctrl+C' }),
     item('Cut', 'cutSelected', { disabled: !hasTarget, shortcut: 'Ctrl+X' }),
     item('Paste', 'pasteClipboard', { disabled: !adapter?._clipboard, shortcut: 'Ctrl+V' }),
@@ -1251,8 +1790,6 @@ function showStudioContextMenu(x, y, hasTarget) {
     divider,
     item('Group', 'groupSelected', { disabled: !isSelection, shortcut: 'Ctrl+G' }),
     item('Ungroup', 'ungroupSelected', { disabled: !isGroup, shortcut: 'Ctrl+Shift+G' }),
-    divider,
-    item('Delete', 'deleteSelected', { disabled: !hasTarget, danger: true }),
   ].join('');
   document.body.appendChild(menu);
   const rect = menu.getBoundingClientRect();
@@ -1265,8 +1802,27 @@ function showStudioContextMenu(x, y, hasTarget) {
 }
 window.showStudioContextMenu = showStudioContextMenu;
 
+function openStudioTransformControls() {
+  const adapter = window.__studioAdapter;
+  const active = adapter?.fabricCanvas?.getActiveObject();
+  if (!active) return;
+  active.set({ hasControls: true, hasBorders: true });
+  active.setCoords();
+  adapter.fabricCanvas.setActiveObject(active);
+  adapter.fabricCanvas.requestRenderAll();
+  window.__studioInspectorTab = 'position';
+  const panel = document.getElementById('studio-inspector-panel');
+  if (panel) {
+    panel.innerHTML = renderStudioProfessionalInspectorHtml([active]);
+    panel.classList.remove('hidden');
+  }
+  if (studioIsMobile()) openStudioMobilePanel('inspector');
+}
+window.openStudioTransformControls = openStudioTransformControls;
+
 function studioCtxAction(method) {
   closeStudioContextMenu();
+  if (method === 'openTransformControls') return openStudioTransformControls();
   const adapter = window.__studioAdapter;
   if (adapter && typeof adapter[method] === 'function') adapter[method]();
 }
@@ -1286,6 +1842,7 @@ function setStudioTool(tool) {
   });
   const panel = document.getElementById('studio-tool-panel');
   if (panel) panel.innerHTML = renderStudioToolPanelContent(tool);
+  if (['icons', 'elements', 'text'].includes(tool)) setTimeout(() => wireStudioLazyCatalog(tool), 0);
   if (studioIsMobile()) openStudioMobilePanel('tool');
   if (tool === 'photos') setTimeout(() => searchStudioLibrary('car dealership'), 0);
   if (tool === 'videos') setTimeout(() => searchStudioVideos('car dealership'), 0);
@@ -1495,7 +2052,13 @@ async function loadStudioTemplate(tmplKey) {
   if (container) { container.style.width = `${boundScene.width}px`; container.style.height = `${boundScene.height}px`; }
   const picker = document.getElementById('studio-format-picker');
   if (picker && STUDIO_SOCIAL_FORMATS[boundScene.format_key]) picker.value = boundScene.format_key;
+  window.__studioInitialScene = boundScene;
+  window.__studioTemplateFormat = boundScene.format_key || 'square';
   updateStudioSafeGuides(boundScene.format_key || 'square');
+  if (window.__studioActiveTool === 'templates') {
+    const panel = document.getElementById('studio-tool-panel');
+    if (panel) panel.innerHTML = renderStudioToolPanelContent('templates');
+  }
   zoomStudioFit();
   if (typeof showToast === 'function') showToast(`Loaded ${tmpl.name}`, 'success');
 }
@@ -1945,9 +2508,25 @@ async function changeStudioFormat(formatKey) {
   if (window.__studioAdapter) {
     const current = window.__studioAdapter.exportScene();
     const reflowed = window.msDesignStudioSchema?.reflowScene(current, formatKey);
-    if (reflowed) await window.__studioAdapter.renderScene(reflowed); else window.__studioAdapter.resizeCanvas(sz.w, sz.h);
+    if (reflowed) {
+      // The persisted model is page-based. Keep the active page and top-level
+      // compatibility scene in sync so resize is not discarded by normalization.
+      if (Array.isArray(reflowed.pages) && reflowed.pages.length) {
+        const activeId = window.__studioAdapter.activePageId || reflowed.pages[0].id;
+        reflowed.pages = reflowed.pages.map(page => page.id === activeId ? { ...page, format_key: formatKey, width: sz.w, height: sz.h, background: reflowed.background, objects: JSON.parse(JSON.stringify(reflowed.elements || [])) } : page);
+      }
+      await window.__studioAdapter.renderScene(reflowed);
+      window.__studioDocument = window.msStudioSceneToDocument?.(reflowed) || reflowed;
+      window.__msStudioStore?.update(window.__studioDocument);
+    } else window.__studioAdapter.resizeCanvas(sz.w, sz.h);
   }
+  window.__studioInitialScene = window.__studioAdapter?.exportScene?.() || { format_key: formatKey, width: sz.w, height: sz.h };
+  window.__studioTemplateFormat = formatKey;
   updateStudioSafeGuides(formatKey);
+  if (window.__studioActiveTool === 'templates') {
+    const panel = document.getElementById('studio-tool-panel');
+    if (panel) panel.innerHTML = renderStudioToolPanelContent('templates');
+  }
   zoomStudioFit();
   if (typeof showToast === 'function') showToast(`Format set to ${formatKey.toUpperCase()}`, 'info');
 }
@@ -1965,7 +2544,9 @@ function setStudioBreakpoint(breakpoint) {
 window.setStudioBreakpoint = setStudioBreakpoint;
 
 function filterStudioTemplates(formatKey) {
-  window.__studioTemplateFormat = formatKey; window.__studioTemplateLimit = 24;
+  // Kept for the public panel API; cards remain constrained to the real canvas
+  // dimensions even if an older integration passes a different format key.
+  window.__studioTemplateFormat = formatKey || studioActiveCanvasSize().formatKey; window.__studioTemplateLimit = 24;
   const cards = document.getElementById('studio-template-cards');
   if (cards) cards.innerHTML = renderStudioTemplateCards(formatKey);
 }

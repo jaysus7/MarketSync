@@ -247,10 +247,10 @@ body.ms-glass-site button.bg-emerald-600 {
   align-items: center;
   gap: .7rem;
   padding: .7rem 1rem;
-  border: 1px solid rgba(148,190,230,.22);
+  border: 1px solid #dbe3ef;
   border-radius: 1rem;
-  background: rgba(9,20,39,.38);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15,23,42,.06);
 }
 .appraisal-page .appraisal-step {
   display: flex;
@@ -272,10 +272,10 @@ body.ms-glass-site button.bg-emerald-600 {
 }
 .appraisal-page .appraisal-step b,
 .appraisal-page .appraisal-step small { display: block; line-height: 1.2; }
-.appraisal-page .appraisal-step b { color: #e2e8f0; font-size: .75rem; }
+.appraisal-page .appraisal-step b { color: #334155; font-size: .75rem; }
 .appraisal-page .appraisal-step small { margin-top: .12rem; font-size: .65rem; color: #64748b; }
 .appraisal-page .appraisal-step-active span { background: #2563eb; border-color: #60a5fa; color: white; box-shadow: 0 0 0 3px rgba(37,99,235,.16); }
-.appraisal-page .appraisal-stepper > i { height: 1px; flex: 1 1 2rem; min-width: 1rem; background: rgba(148,190,230,.2); }
+.appraisal-page .appraisal-stepper > i { height: 1px; flex: 1 1 2rem; min-width: 1rem; background: #cbd5e1; }
 .appraisal-page .appraisal-workflow > .space-y-5 > .rounded-2xl,
 .appraisal-page .appraisal-workflow > .rounded-2xl { box-shadow: 0 14px 38px rgba(0,0,0,.13), inset 0 1px 0 rgba(255,255,255,.07); }
 .appraisal-page aside > .rounded-2xl { box-shadow: 0 14px 38px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.07); }
@@ -283,22 +283,22 @@ body.ms-glass-site button.bg-emerald-600 {
 
 /* Appraisal page top bar: improved visual hierarchy and readability */
 .appraisal-page > .flex.items-center.justify-between {
-  background: rgba(255, 255, 255, .04);
-  backdrop-filter: blur(12px);
+  background: #ffffff;
   padding: 1.25rem !important;
   border-radius: 1rem;
-  border: 1px solid rgba(148, 190, 230, .15);
+  border: 1px solid #dbe3ef;
+  box-shadow: 0 10px 28px rgba(15,23,42,.07);
   margin-bottom: 1.5rem;
 }
 
 .appraisal-page > .flex.items-center.justify-between h2 {
   font-size: 1.375rem;
   letter-spacing: -0.02em;
-  color: #ffffff;
+  color: #0f172a;
 }
 
 .appraisal-page > .flex.items-center.justify-between p {
-  color: #cbd5e1;
+  color: #475569;
   line-height: 1.5;
   font-size: 0.95rem;
 }
@@ -340,16 +340,16 @@ body.ms-glass-site button.bg-emerald-600 {
 
 .appraisal-page aside #appr-pdf-summary,
 .appraisal-page aside #appr-pdf-disclosure {
-  background: rgba(148, 163, 184, .12);
-  color: #cbd5e1;
-  border: 1px solid rgba(148, 163, 184, .2);
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #cbd5e1;
 }
 
 .appraisal-page aside #appr-pdf-summary:hover,
 .appraisal-page aside #appr-pdf-disclosure:hover {
-  background: rgba(148, 163, 184, .18);
-  border-color: rgba(148, 163, 184, .3);
-  color: #e2e8f0;
+  background: #eef2f7;
+  border-color: #94a3b8;
+  color: #0f172a;
   transform: translateY(-1px);
 }
 
@@ -366,32 +366,32 @@ body.ms-glass-site button.bg-emerald-600 {
 }
 
 .appraisal-page aside > .flex.items-center.gap-2 h3 {
-  color: #f1f5f9;
+  color: #0f172a;
   font-size: 1rem;
   font-weight: 700;
 }
 
 /* Improved text readability throughout appraisal cards */
 .appraisal-page .rounded-2xl {
-  background: rgba(15, 23, 42, .35);
-  border-color: rgba(148, 190, 230, .15);
+  background: #ffffff;
+  border-color: #dbe3ef;
 }
 
 .appraisal-page .rounded-2xl h3 {
-  color: #f1f5f9;
+  color: #0f172a;
   font-weight: 700;
   font-size: 0.95rem;
   letter-spacing: 0.01em;
 }
 
 .appraisal-page .rounded-2xl p {
-  color: #cbd5e1;
+  color: #475569;
   font-size: 0.9rem;
   line-height: 1.5;
 }
 
 .appraisal-page .rounded-2xl label {
-  color: #94a3b8;
+  color: #64748b;
   font-weight: 600;
   font-size: 0.75rem;
   letter-spacing: 0.05em;
@@ -400,22 +400,23 @@ body.ms-glass-site button.bg-emerald-600 {
 .appraisal-page .rounded-2xl input,
 .appraisal-page .rounded-2xl select,
 .appraisal-page .rounded-2xl textarea {
-  background: rgba(15, 23, 42, .5);
-  border: 1px solid rgba(148, 190, 230, .2);
-  color: #e2e8f0;
+  min-width: 0;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
   font-size: 0.95rem;
 }
 
 .appraisal-page .rounded-2xl input::placeholder,
 .appraisal-page .rounded-2xl textarea::placeholder {
-  color: #64748b;
+  color: #94a3b8;
 }
 
 .appraisal-page .rounded-2xl input:focus,
 .appraisal-page .rounded-2xl select:focus,
 .appraisal-page .rounded-2xl textarea:focus {
-  background: rgba(15, 23, 42, .6);
-  border-color: rgba(59, 130, 246, .4);
+  background: #ffffff;
+  border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, .15);
   outline: none;
 }
@@ -423,7 +424,7 @@ body.ms-glass-site button.bg-emerald-600 {
 /* Improved visibility and spacing for card sections */
 .appraisal-page .space-y-4 > div,
 .appraisal-page .space-y-5 > div {
-  border-top: 1px solid rgba(148, 190, 230, .1);
+  border-top: 1px solid #e2e8f0;
   padding-top: 1rem;
 }
 
@@ -432,6 +433,37 @@ body.ms-glass-site button.bg-emerald-600 {
   border-top: none;
   padding-top: 0;
 }
+.appraisal-page .appr-vin-row {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto auto;
+  gap: .5rem;
+}
+
+/* The appraisal uses light surfaces by default. Dark values are deliberately
+ * scoped here so a daytime phone never receives translucent navy cards. */
+.dark .appraisal-page .appraisal-stepper { background: rgba(9,20,39,.72); border-color: rgba(148,190,230,.22); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }
+.dark .appraisal-page .appraisal-step b { color: #e2e8f0; }
+.dark .appraisal-page .appraisal-stepper > i { background: rgba(148,190,230,.2); }
+.dark .appraisal-page > .flex.items-center.justify-between { background: rgba(15,23,42,.72); border-color: rgba(148,190,230,.18); box-shadow: 0 14px 38px rgba(0,0,0,.15); }
+.dark .appraisal-page > .flex.items-center.justify-between h2 { color: #ffffff; }
+.dark .appraisal-page > .flex.items-center.justify-between p { color: #cbd5e1; }
+.dark .appraisal-page aside > .flex.items-center.gap-2 h3,
+.dark .appraisal-page .rounded-2xl h3 { color: #f1f5f9; }
+.dark .appraisal-page .rounded-2xl { background: rgba(15,23,42,.76); border-color: rgba(148,190,230,.17); }
+.dark .appraisal-page .rounded-2xl p { color: #cbd5e1; }
+.dark .appraisal-page .rounded-2xl label { color: #94a3b8; }
+.dark .appraisal-page .rounded-2xl input,
+.dark .appraisal-page .rounded-2xl select,
+.dark .appraisal-page .rounded-2xl textarea { background: rgba(2,6,23,.72); border-color: rgba(148,190,230,.22); color: #e2e8f0; }
+.dark .appraisal-page .rounded-2xl input::placeholder,
+.dark .appraisal-page .rounded-2xl textarea::placeholder { color: #64748b; }
+.dark .appraisal-page .rounded-2xl input:focus,
+.dark .appraisal-page .rounded-2xl select:focus,
+.dark .appraisal-page .rounded-2xl textarea:focus { background: rgba(2,6,23,.88); border-color: #3b82f6; }
+.dark .appraisal-page .space-y-4 > div,
+.dark .appraisal-page .space-y-5 > div { border-top-color: rgba(148,190,230,.1); }
+.dark .appraisal-page aside #appr-pdf-summary,
+.dark .appraisal-page aside #appr-pdf-disclosure { background: rgba(148,163,184,.12); color: #cbd5e1; border-color: rgba(148,163,184,.2); }
 .desk-section-summary { list-style: none; }
 .desk-section-summary::-webkit-details-marker { display: none; }
 .desk-section-chevron { display: inline-block; font-size: 1.25rem; line-height: 1; transform: rotate(0deg); transition: transform 150ms ease; }
@@ -473,6 +505,7 @@ body.ms-glass-site button.bg-emerald-600 {
   .desk-column .desk-section-summary > p { display: none; }
 }
 @media (max-width: 640px) {
+  .appraisal-page { overflow-x: clip; }
   .appraisal-page .appraisal-stepper { gap: .35rem; padding: .6rem; }
   .appraisal-page .appraisal-step { gap: .35rem; }
   .appraisal-page .appraisal-step small { display: none; }
@@ -507,6 +540,10 @@ body.ms-glass-site button.bg-emerald-600 {
   .appraisal-page .rounded-2xl h3 {
     font-size: 0.875rem;
   }
+  .appraisal-page .appr-vin-row { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+  .appraisal-page .appr-vin-row #appr-vin { grid-column: 1 / -1; width: 100%; }
+  .appraisal-page .appr-vin-row button { width: 100%; min-width: 0; padding-inline: .65rem; }
+  .appraisal-page .appr-vin-links > button { flex: 1 1 calc(50% - .5rem); min-width: 0; white-space: normal; line-height: 1.2; }
   .desk-workflow-steps > i { min-width: .5rem; }
 }
 

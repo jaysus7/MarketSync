@@ -10,13 +10,15 @@ const css = read('marketplace-frontend/css/marketsync-theme.css')
 const website = read('marketplace-frontend/js/modules/dashboard-part17.js')
 const blueprint = read('render.yaml')
 
-test('Studio primitives expose real colour, progressive icon, grouped text and grouped element controls', () => {
+test('Studio primitives expose real colour, progressive icons, grouped text and editable visual elements', () => {
   assert.match(studio, /id="studio-shape-colour" type="color"/)
   assert.match(studio, /window\.__studioShapeColor/)
   assert.match(studio, /loadMoreStudioIcons/)
   assert.match(studio, /loading="lazy" decoding="async"/)
   assert.match(studio, /ungroup to edit both text layers/)
-  assert.match(studio, /Grouped icon \+ title \+ supporting text/)
+  assert.match(studio, /const STUDIO_VISUAL_ELEMENTS =/)
+  assert.match(studio, /function studioAddVisualElement/)
+  assert.match(studio, /new window\.fabric\.ActiveSelection\(objects/)
   assert.match(adapter, /this\.onSelectionChange\(\[shape\]\)/)
 })
 
@@ -52,4 +54,3 @@ test('website templates open the real multi-page renderer and publish after sele
   assert.match(website, /const saved = await saveWebsite\(btn, 'publish'\)/)
   assert.doesNotMatch(website.slice(website.indexOf('async function applyCompleteTemplate'), website.indexOf('window.openTemplatePicker')), /saveWebsite\(btn, 'draft'\)/)
 })
-

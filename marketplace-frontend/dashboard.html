@@ -24,13 +24,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260903_studio_mobile_dark_v1">
+  <link rel="stylesheet" href="css/marketsync-theme.css?v=20260903_studio_visual_elements_v1">
   <link rel="stylesheet" href="css/dashboard-nav.css">
   <link rel="stylesheet" href="css/dashboard-brand-repaint.css">
   <link rel="stylesheet" href="css/tailwind-built.css?v=20260825_header_spacing_v1">
   <link rel="stylesheet" href="css/ms-phase3-global.css?v=20260827_p4_v1">
   <link rel="stylesheet" href="css/ms-phase4-routes.css?v=20260827_p4_s3">
-  <link rel="stylesheet" href="css/ms-liquid-glass.css?v=20260903_dark_button_contrast_v1">
+  <link rel="stylesheet" href="css/ms-liquid-glass.css?v=20260903_appraisal_theme_v1">
   <link rel="stylesheet" href="css/ms-design-system.css?v=20260826_b1_v1">
   <meta name="color-scheme" content="light dark">
   <!-- Chart.js / QR / WebAuthn load on demand via msLoadScript — they blocked first paint when in <head>. -->
@@ -3299,7 +3299,7 @@
              Col 2: Condition & Appraisal
              Col 3: Market & Value (Shrunk/Compact) + Salesperson & Disposition (under Market & Value) -->
         <!-- Top Section: Three Equal Cards (Vehicle, Customer, Appraise) -->
-        <div class="appraisal-workflow grid gap-4 items-start md:grid-cols-2 lg:grid-cols-3">
+        <div class="appraisal-workflow grid gap-4 items-start md:grid-cols-2 xl:grid-cols-3">
 
           <!-- Column 1 — Vehicle & VIN -->
           <div class="min-w-0">
@@ -3322,7 +3322,7 @@
                       <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                       </div>
-                      <input id="appr-cust-search" autocomplete="off" placeholder="Search customer by name, phone, or email…" class="w-full h-10 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <input id="appr-cust-search" autocomplete="off" placeholder="Search name, phone, or email…" class="w-full h-10 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     <button type="button" onclick="apprClearCustomer()" class="text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3.5 h-10 rounded-xl whitespace-nowrap transition">Clear</button>
                   </div>
@@ -3344,7 +3344,7 @@
               <!-- VIN → auto-fill the appraisal fields -->
               <div>
                 <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Decode VIN <span class="normal-case font-normal text-slate-400">(identifies vehicle &amp; fills fields)</span></label>
-                <div class="flex gap-2">
+                <div class="appr-vin-row">
                   <input id="appr-vin" maxlength="17" placeholder="e.g. 1GNSKBKC5FR123456" class="flex-1 h-10 uppercase tracking-wider font-mono bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <button type="button" onclick="openVinScanner('appr-vin', () => document.getElementById('appr-decode').click())" title="Scan VIN barcode" class="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold px-3 h-10 rounded-xl transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 12h10"/></svg>Scan</button>
                   <button id="appr-decode" class="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-sm font-bold px-4 h-10 rounded-xl transition whitespace-nowrap">Decode</button>
@@ -3353,7 +3353,7 @@
                   <svg class="w-4 h-4 flex-shrink-0 mt-px" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
                   <span><span class="font-bold">Decoded:</span> <span id="appr-vin-decoded-text"></span> — vehicle identified. Add mileage and click <span class="font-semibold">Appraise</span> to pull market comps.</span>
                 </div>
-                <div class="flex flex-wrap items-center gap-2 mt-2.5">
+                <div class="appr-vin-links flex flex-wrap items-center gap-2 mt-2.5">
                   <button type="button" id="appr-view-decode" class="text-xs font-bold px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-950/60 text-blue-600 dark:text-blue-400 transition">View full VIN decode</button>
                   <button type="button" id="appr-oem-sticker" class="text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition">OEM Window Sticker</button>
                   <button type="button" id="appr-oem-brochure" class="text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition">OEM Brochure</button>
@@ -4237,7 +4237,7 @@
        mobile nav. Must load before dashboard.js. See docs/DEALEROS_UI_AUDIT.md. -->
   <script src="js/modules/workspace-registry.js?v=20260902_staging_repair_v1"></script>
   <script src="dashboard.js?v=20260902_staging_repair_v1"></script>
-  <script src="js/modules/dashboard-part2.js?v=20260903_studio_mobile_dark_v1"></script>
+  <script src="js/modules/dashboard-part2.js?v=20260903_studio_visual_elements_v1"></script>
   <script src="js/modules/dashboard-part3.js?v=20260814_v12"></script>
   <script src="js/modules/dashboard-part4.js?v=20260827_p4_crm_v1"></script>
   <script src="js/modules/dashboard-part5.js?v=20260826_hq_menu_v1"></script>
@@ -4253,7 +4253,7 @@
   <script src="js/modules/dashboard-part14.js?v=20260826_lb_dept_v1"></script>
   <script src="js/modules/dashboard-part15.js?v=20260826_cleanup_fullspan_v1&x=20260814_v12"></script>
   <script src="js/modules/dashboard-part16.js?v=20260814_v12"></script>
-  <script src="js/modules/dashboard-part17.js?v=20260902_preview_boot_v1"></script>
+  <script src="js/modules/dashboard-part17.js?v=20260903_website_light_theme_v1"></script>
   <script src="js/modules/dashboard-part18.js?v=20260902_staging_repair_v1"></script>
   <script src="js/modules/dashboard-part19.js?v=20260826_catalog_null_v1"></script>
   <script src="js/modules/dashboard-part20.js?v=20260824_inventory_accuracy_v1"></script>

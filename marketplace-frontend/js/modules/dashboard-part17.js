@@ -100,6 +100,14 @@ window.uploadPhotoBackground = uploadPhotoBackground;
 window.removePhotoBackground = removePhotoBackground;
 // ── Website manager: the public dealer site we host ──────────────────────────
 const SITE_BASE = (location.origin && !/^file/.test(location.origin)) ? `${location.origin}/site.html` : 'https://marketsync.link/site.html';
+const SITE_SHELL_VERSION = '20260903_public_site_routing_v1';
+function wsPublicSiteUrl(slug, params = {}) {
+  const url = new URL(SITE_BASE, location.href);
+  url.searchParams.set('d', String(slug || ''));
+  url.searchParams.set('site_v', SITE_SHELL_VERSION);
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, String(value));
+  return url.toString();
+}
 // The settings form body (shared by the Website → Settings tab and the modal).
 // "Connect your own domain" — one field, the exact DNS record, and a Check button.
 function customDomainCard(cfg) {
@@ -143,7 +151,7 @@ async function verifyDomain(btn) {
 }
 function siteSettingsFields(cfg) {
   const c = cfg.content || {};
-  const publicUrl = cfg.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(cfg.site_slug)}` : null;
+  const publicUrl = cfg.site_slug ? wsPublicSiteUrl(cfg.site_slug) : null;
   // Suggest the dealership name as the web address until one is set, so the field is
   // pre-filled (and saving it just keeps that address — no manual typing needed).
   const suggestedSlug = String(c.name || cfg.name || '').trim().toLowerCase()
@@ -382,10 +390,11 @@ function applyBuilderTheme() {
 
   const container = document.getElementById('page-content-website');
   const root = document.getElementById('website-root');
+  const studio = document.querySelector('.ws-studio-container');
   const body = document.body;
   const html = document.documentElement;
 
-  [container, root, body, html].forEach(el => {
+  [container, root, studio, body, html].forEach(el => {
     if (!el) return;
     el.setAttribute('data-ws-theme', effectiveTheme);
     el.classList.toggle('ws-theme-dark', effectiveTheme === 'dark');
@@ -1709,7 +1718,7 @@ function renderWebsitePage() {
   document.documentElement.classList.toggle('website-workspace-mode', isBuilder);
   document.body.classList.toggle('website-workspace-mode', isBuilder);
   const root = document.getElementById('website-root'); if (!root) return;
-  const url = __siteCfg?.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(__siteCfg.site_slug)}` : null;
+  const url = __siteCfg?.site_slug ? wsPublicSiteUrl(__siteCfg.site_slug) : null;
 
   if (isBuilder) {
     // The live canvas owns the only builder header. Rendering the Studio header
@@ -2018,7 +2027,7 @@ function wsOpenDraftPreview() {
   if (!slug) { showToast('Save a site address before opening preview', 'error'); return; }
   try { __draftPreviewToken = crypto.randomUUID(); } catch { __draftPreviewToken = Math.random().toString(36).slice(2); }
   __draftPreviewReady = false;
-  __draftPreviewWindow = window.open(`${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1&draft_preview=1&builder_v=20260902_preview_boot_v1`, '_blank');
+  __draftPreviewWindow = window.open(wsPublicSiteUrl(slug, { preview: 1, draft_preview: 1 }), '_blank');
   if (!__draftPreviewWindow) { showToast('Preview was blocked by the browser. Allow pop-ups for this site and try again.', 'error'); return; }
   setTimeout(() => { if (__draftPreviewWindow && !__draftPreviewWindow.closed) livePreviewPush(); }, 250);
 }
@@ -3052,7 +3061,7 @@ function renderLiveBuilder(body) {
         <!-- Center Full-Screen Live Web Canvas -->
         <main class="w-full h-full flex items-center justify-center p-0 overflow-hidden relative z-0">
           <div id="ws-frame-wrapper" data-ws-device="${__wsActiveDeviceView}" class="${__wsActiveDeviceView === 'mobile' ? 'w-[375px] h-[92%]' : (__wsActiveDeviceView === 'tablet' ? 'w-[768px] h-[92%]' : 'w-full h-full')} ${__wsActiveDeviceView === 'desktop' ? 'border-0' : 'rounded-3xl border-4 border-slate-500 dark:border-slate-700 shadow-2xl'} bg-white transition-all duration-300 overflow-hidden relative z-0">
-            <iframe id="ws-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1&builder_v=20260902_preview_boot_v1" onload="window.livePreviewLoaded && window.livePreviewLoaded()" class="w-full h-full border-0 pointer-events-auto" title="Live Website Canvas"></iframe>
+            <iframe id="ws-preview-frame" src="${wsPublicSiteUrl(slug, { preview: 1 })}" onload="window.livePreviewLoaded && window.livePreviewLoaded()" class="w-full h-full border-0 pointer-events-auto" title="Live Website Canvas"></iframe>
           </div>
         </main>
 
@@ -3090,6 +3099,10 @@ function renderLiveBuilder(body) {
     </div>
   `;
 
+  // The workbench is inserted after renderWebsitePage's initial theme pass.
+  // Theme the new owner immediately so its local CSS variables do not fall
+  // back to the dark defaults while the rest of the dashboard is light.
+  applyBuilderTheme();
   renderWsLayersTree();
 }
 function wsBlog() {
@@ -3142,7 +3155,7 @@ function wsSites() {
     <div><h2 class="text-xl font-black text-slate-950 dark:text-white">Sites</h2><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">The website connected to this dealership account.</p></div>
     <section class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
       <div class="h-28 bg-gradient-to-br from-indigo-700 via-blue-700 to-cyan-500 p-5 text-white flex items-end"><div><div class="text-[10px] font-black uppercase tracking-wider text-white/70">Dealership website</div><h3 class="text-xl font-black">${esc(c.name || c.dealer_name || 'Your dealership')}</h3></div></div>
-      <div class="p-5 flex items-start justify-between gap-4 flex-wrap"><div><div class="text-sm font-black text-slate-900 dark:text-white">${esc(address)}</div><div class="mt-1 text-xs text-slate-500">${__siteCfg?.site_published ? 'Published site' : 'Draft site'}${__siteCfg?.custom_domain_verified ? ' · Custom domain verified' : ''}</div></div><div class="flex gap-2 flex-wrap"><button type="button" onclick="openSetupModal('domain')" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">Configure</button><button type="button" onclick="openWebsiteBuilder()" class="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black">Open Builder</button>${slug ? `<a href="${SITE_BASE}?d=${encodeURIComponent(slug)}" target="_blank" rel="noopener noreferrer" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">View ↗</a>` : ''}</div></div>
+      <div class="p-5 flex items-start justify-between gap-4 flex-wrap"><div><div class="text-sm font-black text-slate-900 dark:text-white">${esc(address)}</div><div class="mt-1 text-xs text-slate-500">${__siteCfg?.site_published ? 'Published site' : 'Draft site'}${__siteCfg?.custom_domain_verified ? ' · Custom domain verified' : ''}</div></div><div class="flex gap-2 flex-wrap"><button type="button" onclick="openSetupModal('domain')" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">Configure</button><button type="button" onclick="openWebsiteBuilder()" class="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black">Open Builder</button>${slug ? `<a href="${wsPublicSiteUrl(slug)}" target="_blank" rel="noopener noreferrer" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">View ↗</a>` : ''}</div></div>
     </section>
   </div>`;
 }
@@ -3172,7 +3185,7 @@ function showWebsiteTemplateBrowser(template, payload) {
   overlay.id = 'ws-template-browser';
   overlay.className = 'fixed inset-0 z-[100000] bg-slate-950 flex flex-col';
   const pageOptions = [`<option value="home">Home</option>`, ...(payload.site.pages || []).map(page => `<option value="page:${esc(page.slug || slugifyTitle(page.title || page.id))}">${esc(page.title || 'Page')}</option>`), ...Object.entries(payload.site.builtins || {}).filter(([,page]) => page?.enabled !== false).map(([key,page]) => `<option value="${esc(key === 'contact' ? 'inquiry' : key)}">${esc(page.title || key.replace(/_/g,' '))}</option>`)].join('');
-  overlay.innerHTML = `<header class="ws-template-browser-bar"><div class="min-w-0"><span>Live theme preview</span><strong>${esc(template.name)}</strong></div><label>Page<select id="ws-template-preview-page">${pageOptions}</select></label><div class="ws-template-preview-devices"><button type="button" data-width="100%" aria-current="true">Desktop</button><button type="button" data-width="768px">Tablet</button><button type="button" data-width="390px">Mobile</button></div><button type="button" class="ws-template-preview-use">Use &amp; publish</button><button type="button" class="ws-template-preview-close" aria-label="Close preview">×</button></header><main class="ws-template-browser-stage"><div id="ws-template-preview-wrap"><iframe id="ws-template-preview-frame" src="${SITE_BASE}?d=${encodeURIComponent(slug)}&preview=1&template_preview=1&builder_v=20260902_preview_boot_v1" title="${esc(template.name)} full website preview"></iframe></div></main>`;
+  overlay.innerHTML = `<header class="ws-template-browser-bar"><div class="min-w-0"><span>Live theme preview</span><strong>${esc(template.name)}</strong></div><label>Page<select id="ws-template-preview-page">${pageOptions}</select></label><div class="ws-template-preview-devices"><button type="button" data-width="100%" aria-current="true">Desktop</button><button type="button" data-width="768px">Tablet</button><button type="button" data-width="390px">Mobile</button></div><button type="button" class="ws-template-preview-use">Use &amp; publish</button><button type="button" class="ws-template-preview-close" aria-label="Close preview">×</button></header><main class="ws-template-browser-stage"><div id="ws-template-preview-wrap"><iframe id="ws-template-preview-frame" src="${wsPublicSiteUrl(slug, { preview: 1, template_preview: 1 })}" title="${esc(template.name)} full website preview"></iframe></div></main>`;
   document.body.appendChild(overlay);
   const frame = overlay.querySelector('iframe'), select = overlay.querySelector('select'), wrap = overlay.querySelector('#ws-template-preview-wrap');
   let view = 'home';
@@ -4273,7 +4286,7 @@ async function publishSiteNow(msg) {
     if (r && r.site_slug) __siteCfg.site_slug = r.site_slug;
     __siteCfg.site_published = true;
     renderWebsitePage();
-    const url = __siteCfg.site_slug ? `${SITE_BASE}?d=${encodeURIComponent(__siteCfg.site_slug)}` : null;
+    const url = __siteCfg.site_slug ? wsPublicSiteUrl(__siteCfg.site_slug) : null;
     showToast(msg, 'success');
     if (url) showToast('Live at ' + url.replace(/^https?:\/\//, ''), 'info');
   } catch (e) { showToast(e.message || 'Could not publish the site', 'error'); }
