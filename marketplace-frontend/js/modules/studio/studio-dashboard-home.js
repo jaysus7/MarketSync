@@ -35,41 +35,51 @@
 
   global.mountStudioHomeInDashboard = mountStudioHomeInDashboard;
 
-  function wrapOpenClose() {
-    const open = global.openMarketSyncStudio;
-    if (typeof open !== 'function' || open.__dashHomeWrapped) return false;
-    if (open === global.ensureOpenMarketSyncStudio) return false;
-    global.__msOpenStudioReal = open;
-    global.openMarketSyncStudio = async function (designId, initialOptions) {
-      const opts = initialOptions || {};
-      const stayInDashboard = !designId && !opts.bypassHome && !opts.formatKey && !opts.templateKey && !opts.scene;
-      if (stayInDashboard && (studioPageRoot() || document.getElementById('studio-root'))) {
-        return mountStudioHomeInDashboard();
-      }
-      return open.apply(this, arguments);
-    };
-    global.openMarketSyncStudio.__dashHomeWrapped = true;
+  let realOpen = null;
+  let realClose = null;
 
-    const close = global.closeMarketSyncStudio;
-    if (typeof close === 'function' && !close.__dashHomeWrapped) {
-      global.closeMarketSyncStudio = function () {
-        close.apply(this, arguments);
-        const studioPage = document.querySelector('[data-page-content="studio"]');
-        if (studioPage && !studioPage.classList.contains('hidden')) mountStudioHomeInDashboard();
-      };
-      global.closeMarketSyncStudio.__dashHomeWrapped = true;
-    }
-    return true;
+  function isPlaceholder(fn) {
+    return !fn || fn === global.ensureOpenMarketSyncStudio || fn.__dashHomeWrapped;
   }
 
-  const boot = setInterval(function () {
-    if (wrapOpenClose()) {
-      const page = document.querySelector('[data-page-content="studio"]');
-      if (page && !page.classList.contains('hidden') && !document.getElementById('ms-studio-master-modal')) {
-        mountStudioHomeInDashboard();
-      }
-      clearInterval(boot);
+  async function wrappedOpen(designId, initialOptions) {
+    const opts = initialOptions || {};
+    const stayInDashboard = !designId && !opts.bypassHome && !opts.formatKey && !opts.templateKey && !opts.scene;
+    if (stayInDashboard && (studioPageRoot() || document.getElementById('studio-root'))) {
+      return mountStudioHomeInDashboard();
     }
-  }, 250);
-  setTimeout(function () { clearInterval(boot); }, 20000);
+    if (typeof realOpen === 'function') return realOpen.apply(this, arguments);
+    if (typeof global.ensureOpenMarketSyncStudio === 'function') return global.ensureOpenMarketSyncStudio(designId, opts);
+  }
+  wrappedOpen.__dashHomeWrapped = true;
+
+  function wrappedClose() {
+    if (typeof realClose === 'function') realClose.apply(this, arguments);
+    const studioPage = document.querySelector('[data-page-content="studio"]');
+    if (studioPage && !studioPage.classList.contains('hidden')) mountStudioHomeInDashboard();
+  }
+  wrappedClose.__dashHomeWrapped = true;
+
+  function installHook(name, getter, setter) {
+    try {
+      Object.defineProperty(global, name, {
+        configurable: true,
+        enumerable: true,
+        get: getter,
+        set: setter
+      });
+    } catch (e) {}
+  }
+
+  const existingOpen = global.openMarketSyncStudio;
+  if (!isPlaceholder(existingOpen)) realOpen = existingOpen;
+  installHook('openMarketSyncStudio', function () { return wrappedOpen; }, function (fn) {
+    if (!isPlaceholder(fn)) realOpen = fn;
+  });
+
+  const existingClose = global.closeMarketSyncStudio;
+  if (typeof existingClose === 'function') realClose = existingClose;
+  installHook('closeMarketSyncStudio', function () { return wrappedClose; }, function (fn) {
+    if (typeof fn === 'function' && fn !== wrappedClose) realClose = fn;
+  });
 })(window);
