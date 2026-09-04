@@ -7,43 +7,17 @@
     document.head.appendChild(style);
   }
   style.textContent = `
-    #website-root,
-    .website-studio-shell,
-    .website-studio-view,
-    [data-page-content="website"],
-    [data-page-content="marketing"] {
-      overflow: visible !important;
-      max-height: none !important;
-      padding-bottom: 148px !important;
+    #website-root, .website-studio-view, [data-page-content="website"], [data-page-content="marketing"] {
+      overflow: visible !important; max-height: none !important; padding-bottom: 148px !important;
     }
-    .website-studio-view p,
-    .website-studio-view h2,
-    .website-studio-view h3,
-    .website-studio-view .truncate {
-      white-space: normal !important;
-      overflow: visible !important;
-      text-overflow: unset !important;
-      max-width: 100% !important;
+    .website-studio-view p, .website-studio-view h2, .website-studio-view .truncate {
+      white-space: normal !important; overflow: visible !important;
     }
-    .website-studio-tabs,
-    [role="tablist"] {
-      flex-wrap: wrap !important;
-      overflow: visible !important;
-      row-gap: 6px !important;
-    }
+    .website-studio-tabs, [role="tablist"] { flex-wrap: wrap !important; overflow: visible !important; }
     @media (max-width: 767px) {
-      header.ms-chrome-glass,
-      body > header.fixed { overflow: hidden !important; }
       #dashboard-brand img { height: 28px !important; }
       #header-clock-date, #header-shift-timer-display { display: none !important; }
-      #demo-mode-badge {
-        top: auto !important; bottom: 148px !important; left: auto !important;
-        right: 16px !important; transform: none !important;
-      }
-      #page-content, [data-page-content] {
-        overflow: visible !important;
-        padding-bottom: 148px !important;
-      }
+      #demo-mode-badge { top: auto !important; bottom: 148px !important; left: auto !important; right: 16px !important; transform: none !important; }
     }
   `;
 
@@ -66,6 +40,7 @@
       'js/modules/studio/studio-template-previews.js?v=20260904_tmpl_preview_v4',
       'js/modules/studio/studio-page-thumbs.js?v=20260904_white_canvas_v2',
       'js/modules/studio/studio-context-toolbar.js?v=20260904_ctx_toolbar_v2',
+      'js/modules/studio/studio-template-hydrate.js?v=20260904_tmpl_hydrate_v1',
       'js/modules/inventory-actions-upgrade.js?v=20260904_inv_actions_v1',
       'js/modules/inventory-site-bridge.js?v=20260904_inv_bridge_v1',
       'js/modules/service-checkin-upgrade.js?v=20260904_checkin_v1',
