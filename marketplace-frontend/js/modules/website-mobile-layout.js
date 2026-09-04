@@ -19,6 +19,7 @@
       'js/modules/studio/studio-context-toolbar.js?v=20260904_ctx_toolbar_v2',
       'js/modules/studio/studio-template-hydrate.js?v=20260904_tmpl_hydrate_v1',
       'js/modules/studio/studio-shape-drop.js?v=20260904_shape_drop_v1',
+      'js/modules/studio/studio-elements-drop.js?v=20260904_el_drop_v2',
       'js/modules/studio/studio-live-motion.js?v=20260904_live_motion_v1',
       'js/modules/studio/studio-chart-data.js?v=20260904_chart_data_v1',
       'js/modules/inventory-actions-upgrade.js?v=20260904_inv_actions_v1',
