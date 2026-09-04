@@ -19,6 +19,7 @@ function siteContent(d) {
     seo_title: b.seo_title || null,
     seo_description: b.seo_description || null,
     hero_banner_url: b.hero_banner_url || null,
+    photo_background_url: d.photo_background_url || b.photo_background_url || null,
     phone: b.phone || null,
     email: b.email || null,
     address: b.address || null,
