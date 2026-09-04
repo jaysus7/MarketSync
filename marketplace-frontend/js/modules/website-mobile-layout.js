@@ -16,6 +16,18 @@
     #svc-checkin-modal #svc-in-date,
     #svc-checkin-modal #svc-in-tag { min-height:44px; height:44px; line-height:20px; }
     #svc-checkin-modal svg[id^="svc-walk-"] { height: 7rem; }
+    @media (max-width: 720px) {
+      .rounded-xl.border.p-3\\.5.flex.items-center.justify-between,
+      .rounded-xl.border.flex.items-center.justify-between.gap-3 {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+      }
+      .rounded-xl.border .flex.items-center.gap-2.shrink-0 {
+        width: 100% !important;
+        flex-wrap: wrap !important;
+      }
+    }
   `;
     document.head.appendChild(style);
   }
@@ -45,7 +57,8 @@
       'js/modules/service-checkin-video.js?v=20260904_checkin_vid_v1',
       'js/modules/video-teleprompter-policy.js?v=20260904_tp_policy_v1',
       'js/modules/camera-native.js?v=20260904_cam_native_v1',
-      'js/modules/calendar-booking-upgrade.js?v=20260904_cal_book_v1'
+      'js/modules/calendar-booking-upgrade.js?v=20260904_cal_book_v1',
+      'js/modules/service-ro-mobile.js?v=20260904_ro_mobile_v1'
     ].forEach(load);
   }
 })();
