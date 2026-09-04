@@ -76,7 +76,7 @@
   if (window.__studioPageThumbsLoaded) return;
   window.__studioPageThumbsLoaded = true;
   [
-    '/js/modules/studio/studio-dashboard-home.js?v=20260904_home_dash_v3',
+    '/js/modules/studio/studio-dashboard-home.js?v=20260904_home_dash_v4',
     '/js/modules/studio/studio-page-thumbs.js?v=20260904_white_canvas_v1',
     '/js/modules/studio/studio-elements-upgrade.js?v=20260904_elements_v1',
     '/js/modules/studio/studio-unify-elements.js?v=20260904_unify_v1'
