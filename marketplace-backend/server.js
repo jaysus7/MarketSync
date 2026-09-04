@@ -10,6 +10,7 @@ import { requireAuth } from './middleware.js'
 import { requireFeature } from './access.js'
 import { registerRoutes as registerBlog } from './routes/blog.js'
 import { registerRoutes as registerDashboard } from './routes/dashboard.js'
+import { registerStudioMedia } from './routes/studio-media.js'
 import { registerRoutes as registerInventory } from './routes/inventory.js'
 import { registerRoutes as registerListings } from './routes/listings.js'
 import { registerRoutes as registerBilling } from './routes/billing.js'
@@ -154,6 +155,7 @@ registerProfile(app)
 registerAccessContext(app)
 registerBlog(app)
 registerDashboard(app)
+registerStudioMedia(app)
 registerInventory(app)
 registerListings(app)
 registerFeeds(app)
