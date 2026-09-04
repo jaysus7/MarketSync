@@ -1,9 +1,9 @@
 /* Keep Website Studio template cards fully visible on phones. */
 (function () {
-  if (document.getElementById('website-mobile-layout-css')) return;
-  const style = document.createElement('style');
-  style.id = 'website-mobile-layout-css';
-  style.textContent = `
+  if (!document.getElementById('website-mobile-layout-css')) {
+    const style = document.createElement('style');
+    style.id = 'website-mobile-layout-css';
+    style.textContent = `
     #website-root, #page-content, [data-page-content], .website-studio-shell, .website-studio-view {
       overflow: visible !important;
       max-height: none !important;
@@ -45,5 +45,12 @@
       }
     }
   `;
-  document.head.appendChild(style);
+    document.head.appendChild(style);
+  }
+  if (!window.__headerWeatherLoaded) {
+    window.__headerWeatherLoaded = true;
+    var s = document.createElement('script');
+    s.src = 'js/modules/header-weather.js?v=20260904_wx_v1';
+    document.head.appendChild(s);
+  }
 })();
