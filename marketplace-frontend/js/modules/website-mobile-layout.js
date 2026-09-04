@@ -13,6 +13,12 @@
     @media (min-width: 640px) { .website-studio-view .grid { grid-template-columns:1fr 1fr !important; } }
     .website-studio-view article img, .website-studio-view article .h-36 { max-height:160px !important; height:160px !important; width:100% !important; object-fit:cover !important; }
     @media (max-width: 420px) { .website-studio-view article .flex.gap-2 { flex-direction:column; } }
+    #svc-checkin-modal #svc-in-date,
+    #svc-checkin-modal #svc-in-tag {
+      min-height: 44px;
+      height: 44px;
+      line-height: 20px;
+    }
   `;
     document.head.appendChild(style);
   }
@@ -36,7 +42,8 @@
       'js/modules/studio/studio-template-previews.js?v=20260904_tmpl_preview_v4',
       'js/modules/studio/studio-page-thumbs.js?v=20260904_white_canvas_v2',
       'js/modules/studio/studio-context-toolbar.js?v=20260904_ctx_toolbar_v2',
-      'js/modules/inventory-actions-upgrade.js?v=20260904_inv_actions_v1'
+      'js/modules/inventory-actions-upgrade.js?v=20260904_inv_actions_v1',
+      'js/modules/service-checkin-upgrade.js?v=20260904_checkin_v1'
     ].forEach(load);
   }
 })();
