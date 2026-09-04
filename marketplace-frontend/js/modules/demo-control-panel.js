@@ -257,6 +257,6 @@
   if (window.__websiteMobileLayoutLoaded) return;
   window.__websiteMobileLayoutLoaded = true;
   var s = document.createElement('script');
-  s.src = 'js/modules/website-mobile-layout.js?v=20260904_ws_mobile_v1';
+  s.src = 'js/modules/website-mobile-layout.js?v=20260904_ws_mobile_v8';
   document.head.appendChild(s);
 })();
