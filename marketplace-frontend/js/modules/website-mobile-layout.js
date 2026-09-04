@@ -14,11 +14,7 @@
     .website-studio-view article img, .website-studio-view article .h-36 { max-height:160px !important; height:160px !important; width:100% !important; object-fit:cover !important; }
     @media (max-width: 420px) { .website-studio-view article .flex.gap-2 { flex-direction:column; } }
     #svc-checkin-modal #svc-in-date,
-    #svc-checkin-modal #svc-in-tag {
-      min-height: 44px;
-      height: 44px;
-      line-height: 20px;
-    }
+    #svc-checkin-modal #svc-in-tag { min-height:44px; height:44px; line-height:20px; }
     #svc-checkin-modal svg[id^="svc-walk-"] { height: 7rem; }
   `;
     document.head.appendChild(style);
@@ -45,7 +41,8 @@
       'js/modules/studio/studio-context-toolbar.js?v=20260904_ctx_toolbar_v2',
       'js/modules/inventory-actions-upgrade.js?v=20260904_inv_actions_v1',
       'js/modules/service-checkin-upgrade.js?v=20260904_checkin_v1',
-      'js/modules/service-walkaround-cars.js?v=20260904_cars_v1'
+      'js/modules/service-walkaround-cars.js?v=20260904_cars_v1',
+      'js/modules/service-checkin-video.js?v=20260904_checkin_vid_v1'
     ].forEach(load);
   }
 })();
