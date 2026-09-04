@@ -1,4 +1,4 @@
-/* Website mobile layout + always-on dashboard companion loader. */
+/* Always-on dashboard companion loader. */
 (function () {
   function load(src) {
     if (document.querySelector('script[src="' + src + '"]')) return;
@@ -20,6 +20,7 @@
       'js/modules/studio/studio-template-hydrate.js?v=20260904_tmpl_hydrate_v1',
       'js/modules/studio/studio-shape-drop.js?v=20260904_shape_drop_v1',
       'js/modules/studio/studio-live-motion.js?v=20260904_live_motion_v1',
+      'js/modules/studio/studio-chart-data.js?v=20260904_chart_data_v1',
       'js/modules/inventory-actions-upgrade.js?v=20260904_inv_actions_v1',
       'js/modules/inventory-site-bridge.js?v=20260904_inv_bridge_v1',
       'js/modules/service-checkin-upgrade.js?v=20260904_checkin_v1',
