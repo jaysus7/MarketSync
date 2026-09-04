@@ -78,4 +78,7 @@
   var s = document.createElement('script');
   s.src = '/js/modules/studio/studio-page-thumbs.js?v=20260904_white_canvas_v1';
   document.head.appendChild(s);
+  var u = document.createElement('script');
+  u.src = '/js/modules/studio/studio-elements-upgrade.js?v=20260904_elements_v1';
+  document.head.appendChild(u);
 })();
