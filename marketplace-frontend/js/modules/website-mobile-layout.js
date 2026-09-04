@@ -16,7 +16,6 @@
     #svc-checkin-modal #svc-in-date,
     #svc-checkin-modal #svc-in-tag { min-height:44px; height:44px; line-height:20px; }
     #svc-checkin-modal svg[id^="svc-walk-"] { height: 7rem; }
-    #vid-tp-toggle-btn { display: none !important; }
   `;
     document.head.appendChild(style);
   }
