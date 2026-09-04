@@ -1,4 +1,4 @@
-/* Website mobile layout + always-on studio companion loader. */
+/* Website mobile layout + always-on dashboard companion loader. */
 (function () {
   if (!document.getElementById('website-mobile-layout-css')) {
     const style = document.createElement('style');
@@ -35,7 +35,8 @@
       'js/modules/studio/studio-dashboard-home.js?v=20260904_home_dash_v4',
       'js/modules/studio/studio-template-previews.js?v=20260904_tmpl_preview_v4',
       'js/modules/studio/studio-page-thumbs.js?v=20260904_white_canvas_v2',
-      'js/modules/studio/studio-context-toolbar.js?v=20260904_ctx_toolbar_v2'
+      'js/modules/studio/studio-context-toolbar.js?v=20260904_ctx_toolbar_v2',
+      'js/modules/inventory-actions-upgrade.js?v=20260904_inv_actions_v1'
     ].forEach(load);
   }
 })();
