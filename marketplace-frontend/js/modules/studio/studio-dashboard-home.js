@@ -1,85 +1,94 @@
-/* Creative Home (projects, templates, sizes) lives on the dashboard page.
-   The canvas editor still opens as the full-screen overlay. */
+/* Creative Home stays on the dashboard page. Editor stays a full-screen overlay. */
 (function (global) {
   'use strict';
 
-  function studioPageRoot() {
-    const page = document.querySelector('[data-page-content="studio"]');
-    if (!page || page.classList.contains('hidden')) return null;
+  function studioPage() {
+    return document.querySelector('[data-page-content="studio"]');
+  }
+
+  function studioRoot() {
     return document.getElementById('studio-root');
   }
 
-  function stripStandaloneChrome(root) {
-    const standalone = root.querySelector('button[onclick="closeMarketSyncStudio()"]');
-    if (standalone) {
-      const bar = standalone.closest('header');
-      if (bar) bar.remove();
-    }
-    if (!root.querySelector('[data-studio-dash-create]')) {
-      const wrap = document.createElement('div');
-      wrap.className = 'flex items-center justify-between gap-3 mb-2';
-      wrap.innerHTML = '<div class="text-xs font-black uppercase tracking-[.16em] text-indigo-500">Design</div><button type="button" data-studio-dash-create class="whitespace-nowrap rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500" onclick="openStudioSizePicker(\'new\')">+ Create design</button>';
-      root.prepend(wrap);
+  function showStudioDashboardPage() {
+    const page = studioPage();
+    if (!page) return;
+    document.querySelectorAll('[data-page-content]').forEach(function (el) {
+      if (el !== page) el.classList.add('hidden');
+    });
+    page.classList.remove('hidden');
+    if (typeof global.switchPage === 'function') {
+      try { global.switchPage('studio'); } catch (e) {}
     }
   }
 
-  async function mountStudioHomeInDashboard() {
-    const root = studioPageRoot() || document.getElementById('studio-root');
-    if (!root || typeof renderStudioHome !== 'function') return false;
-    document.getElementById('ms-studio-master-modal')?.remove();
+  function stripStudioChrome(root) {
+    if (!root) return;
+    root.querySelectorAll('button[onclick="closeMarketSyncStudio()"]').forEach(function (btn) {
+      const bar = btn.closest('header');
+      if (bar) bar.remove();
+      else btn.remove();
+    });
+    const homeMain = root.querySelector('main.studio-home');
+    if (homeMain) {
+      homeMain.classList.remove('flex-1');
+      homeMain.style.overflow = 'visible';
+      homeMain.style.background = 'transparent';
+    }
+  }
+
+  function isHomeShell(node) {
+    if (!node || !node.querySelector) return false;
+    return !!node.querySelector('.studio-home-hero, .studio-home');
+  }
+
+  function isEditorShell(node) {
+    if (!node || !node.querySelector) return false;
+    return !!(node.querySelector('[data-studio-tool], #studio-tool-panel, canvas.upper-canvas, .studio-editor-shell'));
+  }
+
+  function moveHomeToDashboard(source) {
+    const root = studioRoot();
+    if (!root || !source || source === root) return false;
+    if (!isHomeShell(source) || isEditorShell(source)) return false;
+    showStudioDashboardPage();
+    root.innerHTML = '';
+    while (source.firstChild) root.appendChild(source.firstChild);
+    if (source.id === 'ms-studio-master-modal') source.remove();
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+    stripStudioChrome(root);
     global.__studioAdapter = null;
-    await renderStudioHome(root);
-    stripStandaloneChrome(root);
     return true;
+  }
+
+  async function mountStudioHomeInDashboard() {
+    showStudioDashboardPage();
+    const root = studioRoot();
+    if (!root) return false;
+    const modal = document.getElementById('ms-studio-master-modal');
+    if (modal && isHomeShell(modal) && !isEditorShell(modal)) {
+      return moveHomeToDashboard(modal);
+    }
+    if (typeof global.renderStudioHome === 'function') {
+      await global.renderStudioHome(root);
+      stripStudioChrome(root);
+      return true;
+    }
+    return false;
   }
 
   global.mountStudioHomeInDashboard = mountStudioHomeInDashboard;
 
-  let realOpen = null;
-  let realClose = null;
-
-  function isPlaceholder(fn) {
-    return !fn || fn === global.ensureOpenMarketSyncStudio || fn.__dashHomeWrapped;
-  }
-
-  async function wrappedOpen(designId, initialOptions) {
-    const opts = initialOptions || {};
-    const stayInDashboard = !designId && !opts.bypassHome && !opts.formatKey && !opts.templateKey && !opts.scene;
-    if (stayInDashboard && (studioPageRoot() || document.getElementById('studio-root'))) {
-      return mountStudioHomeInDashboard();
-    }
-    if (typeof realOpen === 'function') return realOpen.apply(this, arguments);
-    if (typeof global.ensureOpenMarketSyncStudio === 'function') return global.ensureOpenMarketSyncStudio(designId, opts);
-  }
-  wrappedOpen.__dashHomeWrapped = true;
-
-  function wrappedClose() {
-    if (typeof realClose === 'function') realClose.apply(this, arguments);
-    const studioPage = document.querySelector('[data-page-content="studio"]');
-    if (studioPage && !studioPage.classList.contains('hidden')) mountStudioHomeInDashboard();
-  }
-  wrappedClose.__dashHomeWrapped = true;
-
-  function installHook(name, getter, setter) {
-    try {
-      Object.defineProperty(global, name, {
-        configurable: true,
-        enumerable: true,
-        get: getter,
-        set: setter
-      });
-    } catch (e) {}
-  }
-
-  const existingOpen = global.openMarketSyncStudio;
-  if (!isPlaceholder(existingOpen)) realOpen = existingOpen;
-  installHook('openMarketSyncStudio', function () { return wrappedOpen; }, function (fn) {
-    if (!isPlaceholder(fn)) realOpen = fn;
+  const obs = new MutationObserver(function () {
+    const modal = document.getElementById('ms-studio-master-modal');
+    if (modal && isHomeShell(modal) && !isEditorShell(modal)) moveHomeToDashboard(modal);
   });
+  obs.observe(document.documentElement, { childList: true, subtree: true });
 
-  const existingClose = global.closeMarketSyncStudio;
-  if (typeof existingClose === 'function') realClose = existingClose;
-  installHook('closeMarketSyncStudio', function () { return wrappedClose; }, function (fn) {
-    if (typeof fn === 'function' && fn !== wrappedClose) realClose = fn;
-  });
+  const poll = setInterval(function () {
+    const modal = document.getElementById('ms-studio-master-modal');
+    if (modal && isHomeShell(modal) && !isEditorShell(modal)) moveHomeToDashboard(modal);
+  }, 200);
+  setTimeout(function () { clearInterval(poll); }, 30000);
 })(window);
