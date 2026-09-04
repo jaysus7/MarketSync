@@ -92,7 +92,7 @@
       'js/modules/inventory-actions-upgrade.js?v=20260904_inv_actions_v1',
       'js/modules/service-checkin-upgrade.js?v=20260904_checkin_v1',
       'js/modules/service-walkaround-cars.js?v=20260904_cars_v1',
-      'js/modules/service-checkin-video.js?v=20260904_checkin_vid_v1',
+      'js/modules/service-checkin-video.js?v=20260904_checkin_vid_v2',
       'js/modules/video-teleprompter-policy.js?v=20260904_tp_policy_v1',
       'js/modules/camera-native.js?v=20260904_cam_native_v1',
       'js/modules/calendar-booking-upgrade.js?v=20260904_cal_book_v1',
