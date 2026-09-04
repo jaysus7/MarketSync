@@ -1,4 +1,4 @@
-/* Collection variants + true-size cards. Uses the studio catalog closure, not a missing window copy. */
+/* Collection variants + true-size cards. */
 (function (global) {
   'use strict';
 
@@ -21,12 +21,7 @@
   }
 
   function silhouette(kind, bg, accent) {
-    const sizes = {
-      card: 'width:42%;height:58%;',
-      letter: 'width:28%;height:88%;',
-      story: 'width:22%;height:92%;',
-      wide: 'width:48%;height:40%;'
-    };
+    const sizes = { card: 'width:42%;height:58%;', letter: 'width:28%;height:88%;', story: 'width:22%;height:92%;', wide: 'width:48%;height:40%;' };
     const lines = kind === 'letter'
       ? '<span style="top:12%;height:8%;background:' + accent + ';opacity:1"></span><span style="top:28%;height:4%"></span><span style="top:36%;height:4%"></span><span style="top:44%;height:4%"></span>'
       : kind === 'story'
@@ -35,6 +30,57 @@
           ? '<span style="top:18%;left:8%;width:40%;height:64%;background:' + accent + ';opacity:1"></span><span style="top:28%;left:52%;width:40%;height:8%"></span>'
           : '<span style="top:0;left:0;width:32%;height:100%;background:' + accent + ';opacity:1;right:auto"></span><span style="top:18%;left:40%;width:50%;height:10%"></span><span style="top:36%;left:40%;width:36%;height:6%"></span>';
     return '<div class="studio-set-silhouette" style="' + sizes[kind] + 'color:#334155;background:' + bg + '">' + lines + '</div>';
+  }
+
+  function hookCatalog() {
+    if (typeof global.loadStudioTemplateCatalog !== 'function' || global.loadStudioTemplateCatalog.__msExpose) return;
+    const orig = global.loadStudioTemplateCatalog;
+    global.loadStudioTemplateCatalog = function () {
+      return Promise.resolve(orig.apply(this, arguments)).then(function (cat) {
+        if (cat && typeof cat === 'object') global.STUDIO_TEMPLATES_CATALOG = cat;
+        return cat;
+      });
+    };
+    global.loadStudioTemplateCatalog.__msExpose = true;
+    Promise.resolve(orig()).then(function (cat) {
+      if (cat && typeof cat === 'object') global.STUDIO_TEMPLATES_CATALOG = cat;
+    }).catch(function () {});
+  }
+
+  function cardFromTemplate(template) {
+    const key = encodeURIComponent(template.template_key || '');
+    const w = Number(template.width || (template.scene && template.scene.width) || 1080);
+    const h = Number(template.height || (template.scene && template.scene.height) || 1080);
+    const preview = typeof global.templatePreviewMarkup === 'function' ? global.templatePreviewMarkup(template) : '';
+    const label = (template.format_key || '') + ' · ' + w + '×' + h;
+    return '<button type="button" onclick="startStudioTemplate(decodeURIComponent(\'' + key + '\'))" class="studio-home-template-card group min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white text-left shadow-sm dark:bg-slate-900">' +
+      '<div class="studio-template-stage relative">' + preview + '<span class="studio-template-kicker">' + w + ' × ' + h + '</span></div>' +
+      '<div class="p-3"><div class="truncate text-sm font-black">' + String(template.name || template.format_key || 'Template') + '</div>' +
+      '<div class="mt-1 truncate text-xs text-slate-500">' + label + '</div></div></button>';
+  }
+
+  function cardsFromWindowCatalog() {
+    const catalog = global.STUDIO_TEMPLATES_CATALOG || {};
+    const setFilter = global.__studioHomeDesignSet || 'all';
+    const formatFilter = global.__studioHomeFormat || 'all';
+    const query = String(global.__studioHomeTemplateQuery || '').trim().toLowerCase();
+    let list = Object.keys(catalog).map(function (key) { return catalog[key]; }).filter(Boolean);
+    if (setFilter && setFilter !== 'all') {
+      list = list.filter(function (template) {
+        return template.design_set === setFilter || String(template.template_key || '').indexOf('design_set_' + setFilter + '_') === 0;
+      });
+    }
+    if (formatFilter && formatFilter !== 'all') {
+      list = list.filter(function (template) { return template.format_key === formatFilter; });
+    }
+    if (query) {
+      list = list.filter(function (template) {
+        return ((template.name || '') + ' ' + (template.desc || '') + ' ' + (template.format_key || '')).toLowerCase().indexOf(query) >= 0;
+      });
+    }
+    if (!list.length) return '<div class="col-span-full rounded-3xl border border-dashed border-slate-300 px-6 py-12 text-center"><h3 class="font-black">No matching templates</h3></div>';
+    const heading = setFilter !== 'all' ? '<div class="studio-template-cat">' + setFilter.replace(/_/g, ' ') + ' · ' + list.length + ' sizes</div>' : '';
+    return heading + list.map(cardFromTemplate).join('');
   }
 
   function wrapPreview() {
@@ -57,9 +103,13 @@
   function wrapCards() {
     if (typeof global.studioHomeTemplateCards !== 'function' || global.studioHomeTemplateCards.__msLimit) return;
     const orig = global.studioHomeTemplateCards;
-    if (orig.__sized) return;
+    const usesClosure = String(orig).indexOf('STUDIO_TEMPLATES_CATALOG') >= 0;
     global.studioHomeTemplateCards = function () {
-      return orig(240);
+      if (usesClosure) {
+        const html = orig(240);
+        if (html && html.indexOf('No matching') === -1 && html.indexOf('0 sizes') === -1) return html;
+      }
+      return cardsFromWindowCatalog();
     };
     global.studioHomeTemplateCards.__msLimit = true;
     if (typeof global.renderStudioHomeTemplateGrid === 'function') global.renderStudioHomeTemplateGrid();
@@ -69,28 +119,20 @@
     if (typeof global.renderStudioHomeDesignSets !== 'function' || global.renderStudioHomeDesignSets.__msSilhouettes) return;
     global.renderStudioHomeDesignSets = function () {
       const sets = global.STUDIO_DESIGN_SETS || [];
-      const formats = global.STUDIO_SOCIAL_FORMATS || {};
-      const count = Object.keys(formats).length || 23;
       return sets.map(function (set) {
         const paper = set.id === 'paper_ledger' ? '#fffaf3' : '#fff';
         return '<button type="button" data-studio-home-set="' + set.id + '" onclick="studioFilterHomeDesignSet(\'' + set.id + '\')" class="studio-home-set-card group overflow-hidden rounded-3xl border border-slate-200/80 bg-white text-left shadow-sm dark:border-white/10 dark:bg-slate-900">' +
           '<div class="relative h-48 overflow-hidden" style="background:linear-gradient(135deg,' + set.background + ',' + set.accent + ')">' +
-          '<div class="studio-set-montage">' +
-            silhouette('letter', paper, set.accent) +
-            silhouette('card', paper, set.accent) +
-            silhouette('story', paper, set.accent) +
-            silhouette('wide', paper, set.accent) +
-          '</div></div>' +
+          '<div class="studio-set-montage">' + silhouette('letter', paper, set.accent) + silhouette('card', paper, set.accent) + silhouette('story', paper, set.accent) + silhouette('wide', paper, set.accent) + '</div></div>' +
           '<div class="p-4"><div class="text-[10px] font-black uppercase tracking-[.16em] text-indigo-600">' + set.eyebrow + '</div>' +
           '<h3 class="mt-1 text-lg font-black">' + set.name + '</h3>' +
           '<p class="mt-1 text-xs text-slate-500">' + set.description + '</p>' +
-          '<div class="mt-3 text-xs font-black text-indigo-700">' + count + ' matching sizes →</div></div></button>';
+          '<div class="mt-3 text-xs font-black text-indigo-700">23 matching sizes →</div></div></button>';
       }).join('');
     };
     global.renderStudioHomeDesignSets.__msSilhouettes = true;
     const first = document.querySelector('[data-studio-home-set]');
-    const host = first && first.parentElement;
-    if (host) host.innerHTML = global.renderStudioHomeDesignSets();
+    if (first && first.parentElement) first.parentElement.innerHTML = global.renderStudioHomeDesignSets();
   }
 
   function wrapFilter() {
@@ -106,7 +148,7 @@
   }
 
   function exposeSets() {
-    if (!global.STUDIO_DESIGN_SETS && document.querySelector('[data-studio-home-set]')) {
+    if (!global.STUDIO_DESIGN_SETS) {
       global.STUDIO_DESIGN_SETS = [
         { id: 'midnight_luxe', name: 'Midnight Luxe', eyebrow: 'Premium collection', description: 'Deep navy, warm gold and editorial spacing.', background: '#07111F', accent: '#D4A94F' },
         { id: 'electric_current', name: 'Electric Current', eyebrow: 'Modern collection', description: 'Electric blue, cyan highlights and energetic framing.', background: '#102A56', accent: '#2DD4BF' },
@@ -119,6 +161,7 @@
   const boot = setInterval(function () {
     injectCss();
     exposeSets();
+    hookCatalog();
     wrapPreview();
     wrapCards();
     wrapSets();
