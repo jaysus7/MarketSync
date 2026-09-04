@@ -13,37 +13,56 @@
   };
 
   function injectCss() {
-    if (document.getElementById('header-weather-css')) return;
-    const style = document.createElement('style');
-    style.id = 'header-weather-css';
+    var style = document.getElementById('header-weather-css');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'header-weather-css';
+      document.head.appendChild(style);
+    }
     style.textContent = `
       #header-weather-chip{
-        display:inline-flex;align-items:center;gap:6px;
-        padding:6px 10px;border-radius:12px;
+        display:inline-flex;align-items:center;gap:4px;
+        padding:4px 8px;border-radius:10px;
         border:1px solid rgba(148,163,184,.35);
         background:rgba(241,245,249,.92);
         color:#0f172a;font:800 11px/1.1 -apple-system,Segoe UI,sans-serif;
         white-space:nowrap;flex-shrink:0;
       }
       .dark #header-weather-chip{background:rgba(15,23,42,.9);color:#e2e8f0;border-color:rgba(51,65,85,.9)}
-      #header-weather-chip .wx-temp{font-variant-numeric:tabular-nums}
       @media (max-width: 767px) {
-        #header-shift-clock-chip{
-          max-width:min(58vw, 220px);
-          overflow:hidden;
-          gap:6px !important;
-          padding-left:8px !important;
-          padding-right:8px !important;
+        header.ms-chrome-glass,
+        body > header.fixed {
+          overflow: hidden !important;
+          padding-top: 8px !important;
+          padding-bottom: 8px !important;
+          padding-left: 10px !important;
+          padding-right: 10px !important;
+          gap: 6px !important;
         }
-        #header-clock-date{min-width:0 !important;font-size:10px !important}
-        #header-clock-time{min-width:5.2ch !important}
-        #header-shift-timer-display{display:none !important}
-        #header-shift-clock-chip > .h-3\\.5,
-        #header-shift-clock-chip .w-px{display:none !important}
-        #header-weather-chip .wx-place{display:none}
+        header.ms-chrome-glass > div:first-child {
+          min-width: 0 !important;
+          flex: 1 1 auto !important;
+          overflow: hidden !important;
+          gap: 6px !important;
+        }
+        #dashboard-brand img { height: 28px !important; width: auto !important; }
+        #header-clock-date { display: none !important; }
+        #header-clock-display { min-width: 0 !important; }
+        #header-clock-time { min-width: 0 !important; font-size: 12px !important; }
+        #header-shift-timer-display { display: none !important; }
+        #header-shift-clock-chip {
+          max-width: none !important;
+          overflow: visible !important;
+          gap: 4px !important;
+          padding: 4px 8px !important;
+        }
+        #header-shift-clock-chip .w-px,
+        #header-shift-clock-chip > .h-3\\.5 { display: none !important; }
+        #header-weather-chip { padding: 4px 6px; }
+        #header-weather-chip .wx-place { display: none; }
+        #ui-role-pill { display: none !important; }
       }
     `;
-    document.head.appendChild(style);
   }
 
   function compactClock() {
@@ -77,9 +96,8 @@
     const code = Number(data.weather_code);
     const pair = WMO[code] || WMO[Math.floor(code)] || ['Local', '🌤️'];
     const temp = Math.round(Number(data.temperature_2m));
-    const unit = data.unit || '°F';
     const place = data.place ? '<span class="wx-place">' + data.place + '</span>' : '';
-    chip.innerHTML = '<span>' + pair[1] + '</span><span class="wx-temp">' + temp + unit + '</span>' + place;
+    chip.innerHTML = '<span>' + pair[1] + '</span><span class="wx-temp">' + temp + '°</span>' + place;
     chip.title = pair[0] + (data.place ? ' · ' + data.place : '');
   }
 
@@ -99,11 +117,7 @@
       const res = await fetch('https://ipwho.is/');
       const json = await res.json();
       if (!json || !json.success) return { lat: 39.41, lon: -74.36, place: 'Brigantine' };
-      return {
-        lat: json.latitude,
-        lon: json.longitude,
-        place: json.city || json.region || ''
-      };
+      return { lat: json.latitude, lon: json.longitude, place: json.city || json.region || '' };
     } catch (e) {
       return { lat: 39.41, lon: -74.36, place: 'Brigantine' };
     }
@@ -121,7 +135,6 @@
     renderWeather(chip, {
       temperature_2m: current.temperature_2m,
       weather_code: current.weather_code,
-      unit: '°',
       place: loc.place
     });
   }
