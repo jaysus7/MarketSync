@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../../shared.js'
 import { rateLimit } from '../../security.js'
-import { loadPublicInventory } from './site-public-inventory.js'
+import { loadPublicInventory } from '../site-public-inventory.js'
 
 const SITE_COLS = 'id, name, branding, site_published, site_slug, custom_domain, city, province, postal_code, website_url, photo_background_url'
 
