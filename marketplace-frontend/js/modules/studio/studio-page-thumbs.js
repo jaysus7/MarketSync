@@ -1,22 +1,55 @@
-/* White canvas defaults + page thumbnails (add / duplicate) in the editor footer. */
+/* White canvas defaults + page thumbnails. Flatten extra artboard frames. */
 (function (global) {
   const WHITE = '#FFFFFF';
 
   function injectStyle() {
-    if (document.getElementById('studio-page-thumb-css')) return;
-    const style = document.createElement('style');
-    style.id = 'studio-page-thumb-css';
+    let style = document.getElementById('studio-page-thumb-css');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'studio-page-thumb-css';
+      document.head.appendChild(style);
+    }
     style.textContent = `
       .studio-page-thumbs{display:flex;align-items:center;gap:8px;flex-shrink:0}
-      .studio-page-thumb{display:flex;flex-direction:column;align-items:center;gap:4px;background:transparent;border:0;padding:0;cursor:pointer;color:#334155;font:800 10px/1.1 -apple-system,Segoe UI,sans-serif}
-      .studio-page-thumb-canvas{width:42px;height:42px;border-radius:8px;background:#fff;border:1px solid #cbd5e1;box-shadow:0 1px 2px rgba(15,23,42,.08);position:relative}
+      .studio-page-thumb{display:flex;flex-direction:column;align-items:center;gap:4px;background:transparent;border:0;padding:0;cursor:pointer;color:#cbd5e1;font:800 10px/1.1 -apple-system,Segoe UI,sans-serif}
+      .studio-page-thumb-canvas{width:42px;height:42px;border-radius:8px;background:#fff;border:1px solid #cbd5e1;position:relative}
       .studio-page-thumb-canvas.is-wide{width:52px;height:28px}
       .studio-page-thumb-canvas.is-tall{width:28px;height:52px}
       .studio-page-thumb-canvas.is-add:after{content:'+';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:800 18px/1 inherit;color:#64748b}
       .studio-page-thumb-canvas.is-dup:after{content:'';position:absolute;right:6px;bottom:6px;width:16px;height:16px;border:1.5px solid #64748b;border-radius:3px;background:#fff;box-shadow:-4px -4px 0 -1.5px #fff,-4px -4px 0 0 #64748b}
-      #studio-artboard-container,#studio-canvas-host,canvas.lower-canvas{background:#fff !important}
+      #studio-artboard-container{
+        background:#fff !important;
+        border:0 !important;
+        border-radius:0 !important;
+        box-shadow:0 18px 50px rgba(0,0,0,.28) !important;
+        ring:none !important;
+        outline:none !important;
+      }
+      #studio-canvas-host,canvas.lower-canvas,canvas.upper-canvas{
+        background:#fff !important;
+      }
+      #studio-safe-guides > div{
+        box-shadow:none !important;
+        border-width:1px !important;
+        border-color:rgba(37,99,235,.35) !important;
+        border-radius:0 !important;
+      }
+      #studio-safe-guides span{display:none !important}
     `;
-    document.head.appendChild(style);
+  }
+
+  function flattenSafeGuides() {
+    const guide = document.querySelector('#studio-safe-guides > div');
+    if (guide) {
+      guide.style.boxShadow = 'none';
+      guide.style.borderRadius = '0';
+    }
+    const artboard = document.getElementById('studio-artboard-container');
+    if (artboard) {
+      artboard.style.background = WHITE;
+      artboard.style.border = '0';
+      artboard.style.borderRadius = '0';
+    }
   }
 
   function aspectClass() {
@@ -42,7 +75,6 @@
       return;
     }
     if (!existingAdd) return;
-    injectStyle();
     const wrap = document.createElement('div');
     wrap.className = 'studio-page-thumbs';
     const shape = aspectClass();
@@ -100,6 +132,8 @@
   }
 
   const boot = setInterval(() => {
+    injectStyle();
+    flattenSafeGuides();
     wrapFns();
     if (document.getElementById('ms-studio-master-modal')) {
       bleachEmptyNavy();
@@ -107,5 +141,5 @@
     }
   }, 400);
   setTimeout(() => clearInterval(boot), 25000);
-  document.addEventListener('click', () => setTimeout(() => { wrapFns(); paintFooter(); }, 50));
+  document.addEventListener('click', () => setTimeout(() => { injectStyle(); flattenSafeGuides(); wrapFns(); paintFooter(); }, 50));
 })(window);
