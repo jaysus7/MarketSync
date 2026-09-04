@@ -75,10 +75,9 @@
 (function loadStudioPageThumbs() {
   if (window.__studioPageThumbsLoaded) return;
   window.__studioPageThumbsLoaded = true;
-  var s = document.createElement('script');
-  s.src = '/js/modules/studio/studio-page-thumbs.js?v=20260904_white_canvas_v1';
-  document.head.appendChild(s);
-  var u = document.createElement('script');
-  u.src = '/js/modules/studio/studio-elements-upgrade.js?v=20260904_elements_v1';
-  document.head.appendChild(u);
+  ['/js/modules/studio/studio-page-thumbs.js?v=20260904_white_canvas_v1','/js/modules/studio/studio-elements-upgrade.js?v=20260904_elements_v1','/js/modules/studio/studio-unify-elements.js?v=20260904_unify_v1'].forEach(function (src) {
+    var s = document.createElement('script');
+    s.src = src;
+    document.head.appendChild(s);
+  });
 })();
