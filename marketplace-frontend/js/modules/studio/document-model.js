@@ -14,7 +14,7 @@
     const existingPages = Array.isArray(input.pages) ? input.pages : [];
     const pages = existingPages.length ? existingPages : [{
       id: id('page'), name: 'Page 1', width: Number(input.width) || 1080, height: Number(input.height) || 1080,
-      background: clone(input.background || { color: '#0F172A' }), objects: legacyObjects
+      background: clone(input.background || { color: '#FFFFFF' }), objects: legacyObjects
     }];
     const first = pages[0];
     return {
@@ -29,7 +29,7 @@
         format_key: page.format_key || input.format_key || options.formatKey || 'square',
         variation_of: page.variation_of || null,
         width: Number(page.width || input.width) || 1080, height: Number(page.height || input.height) || 1080,
-        background: clone(page.background || input.background || { color: '#0F172A' }),
+        background: clone(page.background || input.background || { color: '#FFFFFF' }),
         objects: Array.isArray(page.objects) ? clone(page.objects) : [],
         duration_ms: Math.max(500, Number(page.duration_ms) || 5000),
         transition: page.transition || 'none'
@@ -59,7 +59,7 @@
   window.msStudioAddPage = function (document, options = {}) {
     const doc = window.msStudioNormalizeDocument(document);
     const index = doc.pages.length + 1;
-    doc.pages.push({ id: id('page'), name: options.name || `Page ${index}`, format_key: options.format_key || doc.format_key, variation_of: options.variation_of || null, width: options.width || doc.width, height: options.height || doc.height, background: { color: options.background || '#0F172A' }, objects: [], duration_ms: Math.max(500, Number(options.duration_ms) || 5000), transition: options.transition || 'none' });
+    doc.pages.push({ id: id('page'), name: options.name || `Page ${index}`, format_key: options.format_key || doc.format_key, variation_of: options.variation_of || null, width: options.width || doc.width, height: options.height || doc.height, background: { color: options.background || '#FFFFFF' }, objects: [], duration_ms: Math.max(500, Number(options.duration_ms) || 5000), transition: options.transition || 'none' });
     return doc;
   };
 
@@ -70,4 +70,12 @@
   window.msStudioCreateRepeater = function (name = 'Repeater', collection = 'inventory', template = {}) {
     return { id: id('repeater'), name, type: 'repeater', collection, item_key: 'id', template: clone(template), items: [] };
   };
+})();
+
+(function loadStudioPageThumbs() {
+  if (window.__studioPageThumbsLoaded) return;
+  window.__studioPageThumbsLoaded = true;
+  var s = document.createElement('script');
+  s.src = '/js/modules/studio/studio-page-thumbs.js?v=20260904_white_canvas_v1';
+  document.head.appendChild(s);
 })();
