@@ -31,41 +31,18 @@
       overflow: visible !important;
       row-gap: 6px !important;
     }
-    .website-studio-view .grid {
-      display: grid !important;
-      grid-template-columns: 1fr !important;
-      gap: 16px !important;
-    }
-    @media (min-width: 640px) {
-      .website-studio-view .grid { grid-template-columns: 1fr 1fr !important; }
-    }
     @media (max-width: 767px) {
       header.ms-chrome-glass,
-      body > header.fixed {
-        overflow: hidden !important;
-        padding-left: 10px !important;
-        padding-right: 10px !important;
-      }
+      body > header.fixed { overflow: hidden !important; }
       #dashboard-brand img { height: 28px !important; }
-      #header-clock-date { display: none !important; }
-      #header-shift-timer-display { display: none !important; }
-      #header-clock-display { min-width: 0 !important; }
+      #header-clock-date, #header-shift-timer-display { display: none !important; }
       #demo-mode-badge {
-        top: auto !important;
-        bottom: 148px !important;
-        left: auto !important;
-        right: 16px !important;
-        transform: none !important;
+        top: auto !important; bottom: 148px !important; left: auto !important;
+        right: 16px !important; transform: none !important;
       }
       #page-content, [data-page-content] {
         overflow: visible !important;
-        max-height: none !important;
         padding-bottom: 148px !important;
-      }
-      [data-page-content] .overflow-hidden { overflow: visible !important; }
-      [data-page-content] .overflow-x-auto {
-        overflow-x: auto !important;
-        overflow-y: visible !important;
       }
     }
   `;
@@ -90,6 +67,7 @@
       'js/modules/studio/studio-page-thumbs.js?v=20260904_white_canvas_v2',
       'js/modules/studio/studio-context-toolbar.js?v=20260904_ctx_toolbar_v2',
       'js/modules/inventory-actions-upgrade.js?v=20260904_inv_actions_v1',
+      'js/modules/inventory-site-bridge.js?v=20260904_inv_bridge_v1',
       'js/modules/service-checkin-upgrade.js?v=20260904_checkin_v1',
       'js/modules/service-walkaround-cars.js?v=20260904_cars_v1',
       'js/modules/service-checkin-video.js?v=20260904_checkin_vid_v2',
