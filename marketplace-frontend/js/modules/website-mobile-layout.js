@@ -24,6 +24,7 @@
       'js/modules/studio/studio-chart-data.js?v=20260904_chart_data_v1',
       'js/modules/studio/studio-remove-bg.js?v=20260904_rmbg_v1',
       'js/modules/inventory-background-fix.js?v=20260904_pbg_v1',
+      'js/modules/website-stock-cards.js?v=20260904_lotbg_v1',
       'js/modules/inventory-actions-upgrade.js?v=20260904_inv_actions_v1',
       'js/modules/inventory-site-bridge.js?v=20260904_inv_bridge_v1',
       'js/modules/service-checkin-upgrade.js?v=20260904_checkin_v1',
