@@ -19,6 +19,7 @@
       height: 44px;
       line-height: 20px;
     }
+    #svc-checkin-modal svg[id^="svc-walk-"] { height: 7rem; }
   `;
     document.head.appendChild(style);
   }
@@ -43,7 +44,8 @@
       'js/modules/studio/studio-page-thumbs.js?v=20260904_white_canvas_v2',
       'js/modules/studio/studio-context-toolbar.js?v=20260904_ctx_toolbar_v2',
       'js/modules/inventory-actions-upgrade.js?v=20260904_inv_actions_v1',
-      'js/modules/service-checkin-upgrade.js?v=20260904_checkin_v1'
+      'js/modules/service-checkin-upgrade.js?v=20260904_checkin_v1',
+      'js/modules/service-walkaround-cars.js?v=20260904_cars_v1'
     ].forEach(load);
   }
 })();
