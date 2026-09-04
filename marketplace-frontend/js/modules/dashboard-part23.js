@@ -368,12 +368,15 @@ function updateAiDockVisibility() {
   const attach = document.getElementById('ai-dock-attach');
   const canImportCommission = profileContext?.workspace !== 'saas_admin' && ['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(profileContext?.role);
   if (attach) attach.classList.toggle('hidden', !canImportCommission);
+  const reports = document.getElementById('ai-dock-reports');
+  if (reports) reports.classList.toggle('hidden', !canImportCommission);
 }
 window.msAskOpen = openAiDock;
 
 function renderAiDockMessages() {
   const box = document.getElementById('ai-dock-messages');
   if (!box) return;
+  if (__aiDockReportsMode) { renderAiDockReportBrowser(); return; }
   box.innerHTML = '';
   if (!aiDockMessages.length) {
     const intro = document.createElement('div');
@@ -393,6 +396,7 @@ function renderAiDockMessages() {
       `<button type="button" data-ai-fill="What's the status on " class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 text-slate-700 dark:text-slate-200 transition">Look up a customer…</button>` +
       `<button type="button" data-ai-fill="What's the story on stock #" class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 text-slate-700 dark:text-slate-200 transition">Look up a vehicle…</button>` +
       (isMgr ? `<button type="button" data-ai-attach="1" class="text-xs bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800 rounded-full px-3 py-1.5 text-indigo-700 dark:text-indigo-300 transition">Build commission plan from a document…</button>` : '') +
+      (isMgr ? `<button type="button" data-ai-reports="1" class="text-xs bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800 rounded-full px-3 py-1.5 text-indigo-700 dark:text-indigo-300 transition">Browse live reports…</button>` : '') +
       '</div>';
     box.appendChild(intro);
   }
@@ -438,6 +442,62 @@ function renderAiDockMessages() {
   }
   box.scrollTop = box.scrollHeight;
 }
+
+// Reports inside MarketSync Intelligence use the same catalogue and execution
+// endpoint as the full Reports page. There is no assistant-only copy of report
+// definitions or formulas.
+let __aiDockReportsMode = false;
+let __aiDockReportCatalog = [];
+let __aiDockReportSearch = '';
+
+function aiDockReportValue(group) {
+  if (!group || group.value == null) return '—';
+  if (group.unit === 'money') return new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(group.value);
+  if (group.unit === 'percent') return `${group.value}%`;
+  return Number.isFinite(Number(group.value)) ? Number(group.value).toLocaleString() : String(group.value);
+}
+
+function paintAiDockReportCatalog() {
+  const box = document.getElementById('ai-dock-messages'); if (!box || !__aiDockReportsMode) return;
+  const q = __aiDockReportSearch.toLowerCase();
+  const reports = __aiDockReportCatalog.filter(r => !q || [r.name, r.department, ...(r.metric_ids || []), ...(r.default_dimensions || [])].join(' ').toLowerCase().includes(q));
+  box.innerHTML = `<div class="space-y-3"><div class="flex items-center justify-between gap-2"><div><div class="font-black text-slate-900 dark:text-white">Live reports</div><div class="text-[11px] text-slate-500 dark:text-slate-400">Same definitions and live data as Reports</div></div><button type="button" data-ai-report-chat="1" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">Back to chat</button></div><input id="ai-report-search" value="${esc(__aiDockReportSearch)}" placeholder="Search 1,400 reports…" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"><div class="space-y-2">${reports.slice(0, 40).map(r => `<button type="button" data-ai-report-id="${esc(r.id)}" class="w-full text-left rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 hover:border-indigo-400"><span class="block text-[10px] uppercase tracking-wider font-black text-indigo-600 dark:text-indigo-400">${esc(r.department)}</span><strong class="block mt-1 text-xs leading-snug text-slate-900 dark:text-white">${esc(r.name)}</strong><span class="block mt-1 text-[11px] text-slate-500 dark:text-slate-400">${esc((r.default_dimensions || []).map(rptLabel).join(' × ') || 'Store total')}</span></button>`).join('')}</div>${reports.length > 40 ? `<div class="text-center text-[11px] text-slate-400">Showing 40 of ${reports.length}. Search to narrow.</div>` : ''}</div>`;
+  const search = document.getElementById('ai-report-search');
+  search?.addEventListener('input', () => { __aiDockReportSearch = search.value; paintAiDockReportCatalog(); const next = document.getElementById('ai-report-search'); next?.focus(); if (next) next.setSelectionRange(next.value.length, next.value.length); });
+}
+
+async function renderAiDockReportBrowser() {
+  const box = document.getElementById('ai-dock-messages'); if (!box) return;
+  if (__aiDockReportCatalog.length) { paintAiDockReportCatalog(); return; }
+  box.innerHTML = '<div class="py-16 text-center text-xs text-slate-400">Loading live report catalogue…</div>';
+  try {
+    const data = await apiGetJson('/reporting/reports', { retries: 1 });
+    if (!__aiDockReportsMode) return;
+    __aiDockReportCatalog = data.reports || [];
+    paintAiDockReportCatalog();
+  } catch (error) {
+    box.innerHTML = `<div class="rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/30 p-3 text-xs text-rose-700 dark:text-rose-300">${esc(error.message || 'Could not load reports.')}</div>`;
+  }
+}
+
+async function runAiDockReport(id) {
+  const box = document.getElementById('ai-dock-messages'); if (!box) return;
+  box.innerHTML = '<div class="py-16 text-center text-xs text-slate-400">Running against live dealership data…</div>';
+  try {
+    const data = await apiSendJson(`/reporting/reports/${encodeURIComponent(id)}/run`, 'POST', {});
+    const report = data.report || {};
+    box.innerHTML = `<div class="space-y-3"><button type="button" data-ai-report-back="1" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">← Report library</button><div><div class="text-[10px] uppercase tracking-wider font-black text-indigo-600 dark:text-indigo-400">${esc(report.department || '')}</div><h3 class="mt-1 font-black text-slate-900 dark:text-white leading-snug">${esc(report.name || id)}</h3><p class="mt-1 text-xs text-slate-500 dark:text-slate-400">${esc(report.description || '')}</p></div>${(data.results || []).map(result => { const groups = result.groups || []; const first = groups[0]; return `<div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4"><div class="text-[11px] uppercase tracking-wider font-bold text-slate-500">${esc(rptLabel(result.metric_id))}</div><div class="mt-1 text-3xl font-black text-slate-950 dark:text-white tabular-nums">${groups.length === 1 ? esc(aiDockReportValue(first)) : `${groups.length} groups`}</div><div class="mt-1 text-[11px] text-slate-500">${first?.available === false ? 'Required source data is not recorded yet.' : `${Number(first?.sample_size || 0).toLocaleString()} source records`}</div></div>`; }).join('')}<button type="button" data-ai-report-full="${esc(id)}" class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-3 py-2.5">Open full report</button></div>`;
+  } catch (error) {
+    box.innerHTML = `<div class="space-y-3"><button type="button" data-ai-report-back="1" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">← Report library</button><div class="rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/30 p-3 text-xs text-rose-700 dark:text-rose-300">${esc(error.message || 'Could not run report.')}</div></div>`;
+  }
+}
+
+function openAiDockReports() {
+  if (!['DEALER_ADMIN', 'OWNER', 'MANAGER', 'ACCOUNTING'].includes(profileContext?.role)) return;
+  __aiDockReportsMode = true;
+  openAiDock();
+}
+window.openAiDockReports = openAiDockReports;
 
 let __mammothPromise = null;
 function loadMammothJs() {
@@ -615,6 +675,7 @@ function toggleAiDock() {
 window.toggleAiDock = toggleAiDock;
 
 function clearAiDockChat() {
+  __aiDockReportsMode = false;
   aiDockMessages = [];
   aiDockPendingCommissionImport = null;
   setAiDockFileStatus('');
@@ -631,6 +692,7 @@ function initAiDock() {
   btn.addEventListener('click', openAiDock);
   document.getElementById('ai-dock-close')?.addEventListener('click', closeAiDock);
   document.getElementById('ai-dock-clear')?.addEventListener('click', () => {
+    __aiDockReportsMode = false;
     aiDockMessages = [];
     aiDockPendingCommissionImport = null;
     setAiDockFileStatus('');
@@ -663,6 +725,14 @@ function initAiDock() {
     input.style.height = Math.min(input.scrollHeight, 112) + 'px';
   });
   document.getElementById('ai-dock-messages')?.addEventListener('click', (e) => {
+    const reports = e.target.closest('[data-ai-reports]');
+    if (reports) { openAiDockReports(); return; }
+    const reportId = e.target.closest('[data-ai-report-id]')?.getAttribute('data-ai-report-id');
+    if (reportId) { runAiDockReport(reportId); return; }
+    if (e.target.closest('[data-ai-report-back]')) { paintAiDockReportCatalog(); return; }
+    if (e.target.closest('[data-ai-report-chat]')) { __aiDockReportsMode = false; renderAiDockMessages(); return; }
+    const fullId = e.target.closest('[data-ai-report-full]')?.getAttribute('data-ai-report-full');
+    if (fullId) { closeAiDock(); if (typeof switchPage === 'function') switchPage('reports'); setTimeout(() => openSemanticReport(fullId), 80); return; }
     const chip = e.target.closest('[data-ai-suggest]');
     if (chip) { sendAiDock(chip.getAttribute('data-ai-suggest')); return; }
     // Fill chips pre-load the input (e.g. customer lookup needs a name typed in).

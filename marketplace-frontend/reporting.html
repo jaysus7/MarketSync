@@ -8,7 +8,7 @@
   <meta name="robots" content="noindex">
   <link rel="icon" type="image/png" href="/assets/brand/favicon.png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="/css/reporting-intelligence.css">
+  <link rel="stylesheet" href="/css/reporting-intelligence.css?v=20260903_reports_v2">
 </head>
 <body class="ri-body" data-ri-mode="hub">
   <div class="ri-bar">
@@ -19,23 +19,29 @@
     <div class="ri-top">
       <div>
         <div class="ri-kicker">Reporting intelligence</div>
-        <h1>Department reports</h1>
-        <p class="ri-lead">One page per department — not one page per report. Open a department, pick a definition, or build your own in Report Lab.</p>
+        <h1>All reports</h1>
+        <p class="ri-lead">Open the authenticated report library to search every department or run any report on its own live page.</p>
       </div>
     </div>
     <nav class="ri-nav">
-      <a href="/reporting.html" class="ri-btn-p">Departments</a>
+      <a href="/dashboard.html#/p/reports" class="ri-btn-p">Open all reports</a>
       <a href="/report-lab.html">Report Lab</a>
     </nav>
     <div class="ri-grid" id="ri-dept-grid"></div>
   </main>
   <script>
     (function () {
-      var dept = new URLSearchParams(location.search).get('dept')
+      var params = new URLSearchParams(location.search)
+      var report = params.get('report')
+      var dept = params.get('dept')
+      if (report) {
+        location.replace('/dashboard.html?report=' + encodeURIComponent(report) + '#/p/reports')
+        return
+      }
       if (dept) document.body.setAttribute('data-ri-mode', 'dept')
     })()
   </script>
-  <script src="/js/modules/reporting-intelligence-ui.js"></script>
+  <script src="/js/modules/reporting-intelligence-ui.js?v=20260903_reports_v2"></script>
   <template id="ri-dept-shell">
     <div class="ri-top">
       <div>

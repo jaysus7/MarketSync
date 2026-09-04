@@ -46,22 +46,27 @@ window.aiLoadPresetDoc = aiLoadPresetDoc;
 window.aiProcessCommissionDocument = aiProcessCommissionDocument;
 window.syncParsedPlanToAllEngines = syncParsedPlanToAllEngines;
 
-// Reports page — stacks the three manager reports + the sold-per-rep report and
-// the custom report builder. Called from switchPage('reports').
-function loadReports() {
-  renderReportTabs();
-  if (__rptTab === 'overview') {
-    loadExecutiveRoi();
-    loadInventoryMix();
-    loadSalesAnalysis();
-    loadMarketingRoi();
-    loadReportBuilder();
-  } else {
-    loadDeepReport(__rptTab);
-  }
-}
-
-// ── Deep reports hub ─────────────────────────────────────────────────────────
+// ── Canonical reporting library ──────────────────────────────────────────────
+// One catalogue powers All Reports, every department view, every individual
+// report URL, Report Lab, and Intelligence. The older operational endpoints are
+// retained below for exports/backwards compatibility, but no longer form a
+// second report navigation system.
+const REPORT_DEPARTMENTS = [
+  ['all', 'All reports'], ['executive', 'Executive'], ['sales', 'Sales'],
+  ['inventory', 'Inventory'], ['crm', 'CRM'], ['marketing', 'Marketing'],
+  ['website', 'Website'], ['fni', 'F&I'], ['service', 'Service'],
+  ['parts', 'Parts'], ['accounting', 'Accounting'], ['people', 'People'],
+  ['customers', 'Customers'], ['communications', 'Communications'],
+  ['automations', 'Automations & AI']
+];
+const REPORT_DEPT_FROM_LEGACY = {
+  overview: 'all', sales: 'sales', fni: 'fni', leads: 'crm', reps: 'people',
+  appraisals: 'inventory', appointments: 'service', service: 'service',
+  esign: 'fni', marketing: 'marketing', activity: 'crm', customers: 'customers'
+};
+let __reportingDept = 'all';
+let __reportingSearch = '';
+let __reportingRequest = 0;
 let __rptTab = 'overview';
 let __rptRange = '90';
 const REPORT_DEFS = [
@@ -78,41 +83,130 @@ const REPORT_DEFS = [
   { key: 'activity', label: 'Activity' },
   { key: 'customers', label: 'Customers' },
 ];
+function reportDeptLabel(id) { return REPORT_DEPARTMENTS.find(d => d[0] === id)?.[1] || rptLabel(id); }
+function reportingSetUrl({ reportId = null, department = null } = {}) {
+  try {
+    const url = new URL(location.href);
+    if (reportId) url.searchParams.set('report', reportId); else url.searchParams.delete('report');
+    if (department && department !== 'all') url.searchParams.set('report_department', department); else url.searchParams.delete('report_department');
+    history.replaceState({ ...(history.state || {}), msPage: 'reports' }, '', url.pathname + (url.search ? url.search : '') + (url.hash || '#/p/reports'));
+  } catch {}
+}
 function renderReportTabs() {
   const host = document.getElementById('reports-tabs'); if (!host) return;
-  const ms = document.documentElement.getAttribute('data-dash-mode') === 'marketsync';
-  const defs = ms ? REPORT_DEFS.filter(d => MS_REPORT_KEYS.has(d.key)) : REPORT_DEFS;
-  // MarketSync mode has no Overview (it's vehicle-heavy) — default to Leads.
-  if (ms && !MS_REPORT_KEYS.has(__rptTab)) __rptTab = 'leads';
-  host.innerHTML = defs.map(d => `<button onclick="reportsTab('${d.key}')" class="px-3 py-1.5 text-xs font-bold rounded-lg border transition ${__rptTab === d.key ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}">${d.label}</button>`).join('');
+  host.className = 'flex gap-1.5 overflow-x-auto pb-2 -mb-2';
+  host.innerHTML = REPORT_DEPARTMENTS.map(([id, label]) => `<button type="button" onclick="reportingSelectDepartment('${id}')" class="whitespace-nowrap px-3 py-2 text-xs font-bold rounded-xl border transition ${__reportingDept === id ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-indigo-400'}">${esc(label)}</button>`).join('');
 }
 function reportsTab(key) {
-  __rptTab = key;
-  renderReportTabs();
-  const overview = document.getElementById('reports-overview');
-  const dyn = document.getElementById('reports-dynamic');
-  if (key === 'overview') {
-    overview?.classList.remove('hidden'); dyn?.classList.add('hidden');
-    loadExecutiveRoi(); loadInventoryMix(); loadSalesAnalysis(); loadMarketingRoi(); loadReportBuilder();
-  } else {
-    overview?.classList.add('hidden'); dyn?.classList.remove('hidden');
-    loadDeepReport(key);
-  }
+  reportingSelectDepartment(REPORT_DEPT_FROM_LEGACY[key] || key || 'all');
 }
 function rptRange(v) { __rptRange = v; loadDeepReport(__rptTab); }
 window.reportsTab = reportsTab;
 window.rptRange = rptRange;
+
+function reportingFormatValue(group) {
+  if (!group || group.value == null) return '—';
+  if (group.unit === 'money') return new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 }).format(group.value);
+  if (group.unit === 'percent') return `${group.value}%`;
+  return Number.isFinite(Number(group.value)) ? Number(group.value).toLocaleString() : esc(String(group.value));
+}
+function reportingResultHtml(result) {
+  const groups = result?.groups || [];
+  if (!groups.length) return '<div class="p-5 rounded-xl border border-slate-200 dark:border-slate-800 text-sm text-slate-500 dark:text-slate-400">No records were found in this report window.</div>';
+  if (groups.length === 1 && !Object.keys(groups[0].dimensions || {}).length) {
+    const group = groups[0];
+    return `<div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"><div class="text-4xl font-black text-slate-950 dark:text-white tabular-nums">${reportingFormatValue(group)}</div><div class="mt-2 text-xs text-slate-500 dark:text-slate-400">${group.available === false ? esc(group.note || 'Required source data is not recorded yet.') : `${Number(group.sample_size || 0).toLocaleString()} source records`}</div></div>`;
+  }
+  const dims = [...new Set(groups.flatMap(g => Object.keys(g.dimensions || {})))];
+  return `<div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"><table class="w-full min-w-[520px] text-sm"><thead><tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-200 dark:border-slate-800">${dims.map(d => `<th class="px-4 py-3">${esc(rptLabel(d))}</th>`).join('')}<th class="px-4 py-3 text-right">Value</th><th class="px-4 py-3 text-right">Sample</th></tr></thead><tbody>${groups.slice(0, 250).map(g => `<tr class="border-b border-slate-100 dark:border-slate-800/70">${dims.map(d => `<td class="px-4 py-3 text-slate-700 dark:text-slate-200">${esc(g.dimensions?.[d] ?? '—')}</td>`).join('')}<td class="px-4 py-3 text-right font-bold text-slate-950 dark:text-white">${reportingFormatValue(g)}</td><td class="px-4 py-3 text-right text-slate-500">${Number(g.sample_size || 0).toLocaleString()}</td></tr>`).join('')}</tbody></table></div>`;
+}
+function reportingSourcesHtml(status = {}) {
+  const entries = Object.entries(status);
+  if (!entries.length) return '';
+  return `<div class="flex flex-wrap gap-2 mt-4">${entries.map(([source, s]) => `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold ${s.available ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'}">${esc(rptLabel(source))}: ${s.available ? `${Number(s.rows || 0).toLocaleString()} live rows` : 'not recorded'}</span>`).join('')}</div>`;
+}
+async function openSemanticReport(id, options = {}) {
+  if (!id) return;
+  const host = document.getElementById('reports-dynamic'); if (!host) return;
+  if (!options.keepUrl) reportingSetUrl({ reportId: id, department: __reportingDept });
+  host.innerHTML = '<div class="py-20 text-center text-sm text-slate-400">Running report against live dealership data…</div>';
+  try {
+    const data = await apiSendJson(`/reporting/reports/${encodeURIComponent(id)}/run`, 'POST', {});
+    const report = data.report || {};
+    host.innerHTML = `<div class="space-y-5">
+      <div class="flex items-start justify-between gap-4 flex-wrap"><div class="min-w-0"><button type="button" onclick="closeSemanticReport()" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">← ${esc(reportDeptLabel(report.department))} reports</button><h2 class="mt-2 text-2xl font-black text-slate-950 dark:text-white">${esc(report.name || id)}</h2><p class="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-3xl">${esc(report.description || '')}</p></div><button type="button" onclick="navigator.clipboard?.writeText(location.href);showToast('Report link copied','success')" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300">Copy link</button></div>
+      <div class="flex flex-wrap gap-2 text-xs"><span class="px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold">${esc((report.metric_ids || []).map(rptLabel).join(', '))}</span><span class="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${esc((report.default_dimensions || []).map(rptLabel).join(' × ') || 'Store total')}</span><span class="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">Last ${Number(data.plan?.date_range?.days || report.date_range?.days || 30)} days</span></div>
+      ${(data.results || []).map(result => `<section class="space-y-3"><div><div class="text-sm font-black text-slate-900 dark:text-white">${esc(rptLabel(result.metric_id))}</div><div class="text-xs text-slate-400 font-mono mt-0.5">${esc(result.formula || '')}</div></div>${reportingResultHtml(result)}</section>`).join('')}
+      ${reportingSourcesHtml(data.source_status)}
+      <p class="text-xs text-slate-400">Results are aggregated on the server and tenant-scoped to this dealership. Missing source fields are shown as unavailable—not as zero.</p>
+    </div>`;
+  } catch (error) {
+    host.innerHTML = `<div class="rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/30 p-5"><button type="button" onclick="closeSemanticReport()" class="text-xs font-bold text-rose-700 dark:text-rose-300">← Back to reports</button><p class="mt-3 text-sm text-rose-700 dark:text-rose-300">${esc(error.message || 'Could not run this report.')}</p></div>`;
+  }
+}
+window.openSemanticReport = openSemanticReport;
+
+function closeSemanticReport() {
+  reportingSetUrl({ department: __reportingDept });
+  loadReportLibraryPage();
+}
+window.closeSemanticReport = closeSemanticReport;
+
+async function loadReportLibraryPage() {
+  const host = document.getElementById('reports-dynamic'); if (!host) return;
+  document.getElementById('reports-overview')?.classList.add('hidden');
+  host.classList.remove('hidden');
+  renderReportTabs();
+  const requestId = ++__reportingRequest;
+  host.innerHTML = '<div class="py-20 text-center text-sm text-slate-400">Loading the report catalogue…</div>';
+  try {
+    const qs = new URLSearchParams();
+    if (__reportingDept !== 'all') qs.set('department', __reportingDept);
+    if (__reportingSearch) qs.set('search', __reportingSearch);
+    const data = await apiGetJson(`/reporting/reports${qs.toString() ? '?' + qs : ''}`, { retries: 1 });
+    if (requestId !== __reportingRequest) return;
+    const reports = data.reports || [];
+    host.innerHTML = `<div class="space-y-5"><div class="flex items-center justify-between gap-3 flex-wrap"><div><h2 class="text-xl font-black text-slate-950 dark:text-white">${esc(reportDeptLabel(__reportingDept))}</h2><p class="text-sm text-slate-500 dark:text-slate-400">${Number(data.count || 0).toLocaleString()} specific reports with their own live view.</p></div><a href="/report-lab.html" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold">Build a custom report</a></div>
+      <label class="relative block"><span class="sr-only">Search reports</span><input id="report-library-search" value="${esc(__reportingSearch)}" placeholder="Search by report, metric, department, model, salesperson…" class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></label>
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">${reports.slice(0, 120).map(report => `<a href="${esc(report.canonical_url || `/dashboard.html?report=${encodeURIComponent(report.id)}#/p/reports`)}" onclick="event.preventDefault();openSemanticReport('${esc(report.id)}')" class="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-sm transition"><div class="flex items-start justify-between gap-3"><span class="text-[10px] uppercase tracking-wider font-black text-indigo-600 dark:text-indigo-400">${esc(reportDeptLabel(report.department))}</span><span class="text-[10px] text-slate-400">${esc(rptLabel(report.visualization || 'table'))}</span></div><h3 class="mt-2 text-sm font-black leading-snug text-slate-950 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400">${esc(report.name)}</h3><p class="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400 line-clamp-2">${esc(report.description || '')}</p><div class="mt-3 text-[11px] text-slate-400">${esc((report.default_dimensions || []).map(rptLabel).join(' × ') || 'Store total')}</div></a>`).join('')}</div>
+      ${reports.length > 120 ? `<p class="text-center text-xs text-slate-400">Showing 120 of ${reports.length.toLocaleString()}. Search to narrow the list.</p>` : ''}
+      ${!reports.length ? '<div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-10 text-center text-sm text-slate-500">No reports match that search.</div>' : ''}</div>`;
+    const input = document.getElementById('report-library-search');
+    let timer;
+    input?.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { __reportingSearch = input.value.trim(); loadReportLibraryPage(); }, 250); });
+  } catch (error) {
+    host.innerHTML = `<div class="rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/30 p-5 text-sm text-rose-700 dark:text-rose-300">${esc(error.message || 'Could not load reports.')}</div>`;
+  }
+}
+
+function reportingSelectDepartment(id) {
+  __reportingDept = REPORT_DEPARTMENTS.some(d => d[0] === id) ? id : 'all';
+  __reportingSearch = '';
+  reportingSetUrl({ department: __reportingDept });
+  loadReportLibraryPage();
+}
+window.reportingSelectDepartment = reportingSelectDepartment;
+
+function loadReports() {
+  const params = new URLSearchParams(location.search);
+  const reportId = params.get('report');
+  const dept = params.get('report_department');
+  if (dept && REPORT_DEPARTMENTS.some(d => d[0] === dept)) __reportingDept = dept;
+  document.getElementById('reports-overview')?.classList.add('hidden');
+  document.getElementById('reports-dynamic')?.classList.remove('hidden');
+  renderReportTabs();
+  if (reportId) openSemanticReport(reportId, { keepUrl: true }); else loadReportLibraryPage();
+}
 
 // Open the Reports hub already focused on one department's report tab. The engine
 // rails link here so "Reports" on the right rail is specific to the department you're
 // in. switchPage('reports') runs loadReports() synchronously (the tabs DOM is built
 // before this returns), so reportsTab() can safely select the deep tab right after.
 function openDeptReport(key) {
+  __reportingDept = REPORT_DEPT_FROM_LEGACY[key] || key || 'all';
+  if (!REPORT_DEPARTMENTS.some(d => d[0] === __reportingDept)) __reportingDept = 'all';
+  reportingSetUrl({ department: __reportingDept });
   switchPage('reports');
-  if (key && key !== 'overview' && typeof reportsTab === 'function'
-      && REPORT_DEFS.some(d => d.key === key)) {
-    reportsTab(key);
-  }
 }
 window.openDeptReport = openDeptReport;
 

@@ -28,10 +28,12 @@ test('engineRail renders Reports, Next Actions and Quick Actions, with no Team M
 test('the Reports rail is specific to the department you are in via openDeptReport deep links', () => {
   assert.match(part14, /function openDeptReport\(key\)/, 'openDeptReport helper exists')
   assert.match(part14, /window\.openDeptReport = openDeptReport/, 'exposed on window for rail onclick')
-  // openDeptReport must land on the reports page and then focus the deep tab.
+  // openDeptReport must land on the reports page and select the matching
+  // department in the one canonical semantic catalogue.
   const fn = part14.match(/function openDeptReport\(key\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.match(fn, /switchPage\('reports'\)/)
-  assert.match(fn, /reportsTab\(key\)/)
+  assert.match(fn, /REPORT_DEPT_FROM_LEGACY\[key\]/)
+  assert.match(fn, /reportingSetUrl/)
   // Each major department wires a report deep link.
   assert.match(serviceWs, /reports:\s*\[[\s\S]*?openDeptReport\('service'\)/)
   assert.match(marketingWs, /reports:\s*\[[\s\S]*?openDeptReport\('marketing'\)/)
