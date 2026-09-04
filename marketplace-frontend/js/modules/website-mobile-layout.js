@@ -41,7 +41,7 @@
 
   if (!window.__headerWeatherLoaded) {
     window.__headerWeatherLoaded = true;
-    load('js/modules/header-weather.js?v=20260904_wx_v1');
+    load('js/modules/header-weather.js?v=20260904_wx_v2');
   }
 
   if (!window.__studioCompanionsFromDash) {
