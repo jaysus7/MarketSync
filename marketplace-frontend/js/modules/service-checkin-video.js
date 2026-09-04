@@ -23,21 +23,22 @@
     const host = document.createElement('div');
     host.id = 'svc-in-video-panel';
     host.className = 'rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-2';
-    host.innerHTML = '
-      <div class="text-[10px] font-black uppercase tracking-wider text-slate-500">Check-in video</div>
-      <p class="text-sm text-slate-500">Record the arrival walkaround with the customer before they sign. Tech inspection video is separate.</p>
-      <video id="svc-in-video-preview" class="w-full h-40 rounded-xl bg-slate-900 object-cover" playsinline muted></video>
-      <div class="flex flex-wrap gap-2">
-        <button type="button" id="svc-in-video-start" class="px-3 py-2 rounded-xl text-xs font-black bg-rose-600 text-white">Start camera</button>
-        <button type="button" id="svc-in-video-rec" class="px-3 py-2 rounded-xl text-xs font-black bg-slate-200 dark:bg-slate-800" disabled>Record</button>
-        <button type="button" id="svc-in-video-stop" class="px-3 py-2 rounded-xl text-xs font-black border border-slate-300" disabled>Stop</button>
-      </div>
-      <div id="svc-in-video-status" class="text-[11px] font-bold text-slate-500">No arrival video yet</div>
-    ';
+    host.innerHTML = [
+      '<div class="text-[10px] font-black uppercase tracking-wider text-slate-500">Check-in video</div>',
+      '<p class="text-sm text-slate-500">Record the arrival walkaround with the customer before they sign. Tech inspection video is separate.</p>',
+      '<video id="svc-in-video-preview" class="w-full h-40 rounded-xl bg-slate-900 object-cover" playsinline muted></video>',
+      '<div class="flex flex-wrap gap-2">',
+      '<button type="button" id="svc-in-video-start" class="px-3 py-2 rounded-xl text-xs font-black bg-rose-600 text-white">Start camera</button>',
+      '<button type="button" id="svc-in-video-rec" class="px-3 py-2 rounded-xl text-xs font-black bg-slate-200 dark:bg-slate-800" disabled>Record</button>',
+      '<button type="button" id="svc-in-video-stop" class="px-3 py-2 rounded-xl text-xs font-black border border-slate-300" disabled>Stop</button>',
+      '</div>',
+      '<div id="svc-in-video-status" class="text-[11px] font-bold text-slate-500">No arrival video yet</div>'
+    ].join('');
     if (sig && sig.parentElement && sig.parentElement.parentElement) {
       sig.parentElement.parentElement.insertBefore(host, sig.parentElement);
     } else {
-      modal.querySelector('.p-5')?.appendChild(host);
+      var body = modal.querySelector('.p-5');
+      if (body) body.appendChild(host);
     }
     bind(host);
     return host;
@@ -120,7 +121,6 @@
 
   function wrapVideo() {
     if (typeof global.svcOpenVideoWalkaround !== 'function' || global.svcOpenVideoWalkaround.__msSplit) return;
-    const orig = global.svcOpenVideoWalkaround;
     global.svcOpenVideoWalkaround = function (roId, contactId) {
       const inCheckin = !!document.getElementById('svc-checkin-modal');
       if (inCheckin && !roId) {
