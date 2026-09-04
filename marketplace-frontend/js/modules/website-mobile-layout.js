@@ -16,6 +16,7 @@
     #svc-checkin-modal #svc-in-date,
     #svc-checkin-modal #svc-in-tag { min-height:44px; height:44px; line-height:20px; }
     #svc-checkin-modal svg[id^="svc-walk-"] { height: 7rem; }
+    #vid-tp-toggle-btn { display: none !important; }
   `;
     document.head.appendChild(style);
   }
@@ -43,7 +44,8 @@
       'js/modules/service-checkin-upgrade.js?v=20260904_checkin_v1',
       'js/modules/service-walkaround-cars.js?v=20260904_cars_v1',
       'js/modules/service-checkin-video.js?v=20260904_checkin_vid_v1',
-      'js/modules/video-teleprompter-policy.js?v=20260904_tp_policy_v1'
+      'js/modules/video-teleprompter-policy.js?v=20260904_tp_policy_v1',
+      'js/modules/camera-native.js?v=20260904_cam_native_v1'
     ].forEach(load);
   }
 })();
