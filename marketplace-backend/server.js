@@ -24,6 +24,7 @@ import { registerPipeline } from './routes/pipeline.js'
 import { registerLeads } from './routes/leads.js'
 import { registerCrm } from './routes/crm.js'
 import { registerSite } from './routes/site.js'
+import { registerSiteBlogCompat } from './routes/site-blog-compat.js'
 import { registerAutomation } from './routes/automation.js'
 import { registerDealerEmailMarketing } from './routes/dealer-automation.js'
 import { registerEquity } from './routes/equity.js'
@@ -165,6 +166,7 @@ registerGroups(app)
 registerPipeline(app)
 registerLeads(app)
 registerCrm(app)
+registerSiteBlogCompat(app)
 registerSite(app)
 registerAutomation(app)
 registerDealerEmailMarketing(app)
