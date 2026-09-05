@@ -95,19 +95,6 @@ async function loadHqEntitlements() {
   }
 }
 
-function loadHqProducts() {
-  const root = document.getElementById('saas-products-root'); if (!root) return;
-  root.innerHTML = `
-    ${typeof pulseHeader === 'function' ? pulseHeader('Product catalog', 'List prices in CAD. Stripe IDs stay in billing config.') : ''}
-    <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
-      ${HQ_CATALOG.map(([key, label, cad]) => `
-        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
-          <div class="text-[10px] font-black uppercase text-slate-400">${esc(key)}</div>
-          <div class="text-sm font-black text-slate-900 dark:text-white mt-1">${esc(label)}</div>
-          <div class="text-lg font-black text-indigo-600 mt-2">$${cad} <span class="text-xs font-semibold text-slate-400">CAD/mo</span></div>
-        </div>`).join('')}
-    </div>`;
-}
 
 async function loadHqTrials() {
   const root = document.getElementById('saas-trials-root'); if (!root) return;
@@ -162,7 +149,6 @@ function hqOpenSearch() {
 }
 
 window.loadHqEntitlements = loadHqEntitlements;
-window.loadHqProducts = loadHqProducts;
 window.loadHqTrials = loadHqTrials;
 window.hqEntitlementMatrix = hqEntitlementMatrix;
 window.hqOpenSearch = hqOpenSearch;
@@ -234,34 +220,8 @@ async function loadHqSecurity() {
   } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
 }
 
-async function loadHqFlags() {
-  const root = document.getElementById('saas-flags-root'); if (!root) return;
-  root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Feature flags','Per-dealership flags on dealerships.feature_flags. Not a paid entitlement.'):''}
-    <p class="text-sm text-slate-500 mb-3">Open a customer 360 from Entitlements or Dealerships, then use support inspect. Flag writes: POST /owner/flags/:dealershipId with key, active, reason.</p>
-    <div class="text-sm">Use Customer 360 search (Ctrl/Cmd-K) then apply flags against a known account id.</div>
-    <form class="mt-4 grid gap-2 max-w-md" onsubmit="event.preventDefault();hqWriteFlag();">
-      <input id="hq-flag-id" class="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm" placeholder="Dealership UUID">
-      <input id="hq-flag-key" class="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm" placeholder="Flag key e.g. beta_video">
-      <select id="hq-flag-on" class="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm"><option value="true">Enable</option><option value="false">Disable</option></select>
-      <input id="hq-flag-reason" class="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm" placeholder="Reason">
-      <button class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-black">Write flag</button>
-    </form>`;
-}
-window.hqWriteFlag = async function() {
-  const id = document.getElementById('hq-flag-id')?.value.trim();
-  const key = document.getElementById('hq-flag-key')?.value.trim();
-  const active = document.getElementById('hq-flag-on')?.value === 'true';
-  const reason = document.getElementById('hq-flag-reason')?.value.trim();
-  if (!id || !key || !reason) return showToast('Dealership, key, and reason required', 'error');
-  try {
-    await apiSendJson('/owner/flags/' + id, 'POST', { key, active, reason });
-    showToast('Flag saved', 'success');
-  } catch (e) { showToast(e.message || 'Flag write failed', 'error'); }
-};
-
 window.loadHqAudit = loadHqAudit;
 window.loadHqSecurity = loadHqSecurity;
-window.loadHqFlags = loadHqFlags;
 
 
 const HQ_MODULES = [
@@ -387,71 +347,6 @@ async function loadHqIntegrations() {
 
 window.loadHqOnboarding = loadHqOnboarding;
 window.loadHqIntegrations = loadHqIntegrations;
-
-
-async function loadHqAllUsers() {
-  const root = document.getElementById('saas-all-users-root'); if (!root) return;
-  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Loading users…</div>';
-  try {
-    const d = await apiGetJson('/owner/users');
-    const users = d.users || [];
-    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('All users','Every profile across dealerships'):''}
-      <input id="hq-user-q" oninput="hqFilterUsers()" placeholder="Search name, email, dealership, role" class="w-full max-w-lg mb-3 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2 text-sm">
-      <div id="hq-user-table" class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"></div>`;
-    window.__hqUsers = users;
-    hqFilterUsers();
-  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
-}
-window.hqFilterUsers = function() {
-  const q = (document.getElementById('hq-user-q')?.value || '').toLowerCase();
-  const host = document.getElementById('hq-user-table'); if (!host) return;
-  const rows = (window.__hqUsers || []).filter(u => !q || JSON.stringify(u).toLowerCase().includes(q)).slice(0, 400);
-  host.innerHTML = `<table class="w-full text-left text-xs"><thead><tr class="text-[10px] uppercase text-slate-400 border-b border-slate-200 dark:border-slate-800">
-    <th class="p-3">User</th><th class="p-3">Dealership</th><th class="p-3">Role</th><th class="p-3">Status</th><th class="p-3"></th></tr></thead>
-    <tbody>${rows.map(u => `<tr class="border-t border-slate-100 dark:border-slate-800">
-      <td class="p-3"><b>${esc(u.name)}</b><div class="text-slate-400">${esc(u.email||'')}</div></td>
-      <td class="p-3">${esc(u.dealership||'—')}</td>
-      <td class="p-3">${esc(u.role||'—')}</td>
-      <td class="p-3">${u.active ? 'Active' : 'Inactive'}</td>
-      <td class="p-3 text-right whitespace-nowrap">
-        <button class="font-black text-indigo-600" onclick="hqChangeDealerRole('${u.id}')">Role</button>
-        <button class="font-black text-rose-600 ml-2" onclick="hqUserStatus('${u.id}', ${u.active ? 'false' : 'true'})">${u.active ? 'Deactivate' : 'Activate'}</button>
-        ${u.dealership_id ? `<button class="font-black text-slate-600 ml-2" onclick="openSaasCustomer('${u.dealership_id}')">360</button>` : ''}
-      </td></tr>`).join('')}</tbody></table>`;
-};
-window.hqChangeDealerRole = async function(id) {
-  const role = prompt('Dealer role (SALES_REP, SERVICE_ADVISOR, ACCOUNTING, …)') || '';
-  const reason = prompt('Reason') || '';
-  if (!role || !reason) return;
-  try {
-    await apiSendJson('/owner/user/' + id + '/role', 'POST', { role, reason });
-    showToast('Role updated', 'success');
-    loadHqAllUsers();
-  } catch (e) { showToast(e.message || 'Role change failed', 'error'); }
-};
-
-async function loadHqRoles() {
-  const root = document.getElementById('saas-roles-root'); if (!root) return;
-  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Loading HQ roles…</div>';
-  try {
-    const d = await apiGetJson('/saas/employees');
-    const matrix = d.permissions_matrix || {};
-    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('HQ roles','saas_role permissions — owner is platform super-admin'):''}
-      <div class="grid md:grid-cols-2 gap-3 mb-4">${Object.entries(matrix).map(([role, perms]) => `
-        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
-          <div class="font-black capitalize">${esc(role)}</div>
-          <div class="text-xs text-slate-500 mt-1">${(perms||[]).join(', ')}</div>
-        </div>`).join('')}</div>
-      <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
-        ${(d.staff||[]).map(s => `<div class="flex justify-between py-2 border-t border-slate-100 dark:border-slate-800 first:border-0 text-sm">
-          <span><b>${esc(s.name)}</b> · ${esc(s.email||'')}</span><span>${esc(s.saas_role||'')} · ${s.active ? 'active' : 'off'}</span>
-        </div>`).join('') || 'No HQ staff rows.'}
-      </div>`;
-  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
-}
-
-window.loadHqAllUsers = loadHqAllUsers;
-window.loadHqRoles = loadHqRoles;
 
 
 function hqConfirmProd(action) {
