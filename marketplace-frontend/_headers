@@ -3,7 +3,9 @@
 # so the entire surface is consistently locked down.
 
 /*.html
-  Cache-Control: no-cache, must-revalidate
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  Pragma: no-cache
+  Expires: 0
 
 /chat-widget.html
   X-Frame-Options: ALLOWALL

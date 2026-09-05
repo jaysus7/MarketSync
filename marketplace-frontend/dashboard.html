@@ -12,6 +12,14 @@
 </script>
 <script id="cookieyes" type="text/javascript" src="https://cdn-cookieyes.com/client_data/4313ff69152b93899edaa7a8/script.js"></script>
   <meta charset="UTF-8">
+  <!-- Prevent iOS Safari from serving stale HTML. Every hour of debugging
+       has come down to Safari holding onto old dashboard.html which
+       still references old ?v= query strings on the JS/CSS bundles, so
+       the fresh assets are never even requested. no-store here + no-store
+       in _headers guarantees a fresh fetch on every load. -->
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <!-- See login.html for why this exists: darkMode:'class' below needs the .dark class set
        somewhere, and nothing in the whole dashboard bundle did — dark: utilities silently
        never applied and dark-mode phones fell back to their own inconsistent forced-dark
