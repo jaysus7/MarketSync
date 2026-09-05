@@ -446,6 +446,7 @@ function rememberStudioVisualElement(id) {
 
 function studioAddVisualElement(id) {
   const item = STUDIO_VISUAL_ELEMENTS.find(element => element.id === id), adapter = window.__studioAdapter, canvas = adapter?.fabricCanvas;
+  if (typeof studioDebugPush === 'function') studioDebugPush(`addElement(${id}) item=${!!item} adapter=${!!adapter} canvas=${!!canvas}`);
   if (!item) { if (typeof showToast === 'function') showToast('That element is no longer in the library.', 'error'); return; }
   // Every previous "elements don't show up" report reached this early
   // return with no visible feedback. Surface the state so the visitor
@@ -699,8 +700,74 @@ window.openMarketSyncStudio = async function(designId = null, initialOptions = {
   // Runs once per open; harmless on desktop (the query selectors
   // check viewport width).
   studioApplyMobileChrome();
+  studioMountDebugPanel();
+  studioDebugPush('studio opened · adapter=' + (!!window.__studioAdapter) + ' · fabric=' + (!!window.fabric));
   if (initialOptions.templateKey) await loadStudioTemplate(initialOptions.templateKey);
 };
+
+// In-app diagnostics: a floating "i" button on mobile that expands
+// to show the studio's real internal state. Cache-proof way to
+// diagnose "elements/templates don't add" reports without needing
+// browser dev tools.
+window.__studioDebugLog = [];
+function studioDebugPush(entry) {
+  const now = new Date().toISOString().slice(11, 23);
+  window.__studioDebugLog.unshift(`${now}  ${entry}`);
+  window.__studioDebugLog = window.__studioDebugLog.slice(0, 30);
+  const body = document.getElementById('studio-diag-body');
+  if (body && body.parentElement && !body.parentElement.hidden) studioDebugRefresh();
+}
+window.studioDebugPush = studioDebugPush;
+
+function studioDebugRefresh() {
+  const body = document.getElementById('studio-diag-body');
+  if (!body) return;
+  const adapter = window.__studioAdapter;
+  const canvas = adapter && adapter.fabricCanvas;
+  const state = [
+    ['fabric.js', typeof window.fabric === 'function' || (window.fabric && window.fabric.Canvas) ? 'LOADED ✓' : 'not loaded ✗'],
+    ['adapter', adapter ? 'ready ✓' : 'null ✗'],
+    ['canvas', canvas ? `${canvas.getObjects().length} objects` : 'not mounted ✗'],
+    ['canvas el', document.getElementById('studio-main-canvas') ? 'in DOM ✓' : 'missing ✗'],
+    ['active page', adapter?.activePageId || 'none'],
+    ['zoom', canvas ? `${Math.round((canvas.getZoom() || 1) * 100)}%` : '—'],
+    ['viewport', `${window.innerWidth}x${window.innerHeight}`],
+  ];
+  body.innerHTML = ''
+    + '<div style="padding:.5rem 0;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:.5rem;">'
+    + state.map(([k, v]) => `<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0"><span style="color:#94a3b8">${k}</span><b style="color:#e2e8f0">${v}</b></div>`).join('')
+    + '</div>'
+    + '<div style="font-size:10px;color:#94a3b8;margin-bottom:.25rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase">Recent events</div>'
+    + '<div style="font-size:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.4;max-height:35vh;overflow-y:auto;color:#cbd5e1">'
+    + (window.__studioDebugLog.length ? window.__studioDebugLog.map(l => `<div>${l.replace(/</g,'&lt;')}</div>`).join('') : '<i>No events logged yet — tap Elements or Templates to reproduce.</i>')
+    + '</div>';
+}
+
+function studioMountDebugPanel() {
+  const isMobile = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+  if (!isMobile) return;
+  if (document.getElementById('studio-diag-fab')) return;
+  const fab = document.createElement('button');
+  fab.id = 'studio-diag-fab';
+  fab.type = 'button';
+  fab.textContent = 'ⓘ';
+  fab.style.cssText = 'position:fixed;bottom:12px;left:12px;z-index:100000;width:36px;height:36px;border-radius:999px;border:0;background:rgba(15,23,42,.85);color:#fff;font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.25)';
+  const panel = document.createElement('div');
+  panel.id = 'studio-diag-panel';
+  panel.hidden = true;
+  panel.style.cssText = 'position:fixed;bottom:60px;left:12px;right:12px;z-index:100000;background:#0f172a;color:#fff;border-radius:12px;padding:.75rem 1rem;box-shadow:0 12px 32px rgba(0,0,0,.35);max-height:60vh;overflow-y:auto';
+  panel.innerHTML = ''
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;">'
+    + '<b style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#e2e8f0">Studio diagnostics</b>'
+    + '<button type="button" onclick="document.getElementById(\'studio-diag-panel\').hidden=true" style="background:none;border:0;color:#94a3b8;font-size:18px;cursor:pointer;line-height:1">×</button>'
+    + '</div>'
+    + '<div id="studio-diag-body"></div>';
+  fab.onclick = () => { panel.hidden = !panel.hidden; if (!panel.hidden) studioDebugRefresh(); };
+  document.body.appendChild(fab);
+  document.body.appendChild(panel);
+  studioDebugPush('diag panel mounted');
+}
+window.studioMountDebugPanel = studioMountDebugPanel;
 
 function studioApplyMobileChrome() {
   const isMobile = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
@@ -2462,6 +2529,7 @@ async function loadStudioTemplate(tmplKey) {
     return false;
   };
   const ready = await waitForAdapter();
+  if (typeof studioDebugPush === 'function') studioDebugPush(`loadTemplate(${tmplKey}) ready=${ready}`);
   if (!ready) {
     // Silent no-op instead of toast — the previous alarming error
     // showed up over the studio home when a background template
