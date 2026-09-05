@@ -2318,17 +2318,19 @@ async function loadWebsiteCommandCenter() {
   const host = document.getElementById('website-cc-root');
   if (!host) return;
   host.innerHTML = `<div class="text-sm text-slate-500 dark:text-slate-400 py-6">Loading website status…</div>`;
-  const [siteRes, blogRes, leadsRes, matrixRes] = await Promise.all([
+  const [siteRes, blogRes, leadsRes, matrixRes, discRes, recsRes] = await Promise.all([
     apiGetJson('/dealership/site').catch(() => null),
     apiGetJson('/dealership/blog').catch(() => null),
     apiGetJson('/leads').catch(() => null),
     apiGetJson('/integrations/matrix').catch(() => null),
+    apiGetJson('/discoverability/overview').catch(() => null),
+    apiGetJson('/discoverability/recommendations').catch(() => null),
   ]);
   if (!siteRes) {
     host.innerHTML = `<div class="ms-c p-5 text-sm text-slate-600 dark:text-slate-300">Website data isn't available right now. Sign in with website management access, or open the builder to get started.</div>`;
     return;
   }
-  host.innerHTML = renderWebsiteCommandCenter(siteRes, blogRes, leadsRes, matrixRes);
+  host.innerHTML = renderWebsiteCommandCenter(siteRes, blogRes, leadsRes, matrixRes, discRes, recsRes);
   // Perf tile is lazy — GA4 query is only fired when GA4 is actually connected
   // per the matrix. Otherwise we render an honest "Not connected" card without
   // ever hitting the API and getting an alarming 403/409.
@@ -2374,7 +2376,7 @@ async function hydrateWebsitePerformanceTile() {
 }
 window.hydrateWebsitePerformanceTile = hydrateWebsitePerformanceTile;
 
-function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes) {
+function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes, discRes, recsRes) {
   const slug = site.site_slug || null;
   const publicUrl = slug && typeof wsPublicSiteUrl === 'function' ? wsPublicSiteUrl(slug) : null;
   const published = !!site.site_published;
@@ -2564,6 +2566,98 @@ function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes) {
       </div>
     </section>`;
 
-  return `${statusStrip}${quickActions}${perfSection}${leadsSection}${contentGrid}${inventorySection}`;
+  // Section 5 · Discoverability snapshot. Compact — the full workspace
+  // already mounts below via loadDealerSeo (Section 5/6/7 read the same
+  // canonical audit). This is one deep-linked line so a dealer sees the
+  // score at a glance without leaving the command center.
+  const discEntitled = discRes && discRes.entitled !== false;
+  const composite = discEntitled ? discRes.compositeScore : null;
+  const quality = discEntitled ? discRes.qualityScore : null;
+  const pillars = discEntitled ? (discRes.pillars || {}) : {};
+  const pillarScore = (key) => {
+    const p = pillars[key];
+    if (!p) return null;
+    if (typeof p === 'number') return p;
+    if (typeof p?.score === 'number') return p.score;
+    return null;
+  };
+  const seoScore = pillarScore('seo') ?? pillarScore('SEO');
+  const contentScore = pillarScore('content') ?? pillarScore('Content');
+  const localScore = pillarScore('local') ?? pillarScore('Local');
+  const scoreTone = (n) => n == null ? 'text-slate-500' : (n >= 80 ? 'text-emerald-600 dark:text-emerald-400' : (n >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'));
+  const scoreOr = (n) => n == null ? '—' : Math.round(n);
+  const discSnapshot = `
+    <section class="space-y-3" data-website-cc-section="discoverability">
+      <div class="flex items-end justify-between gap-3">
+        <div>
+          <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Sections 5 &amp; 6</div>
+          <h3 class="text-base font-black text-slate-900 dark:text-white">Discoverability &amp; technical health</h3>
+        </div>
+        <button type="button" onclick="if(typeof switchPage==='function')switchPage('discoverability')" class="text-xs font-black text-indigo-700 dark:text-indigo-300">Full workspace →</button>
+      </div>
+      ${discEntitled
+        ? `<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+             ${kpi('Discoverability', scoreOr(composite), quality != null ? `quality ${scoreOr(quality)}` : 'composite', scoreTone(composite))}
+             ${kpi('Technical SEO', scoreOr(seoScore), 'pillars.seo', scoreTone(seoScore))}
+             ${kpi('Content', scoreOr(contentScore), 'pillars.content', scoreTone(contentScore))}
+             ${kpi('Local search', scoreOr(localScore), 'pillars.local', scoreTone(localScore))}
+           </div>`
+        : `<div class="ms-c p-5">
+             <div class="flex flex-wrap items-center justify-between gap-3">
+               <div>
+                 <div class="text-sm font-black text-slate-900 dark:text-white">Not entitled</div>
+                 <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">${esc(discRes?.message || 'MarketSync Discoverability Intelligence unlocks Search, Answer Engine, and AI Model visibility monitoring.')}</div>
+               </div>
+               <button type="button" onclick="if(typeof switchPage==='function')switchPage('discoverability')" class="liquid-glass-btn px-3 py-1.5 rounded-lg text-xs font-black">Open Discoverability</button>
+             </div>
+           </div>`}
+    </section>`;
+
+  // Section 7 · AI recommendations. Compact top-3 view — full list lives in
+  // the Discoverability workspace. Real recommendations only; if the engine
+  // returns nothing, we say so instead of seeding fake ones.
+  const recSummary = recsRes?.summary || {};
+  const openRecs = (recsRes?.recommendations || []).filter(r => r.status === 'open');
+  const priorityRecs = openRecs.slice(0, 3);
+  const priorityTone = (p) => {
+    const s = String(p || '').toLowerCase();
+    if (s === 'critical' || s === 'high') return 'text-rose-600 dark:text-rose-400';
+    if (s === 'medium') return 'text-amber-600 dark:text-amber-400';
+    return 'text-slate-500 dark:text-slate-400';
+  };
+  const recsSection = `
+    <section class="space-y-3" data-website-cc-section="recommendations">
+      <div class="flex items-end justify-between gap-3">
+        <div>
+          <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Section 7</div>
+          <h3 class="text-base font-black text-slate-900 dark:text-white">AI website recommendations</h3>
+        </div>
+        <button type="button" onclick="if(typeof switchPage==='function')switchPage('discoverability')" class="text-xs font-black text-indigo-700 dark:text-indigo-300">View all →</button>
+      </div>
+      ${discEntitled
+        ? `<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+             ${kpi('Open', openRecs.length, `${recSummary.total ?? openRecs.length} total`)}
+             ${kpi('Auto-fixable', recSummary.auto_fixable ?? '—', 'one-click apply')}
+             ${kpi('Needs approval', recSummary.approval_required ?? '—', 'review first', (recSummary.approval_required || 0) > 0 ? 'text-amber-600 dark:text-amber-400' : '')}
+             ${kpi('Manual', recSummary.manual ?? '—', 'requires action')}
+           </div>
+           ${priorityRecs.length
+             ? `<div class="ms-c">
+                  <ul class="divide-y divide-slate-200 dark:divide-white/10">
+                    ${priorityRecs.map(r => `
+                      <li class="p-3 flex items-start justify-between gap-3 text-sm">
+                        <div class="min-w-0">
+                          <div class="font-black text-slate-900 dark:text-white truncate">${esc(r.title || 'Recommendation')}</div>
+                          <div class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">${esc(r.summary || '')}</div>
+                        </div>
+                        <div class="shrink-0 text-xs font-black ${priorityTone(r.priority)}">${esc(String(r.priority || 'low').toUpperCase())}</div>
+                      </li>`).join('')}
+                  </ul>
+                </div>`
+             : `<div class="ms-c p-4 text-sm text-slate-500 dark:text-slate-400">No open recommendations — Discoverability sees nothing to flag right now.</div>`}`
+        : `<div class="ms-c p-4 text-sm text-slate-500 dark:text-slate-400">Recommendations require the Discoverability entitlement.</div>`}
+    </section>`;
+
+  return `${statusStrip}${quickActions}${discSnapshot}${recsSection}${perfSection}${leadsSection}${contentGrid}${inventorySection}`;
 }
 window.renderWebsiteCommandCenter = renderWebsiteCommandCenter;

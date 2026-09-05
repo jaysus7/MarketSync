@@ -32,6 +32,10 @@ test('command center only reads canonical endpoints — no invented sources', ()
   // Phase C additions — real endpoints that already ship.
   assert.match(block, /apiGetJson\(['"]\/leads['"]\)/, 'Phase C must read /leads for website-attributed count')
   assert.match(block, /apiGetJson\(['"]\/integrations\/matrix['"]\)/, 'Phase C must check /integrations/matrix for GA4 state')
+  // Phase D — Discoverability snapshot + recommendations. Same engine the
+  // existing loadDealerSeo() workspace uses, no duplication.
+  assert.match(block, /apiGetJson\(['"]\/discoverability\/overview['"]\)/, 'Phase D must read /discoverability/overview')
+  assert.match(block, /apiGetJson\(['"]\/discoverability\/recommendations['"]\)/, 'Phase D must read /discoverability/recommendations')
   // GA4 query is lazy — only fires when the matrix says it's connected.
   assert.match(block, /fetch\(`\$\{API\}\/integrations\/google\/ga4\/query`/, 'GA4 query must be a real POST fetch, not a fake')
   // No parallel data endpoints.
@@ -52,6 +56,13 @@ test('Phase C surfaces honest disconnected chips for absent data — no fake met
   assert.match(invBlock, /Not connected/, 'Section 4 must render an explicit "Not connected" state — no fake VDP/SRP counts')
   // Website leads must come from real CRM data filtered by source === 'website'.
   assert.match(block, /source \|\| ''\)\.toLowerCase\(\) === 'website'/, 'Section 3 must filter CRM leads by source')
+  // Phase D · sections 5-6-7 must render the Discoverability sections tagged
+  // and deep-link into the full workspace rather than duplicate its UI.
+  assert.match(block, /data-website-cc-section="discoverability"/, 'Section 5/6 snapshot must exist')
+  assert.match(block, /data-website-cc-section="recommendations"/, 'Section 7 AI recs must exist')
+  assert.match(block, /switchPage\(['"]discoverability['"]\)/, 'Snapshot must deep-link to the full Discoverability workspace')
+  // Never fabricate a score — every displayed number reads from discRes.
+  assert.match(block, /discRes\.compositeScore/, 'Composite score must read from /discoverability/overview response')
 })
 
 test('render uses real fields from /dealership/site — no fake metrics', () => {
