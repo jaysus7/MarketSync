@@ -146,15 +146,41 @@ test('studio format tiles + design sets swipe horizontally on mobile', () => {
     'each swipe-row child must snap to start')
 })
 
+test('templates grid swipes horizontally + each template renders a distinct preview', () => {
+  // #studio-home-template-grid now carries .studio-scroll-row so the
+  // ~50 templates pan side-to-side on mobile instead of stacking into
+  // pages of vertical scroll.
+  assert.match(shell, /id="studio-home-template-grid"[^>]*studio-scroll-row/,
+    'templates grid must be a swipe row on mobile')
+  // templatePreviewMarkup now (a) uses the first page's objects when
+  // the scene is multi-page — otherwise business_card / letterhead /
+  // brochure / postcard / presentation all rendered the same generic
+  // scene.elements — and (b) hashes the template key to a distinct
+  // colour placeholder so photos that fail to load don't collapse
+  // every tile into the same brand-panel-only look.
+  assert.match(shell, /const firstPage = Array\.isArray\(scene\.pages\) && scene\.pages\[0\]/,
+    'preview must prefer the first page objects when the scene is multi-page')
+  assert.match(shell, /const palettes = \[[\s\S]{0,600}\]/,
+    'preview must ship a placeholder palette')
+  assert.match(shell, /seed % palettes\.length/,
+    'placeholder colour must be hashed from the template key so each preview is distinct')
+  // Photo fallback: previous onerror="this.style.display='none'"
+  // hid failed hero photos, leaving every template as a brand panel
+  // on cream. Now the img is replaced by a gradient div in-place so
+  // the composition stays visible.
+  assert.match(shell, /this\.replaceWith\(Object\.assign\(document\.createElement\('div'\)/,
+    'failed template photos must swap to a gradient placeholder in-place')
+})
+
 test('studio cache-bust bumped so the browser fetches the fixed bundle', () => {
   // Two consumers load studio-shell.js via msLoadScript — both must
   // request the new revision so a cached bundle can't hide the fixes.
   const matches = part2.match(/studio-shell\.js\?v=([a-z0-9_]+)/g) || []
   assert.ok(matches.length >= 2, 'must find both studio-shell references')
   for (const m of matches) {
-    assert.match(m, /studio-shell\.js\?v=20260905_studio_swipe_v1/,
+    assert.match(m, /studio-shell\.js\?v=20260905_studio_swipe_v2/,
       `stale cache-bust: ${m}`)
   }
-  assert.match(dashboard, /marketsync-theme\.css\?v=20260905_studio_swipe_v1/,
+  assert.match(dashboard, /marketsync-theme\.css\?v=20260905_studio_swipe_v2/,
     'theme.css cache-bust must reflect the new mobile rules')
 })

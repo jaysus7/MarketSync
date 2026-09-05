@@ -15,7 +15,7 @@ test('Design Studio boots independently from Social Scheduler', () => {
   const studioBranch = dashboardPart2.match(/if \(pageId === 'studio'[\s\S]+?\n  if \(pageId === 'social-scheduler'\)/)?.[0]
   assert.ok(studioBranch, 'Design Studio route branch should exist')
   assert.doesNotMatch(studioBranch, /studio-scheduler\.js/, 'scheduler must not be a Studio boot prerequisite')
-  assert.match(studioBranch, /studio-shell\.js\?v=20260905_studio_swipe_v1/)
+  assert.match(studioBranch, /studio-shell\.js\?v=20260905_studio_swipe_v2/)
   assert.match(studioBranch, /catch\(renderMarketSyncStudioBootError\)/)
 })
 
