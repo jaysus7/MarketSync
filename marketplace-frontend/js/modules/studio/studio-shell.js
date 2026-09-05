@@ -775,10 +775,19 @@ function studioApplyMobileChrome() {
   const modal = document.getElementById('ms-studio-master-modal');
   if (!modal) return;
 
-  // 1. Hide desktop-only buttons directly by title attribute (works
-  //    even if the newer Tailwind hidden class hasn't shipped yet).
-  const breakpointSwitcher = modal.querySelector('[title*="breakpoint"]');
-  if (breakpointSwitcher) breakpointSwitcher.style.display = 'none';
+  // 1. Hide desktop-only buttons — breakpoint switcher, "Desktop"
+  //    text buttons, and the studio-breakpoint-group wrapper.
+  modal.querySelectorAll('[title*="breakpoint"], .studio-breakpoint-group, [data-studio-breakpoint], [data-studio-viewport]')
+    .forEach(el => (el.style.display = 'none'));
+  modal.querySelectorAll('button').forEach(btn => {
+    const t = (btn.textContent || '').trim();
+    if (t === 'Desktop' || t === 'Tablet' || t === 'Mobile' || /^Desk\s?a?$/.test(t)) btn.style.display = 'none';
+  });
+
+  // 1b. Hide the floating selection action pill (duplicate/trash bubble)
+  //     — it drifts off-canvas on phones.
+  modal.querySelectorAll('.studio-canvas-floating-actions, .studio-selection-floating, [data-studio-selection-actions]')
+    .forEach(el => (el.style.display = 'none'));
 
   // 2. Hide History/Review/AI Design/Export/Publish/Schedule desktop
   //    actions by their onclick signatures (class-based hide can be
@@ -835,6 +844,28 @@ function studioApplyMobileChrome() {
     nameInput.style.textOverflow = 'ellipsis';
     nameInput.style.overflow = 'hidden';
     nameInput.style.whiteSpace = 'nowrap';
+  }
+
+  // 6. Keep applying: the editor toolbar re-renders after template/tool
+  //    swaps, which re-introduces the desktop breakpoint switcher and
+  //    floating selection pill. Attach a debounced MutationObserver
+  //    once so the chrome stays clean across every re-render.
+  if (!modal.__msMobileObs) {
+    let pending = false;
+    const obs = new MutationObserver(() => {
+      if (pending) return;
+      pending = true;
+      setTimeout(() => {
+        pending = false;
+        // Only react to structural changes (new nodes). Ignore the
+        // attribute writes our own apply pass generates.
+        obs.disconnect();
+        studioApplyMobileChrome();
+        obs.observe(modal, { childList: true, subtree: true });
+      }, 150);
+    });
+    obs.observe(modal, { childList: true, subtree: true });
+    modal.__msMobileObs = obs;
   }
 }
 window.studioApplyMobileChrome = studioApplyMobileChrome;
