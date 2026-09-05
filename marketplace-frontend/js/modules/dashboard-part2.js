@@ -1678,58 +1678,57 @@ window.deptGo = deptGo;
 // the legacy #nav-desktop HTML tree. A page missing from SAAS_DEPARTMENTS is
 // silently invisible on desktop even if it exists in MS_ALLOWED_PAGES and has
 // its own page-content container.
+// Frozen HQ information architecture. Order + grouping follow the SaaS-admin
+// hierarchy: HOME · CUSTOMERS · REVENUE · FINANCE · PEOPLE · MARKETING ·
+// AI WORKFORCE · PLATFORM · SETTINGS. Route slugs are preserved so backend
+// contracts don't move; only nav grouping/labels change. Any page that is a
+// placeholder (no CRUD, static text) is NOT listed here — HQ must have no
+// dead navigation. Removed: saas-products, saas-roles, saas-flags (static
+// placeholders); saas-all-users (duplicate of owner-users, same loader).
 const SAAS_DEPARTMENTS = {
-  pulse:          { label: 'Pulse',          icon: 'chart',     accent: 'market', always: true, pages: [
-    { page: 'saas-command', label: 'Pulse' },
+  home:           { label: 'Home',           icon: 'chart',     accent: 'market', always: true, pages: [
+    { page: 'saas-command',       label: 'HQ Overview' },
+    { page: 'saas-intelligence',  label: 'Daily Brief' },
   ] },
   customers:      { label: 'Customers',      icon: 'building',  accent: 'market', always: true, pages: [
-    { page: 'saas-customers', label: 'Customers' },
-    { page: 'saas-trials', label: 'Trials' },
-  ] },
-  sales:          { label: 'Sales',          icon: 'funnel',    accent: 'market', always: true, pages: [
-    { page: 'saas-funnel', label: 'Leads' },
-    { page: 'saas-followups', label: 'Follow-ups' },
-  ] },
-  subscriptions:  { label: 'Subscriptions',  icon: 'receipt',   accent: 'market', always: true, pages: [
-    { page: 'saas-billing', label: 'Overview & Invoices' },
-    { page: 'saas-entitlements', label: 'Entitlements' },
-    { page: 'saas-products', label: 'Product Catalog' },
+    { page: 'saas-customers',     label: 'Dealerships' },
+    { page: 'saas-trials',        label: 'Trials' },
+    { page: 'saas-onboarding',    label: 'Onboarding' },
+    { page: 'saas-health',        label: 'Customer Health' },
+    { page: 'owner-users',        label: 'Accounts & Access' },
     { page: 'saas-product-usage', label: 'Product Usage' },
   ] },
-  people:         { label: 'People',         icon: 'users',     accent: 'market', always: true, pages: [
-    { page: 'saas-employees', label: 'Staff' },
-    { page: 'saas-onboarding', label: 'Onboarding' },
-    { page: 'owner-users', label: 'Accounts & access' },
-    { page: 'saas-all-users', label: 'All Users' },
-    { page: 'saas-roles', label: 'HQ Roles' },
-  ] },
-  marketing:      { label: 'Marketing',      icon: 'megaphone', accent: 'market', always: true, pages: [
-    { page: 'saas-email-marketing', label: 'Campaigns' },
-    { page: 'saas-studio', label: 'Design Studio' },
-    { page: 'saas-website', label: 'Website' },
-    { page: 'saas-announcements', label: 'Announcements' },
+  revenue:        { label: 'Revenue',        icon: 'receipt',   accent: 'market', always: true, pages: [
+    { page: 'saas-billing',       label: 'Subscriptions & Billing' },
+    { page: 'saas-entitlements',  label: 'Entitlements' },
+    { page: 'saas-funnel',        label: 'Funnel' },
+    { page: 'saas-followups',     label: 'Follow-ups' },
+    { page: 'saas-affiliates',    label: 'Affiliates & Payouts' },
   ] },
   finance:        { label: 'Finance',        icon: 'currency',  accent: 'market', always: true, pages: [
-    { page: 'saas-accounting', label: 'Overview & Accounting' },
+    { page: 'saas-accounting',    label: 'Overview & P&L' },
   ] },
-  affiliates:     { label: 'Affiliates',     icon: 'trophy',    accent: 'market', always: true, pages: [
-    { page: 'saas-affiliates', label: 'Affiliates' },
+  people:         { label: 'People',         icon: 'users',     accent: 'market', always: true, pages: [
+    { page: 'saas-employees',     label: 'Staff' },
   ] },
-  operations:     { label: 'Operations',     icon: 'wrench',    accent: 'market', always: true, pages: [
-    { page: 'saas-health', label: 'Platform Health' },
-    { page: 'saas-integrations', label: 'Integrations' },
-    { page: 'saas-usage', label: 'Usage' },
-    { page: 'saas-audit', label: 'Audit Log' },
-    { page: 'saas-security', label: 'Security' },
+  marketing:      { label: 'Marketing',      icon: 'megaphone', accent: 'market', always: true, pages: [
+    { page: 'saas-website',       label: 'Website Studio' },
+    { page: 'saas-studio',        label: 'Design Studio' },
+    { page: 'saas-email-marketing', label: 'Email / SMS' },
+    { page: 'saas-automation',    label: 'Automations' },
+    { page: 'saas-announcements', label: 'Announcements' },
   ] },
-  intelligence:   { label: 'AI & Automation', icon: 'sparkles', accent: 'market', always: true, pages: [
-    { page: 'saas-automation', label: 'Automations' },
-    { page: 'saas-agents', label: 'AI Agent Hub' },
-    { page: 'saas-intelligence', label: 'HQ Intelligence' },
+  workforce:      { label: 'AI Workforce',   icon: 'sparkles',  accent: 'market', always: true, pages: [
+    { page: 'saas-agents',        label: 'Agent Hub' },
+  ] },
+  platform:       { label: 'Platform',       icon: 'wrench',    accent: 'market', always: true, pages: [
+    { page: 'saas-integrations',  label: 'Integrations' },
+    { page: 'saas-security',      label: 'Security' },
+    { page: 'saas-audit',         label: 'Audit Log' },
+    { page: 'saas-usage',         label: 'System Usage' },
   ] },
   settings:       { label: 'Settings',       icon: 'shield',    accent: 'market', always: true, pages: [
-    { page: 'config', label: 'Settings' },
-    { page: 'saas-flags', label: 'Feature Flags' },
+    { page: 'config',             label: 'Company & Access' },
   ] },
 };
 window.SAAS_DEPARTMENTS = SAAS_DEPARTMENTS;
@@ -2411,28 +2410,24 @@ function switchPage(pageId) {
   if (pageId === 'saas-automation') loadSaasAutomation();
   if (pageId === 'saas-employees') loadSaasEmployees();
   if (pageId === 'saas-accounting') loadSaasAccounting();
-  if (pageId === 'saas-billing' && typeof loadSaasBillingSummary === 'function') loadSaasBillingSummary();
-  if (pageId === 'saas-affiliates' && typeof loadSaasAffiliates === 'function') loadSaasAffiliates();
-  if (pageId === 'saas-product-usage' && typeof loadSaasProductUsage === 'function') loadSaasProductUsage();
-  if (pageId === 'saas-health' && typeof loadSaasHealth === 'function') loadSaasHealth();
-  if (pageId === 'saas-trials' && typeof loadSaasTrials === 'function') loadSaasTrials();
-  if (pageId === 'saas-onboarding' && typeof loadSaasOnboarding === 'function') loadSaasOnboarding();
+  // Canonical HQ route → loader dispatch. One loader per route. The audit
+  // documented two parallel loader families (loadHq* + loadSaas*) that both
+  // fired for the same route; the later call stomped the earlier one. Frozen
+  // choices below, based on which loader implements CRUD/state handling.
+  if (pageId === 'saas-billing'       && typeof loadHqBilling         === 'function') loadHqBilling();
+  if (pageId === 'saas-affiliates'    && typeof loadSaasAffiliates    === 'function') loadSaasAffiliates();
+  if (pageId === 'saas-product-usage' && typeof loadSaasProductUsage  === 'function') loadSaasProductUsage();
+  if (pageId === 'saas-health'        && typeof loadSaasHealth        === 'function') loadSaasHealth();
+  if (pageId === 'saas-trials'        && typeof loadSaasTrials        === 'function') loadSaasTrials();
+  if (pageId === 'saas-onboarding'    && typeof loadSaasOnboarding    === 'function') loadSaasOnboarding();
   if (pageId === 'saas-announcements' && typeof loadSaasAnnouncements === 'function') loadSaasAnnouncements();
-  if (pageId === 'saas-intelligence' && typeof loadSaasIntelligence === 'function') loadSaasIntelligence();
-  if (pageId === 'saas-agents' && typeof loadHqAgents === 'function') loadHqAgents();
-  if (pageId === 'saas-entitlements' && typeof loadHqEntitlements === 'function') loadHqEntitlements();
-  if (pageId === 'saas-products' && typeof loadHqProducts === 'function') loadHqProducts();
-  if (pageId === 'saas-trials' && typeof loadHqTrials === 'function') loadHqTrials();
-  if (pageId === 'saas-flags' && typeof loadHqFlags === 'function') loadHqFlags();
-  if (pageId === 'saas-audit' && typeof loadHqAudit === 'function') loadHqAudit();
-  if (pageId === 'saas-security' && typeof loadHqSecurity === 'function') loadHqSecurity();
-  if (pageId === 'saas-usage' && typeof loadHqUsage === 'function') loadHqUsage();
-  if (pageId === 'saas-health' && typeof loadHqHealth === 'function') loadHqHealth();
-  if (pageId === 'saas-onboarding' && typeof loadHqOnboarding === 'function') loadHqOnboarding();
-  if (pageId === 'saas-integrations' && typeof loadHqIntegrations === 'function') loadHqIntegrations();
-  if (pageId === 'saas-all-users' && typeof loadHqAllUsers === 'function') loadHqAllUsers();
-  if (pageId === 'saas-roles' && typeof loadHqRoles === 'function') loadHqRoles();
-  if (pageId === 'saas-billing' && typeof loadHqBilling === 'function') loadHqBilling();
+  if (pageId === 'saas-intelligence'  && typeof loadSaasIntelligence  === 'function') loadSaasIntelligence();
+  if (pageId === 'saas-agents'        && typeof loadHqAgents          === 'function') loadHqAgents();
+  if (pageId === 'saas-entitlements'  && typeof loadHqEntitlements    === 'function') loadHqEntitlements();
+  if (pageId === 'saas-audit'         && typeof loadHqAudit           === 'function') loadHqAudit();
+  if (pageId === 'saas-security'      && typeof loadHqSecurity        === 'function') loadHqSecurity();
+  if (pageId === 'saas-usage'         && typeof loadHqUsage           === 'function') loadHqUsage();
+  if (pageId === 'saas-integrations'  && typeof loadHqIntegrations    === 'function') loadHqIntegrations();
   if (pageId === 'config') loadConfigHub();
   if (pageId === 'api-keys') loadApiKeys();
   if (pageId === 'delivery') loadDeliveryQueue();

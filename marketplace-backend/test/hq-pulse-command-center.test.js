@@ -223,10 +223,12 @@ test('HQ desktop nav uses the locked operating departments and shared icon regis
     new URL('../../marketplace-frontend/js/modules/dashboard-part2.js', import.meta.url), 'utf8'
   )
   const block = part2.match(/const SAAS_DEPARTMENTS = \{[\s\S]*?^\};/m)?.[0] || ''
-  for (const label of ['Pulse', 'Customers', 'Sales', 'Subscriptions', 'People',
-                       'Marketing', 'Finance', 'Affiliates', 'Operations',
-                       'AI & Automation', 'Settings']) {
-    assert.match(block, new RegExp(`label: '${label.replace(/[&]/g, '\\&')}'`),
+  // Frozen HQ information architecture (Phase 1 IA freeze). Order matches the
+  // SaaS-admin hierarchy: Home · Customers · Revenue · Finance · People ·
+  // Marketing · AI Workforce · Platform · Settings.
+  for (const label of ['Home', 'Customers', 'Revenue', 'Finance', 'People',
+                       'Marketing', 'AI Workforce', 'Platform', 'Settings']) {
+    assert.match(block, new RegExp(`label: '${label}'`),
       `HQ registry is missing ${label}`)
   }
   assert.match(part2, /window\.SAAS_DEPARTMENTS = SAAS_DEPARTMENTS/,

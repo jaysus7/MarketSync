@@ -8,6 +8,7 @@ const version = '20260902_staging_repair_v1'
 const builderVersion = '20260903_appraisal_theme_v1'
 const studioDepthVersion = '20260903_studio_format_templates_v1'
 const previewBootVersion = '20260903_website_light_theme_v1'
+const hqIaVersion = '20260905_hq_ia_freeze_v1'
 
 test('every frontend asset edited by the staging repair has the release cache version', () => {
   for (const asset of [
@@ -21,9 +22,11 @@ test('every frontend asset edited by the staging repair has the release cache ve
     assert.ok(html.includes(`${asset}?v=${builderVersion}`), `${asset} builder cache version is stale`)
   }
 
-  for (const asset of ['css/marketsync-theme.css', 'js/modules/dashboard-part2.js']) {
+  for (const asset of ['css/marketsync-theme.css']) {
     assert.ok(html.includes(`${asset}?v=${studioDepthVersion}`), `${asset} Studio depth cache version is stale`)
   }
+  // dashboard-part2.js was rebumped for the HQ IA freeze (Phase 1 finalization).
+  assert.ok(html.includes(`js/modules/dashboard-part2.js?v=${hqIaVersion}`), 'dashboard-part2.js HQ IA cache version is stale')
 
   assert.ok(html.includes(`js/modules/dashboard-part17.js?v=${previewBootVersion}`), 'website preview cache version is stale')
 

@@ -60,8 +60,10 @@ const EXPECTED_WORKSPACES = [
 test('MarketSync Internal OS uses the approved company navigation in order', () => {
   const block = part2.match(/const SAAS_DEPARTMENTS = \{([\s\S]*?)\n\};/)?.[1] || ''
   const labels = [...block.matchAll(/^\s{2}[\w-]+:\s+\{ label: '([^']+)'/gm)].map(match => match[1])
-  assert.deepEqual(labels, ['Pulse', 'Customers', 'Sales', 'Subscriptions', 'People',
-    'Marketing', 'Finance', 'Affiliates', 'Operations', 'AI & Automation', 'Settings'])
+  // Frozen HQ IA (Phase 1): SaaS-admin hierarchy — Home, Customers, Revenue,
+  // Finance, People, Marketing, AI Workforce, Platform, Settings.
+  assert.deepEqual(labels, ['Home', 'Customers', 'Revenue', 'Finance', 'People',
+    'Marketing', 'AI Workforce', 'Platform', 'Settings'])
   // Creative and website tools remain real routes, but are no longer primary
   // operating departments in the simplified Internal rail.
   for (const page of ['saas-email-marketing', 'saas-studio', 'saas-website']) {

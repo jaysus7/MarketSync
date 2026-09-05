@@ -1751,7 +1751,7 @@ ENGINES['saas-command'] = {
   quickActions: [
     { label: 'Dealerships', icon: 'chart', onclick: "switchPage('saas-customers')" },
     { label: 'Billing', icon: 'currency', onclick: "switchPage('saas-billing')" },
-    { label: 'Users', icon: 'user', onclick: "switchPage('saas-all-users')" },
+    { label: 'Users', icon: 'user', onclick: "switchPage('owner-users')" },
     { label: 'Health', icon: 'bolt', onclick: "switchPage('saas-health')" },
   ],
   nextActions: (d) => {
