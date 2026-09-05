@@ -1307,10 +1307,12 @@ ENGINES['marketing-overview'] = {
     website(body) {
       window.websiteWorkspacePreviousRoute = { dept: 'marketing', page: 'marketing-overview', tab: 'website' };
       body.innerHTML = `
-        ${mktSuiteBand('Website', 'Websites', 'SEO analytics live on this Pulse. The builder opens full screen and comes back here.',
+        ${mktSuiteBand('Website', 'Website command center', 'Live status, content, publishing and discoverability — one screen for the whole site.',
           `<button type="button" onclick="window.websiteWorkspacePreviousRoute={dept:'marketing',page:'marketing-overview',tab:'website'};if(typeof openWebsiteBuilder==='function')openWebsiteBuilder();else switchPage('website')" class="liquid-glass-btn website-open-builder-btn font-black">Open builder</button>`)}
+        <div id="website-cc-root" class="space-y-5 mb-6"></div>
         <div id="seo-workspace-root" class="space-y-6"></div>
       `;
+      if (typeof loadWebsiteCommandCenter === 'function') loadWebsiteCommandCenter();
       if (typeof loadDealerSeo === 'function') loadDealerSeo();
       else if (typeof loadSeoPage === 'function') {
         const host = document.getElementById('seo-workspace-root');
@@ -2298,3 +2300,115 @@ window.mktUploadStudioAsset = async function (input) {
     mktLoadStudioBrandAndAssets();
   } catch (e) { showToast(e.message, 'error'); }
 };
+
+// ── Website Command Center (Phase B) ─────────────────────────────────────────
+// Sections 1 (Status), 8 (Content), plus Quick Actions. All data comes from
+// existing canonical endpoints — no seeded or mocked values. Sections 2, 3, 4,
+// 5-7, 9-13 land in follow-up phases per the roadmap.
+//
+// Data sources (repo audit, no forking):
+//   GET /dealership/site   → routes/site.js:630   (status, slug, domain, revisions, content.pages/forms)
+//   GET /dealership/blog   → routes/site.js:1161  (blog posts + status)
+async function loadWebsiteCommandCenter() {
+  const host = document.getElementById('website-cc-root');
+  if (!host) return;
+  host.innerHTML = `<div class="text-sm text-slate-500 dark:text-slate-400 py-6">Loading website status…</div>`;
+  const [siteRes, blogRes] = await Promise.all([
+    apiGetJson('/dealership/site').catch(() => null),
+    apiGetJson('/dealership/blog').catch(() => null),
+  ]);
+  if (!siteRes) {
+    host.innerHTML = `<div class="ms-c p-5 text-sm text-slate-600 dark:text-slate-300">Website data isn't available right now. Sign in with website management access, or open the builder to get started.</div>`;
+    return;
+  }
+  host.innerHTML = renderWebsiteCommandCenter(siteRes, blogRes);
+}
+window.loadWebsiteCommandCenter = loadWebsiteCommandCenter;
+
+function renderWebsiteCommandCenter(site, blog) {
+  const slug = site.site_slug || null;
+  const publicUrl = slug && typeof wsPublicSiteUrl === 'function' ? wsPublicSiteUrl(slug) : null;
+  const published = !!site.site_published;
+  const domain = site.custom_domain || null;
+  const domainVerified = !!site.custom_domain_verified;
+  const draftRev = site.revision || null;
+  const pubRev = site.published_revision || null;
+  const pages = Array.isArray(site.content?.pages) ? site.content.pages : [];
+  const forms = Array.isArray(site.content?.forms) ? site.content.forms : [];
+  const blogPosts = Array.isArray(blog?.posts) ? blog.posts : (Array.isArray(blog) ? blog : []);
+  const publishedBlog = blogPosts.filter(p => p.published || p.status === 'published').length;
+  const draftBlog = blogPosts.length - publishedBlog;
+  const hasDraftChanges = !!(draftRev && (!pubRev || draftRev.number > pubRev.number));
+  const statusTone = !published ? 'text-slate-500' : (hasDraftChanges ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400');
+  const statusLabel = !published ? 'Draft — not live' : (hasDraftChanges ? 'Live · unpublished changes' : 'Live');
+  const lastPublishedTs = pubRev?.published_at || null;
+  const lastPublished = lastPublishedTs ? new Date(lastPublishedTs).toLocaleString() : '—';
+
+  const kpi = (label, value, sub, tone = '') => `
+    <div class="ms-c p-4">
+      <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">${esc(label)}</div>
+      <div class="mt-1 text-2xl font-black text-slate-900 dark:text-white ${tone}">${esc(String(value))}</div>
+      ${sub ? `<div class="mt-1 text-xs text-slate-500 dark:text-slate-400">${esc(sub)}</div>` : ''}
+    </div>`;
+
+  const statusStrip = `
+    <section class="ms-c ms-c--glass p-5" data-website-cc-section="status">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="min-w-0">
+          <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Website status</div>
+          <div class="mt-1 flex items-center gap-2 flex-wrap">
+            <span class="text-lg font-black ${statusTone}">${esc(statusLabel)}</span>
+            ${domain
+              ? `<span class="text-xs font-bold px-2 py-0.5 rounded-full ${domainVerified ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'}">${domainVerified ? '' : 'Domain unverified · '}${esc(domain)}</span>`
+              : ''}
+          </div>
+          <div class="mt-1 text-xs text-slate-500 dark:text-slate-400 truncate">
+            ${publicUrl ? `<a href="${esc(publicUrl)}" target="_blank" rel="noopener noreferrer" class="hover:underline">${esc(publicUrl)}</a>` : 'No public URL yet'}
+          </div>
+          <div class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            Last published: <span class="font-bold text-slate-700 dark:text-slate-200">${esc(lastPublished)}</span>
+            ${pubRev ? ` · rev #${esc(String(pubRev.number))}` : ''}
+            ${hasDraftChanges ? ` · <span class="font-bold text-amber-600 dark:text-amber-400">draft #${esc(String(draftRev.number))} ahead</span>` : ''}
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-2 shrink-0">
+          <button type="button" onclick="if(typeof openWebsiteBuilder==='function')openWebsiteBuilder()" class="liquid-glass-btn px-4 py-2 rounded-xl text-xs font-black">Edit website</button>
+          ${publicUrl ? `<a href="${esc(publicUrl)}" target="_blank" rel="noopener noreferrer" class="liquid-glass-btn-secondary px-4 py-2 rounded-xl text-xs font-black">View live ↗</a>` : ''}
+          ${hasDraftChanges ? `<button type="button" onclick="if(typeof openWebsiteBuilder==='function')openWebsiteBuilder()" class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-black">Publish changes</button>` : ''}
+          <button type="button" onclick="if(typeof openSetupModal==='function')openSetupModal('domain')" class="liquid-glass-btn-secondary px-4 py-2 rounded-xl text-xs font-black">Manage domain</button>
+        </div>
+      </div>
+    </section>`;
+
+  const contentGrid = `
+    <section class="space-y-3" data-website-cc-section="content">
+      <div class="flex items-end justify-between gap-3">
+        <div>
+          <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Section 8</div>
+          <h3 class="text-base font-black text-slate-900 dark:text-white">Content status</h3>
+        </div>
+        <button type="button" onclick="if(typeof openWebsiteBuilder==='function')openWebsiteBuilder()" class="text-xs font-black text-indigo-700 dark:text-indigo-300">Manage pages →</button>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${kpi('Pages', pages.length, pages.length ? 'In current draft' : 'No pages yet')}
+        ${kpi('Forms', forms.length, forms.length ? 'On the website' : 'None on site')}
+        ${kpi('Blog · published', publishedBlog, blogPosts.length ? `${blogPosts.length} total` : 'No posts')}
+        ${kpi('Blog · drafts', draftBlog, draftBlog ? 'Awaiting publish' : 'All up to date', draftBlog ? 'text-amber-600 dark:text-amber-400' : '')}
+      </div>
+    </section>`;
+
+  const quickActions = `
+    <section class="ms-c ms-c--glass p-4" data-website-cc-section="quick-actions">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-2">Quick actions</span>
+        <button type="button" onclick="if(typeof openWebsiteBuilder==='function')openWebsiteBuilder()" class="liquid-glass-btn px-3 py-1.5 rounded-lg text-xs font-black">Edit website</button>
+        <button type="button" onclick="if(typeof openWebsiteBuilder==='function')openWebsiteBuilder()" class="liquid-glass-btn-secondary px-3 py-1.5 rounded-lg text-xs font-black">Create page</button>
+        ${publicUrl ? `<a href="${esc(publicUrl)}" target="_blank" rel="noopener noreferrer" class="liquid-glass-btn-secondary px-3 py-1.5 rounded-lg text-xs font-black">View live ↗</a>` : ''}
+        <button type="button" onclick="if(typeof switchPage==='function')switchPage('discoverability')" class="liquid-glass-btn-secondary px-3 py-1.5 rounded-lg text-xs font-black">View discoverability</button>
+        <button type="button" onclick="if(typeof openSetupModal==='function')openSetupModal('domain')" class="liquid-glass-btn-secondary px-3 py-1.5 rounded-lg text-xs font-black">Manage domain</button>
+      </div>
+    </section>`;
+
+  return `${statusStrip}${quickActions}${contentGrid}`;
+}
+window.renderWebsiteCommandCenter = renderWebsiteCommandCenter;
