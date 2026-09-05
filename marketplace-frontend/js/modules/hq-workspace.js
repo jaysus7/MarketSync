@@ -194,30 +194,34 @@ window.hqSupportSession = async function(id) {
 
 async function loadHqAudit() {
   const root = document.getElementById('saas-audit-root'); if (!root) return;
-  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Loading audit…</div>';
+  root.innerHTML = hqPageHeader('Audit log', 'HQ actions from audit_log') + hqLoading('Loading audit…');
   try {
     const d = await apiGetJson('/owner/audit');
-    const ev = d.events || [];
-    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Audit log','HQ actions from audit_log'):''}
-      <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <table class="w-full text-left text-xs"><thead><tr class="text-[10px] uppercase text-slate-400 border-b border-slate-200 dark:border-slate-800">
-          <th class="p-3">When</th><th class="p-3">Action</th><th class="p-3">Actor</th><th class="p-3">Dealership</th></tr></thead>
-          <tbody>${ev.map(e => `<tr class="border-t border-slate-100 dark:border-slate-800"><td class="p-3 whitespace-nowrap">${esc(String(e.created_at||'').replace('T',' ').slice(0,16))}</td><td class="p-3 font-bold">${esc(e.action)}</td><td class="p-3">${esc(e.actor_email||e.actor_id||'—')}</td><td class="p-3">${esc(e.dealership_id||'—')}</td></tr>`).join('') || '<tr><td class="p-3" colspan="4">No HQ audit rows yet.</td></tr>'}</tbody></table></div>`;
-  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
+    const rows = d.events || [];
+    const table = hqTable([
+      { key: 'created_at', label: 'When',       render: r => esc(String(r.created_at||'').replace('T',' ').slice(0,16)) },
+      { key: 'action',     label: 'Action',     render: r => `<b>${esc(r.action||'—')}</b>` },
+      { key: 'actor',      label: 'Actor',      render: r => esc(r.actor_email||r.actor_id||'—') },
+      { key: 'dealership', label: 'Dealership', render: r => esc(r.dealership_id||'—') },
+    ], rows, { emptyTitle: 'No HQ audit rows yet', emptyMessage: 'Actions taken from HQ will appear here.' });
+    root.innerHTML = hqPageHeader('Audit log', 'HQ actions from audit_log') + table;
+  } catch (e) { root.innerHTML = hqPageHeader('Audit log', 'HQ actions from audit_log') + hqError(e, { onRetry: 'loadHqAudit()' }); }
 }
 
 async function loadHqSecurity() {
   const root = document.getElementById('saas-security-root'); if (!root) return;
-  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Loading security events…</div>';
+  root.innerHTML = hqPageHeader('Security center', 'security_events stream') + hqLoading('Loading security events…');
   try {
     const d = await apiGetJson('/owner/security');
-    const ev = d.events || [];
-    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Security center','security_events stream'):''}
-      <div class="space-y-2">${ev.slice(0,80).map(e => `<div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 text-xs">
-        <div class="font-black">${esc(e.event_type)}</div>
-        <div class="text-slate-500">${esc(String(e.created_at||'').replace('T',' ').slice(0,19))} · ${esc(e.ip||'no ip')} · user ${esc(e.user_id||'—')}</div>
-      </div>`).join('') || '<div class="text-sm text-slate-400">No security events readable.</div>'}</div>`;
-  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
+    const rows = (d.events || []).slice(0, 80);
+    const table = hqTable([
+      { key: 'event_type', label: 'Event', render: r => `<b>${esc(r.event_type||'—')}</b>` },
+      { key: 'created_at', label: 'When',  render: r => esc(String(r.created_at||'').replace('T',' ').slice(0,19)) },
+      { key: 'ip',         label: 'IP',    render: r => esc(r.ip||'no ip') },
+      { key: 'user_id',    label: 'User',  render: r => esc(r.user_id||'—') },
+    ], rows, { emptyTitle: 'No security events readable', emptyMessage: 'security_events stream is empty for the current window.' });
+    root.innerHTML = hqPageHeader('Security center', 'security_events stream') + table;
+  } catch (e) { root.innerHTML = hqPageHeader('Security center', 'security_events stream') + hqError(e, { onRetry: 'loadHqSecurity()' }); }
 }
 
 window.loadHqAudit = loadHqAudit;
@@ -258,40 +262,59 @@ window.hqToggleModule = async function(id, key) {
 
 async function loadHqUsage() {
   const root = document.getElementById('saas-usage-root'); if (!root) return;
-  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Loading usage…</div>';
+  root.innerHTML = hqPageHeader('System usage', 'Last 30 days from events table') + hqLoading('Loading usage…');
   try {
     const d = await apiGetJson('/owner/usage');
     const ns = Object.entries(d.by_namespace || {}).sort((a,b)=>b[1]-a[1]);
-    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Usage','Last 30 days from events table'):''}
-      <div class="text-sm mb-3">${Number(d.total_events||0).toLocaleString()} events</div>
-      <div class="grid md:grid-cols-2 gap-3">
-        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
-          ${ns.map(([k,v]) => `<div class="flex justify-between py-1 text-sm border-t border-slate-100 dark:border-slate-800 first:border-0"><span>${esc(k)}</span><b>${v}</b></div>`).join('') || 'No events'}
-        </div>
-        <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
-          ${(d.top_dealerships||[]).map(r => `<button class="w-full text-left py-1.5 text-sm border-t border-slate-100 dark:border-slate-800 first:border-0" onclick="openSaasCustomer('${r.dealership_id}')"><b>${esc(r.dealership_id.slice(0,8))}</b> · ${r.events_30d} events</button>`).join('') || 'No dealership activity'}
-        </div>
-      </div>`;
-  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
+    const top = d.top_dealerships || [];
+    const total = Number(d.total_events || 0);
+    const nsTable = hqTable([
+      { key: 'k', label: 'Namespace', render: r => esc(r[0]) },
+      { key: 'v', label: 'Events', align: 'right', render: r => `<b>${Number(r[1]).toLocaleString()}</b>` },
+    ], ns, { emptyTitle: 'No events recorded in the last 30 days' });
+    const topRows = top.map(r => ({
+      button: `<button class="hq-link" onclick="openSaasCustomer('${esc(r.dealership_id)}')"><b>${esc(String(r.dealership_id||'').slice(0,8))}</b></button>`,
+      n: r.events_30d,
+    }));
+    const topTable = hqTable([
+      { key: 'button', label: 'Dealership', render: r => r.button },
+      { key: 'n',      label: '30-day events', align: 'right', render: r => Number(r.n||0).toLocaleString() },
+    ], topRows, { emptyTitle: 'No dealership activity in the last 30 days' });
+    root.innerHTML = hqPageHeader('System usage', `${total.toLocaleString()} events · last 30 days`) +
+      `<div class="hq-grid-2">${nsTable}${topTable}</div>`;
+  } catch (e) { root.innerHTML = hqPageHeader('System usage', 'Last 30 days from events table') + hqError(e, { onRetry: 'loadHqUsage()' }); }
 }
 
 async function loadHqHealth() {
   const root = document.getElementById('saas-health-root'); if (!root) return;
-  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Checking systems…</div>';
+  root.innerHTML = hqPageHeader('Platform health', 'Live checks — not decorative') + hqLoading('Checking systems…');
   try {
     const d = await apiGetJson('/owner/health');
     const email = await apiGetJson('/owner/email/health').catch(() => null);
     const entries = Object.entries(d.checks || {});
-    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('System health','Live checks — not decorative'):''}
-      <div class="grid md:grid-cols-2 gap-3">
-        ${entries.map(([k,v]) => `<div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
-          <div class="text-[10px] font-black uppercase text-slate-400">${esc(k)}</div>
-          <div class="text-lg font-black ${v && v.ok === false ? 'text-rose-600' : 'text-emerald-600'}">${v && v.ok === false ? 'Down' : (typeof v === 'boolean' ? (v ? 'Yes' : 'No') : 'OK')}</div>
-          <div class="text-xs text-slate-500">${esc(v && v.error ? v.error : (v && v.ms != null ? v.ms + ' ms' : JSON.stringify(v)))}</div>
-        </div>`).join('')}
-        ${email ? `<div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4"><div class="text-[10px] font-black uppercase text-slate-400">Email</div><pre class="text-[11px] whitespace-pre-wrap">${esc(JSON.stringify(email, null, 2))}</pre></div>` : ''}
+    if (entries.length === 0 && !email) {
+      root.innerHTML = hqPageHeader('Platform health', 'Live checks — not decorative') +
+        hqNotConnected({ title: 'No health checks configured', message: 'The /owner/health endpoint returned no checks. Wire probes into the backend first.' });
+      return;
+    }
+    const cards = entries.map(([k, v]) => {
+      const down = v && v.ok === false;
+      const label = down ? 'Down' : (typeof v === 'boolean' ? (v ? 'Yes' : 'No') : 'OK');
+      const tone = down ? 'past_due' : 'ok';
+      const hint = v && v.error ? v.error : (v && v.ms != null ? `${v.ms} ms` : '');
+      return `<div class="hq-kpi">
+        <div class="hq-kpi__label">${esc(k)}</div>
+        <div class="hq-kpi__value" style="font-size:1.125rem">${hqBadge(label, tone)}</div>
+        ${hint ? `<div class="hq-kpi__hint">${esc(hint)}</div>` : ''}
       </div>`;
-  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
+    }).join('');
+    const emailCard = email ? `<div class="hq-kpi">
+      <div class="hq-kpi__label">Email</div>
+      <pre class="text-[11px] whitespace-pre-wrap" style="margin:0.25rem 0 0;color:var(--hq-text-soft)">${esc(JSON.stringify(email, null, 2))}</pre>
+    </div>` : '';
+    root.innerHTML = hqPageHeader('Platform health', 'Live checks — not decorative') +
+      `<div class="hq-grid-2">${cards}${emailCard}</div>`;
+  } catch (e) { root.innerHTML = hqPageHeader('Platform health', 'Live checks — not decorative') + hqError(e, { onRetry: 'loadHqHealth()' }); }
 }
 
 window.loadHqUsage = loadHqUsage;
@@ -310,39 +333,35 @@ window.hqUserStatus = async function(userId, active) {
 
 async function loadHqOnboarding() {
   const root = document.getElementById('saas-onboarding-root'); if (!root) return;
-  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Loading onboarding…</div>';
+  root.innerHTML = hqPageHeader('Customer onboarding', 'Profile, users, products, billing, integrations') + hqLoading('Loading onboarding…');
   try {
     const d = await apiGetJson('/owner/onboarding');
-    const rows = d.accounts || [];
-    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Onboarding','Profile, users, products, billing, integrations'):''}
-      <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <table class="w-full text-left text-xs">
-          <thead><tr class="text-[10px] uppercase text-slate-400 border-b border-slate-200 dark:border-slate-800">
-            <th class="p-3">Dealership</th><th class="p-3">%</th><th class="p-3">Steps</th><th class="p-3"></th></tr></thead>
-          <tbody>${rows.slice(0,250).map(a => `<tr class="border-t border-slate-100 dark:border-slate-800">
-            <td class="p-3 font-bold">${esc(a.name||a.id)}</td>
-            <td class="p-3">${a.percent}%</td>
-            <td class="p-3">${Object.entries(a.steps||{}).map(([k,v]) => v ? k : '<s>'+k+'</s>').join(' · ')}</td>
-            <td class="p-3"><button class="text-indigo-600 font-black" onclick="openSaasCustomer('${a.id}')">360</button></td>
-          </tr>`).join('')}</tbody>
-        </table>
-      </div>`;
-  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
+    const rows = (d.accounts || []).slice(0, 250);
+    const table = hqTable([
+      { key: 'name',    label: 'Dealership', render: r => `<b>${esc(r.name||r.id)}</b>` },
+      { key: 'percent', label: 'Complete', align: 'right', render: r => `${Number(r.percent||0)}%` },
+      { key: 'steps',   label: 'Steps', render: r => Object.entries(r.steps||{}).map(([k,v]) => v ? esc(k) : `<s>${esc(k)}</s>`).join(' · ') || '—' },
+      { key: 'go',      label: '', align: 'right', render: r => `<button class="hq-link" onclick="openSaasCustomer('${esc(r.id)}')">Open 360</button>` },
+    ], rows, { emptyTitle: 'No dealerships in onboarding', emptyMessage: 'Every account has completed its onboarding steps.' });
+    root.innerHTML = hqPageHeader('Customer onboarding', 'Profile, users, products, billing, integrations') + table;
+  } catch (e) { root.innerHTML = hqPageHeader('Customer onboarding', 'Profile, users, products, billing, integrations') + hqError(e, { onRetry: 'loadHqOnboarding()' }); }
 }
 
 async function loadHqIntegrations() {
   const root = document.getElementById('saas-integrations-root'); if (!root) return;
-  root.innerHTML = '<div class="text-sm text-slate-400 p-4">Loading integrations…</div>';
+  root.innerHTML = hqPageHeader('Integrations', 'dealer_integrations across customers') + hqLoading('Loading integrations…');
   try {
     const d = await apiGetJson('/owner/integrations');
-    const rows = d.connections || [];
-    root.innerHTML = `${typeof pulseHeader==='function'?pulseHeader('Integrations','dealer_integrations across customers'):''}
-      <div class="space-y-2">${rows.length ? rows.slice(0,300).map(r => `
-        <button class="w-full text-left rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 text-sm" onclick="openSaasCustomer('${r.dealership_id}')">
-          <b>${esc(r.provider)}</b> · ${esc(r.status||'unknown')} · ${r.enabled ? 'enabled' : 'off'}
-          <div class="text-[11px] text-slate-500">${esc(r.dealership_id)} · ${esc(String(r.updated_at||'').slice(0,16))}</div>
-        </button>`).join('') : '<div class="text-sm text-slate-400">No dealer_integrations rows.</div>'}</div>`;
-  } catch (e) { root.innerHTML = `<div class="text-sm text-rose-500 p-4">${esc(e.message)}</div>`; }
+    const rows = (d.connections || []).slice(0, 300);
+    const table = hqTable([
+      { key: 'provider', label: 'Provider', render: r => `<b>${esc(r.provider||'—')}</b>` },
+      { key: 'status',   label: 'Status',   render: r => hqBadge(r.status || 'unknown', r.status) },
+      { key: 'enabled',  label: 'Enabled',  render: r => hqBadge(r.enabled ? 'enabled' : 'off', r.enabled ? 'ok' : 'off') },
+      { key: 'dealer',   label: 'Dealership', render: r => `<button class="hq-link" onclick="openSaasCustomer('${esc(r.dealership_id)}')">${esc(r.dealership_id||'—')}</button>` },
+      { key: 'updated',  label: 'Updated', render: r => esc(String(r.updated_at||'').slice(0,16)) },
+    ], rows, { emptyTitle: 'No integrations configured yet', emptyMessage: 'Once a dealer connects an external service, it will appear here.' });
+    root.innerHTML = hqPageHeader('Integrations', 'dealer_integrations across customers') + table;
+  } catch (e) { root.innerHTML = hqPageHeader('Integrations', 'dealer_integrations across customers') + hqError(e, { onRetry: 'loadHqIntegrations()' }); }
 }
 
 window.loadHqOnboarding = loadHqOnboarding;

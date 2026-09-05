@@ -2307,7 +2307,8 @@ window.openSaasAutomationView = (view) => { __automation.view = view; switchPage
 
 async function loadSaasStudio() {
   const root = document.getElementById('saas-studio-root'); if (!root) return;
-  root.innerHTML = saasToolHeader({ icon: 'megaphone', title: 'Studio', subtitle: 'Create product videos and branded campaign assets.', action: '<button onclick="openCustomerVideoStudio(\'demo-customer\',{department:\'MarketSync\',scriptKey:\'product_demo\'})" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-black">Record product video</button>' });
+  const ribbon = typeof hqPoweredByRibbon === 'function' ? hqPoweredByRibbon() : '';
+  root.innerHTML = ribbon + saasToolHeader({ icon: 'megaphone', title: 'Design Studio', subtitle: 'Create product videos and branded campaign assets. Also available as a standalone product for DealerOS customers.', action: '<button onclick="openCustomerVideoStudio(\'demo-customer\',{department:\'MarketSync\',scriptKey:\'product_demo\'})" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-black">Record product video</button>' });
   try {
     const data = await apiGetJson('/marketing/studio/designs');
     const designs = data.designs || data || [];
@@ -2319,7 +2320,8 @@ window.loadSaasStudio = loadSaasStudio;
 
 function loadSaasWebsite() {
   const root = document.getElementById('saas-website-root'); if (!root) return;
-  root.innerHTML = saasToolHeader({ icon: 'globe', title: 'Website', subtitle: 'Edit pages, forms, pricing, content and SEO in the connected public-site builder.', action: '<a href="https://marketsync.link" target="_blank" rel="noopener" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-black">Preview live site</a>' }) + '<div id="saas-connected-website-builder" class="mt-4"></div>';
+  const ribbon = typeof hqPoweredByRibbon === 'function' ? hqPoweredByRibbon() : '';
+  root.innerHTML = ribbon + saasToolHeader({ icon: 'globe', title: 'Website Studio', subtitle: 'Edit pages, forms, pricing, content and SEO in the connected public-site builder. Also available as a standalone product for DealerOS customers.', action: '<a href="https://marketsync.link" target="_blank" rel="noopener" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-black">Preview live site</a>' }) + '<div id="saas-connected-website-builder" class="mt-4"></div>';
   const host = document.getElementById('saas-connected-website-builder');
   if (host && typeof engMountPage === 'function') engMountPage(host, 'website', () => { if (typeof loadWebsitePage === 'function') loadWebsitePage(); });
 }

@@ -1,0 +1,266 @@
+/*
+ * MarketSync HQ — shared UI primitives (Phase 2 design system).
+ *
+ * All classes are prefixed `.hq-` and scoped to `html[data-dash-owner="1"]`
+ * so DealerOS mode is never affected. Every rule works in light and dark
+ * modes via CSS custom properties defined on :root and .dark.
+ */
+
+:root {
+  --hq-brand: #2563eb;                 /* Market Blue */
+  --hq-brand-fg: #ffffff;
+  --hq-surface: #ffffff;
+  --hq-surface-soft: #f8fafc;
+  --hq-border: #e2e8f0;
+  --hq-text: #0f172a;
+  --hq-text-soft: #475569;
+  --hq-text-muted: #94a3b8;
+  --hq-good: #059669;
+  --hq-warn: #d97706;
+  --hq-danger: #dc2626;
+  --hq-info: #2563eb;
+}
+
+.dark {
+  --hq-surface: #0b1220;
+  --hq-surface-soft: #111827;
+  --hq-border: #1f2937;
+  --hq-text: #f1f5f9;
+  --hq-text-soft: #cbd5e1;
+  --hq-text-muted: #64748b;
+  --hq-good: #10b981;
+  --hq-warn: #f59e0b;
+  --hq-danger: #f87171;
+}
+
+/* ─── Page header ─────────────────────────────────────────────────────── */
+
+html[data-dash-owner="1"] .hq-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0 1.25rem;
+  border-bottom: 1px solid var(--hq-border);
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+html[data-dash-owner="1"] .hq-page-header__title {
+  font-family: 'Manrope', system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--hq-text);
+  letter-spacing: -0.01em;
+  margin: 0;
+  line-height: 1.2;
+}
+html[data-dash-owner="1"] .hq-page-header__subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: var(--hq-text-soft);
+}
+html[data-dash-owner="1"] .hq-page-header__actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ─── State primitives (loading/empty/error/forbidden/not-connected) ── */
+
+html[data-dash-owner="1"] .hq-state {
+  border-radius: 1rem;
+  border: 1px solid var(--hq-border);
+  background: var(--hq-surface);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  color: var(--hq-text);
+}
+html[data-dash-owner="1"] .hq-state__title {
+  font-family: 'Manrope', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--hq-text);
+  margin-bottom: 0.375rem;
+}
+html[data-dash-owner="1"] .hq-state__msg {
+  font-size: 0.875rem;
+  color: var(--hq-text-soft);
+  max-width: 40rem;
+  margin: 0 auto;
+}
+html[data-dash-owner="1"] .hq-state__retry {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  background: var(--hq-brand);
+  color: var(--hq-brand-fg);
+  font-weight: 700;
+  font-size: 0.8125rem;
+  border: 0;
+  cursor: pointer;
+}
+
+html[data-dash-owner="1"] .hq-state--error {
+  border-color: color-mix(in srgb, var(--hq-danger) 40%, var(--hq-border));
+  background: color-mix(in srgb, var(--hq-danger) 4%, var(--hq-surface));
+}
+html[data-dash-owner="1"] .hq-state--error .hq-state__title { color: var(--hq-danger); }
+
+html[data-dash-owner="1"] .hq-state--forbidden {
+  border-color: color-mix(in srgb, var(--hq-warn) 40%, var(--hq-border));
+  background: color-mix(in srgb, var(--hq-warn) 4%, var(--hq-surface));
+}
+html[data-dash-owner="1"] .hq-state--forbidden .hq-state__title { color: var(--hq-warn); }
+
+html[data-dash-owner="1"] .hq-state--notconnected {
+  background: var(--hq-surface-soft);
+}
+
+html[data-dash-owner="1"] .hq-state__spinner {
+  width: 22px; height: 22px;
+  border: 2px solid var(--hq-border);
+  border-top-color: var(--hq-brand);
+  border-radius: 50%;
+  margin: 0 auto 0.75rem;
+  animation: hq-spin 0.9s linear infinite;
+}
+@keyframes hq-spin { to { transform: rotate(360deg); } }
+
+/* ─── Badge ───────────────────────────────────────────────────────────── */
+
+html[data-dash-owner="1"] .hq-badge {
+  display: inline-flex; align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+html[data-dash-owner="1"] .hq-badge--good   { background: color-mix(in srgb, var(--hq-good) 12%, transparent);   color: var(--hq-good);   border-color: color-mix(in srgb, var(--hq-good) 30%, transparent); }
+html[data-dash-owner="1"] .hq-badge--warn   { background: color-mix(in srgb, var(--hq-warn) 12%, transparent);   color: var(--hq-warn);   border-color: color-mix(in srgb, var(--hq-warn) 30%, transparent); }
+html[data-dash-owner="1"] .hq-badge--danger { background: color-mix(in srgb, var(--hq-danger) 12%, transparent); color: var(--hq-danger); border-color: color-mix(in srgb, var(--hq-danger) 30%, transparent); }
+html[data-dash-owner="1"] .hq-badge--info   { background: color-mix(in srgb, var(--hq-info) 12%, transparent);   color: var(--hq-info);   border-color: color-mix(in srgb, var(--hq-info) 30%, transparent); }
+html[data-dash-owner="1"] .hq-badge--muted  { background: var(--hq-surface-soft); color: var(--hq-text-muted); border-color: var(--hq-border); }
+
+/* ─── KPI tile ────────────────────────────────────────────────────────── */
+
+html[data-dash-owner="1"] .hq-kpi {
+  border-radius: 1rem;
+  border: 1px solid var(--hq-border);
+  background: var(--hq-surface);
+  padding: 1rem 1.125rem;
+}
+html[data-dash-owner="1"] .hq-kpi__label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--hq-text-muted);
+}
+html[data-dash-owner="1"] .hq-kpi__value {
+  font-family: 'Manrope', system-ui, sans-serif;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--hq-text);
+  line-height: 1.1;
+  margin-top: 0.25rem;
+  letter-spacing: -0.02em;
+}
+html[data-dash-owner="1"] .hq-kpi__value--missing {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--hq-text-muted);
+  font-family: inherit;
+  letter-spacing: 0;
+}
+html[data-dash-owner="1"] .hq-kpi__hint {
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--hq-text-soft);
+}
+
+/* ─── Table ───────────────────────────────────────────────────────────── */
+
+html[data-dash-owner="1"] .hq-table-wrap {
+  border-radius: 1rem;
+  border: 1px solid var(--hq-border);
+  background: var(--hq-surface);
+  overflow-x: auto;
+}
+html[data-dash-owner="1"] .hq-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  color: var(--hq-text);
+}
+html[data-dash-owner="1"] .hq-table__th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--hq-text-muted);
+  border-bottom: 1px solid var(--hq-border);
+  background: var(--hq-surface-soft);
+}
+html[data-dash-owner="1"] .hq-table__th--right,
+html[data-dash-owner="1"] .hq-table__td--right { text-align: right; }
+html[data-dash-owner="1"] .hq-table__tr + .hq-table__tr .hq-table__td {
+  border-top: 1px solid var(--hq-border);
+}
+html[data-dash-owner="1"] .hq-table__td {
+  padding: 0.75rem 1rem;
+  vertical-align: middle;
+}
+html[data-dash-owner="1"] .hq-table__tr:hover .hq-table__td { background: var(--hq-surface-soft); }
+
+/* ─── Layout + link helpers ───────────────────────────────────────────── */
+
+html[data-dash-owner="1"] .hq-grid-2 {
+  display: grid; gap: 0.75rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 768px) {
+  html[data-dash-owner="1"] .hq-grid-2 { grid-template-columns: 1fr 1fr; }
+}
+html[data-dash-owner="1"] .hq-link {
+  background: transparent; border: 0; padding: 0;
+  color: var(--hq-brand); font-weight: 700; cursor: pointer;
+  font-size: inherit;
+}
+html[data-dash-owner="1"] .hq-link:hover { text-decoration: underline; }
+
+/* ─── "Powered by MarketSync" ribbon ──────────────────────────────────── */
+
+html[data-dash-owner="1"] .hq-powered-by {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--hq-brand) 8%, var(--hq-surface));
+  border: 1px solid color-mix(in srgb, var(--hq-brand) 22%, var(--hq-border));
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--hq-brand);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+html[data-dash-owner="1"] .hq-powered-by__dot {
+  width: 0.5rem; height: 0.5rem; border-radius: 999px;
+  background: var(--hq-brand);
+}
+
+/* The ribbon is also usable inside DealerOS shell mounts of the studios
+   (Design/Website/Video/Email-SMS) as a co-brand mark. Keep it visible
+   there too — same tokens, dealer-neutral background. */
+html[data-dash-mode="dealer"] .hq-powered-by,
+:not([data-dash-owner]) .hq-powered-by {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.22);
+  color: #2563eb;
+}
