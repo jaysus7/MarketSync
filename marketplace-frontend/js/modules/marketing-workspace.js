@@ -2318,7 +2318,7 @@ async function loadWebsiteCommandCenter() {
   const host = document.getElementById('website-cc-root');
   if (!host) return;
   host.innerHTML = `<div class="text-sm text-slate-500 dark:text-slate-400 py-6">Loading website status…</div>`;
-  const [siteRes, blogRes, leadsRes, matrixRes, discRes, recsRes, aiRes] = await Promise.all([
+  const [siteRes, blogRes, leadsRes, matrixRes, discRes, recsRes, aiRes, revisionsRes, auditRes] = await Promise.all([
     apiGetJson('/dealership/site').catch(() => null),
     apiGetJson('/dealership/blog').catch(() => null),
     apiGetJson('/leads').catch(() => null),
@@ -2326,12 +2326,14 @@ async function loadWebsiteCommandCenter() {
     apiGetJson('/discoverability/overview').catch(() => null),
     apiGetJson('/discoverability/recommendations').catch(() => null),
     apiGetJson('/ai/conversations?limit=200').catch(() => null),
+    apiGetJson('/dealership/site/revisions').catch(() => null),
+    apiGetJson('/dealership/site/audit-log').catch(() => null),
   ]);
   if (!siteRes) {
     host.innerHTML = `<div class="ms-c p-5 text-sm text-slate-600 dark:text-slate-300">Website data isn't available right now. Sign in with website management access, or open the builder to get started.</div>`;
     return;
   }
-  host.innerHTML = renderWebsiteCommandCenter(siteRes, blogRes, leadsRes, matrixRes, discRes, recsRes, aiRes);
+  host.innerHTML = renderWebsiteCommandCenter(siteRes, blogRes, leadsRes, matrixRes, discRes, recsRes, aiRes, revisionsRes, auditRes);
   // Perf tile is lazy — GA4 query is only fired when GA4 is actually connected
   // per the matrix. Otherwise we render an honest "Not connected" card without
   // ever hitting the API and getting an alarming 403/409.
@@ -2377,7 +2379,7 @@ async function hydrateWebsitePerformanceTile() {
 }
 window.hydrateWebsitePerformanceTile = hydrateWebsitePerformanceTile;
 
-function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes, discRes, recsRes, aiRes) {
+function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes, discRes, recsRes, aiRes, revisionsRes, auditRes) {
   const slug = site.site_slug || null;
   const publicUrl = slug && typeof wsPublicSiteUrl === 'function' ? wsPublicSiteUrl(slug) : null;
   const published = !!site.site_published;
@@ -2772,6 +2774,72 @@ function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes, discRes, re
         : `<div class="ms-c p-5 text-sm text-slate-500 dark:text-slate-400">AI Customer Agent activity isn't visible from this account. Open the agent workspace to configure or enable it.</div>`}
     </section>`;
 
-  return `${statusStrip}${quickActions}${discSnapshot}${recsSection}${perfSection}${leadsSection}${contentGrid}${inventorySection}${integrationsSection}${aiSection}${speedSection}${a11ySection}`;
+  // Section 9 · Publishing activity. Reads /dealership/site/revisions
+  // (revision + deployment history) and /dealership/site/audit-log (who did
+  // what). Both require site.manage + MFA — if the account can't see them,
+  // we say so honestly instead of hiding the section.
+  const revisions = Array.isArray(revisionsRes?.revisions) ? revisionsRes.revisions : [];
+  const deployments = Array.isArray(revisionsRes?.deployments) ? revisionsRes.deployments : [];
+  const auditEvents = Array.isArray(auditRes?.events) ? auditRes.events : [];
+  const canReadHistory = revisionsRes !== null || auditRes !== null;
+  // Merge into one chronological activity feed. Every row keeps its source
+  // so a viewer knows why it happened (revision draft, deploy, audit event).
+  const merged = [
+    ...revisions.slice(0, 15).map(r => ({
+      when: r.published_at || r.created_at,
+      title: r.state === 'published' ? `Published revision #${r.revision_number}` : `Draft revision #${r.revision_number}`,
+      sub: r.change_summary || (r.state === 'published' ? 'Went live' : 'Saved as draft'),
+      kind: r.state === 'published' ? 'publish' : 'draft',
+    })),
+    ...deployments.slice(0, 15).map(d => ({
+      when: d.deployed_at || d.created_at,
+      title: `Deployment · ${esc(d.status || 'unknown')}`,
+      sub: d.published_summary || d.trigger_type || 'Deployment run',
+      kind: d.status === 'succeeded' ? 'publish' : (d.status === 'failed' ? 'error' : 'deploy'),
+    })),
+    ...auditEvents.slice(0, 20).map(a => ({
+      when: a.created_at,
+      title: (a.action || '').replace(/^site\./, '').replace(/_/g, ' ') || 'site event',
+      sub: a.actor_email || (a.actor_id ? `actor ${a.actor_id.slice(0, 8)}…` : 'system'),
+      kind: 'audit',
+    })),
+  ]
+    .filter(e => e.when)
+    .sort((a, b) => new Date(b.when) - new Date(a.when))
+    .slice(0, 12);
+  const kindTone = (k) => k === 'publish' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+    : k === 'error' ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
+    : k === 'draft' ? 'bg-slate-500/15 text-slate-600 dark:text-slate-400'
+    : k === 'deploy' ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
+    : 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300';
+  const activitySection = `
+    <section class="space-y-3" data-website-cc-section="activity">
+      <div class="flex items-end justify-between gap-3">
+        <div>
+          <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Section 9</div>
+          <h3 class="text-base font-black text-slate-900 dark:text-white">Publishing activity</h3>
+        </div>
+        <button type="button" onclick="if(typeof openWebsiteBuilder==='function')openWebsiteBuilder()" class="text-xs font-black text-indigo-700 dark:text-indigo-300">Manage revisions →</button>
+      </div>
+      ${canReadHistory
+        ? (merged.length
+            ? `<div class="ms-c"><ul class="divide-y divide-slate-200 dark:divide-white/10">
+                 ${merged.map(e => `
+                   <li class="p-3 flex items-start justify-between gap-3 text-sm">
+                     <div class="min-w-0">
+                       <div class="font-black text-slate-900 dark:text-white truncate">${esc(e.title)}</div>
+                       <div class="text-xs text-slate-500 dark:text-slate-400 truncate">${esc(e.sub)}</div>
+                     </div>
+                     <div class="shrink-0 flex flex-col items-end gap-1">
+                       <span class="text-xs font-black px-2 py-0.5 rounded-full ${kindTone(e.kind)}">${esc(e.kind)}</span>
+                       <span class="text-[11px] text-slate-500 dark:text-slate-400">${esc(new Date(e.when).toLocaleString())}</span>
+                     </div>
+                   </li>`).join('')}
+               </ul></div>`
+            : `<div class="ms-c p-4 text-sm text-slate-500 dark:text-slate-400">No publish or edit activity recorded yet — start editing in the builder and this feed fills in.</div>`)
+        : `<div class="ms-c p-5 text-sm text-slate-500 dark:text-slate-400">Publishing history isn't visible from this account — the revision + audit endpoints require MFA and site management access.</div>`}
+    </section>`;
+
+  return `${statusStrip}${quickActions}${discSnapshot}${recsSection}${perfSection}${leadsSection}${contentGrid}${activitySection}${inventorySection}${integrationsSection}${aiSection}${speedSection}${a11ySection}`;
 }
 window.renderWebsiteCommandCenter = renderWebsiteCommandCenter;

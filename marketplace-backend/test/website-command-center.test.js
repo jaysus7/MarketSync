@@ -38,6 +38,9 @@ test('command center only reads canonical endpoints — no invented sources', ()
   assert.match(block, /apiGetJson\(['"]\/discoverability\/recommendations['"]\)/, 'Phase D must read /discoverability/recommendations')
   // Phase E — AI Customer Agent counts read from the real conversations table.
   assert.match(block, /apiGetJson\(['"]\/ai\/conversations\?limit=200['"]\)/, 'Phase E must read /ai/conversations')
+  // Phase F — publishing activity reads real revision + audit endpoints.
+  assert.match(block, /apiGetJson\(['"]\/dealership\/site\/revisions['"]\)/, 'Phase F must read /dealership/site/revisions')
+  assert.match(block, /apiGetJson\(['"]\/dealership\/site\/audit-log['"]\)/, 'Phase F must read /dealership/site/audit-log')
   // GA4 query is lazy — only fires when the matrix says it's connected.
   assert.match(block, /fetch\(`\$\{API\}\/integrations\/google\/ga4\/query`/, 'GA4 query must be a real POST fetch, not a fake')
   // No parallel data endpoints.
@@ -80,6 +83,11 @@ test('Phase C surfaces honest disconnected chips for absent data — no fake met
   // Integration health reads the real `.health` string, not a fabricated boolean.
   assert.match(block, /google_analytics/, 'Integrations row must use the canonical matrix key google_analytics')
   assert.match(block, /row\?\.health/, 'Integration status must read the real .health field from /integrations/matrix')
+  // Phase F · Section 9 publishing activity — must exist and must merge from
+  // real revision + audit sources, never seed sample events.
+  assert.match(block, /data-website-cc-section="activity"/, 'Section 9 must exist')
+  assert.match(block, /revisionsRes\?\.revisions/, 'Activity must read revisions from /dealership/site/revisions')
+  assert.match(block, /auditRes\?\.events/, 'Activity must read events from /dealership/site/audit-log')
 })
 
 test('render uses real fields from /dealership/site — no fake metrics', () => {
