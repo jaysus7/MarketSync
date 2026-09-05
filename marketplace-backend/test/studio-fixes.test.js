@@ -206,15 +206,46 @@ test('inspector panel has actual styling (no more shapeCya×StylePositAppearan o
     'Delete element action must be styled with a danger colour')
 })
 
+test('cache-proof: inspector styles ship inline in the modal HTML + demo badge hides via JS', () => {
+  // The user's screenshot kept showing the same broken state after
+  // multiple deploys — either a Render preview was slow or Safari
+  // was serving cached CSS. Two belt-and-suspenders paths for that:
+  //
+  // 1) The inspector primitives are duplicated INLINE inside the
+  //    modal HTML output, so even a stale marketsync-theme.css can't
+  //    leave the inspector reading as run-together text.
+  assert.match(shell, /<style data-studio-inline="1">/,
+    'workspace HTML must embed an inline <style> block for the inspector')
+  const inline = shell.match(/<style data-studio-inline="1">([\s\S]*?)<\/style>/)
+  assert.ok(inline, 'inline block extractable')
+  assert.match(inline[1], /\.studio-inspector-heading\{display:flex!important/,
+    'inline block must define .studio-inspector-heading with !important')
+  assert.match(inline[1], /\.studio-breakpoint-group\{display:none!important\}/,
+    'inline block must hide the breakpoint switcher on mobile without waiting for external CSS')
+  //
+  // 2) The Demo mode badge (#demo-mode-badge, appended to body by
+  //    demo-control-panel.js — different ID from the earlier hide
+  //    attempt) is force-hidden by JS on openMarketSyncStudio and
+  //    restored on close. Cannot be defeated by CSS caching.
+  assert.match(shell, /openMarketSyncStudio[\s\S]{0,600}getElementById\('demo-mode-badge'\)/,
+    'openMarketSyncStudio must hide #demo-mode-badge via JS')
+  assert.match(shell, /closeMarketSyncStudio[\s\S]{0,400}getElementById\('demo-mode-badge'\)/,
+    'closeMarketSyncStudio must restore #demo-mode-badge')
+  // The Tailwind hidden md:flex directly on the breakpoint switcher
+  // wrapper is a third safety belt — no CSS to fight with.
+  assert.match(shell, /class="studio-breakpoint-group hidden md:flex/,
+    'breakpoint switcher wrapper must carry Tailwind hidden md:flex')
+})
+
 test('studio cache-bust bumped so the browser fetches the fixed bundle', () => {
   // Two consumers load studio-shell.js via msLoadScript — both must
   // request the new revision so a cached bundle can't hide the fixes.
   const matches = part2.match(/studio-shell\.js\?v=([a-z0-9_]+)/g) || []
   assert.ok(matches.length >= 2, 'must find both studio-shell references')
   for (const m of matches) {
-    assert.match(m, /studio-shell\.js\?v=20260905_studio_inspector_v1/,
+    assert.match(m, /studio-shell\.js\?v=20260905_studio_inline_v1/,
       `stale cache-bust: ${m}`)
   }
-  assert.match(dashboard, /marketsync-theme\.css\?v=20260905_studio_inspector_v1/,
+  assert.match(dashboard, /marketsync-theme\.css\?v=20260905_studio_inline_v1/,
     'theme.css cache-bust must reflect the new mobile rules')
 })

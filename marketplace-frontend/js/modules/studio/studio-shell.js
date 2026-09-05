@@ -611,6 +611,22 @@ function applyStudioZoom() {
 }
 
 window.openMarketSyncStudio = async function(designId = null, initialOptions = {}) {
+  // JS-level chrome hide (cache-proof — never fights an old stylesheet):
+  // the Demo mode badge (#demo-mode-badge, appended to body by
+  // demo-control-panel.js) and any legacy #ms-mode-switch pill both
+  // sit on top of the studio modal and were reported overlapping the
+  // design-name input. Force-hide on open, restore on close via
+  // closeMarketSyncStudio (see below).
+  const badge = document.getElementById('demo-mode-badge');
+  if (badge && !badge.dataset.msStudioHidden) {
+    badge.dataset.msStudioHidden = '1';
+    badge.style.display = 'none';
+  }
+  const legacyMs = document.getElementById('ms-mode-switch');
+  if (legacyMs && !legacyMs.dataset.msStudioHidden) {
+    legacyMs.dataset.msStudioHidden = '1';
+    legacyMs.style.display = 'none';
+  }
   window.__studioCurrentDesign = null;
   window.__studioAppliedTemplateKey = null;
   window.__studioAppliedTemplateId = null;
@@ -734,6 +750,54 @@ function renderStudioVideoResults(videos, uploaded = false) {
 
 function renderStudioWorkspaceHtml(designName, scene) {
   return `
+    <!-- Inline styles for the inspector primitives — shipped IN the
+         modal HTML so a cached marketsync-theme.css can't leave the
+         inspector rendering as run-together text on a viewer's phone.
+         Duplicates the rules in marketsync-theme.css intentionally.
+         !important beats any older rules that may still be on the
+         wire during a rolling deploy. -->
+    <style data-studio-inline="1">
+      #ms-studio-master-modal .studio-inspector-heading{display:flex!important;align-items:center;justify-content:space-between;gap:.75rem;padding:1rem 1.25rem .75rem;border-bottom:1px solid #e2e8f0}
+      #ms-studio-master-modal .studio-inspector-heading>div{display:flex!important;flex-direction:column;gap:.25rem;min-width:0;flex:1 1 auto}
+      #ms-studio-master-modal .studio-inspector-heading>div>span{font-size:.625rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b}
+      #ms-studio-master-modal .studio-inspector-heading>div>input{border:0;padding:0;background:transparent;font-size:.9375rem;font-weight:800;color:#0f172a;outline:none;width:100%;min-width:0}
+      #ms-studio-master-modal .studio-inspector-heading>button{flex:0 0 auto;width:32px;height:32px;border-radius:999px;border:0;background:#f1f5f9;color:#475569;font-size:18px;font-weight:700;cursor:pointer;line-height:1}
+      #ms-studio-master-modal .studio-inspector-tabs{display:flex!important;gap:.25rem;padding:.5rem .75rem 0;border-bottom:1px solid #e2e8f0}
+      #ms-studio-master-modal .studio-inspector-tabs>button{flex:1 1 auto;padding:.625rem .5rem;border:0;background:transparent;cursor:pointer;font-size:.75rem;font-weight:800;color:#64748b;border-bottom:2px solid transparent}
+      #ms-studio-master-modal .studio-inspector-tabs>button[aria-current="page"]{color:#2563eb;border-bottom-color:#2563eb}
+      #ms-studio-master-modal .studio-inspector-body{padding:.75rem 1rem 1.25rem;display:flex!important;flex-direction:column;gap:1rem}
+      #ms-studio-master-modal .studio-inspector-section{display:flex!important;flex-direction:column;gap:.625rem}
+      #ms-studio-master-modal .studio-inspector-section h4{font-size:.625rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;margin:0}
+      #ms-studio-master-modal .studio-inspector-section label{display:flex!important;flex-direction:column;gap:.25rem;font-size:.6875rem;font-weight:700;color:#475569}
+      #ms-studio-master-modal .studio-inspector-section label>input:not([type="color"]):not([type="range"]),#ms-studio-master-modal .studio-control-input{padding:.5rem .625rem;border-radius:.5rem;border:1px solid #cbd5e1;background:#fff;color:#0f172a;font-size:.8125rem;font-weight:600;min-height:36px}
+      #ms-studio-master-modal .studio-inspector-section label>input[type="color"]{width:100%;height:40px;padding:0;border-radius:.5rem;border:1px solid #cbd5e1;cursor:pointer}
+      #ms-studio-master-modal .studio-inspector-section label>input[type="range"]{width:100%}
+      #ms-studio-master-modal .studio-control-grid{display:grid!important;gap:.5rem}
+      #ms-studio-master-modal .studio-control-grid-2{grid-template-columns:1fr 1fr}
+      #ms-studio-master-modal .studio-control-grid-3{grid-template-columns:1fr 1fr 1fr}
+      #ms-studio-master-modal .studio-control-action{padding:.5rem .75rem;border-radius:.5rem;border:1px solid #e2e8f0;background:#f8fafc;color:#0f172a;font-size:.75rem;font-weight:700;cursor:pointer;min-height:36px}
+      #ms-studio-master-modal .studio-segmented,#ms-studio-master-modal .studio-align-grid,#ms-studio-master-modal .studio-animation-grid,#ms-studio-master-modal .studio-style-presets{display:grid!important;gap:.375rem}
+      #ms-studio-master-modal .studio-segmented{grid-template-columns:1fr 1fr 1fr 1fr}
+      #ms-studio-master-modal .studio-align-grid,#ms-studio-master-modal .studio-animation-grid{grid-template-columns:1fr 1fr 1fr}
+      #ms-studio-master-modal .studio-style-presets{grid-template-columns:1fr 1fr 1fr 1fr}
+      #ms-studio-master-modal .studio-segmented>button,#ms-studio-master-modal .studio-align-grid>button,#ms-studio-master-modal .studio-animation-grid>button,#ms-studio-master-modal .studio-style-presets>button{padding:.5rem .375rem;border-radius:.5rem;border:1px solid #e2e8f0;background:#f8fafc;color:#0f172a;font-size:.6875rem;font-weight:700;cursor:pointer;min-height:44px;display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:.125rem}
+      #ms-studio-master-modal .studio-inspector-actions{border-top:1px solid #e2e8f0;padding-top:1rem}
+      #ms-studio-master-modal .studio-delete-action{width:100%;padding:.625rem;border-radius:.5rem;border:0;background:#fef2f2;color:#dc2626;font-size:.75rem;font-weight:800;cursor:pointer;margin-top:.5rem;min-height:40px}
+      #ms-studio-master-modal .studio-inspector-empty{padding:2rem 1.25rem;text-align:center;color:#64748b;display:flex!important;flex-direction:column;align-items:center;gap:.5rem}
+      .dark #ms-studio-master-modal .studio-inspector-heading{border-color:#293c5b}
+      .dark #ms-studio-master-modal .studio-inspector-heading>div>input{color:#e7eef8}
+      .dark #ms-studio-master-modal .studio-inspector-section label>input:not([type="color"]):not([type="range"]),.dark #ms-studio-master-modal .studio-control-input{background:#0f1e35;border-color:#293c5b;color:#e7eef8}
+      .dark #ms-studio-master-modal .studio-control-action,.dark #ms-studio-master-modal .studio-segmented>button,.dark #ms-studio-master-modal .studio-align-grid>button,.dark #ms-studio-master-modal .studio-animation-grid>button,.dark #ms-studio-master-modal .studio-style-presets>button{background:#111d32;border-color:#293c5b;color:#e7eef8}
+      .dark #ms-studio-master-modal .studio-inspector-tabs,.dark #ms-studio-master-modal .studio-inspector-actions{border-color:#293c5b}
+      /* Mobile-only cleanup that must not wait on marketsync-theme.css */
+      @media (max-width:768px){
+        #ms-studio-master-modal .studio-breakpoint-group{display:none!important}
+        #ms-studio-master-modal .studio-desktop-action{display:none!important}
+        #ms-studio-master-modal .studio-title-badge,#ms-studio-master-modal .studio-brand-logo,#ms-studio-master-modal .studio-brand-divider,#ms-studio-master-modal .studio-back-long{display:none!important}
+        #ms-studio-master-modal .studio-back-short{display:inline!important}
+        #ms-studio-master-modal #studio-design-name{max-width:40vw;min-width:0;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
+      }
+    </style>
     <!-- Header: two stacked layers — identity/branding on top, actions below.
          Split out of one crowded row so the toolbar (zoom, undo/redo, format,
          Save/Schedule/Render) has its own layer instead of fighting the logo/back
@@ -788,7 +852,7 @@ function renderStudioWorkspaceHtml(designName, scene) {
           ${Object.entries(STUDIO_SOCIAL_FORMATS).map(([key, format]) => `<option value="${key}" ${scene.format_key === key ? 'selected' : ''}>${format.label} (${format.w}×${format.h})</option>`).join('')}
         </select>
         <button type="button" onclick="openStudioMagicResize()" class="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-black whitespace-nowrap">✦ Magic Resize</button>
-        <div class="flex items-center rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 p-0.5" title="Preview breakpoint-specific layout overrides">
+        <div class="studio-breakpoint-group hidden md:flex items-center rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 p-0.5" title="Preview breakpoint-specific layout overrides">
           <button type="button" onclick="setStudioBreakpoint('desktop')" data-studio-breakpoint="desktop" class="studio-breakpoint px-2 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-black">Desktop</button>
           <button type="button" onclick="setStudioBreakpoint('tablet')" data-studio-breakpoint="tablet" class="studio-breakpoint px-2 py-1 rounded-lg text-slate-500 dark:text-slate-300 text-[10px] font-bold">Tablet</button>
           <button type="button" onclick="setStudioBreakpoint('mobile')" data-studio-breakpoint="mobile" class="studio-breakpoint px-2 py-1 rounded-lg text-slate-500 dark:text-slate-300 text-[10px] font-bold">Mobile</button>
@@ -2936,6 +3000,13 @@ async function renderStudioDesignAndPublish() {
 }
 
 function closeMarketSyncStudio() {
+  // Restore any DealerOS chrome we hid on open (Demo badge, legacy
+  // mode-switch pill). Keyed off dataset flags we set in
+  // openMarketSyncStudio so we don't clobber intentional user hides.
+  const badge = document.getElementById('demo-mode-badge');
+  if (badge && badge.dataset.msStudioHidden) { badge.style.display = ''; delete badge.dataset.msStudioHidden; }
+  const legacyMs = document.getElementById('ms-mode-switch');
+  if (legacyMs && legacyMs.dataset.msStudioHidden) { legacyMs.style.display = ''; delete legacyMs.dataset.msStudioHidden; }
   window.__studioFitObserver?.disconnect();
   window.__studioFitObserver = null;
   document.getElementById('ms-studio-master-modal')?.remove();
