@@ -1,0 +1,246 @@
+/*
+ * MarketSync Standalone Apps — shared mobile-first shell.
+ *
+ * These are the standalone product surfaces (design-studio, website-studio,
+ * video-studio, email-sms, crm, desking, appraisals, service-checkin).
+ * Every one uses THIS shell, so the visual system stays 1:1 across the
+ * product line and the mobile experience is identical.
+ *
+ * Priorities:
+ *   1. Mobile-first (base rules assume 390px; desktop is layered on).
+ *   2. Zero DealerOS chrome. No sidebars. No permission gates.
+ *   3. Simple to the point of severe — one action per screen.
+ *   4. Light + dark both work.
+ */
+
+:root {
+  color-scheme: light dark;
+  --app-brand: #2563eb;
+  --app-brand-fg: #ffffff;
+  --app-surface: #ffffff;
+  --app-surface-soft: #f8fafc;
+  --app-border: #e2e8f0;
+  --app-text: #0f172a;
+  --app-text-soft: #475569;
+  --app-text-muted: #94a3b8;
+  --app-radius: 1rem;
+  --app-radius-lg: 1.5rem;
+  --app-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.12);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --app-surface: #0b1220;
+    --app-surface-soft: #111827;
+    --app-border: #1f2937;
+    --app-text: #f1f5f9;
+    --app-text-soft: #cbd5e1;
+    --app-text-muted: #64748b;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Header ──────────────────────────────────────────────────────────── */
+
+.app-header {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--app-surface);
+  border-bottom: 1px solid var(--app-border);
+}
+.app-header__brand {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-family: 'Manrope', system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--app-text);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+.app-header__mark {
+  width: 1.5rem; height: 1.5rem;
+  border-radius: 0.5rem;
+  background: var(--app-brand);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--app-brand-fg);
+  font-weight: 900; font-size: 0.75rem;
+}
+.app-header__mark::after { content: 'M'; }
+.app-header__meta {
+  font-size: 0.75rem;
+  color: var(--app-text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.app-header__signin {
+  padding: 0.5rem 0.875rem;
+  border-radius: 999px;
+  background: var(--app-brand);
+  color: var(--app-brand-fg);
+  font-weight: 700;
+  font-size: 0.8125rem;
+  text-decoration: none;
+}
+
+/* ─── Layout ──────────────────────────────────────────────────────────── */
+
+.app-container {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 4rem;
+}
+@media (min-width: 900px) {
+  .app-container { max-width: 62rem; padding: 2rem; }
+}
+
+.app-hero {
+  padding: 2rem 1rem;
+  text-align: center;
+}
+.app-hero__eyebrow {
+  display: inline-block;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-brand) 12%, transparent);
+  color: var(--app-brand);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.75rem;
+}
+.app-hero__title {
+  font-family: 'Manrope', system-ui, sans-serif;
+  font-size: 2rem;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--app-text);
+  margin: 0 0 0.75rem;
+}
+@media (min-width: 640px) { .app-hero__title { font-size: 2.5rem; } }
+.app-hero__sub {
+  font-size: 1rem;
+  color: var(--app-text-soft);
+  margin: 0 auto;
+  max-width: 32rem;
+}
+
+.app-card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--app-shadow);
+}
+.app-card + .app-card { margin-top: 1rem; }
+.app-card__title {
+  font-family: 'Manrope', system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 1.125rem;
+  margin: 0 0 0.5rem;
+  color: var(--app-text);
+}
+.app-card__msg {
+  color: var(--app-text-soft);
+  font-size: 0.9375rem;
+  margin: 0 0 1rem;
+}
+
+/* ─── Buttons ─────────────────────────────────────────────────────────── */
+
+.app-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.625rem 1.125rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.06s ease, background-color 0.12s ease;
+}
+.app-btn:active { transform: scale(0.98); }
+.app-btn--primary {
+  background: var(--app-brand);
+  color: var(--app-brand-fg);
+}
+.app-btn--secondary {
+  background: transparent;
+  color: var(--app-text);
+  border-color: var(--app-border);
+}
+.app-btn--full { width: 100%; }
+.app-btn + .app-btn { margin-top: 0.5rem; }
+@media (min-width: 640px) {
+  .app-btn + .app-btn { margin-top: 0; margin-left: 0.5rem; }
+}
+
+/* ─── Product picker grid ────────────────────────────────────────────── */
+
+.app-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+  margin-top: 1.5rem;
+}
+@media (min-width: 640px) { .app-grid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 900px) { .app-grid { grid-template-columns: 1fr 1fr 1fr; } }
+
+.app-tile {
+  display: flex; flex-direction: column;
+  padding: 1.25rem;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  text-decoration: none;
+  color: var(--app-text);
+  min-height: 9rem;
+  transition: border-color 0.12s ease, transform 0.12s ease;
+}
+.app-tile:hover { border-color: var(--app-brand); transform: translateY(-1px); }
+.app-tile__name {
+  font-family: 'Manrope', system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 1.0625rem;
+  margin: 0 0 0.25rem;
+  letter-spacing: -0.01em;
+}
+.app-tile__sub {
+  font-size: 0.8125rem;
+  color: var(--app-text-soft);
+  margin: 0 0 auto;
+}
+.app-tile__tag {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--app-text-muted);
+  margin-top: 0.75rem;
+}
+.app-tile__tag--live { color: var(--app-brand); }
+
+/* ─── Footer ─────────────────────────────────────────────────────────── */
+
+.app-footer {
+  padding: 2rem 1rem 3rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--app-text-muted);
+}
+.app-footer a { color: var(--app-text-soft); text-decoration: none; }

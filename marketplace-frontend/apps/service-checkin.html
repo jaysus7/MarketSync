@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Service Check-in · MarketSync</title>
+  <meta name="description" content="Digital check-in and check-out from the drive. Photos, signatures, RO in seconds.">
+  <link rel="stylesheet" href="shell.css?v=20260905_apps_v1">
+</head>
+<body>
+  <div id="app-root"></div>
+  <script src="shell.js?v=20260905_apps_v1"></script>
+  <script>
+    MarketSyncApp.mount({
+      title: 'Service Check-in',
+      subtitle: 'Digital check-in and check-out from the drive. Photos, signatures, RO in seconds.',
+      eyebrow: 'Standalone product',
+      stage: 'dealeros',
+      render(main) {
+        main.innerHTML = MarketSyncApp.dealerOsAvailable({
+          slug: 'service-checkin',
+          usableTitle: 'Ready in DealerOS today',
+          usableMsg: 'Sign in with your DealerOS account and open Service Check-in from your workspace nav — every feature is live.',
+          standaloneMsg: 'A standalone single-user version of Service Check-in is on the way. Join the waitlist and we\'ll email you the moment it opens.'
+        }) + `<div style="margin-top:1rem"><a class="app-btn app-btn--secondary app-btn--full" href="/dashboard.html#service-ros">Open in DealerOS</a></div>`
+      }
+    })
+  </script>
+</body>
+</html>

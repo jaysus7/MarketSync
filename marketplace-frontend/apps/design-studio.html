@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Design Studio · MarketSync</title>
+  <meta name="description" content="Create branded creative and print in minutes with MarketSync Design Studio.">
+  <link rel="stylesheet" href="shell.css?v=20260905_apps_v1">
+</head>
+<body>
+  <div id="app-root"></div>
+  <script src="shell.js?v=20260905_apps_v1"></script>
+  <script>
+    MarketSyncApp.mount({
+      title: 'Design Studio',
+      subtitle: 'Create branded creative and print in minutes. Works on your phone. Works in your DealerOS. Same tool, one login.',
+      eyebrow: 'Standalone product',
+      stage: 'live',
+      render(main) {
+        main.innerHTML = `
+          <div class="app-card">
+            <h2 class="app-card__title">Open Design Studio</h2>
+            <p class="app-card__msg">Sign in with your MarketSync account to launch Design Studio. Templates, brand assets and the full editor are ready.</p>
+            <a class="app-btn app-btn--primary app-btn--full" href="/dashboard.html#saas-studio">Launch editor</a>
+            <a class="app-btn app-btn--secondary app-btn--full" href="index.html">All MarketSync apps</a>
+          </div>
+          <div class="app-card">
+            <h2 class="app-card__title">Don't have an account?</h2>
+            <p class="app-card__msg">Design Studio is available on its own — no dealership required. Join the waitlist for standalone sign-up and we'll email you the moment it opens.</p>
+            <form onsubmit="return MarketSyncApp.joinWaitlist(event, 'design-studio')">
+              <input required type="email" name="email" placeholder="you@example.com" autocomplete="email"
+                style="width:100%;padding:0.75rem 1rem;border-radius:0.75rem;border:1px solid var(--app-border);background:var(--app-surface-soft);color:var(--app-text);font-size:1rem;margin-bottom:0.75rem">
+              <button class="app-btn app-btn--primary app-btn--full" type="submit">Notify me at launch</button>
+            </form>
+            <div id="app-waitlist-result" style="margin-top:0.75rem;font-size:0.875rem;color:var(--app-text-soft)"></div>
+          </div>`
+      }
+    })
+  </script>
+</body>
+</html>

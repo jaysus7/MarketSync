@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Appraisals · MarketSync</title>
+  <meta name="description" content="Value trade-ins with real market data. Walk the lot, snap the VIN, print the offer.">
+  <link rel="stylesheet" href="shell.css?v=20260905_apps_v1">
+</head>
+<body>
+  <div id="app-root"></div>
+  <script src="shell.js?v=20260905_apps_v1"></script>
+  <script>
+    MarketSyncApp.mount({
+      title: 'Appraisals',
+      subtitle: 'Value trade-ins with real market data. Walk the lot, snap the VIN, print the offer.',
+      eyebrow: 'Standalone product',
+      stage: 'dealeros',
+      render(main) {
+        main.innerHTML = MarketSyncApp.dealerOsAvailable({
+          slug: 'appraisals',
+          usableTitle: 'Ready in DealerOS today',
+          usableMsg: 'Sign in with your DealerOS account and open Appraisals from your workspace nav — every feature is live.',
+          standaloneMsg: 'A standalone single-user version of Appraisals is on the way. Join the waitlist and we\'ll email you the moment it opens.'
+        }) + `<div style="margin-top:1rem"><a class="app-btn app-btn--secondary app-btn--full" href="/dashboard.html#appraisals">Open in DealerOS</a></div>`
+      }
+    })
+  </script>
+</body>
+</html>

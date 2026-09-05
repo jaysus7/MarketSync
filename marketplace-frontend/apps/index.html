@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>MarketSync Apps</title>
+  <meta name="description" content="Single-user standalone MarketSync apps. Use every studio and workflow tool on its own — no dealership required.">
+  <link rel="stylesheet" href="shell.css?v=20260905_apps_v1">
+</head>
+<body>
+  <div id="app-root"></div>
+  <script src="shell.js?v=20260905_apps_v1"></script>
+  <script>
+    MarketSyncApp.mount({
+      title: 'MarketSync Apps',
+      subtitle: 'Every MarketSync tool as a standalone web app. Use them on your phone, on the desk, or as part of your DealerOS workspace.',
+      eyebrow: 'Standalone products',
+      stage: 'live',
+      render(main) {
+        const products = [
+          { slug: 'design-studio',   name: 'Design Studio',      sub: 'Create branded creative and print in minutes.', href: 'design-studio.html', stage: 'live' },
+          { slug: 'website-studio',  name: 'Website Studio',     sub: 'Edit pages, forms, pricing and SEO.',           href: 'website-studio.html', stage: 'dealeros' },
+          { slug: 'video-studio',    name: 'Video Studio',       sub: 'Record and share teleprompted product videos.', href: 'video-studio.html', stage: 'dealeros' },
+          { slug: 'email-sms',       name: 'Email &amp; SMS',    sub: 'Campaigns, templates, drips, deliverability.',   href: 'email-sms.html', stage: 'dealeros' },
+          { slug: 'crm',             name: 'CRM',                sub: 'Every lead, every conversation, one inbox.',    href: 'crm.html', stage: 'dealeros' },
+          { slug: 'desking',         name: 'Desking',            sub: 'Structure a deal, present it, close it.',       href: 'desking.html', stage: 'dealeros' },
+          { slug: 'appraisals',      name: 'Appraisals',         sub: 'Value trade-ins with market data on the lot.',  href: 'appraisals.html', stage: 'dealeros' },
+          { slug: 'service-checkin', name: 'Service Check-in',   sub: 'Digital check-in / check-out from the drive.',  href: 'service-checkin.html', stage: 'dealeros' },
+        ]
+        main.innerHTML = '<div class="app-grid">' + products.map(p => `
+          <a class="app-tile" href="${p.href}">
+            <h3 class="app-tile__name">${p.name}</h3>
+            <p class="app-tile__sub">${p.sub}</p>
+            <div class="app-tile__tag ${p.stage === 'live' ? 'app-tile__tag--live' : ''}">${p.stage === 'live' ? 'Open now' : 'In DealerOS · standalone soon'}</div>
+          </a>
+        `).join('') + '</div>'
+      }
+    })
+  </script>
+</body>
+</html>

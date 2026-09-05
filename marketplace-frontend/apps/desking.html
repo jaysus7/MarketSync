@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Desking · MarketSync</title>
+  <meta name="description" content="Structure a deal, present it in the customer's language, close it.">
+  <link rel="stylesheet" href="shell.css?v=20260905_apps_v1">
+</head>
+<body>
+  <div id="app-root"></div>
+  <script src="shell.js?v=20260905_apps_v1"></script>
+  <script>
+    MarketSyncApp.mount({
+      title: 'Desking',
+      subtitle: 'Structure a deal, present it in the customer's language, close it.',
+      eyebrow: 'Standalone product',
+      stage: 'dealeros',
+      render(main) {
+        main.innerHTML = MarketSyncApp.dealerOsAvailable({
+          slug: 'desking',
+          usableTitle: 'Ready in DealerOS today',
+          usableMsg: 'Sign in with your DealerOS account and open Desking from your workspace nav — every feature is live.',
+          standaloneMsg: 'A standalone single-user version of Desking is on the way. Join the waitlist and we\'ll email you the moment it opens.'
+        }) + `<div style="margin-top:1rem"><a class="app-btn app-btn--secondary app-btn--full" href="/dashboard.html#sales-desking">Open in DealerOS</a></div>`
+      }
+    })
+  </script>
+</body>
+</html>

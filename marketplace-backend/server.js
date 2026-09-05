@@ -89,6 +89,7 @@ import { registerOwnerAdmin } from './routes/owner-admin.js'
 import { registerCommandCenter } from './routes/command-center.js'
 import { registerMarketplaceHome } from './routes/marketplace-home.js'
 import { registerSaasAdmin } from './routes/saas-admin.js'
+import { registerAppsWaitlist } from './routes/apps-waitlist.js'
 import { registerSaasSequences } from './routes/saas-sequences.js'
 import { registerDelivery } from './routes/delivery.js'
 import { registerPublicApi } from './routes/public-api.js'
@@ -229,6 +230,7 @@ registerOwnerAdmin(app)
 registerCommandCenter(app)
 registerMarketplaceHome(app)
 registerSaasAdmin(app)
+registerAppsWaitlist(app)
 registerSaasSequences(app)
 registerDelivery(app)
 registerPublicApi(app)
