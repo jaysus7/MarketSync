@@ -126,15 +126,35 @@ test('mobile studio hides desktop-only chrome that was overflowing the header', 
     'tab-bar must scroll cleanly on touch without a visible scrollbar')
 })
 
+test('studio format tiles + design sets swipe horizontally on mobile', () => {
+  // Screenshot regression: on iPhone width the "Digital marketing"
+  // format tiles stacked in a 2-column vertical grid, forcing pages
+  // of scroll to see them all. Every .studio-scroll-row grid now
+  // flips to a horizontal, snap-scrolling swipe row on ≤768px so a
+  // whole category fits in one thumb-swipe.
+  assert.match(shell, /class="studio-scroll-row grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5"/,
+    'renderStudioHomeFormatShortcuts grid must carry the swipe-row class')
+  assert.match(shell, /class="studio-scroll-row grid gap-4 sm:grid-cols-2 xl:grid-cols-4"/,
+    'renderStudioHomeDesignSets grid must carry the swipe-row class')
+  assert.match(shell, /class="studio-scroll-row grid gap-2 sm:grid-cols-2 lg:grid-cols-3"/,
+    'openStudioSizePicker sheet grid must carry the swipe-row class')
+  // CSS must actually flip the grid to horizontal flex + snap on mobile.
+  // Rule lives inside the mobile block — assert its content directly.
+  assert.match(theme, /\.studio-scroll-row \{[\s\S]{0,600}overflow-x: auto[\s\S]{0,600}scroll-snap-type: x mandatory/,
+    'mobile .studio-scroll-row must become a horizontal snap-scroll row')
+  assert.match(theme, /\.studio-scroll-row > \* \{[\s\S]{0,200}scroll-snap-align: start/,
+    'each swipe-row child must snap to start')
+})
+
 test('studio cache-bust bumped so the browser fetches the fixed bundle', () => {
   // Two consumers load studio-shell.js via msLoadScript — both must
   // request the new revision so a cached bundle can't hide the fixes.
   const matches = part2.match(/studio-shell\.js\?v=([a-z0-9_]+)/g) || []
   assert.ok(matches.length >= 2, 'must find both studio-shell references')
   for (const m of matches) {
-    assert.match(m, /studio-shell\.js\?v=20260905_studio_fixes_v1/,
+    assert.match(m, /studio-shell\.js\?v=20260905_studio_swipe_v1/,
       `stale cache-bust: ${m}`)
   }
-  assert.match(dashboard, /marketsync-theme\.css\?v=20260905_studio_mobile_v2/,
+  assert.match(dashboard, /marketsync-theme\.css\?v=20260905_studio_swipe_v1/,
     'theme.css cache-bust must reflect the new mobile rules')
 })

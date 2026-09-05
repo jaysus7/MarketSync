@@ -3947,4 +3947,42 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
   #ms-studio-master-modal .studio-command-scroll > * { scroll-snap-align: start; }
   /* Save status badge — keep it visible instead of shoved off-screen. */
   #ms-studio-master-modal #studio-save-status { flex-shrink: 0; }
+
+  /* Studio home / size picker: turn every `.studio-scroll-row` grid
+     (Digital marketing formats, Design sets, size-picker rows) into
+     a horizontal swipe row. Each tile becomes a fixed-width card so
+     one thumb-swipe pans the whole category instead of scrolling
+     through 20 stacked rows. Desktop is untouched — the grid classes
+     from Tailwind only kick in at sm/lg/xl breakpoints. */
+  #ms-studio-master-modal .studio-scroll-row {
+    display: flex !important;
+    grid-template-columns: none !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 0.75rem !important;
+    padding-bottom: 0.5rem;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    /* Bleed to the viewport edges so the first tile isn't cut off by
+       the parent's container padding — negative margin + matching
+       padding keeps the layout aligned. */
+    margin-left: -1rem;
+    margin-right: -1rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  #ms-studio-master-modal .studio-scroll-row::-webkit-scrollbar { display: none; }
+  #ms-studio-master-modal .studio-scroll-row > * {
+    flex: 0 0 auto;
+    width: 62vw;
+    max-width: 240px;
+    scroll-snap-align: start;
+  }
+  /* Design Set cards are richer — give them more room so the eyebrow
+     + title + description read comfortably. */
+  #ms-studio-master-modal .studio-scroll-row > .studio-home-set-card {
+    width: 78vw;
+    max-width: 320px;
+  }
 }
