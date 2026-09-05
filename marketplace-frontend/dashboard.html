@@ -314,6 +314,30 @@
     #ms-demo-reset:hover{color:#64748b}
     html[data-dash-owner="1"][data-dash-mode="demo"] #ms-demo-reset{display:block}
 
+    /* ── Embedded mode ─────────────────────────────────────────────────────
+       When dashboard.html is loaded with ?embedded=<pageId>, it's being
+       framed by a standalone /apps/*.html launcher. Hide every piece of
+       DealerOS chrome so only the tool's page-content is visible. Same
+       source of truth as the full dashboard — one code path, two shells.
+    */
+    html[data-embedded="1"] header.ms-chrome-glass,
+    html[data-embedded="1"] #dashboard-nav,
+    html[data-embedded="1"] #dept-nav,
+    html[data-embedded="1"] #dept-sidebar,
+    html[data-embedded="1"] #dept-tabbar,
+    html[data-embedded="1"] #report-rail,
+    html[data-embedded="1"] #ms-mode-switch,
+    html[data-embedded="1"] #ms-demo-reset,
+    html[data-embedded="1"] #ms-public-header,
+    html[data-embedded="1"] #ms-public-footer,
+    html[data-embedded="1"] #hq-env-banner,
+    html[data-embedded="1"] .ms-shell-brand,
+    html[data-embedded="1"] .ms-shell-nav { display:none !important; }
+    html[data-embedded="1"] body { padding:0 !important; margin:0 !important; }
+    html[data-embedded="1"] main,
+    html[data-embedded="1"] #app-body,
+    html[data-embedded="1"] .ms-shell-content { padding-top:0 !important; margin-top:0 !important; }
+
     /* Report rail: minimized (icon-only) unless expanded via the toggle. */
     #report-rail:not(.rr-open) button[data-report] span,
     #report-rail:not(.rr-open) .rr-head-label { display: none; }

@@ -3,6 +3,40 @@
 // other (the "logs in then logs out" bug). Keep in sync with login/register/reset pages.
 const API = (typeof window !== 'undefined' && window.API) ? window.API : (location.hostname.includes('staging') ? 'https://marketsync-staging-backend.onrender.com' : 'https://vehicle-marketplace-s0e4.onrender.com');
 
+// ── Embedded / apps mode ──────────────────────────────────────────────────
+// The standalone /apps/*.html launchers iframe this dashboard with
+// ?embedded=<pageId> so a single source of truth serves both DealerOS and
+// the standalone apps. When we ship a change to a tool, the app inherits
+// it automatically. Stamp the root element so the CSS chrome-hiding rules
+// in dashboard.html apply, and remember the pageId so the boot flow can
+// switchPage() to it once the shell is ready.
+window.__msEmbeddedPage = null;
+(function () {
+  try {
+    const q = new URLSearchParams(window.location.search || '');
+    const embedded = (q.get('embedded') || '').trim();
+    if (!embedded) return;
+    // Whitelist matches the 8 standalone apps + the specific dashboard
+    // page each mounts. Any other value is ignored — never let an
+    // arbitrary URL parameter drive route resolution.
+    const map = {
+      'appraisal':       'appraisal',
+      'video-studio':    'saas-studio',
+      'design-studio':   'saas-studio',
+      'website-studio':  'saas-website',
+      'crm':             'crm',
+      'email-sms':       'saas-email-marketing',
+      'desking':         'sales-desking',
+      'service-checkin': 'service-ros',
+    };
+    const pageId = Object.prototype.hasOwnProperty.call(map, embedded) ? map[embedded] : null;
+    if (!pageId) return;
+    document.documentElement.setAttribute('data-embedded', '1');
+    document.documentElement.setAttribute('data-embedded-app', embedded);
+    window.__msEmbeddedPage = pageId;
+  } catch { /* boot must never throw */ }
+})();
+
 // Wrap fetch so EVERY call to our API carries the demo-workspace header when the
 // owner is in Demo mode — keeps all pages (even those using raw fetch) consistently
 // scoped to the sandboxed demo dealership. No-op for non-API URLs and other users.

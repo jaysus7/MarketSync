@@ -17,15 +17,19 @@
       eyebrow: 'Standalone products',
       stage: 'live',
       render(main) {
+        // Order per user priority: Appraisals · Video · Design · Website ·
+        // CRM · Email/SMS · Desking · Service. Every app shares its source
+        // with DealerOS — a change to a tool in the dashboard updates the
+        // app automatically (they iframe the same code path).
         const products = [
-          { slug: 'design-studio',   name: 'Design Studio',      sub: 'Create branded creative and print in minutes.', href: 'design-studio.html', stage: 'live' },
-          { slug: 'website-studio',  name: 'Website Studio',     sub: 'Edit pages, forms, pricing and SEO.',           href: 'website-studio.html', stage: 'dealeros' },
-          { slug: 'video-studio',    name: 'Video Studio',       sub: 'Record and share teleprompted product videos.', href: 'video-studio.html', stage: 'dealeros' },
-          { slug: 'email-sms',       name: 'Email &amp; SMS',    sub: 'Campaigns, templates, drips, deliverability.',   href: 'email-sms.html', stage: 'dealeros' },
-          { slug: 'crm',             name: 'CRM',                sub: 'Every lead, every conversation, one inbox.',    href: 'crm.html', stage: 'dealeros' },
-          { slug: 'desking',         name: 'Desking',            sub: 'Structure a deal, present it, close it.',       href: 'desking.html', stage: 'dealeros' },
-          { slug: 'appraisals',      name: 'Appraisals',         sub: 'Value trade-ins with market data on the lot.',  href: 'appraisals.html', stage: 'dealeros' },
-          { slug: 'service-checkin', name: 'Service Check-in',   sub: 'Digital check-in / check-out from the drive.',  href: 'service-checkin.html', stage: 'dealeros' },
+          { slug: 'appraisals',      name: 'Appraisals',       sub: 'Value trade-ins with market data on the lot.', href: 'appraisals.html', stage: 'live' },
+          { slug: 'video-studio',    name: 'Video Studio',     sub: 'Record and share teleprompted product videos.', href: 'video-studio.html', stage: 'live' },
+          { slug: 'design-studio',   name: 'Design Studio',    sub: 'Create branded creative and print in minutes.', href: 'design-studio.html', stage: 'live' },
+          { slug: 'website-studio',  name: 'Website Studio',   sub: 'Edit pages, forms, pricing and SEO.',           href: 'website-studio.html', stage: 'live' },
+          { slug: 'crm',             name: 'CRM',              sub: 'Every lead, every conversation, one inbox.',    href: 'crm.html', stage: 'live' },
+          { slug: 'email-sms',       name: 'Email &amp; SMS',  sub: 'Campaigns, templates, drips, deliverability.',   href: 'email-sms.html', stage: 'live' },
+          { slug: 'desking',         name: 'Desking',          sub: 'Structure a deal, present it, close it.',       href: 'desking.html', stage: 'live' },
+          { slug: 'service-checkin', name: 'Service Check-in', sub: 'Digital check-in / check-out from the drive.',  href: 'service-checkin.html', stage: 'live' },
         ]
         main.innerHTML = '<div class="app-grid">' + products.map(p => `
           <a class="app-tile" href="${p.href}">

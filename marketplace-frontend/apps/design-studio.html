@@ -4,38 +4,63 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Design Studio · MarketSync</title>
-  <meta name="description" content="Create branded creative and print in minutes with MarketSync Design Studio.">
-  <link rel="stylesheet" href="shell.css?v=20260905_apps_v1">
+  <meta name="description" content="Create branded creative and print in minutes.">
+  <link rel="stylesheet" href="shell.css?v=20260905_apps_iframe_v1">
+  <style>
+    /* Full-viewport frame — the tool lives inside; the shared shell just
+       gives it a MarketSync-branded header on top. When we ship a change
+       to the tool inside dashboard.html, this app inherits it. */
+    body { min-height:100vh; display:flex; flex-direction:column; background:var(--app-surface); }
+    .app-frame-wrap { flex:1 1 auto; display:flex; }
+    .app-frame { flex:1 1 auto; width:100%; border:0; background:var(--app-surface); }
+    .app-signedout {
+      max-width:32rem; margin:2rem auto; padding:0 1rem;
+    }
+    .app-signedout .app-card { text-align:center; }
+  </style>
 </head>
 <body>
-  <div id="app-root"></div>
-  <script src="shell.js?v=20260905_apps_v1"></script>
+  <header class="app-header">
+    <a href="/apps/" class="app-header__brand"><span class="app-header__mark"></span> MarketSync</a>
+    <div style="display:flex;align-items:center;gap:0.75rem">
+      <span class="app-header__meta">Design Studio</span>
+      <a href="/dashboard.html#design-studio" class="app-header__signin" target="_top">Open full</a>
+    </div>
+  </header>
+  <div class="app-frame-wrap">
+    <iframe id="app-frame" class="app-frame"
+      src="/dashboard.html?embedded=design-studio"
+      title="Design Studio"
+      referrerpolicy="same-origin"
+      allow="camera; microphone; clipboard-read; clipboard-write"
+      loading="eager"></iframe>
+  </div>
+  <div id="app-signedout" class="app-signedout" hidden>
+    <div class="app-card">
+      <h2 class="app-card__title">Sign in to use Design Studio</h2>
+      <p class="app-card__msg">Design Studio shares its source with your DealerOS workspace, so any account can open it here.</p>
+      <a class="app-btn app-btn--primary app-btn--full" href="/login.html?next=%2Fapps%2Fdesign-studio.html" target="_top">Sign in</a>
+      <a class="app-btn app-btn--secondary app-btn--full" href="/register.html?next=%2Fapps%2Fdesign-studio.html" target="_top">Create account</a>
+    </div>
+  </div>
+  <script src="shell.js?v=20260905_apps_iframe_v1"></script>
   <script>
-    MarketSyncApp.mount({
-      title: 'Design Studio',
-      subtitle: 'Create branded creative and print in minutes. Works on your phone. Works in your DealerOS. Same tool, one login.',
-      eyebrow: 'Standalone product',
-      stage: 'live',
-      render(main) {
-        main.innerHTML = `
-          <div class="app-card">
-            <h2 class="app-card__title">Open Design Studio</h2>
-            <p class="app-card__msg">Sign in with your MarketSync account to launch Design Studio. Templates, brand assets and the full editor are ready.</p>
-            <a class="app-btn app-btn--primary app-btn--full" href="/dashboard.html#saas-studio">Launch editor</a>
-            <a class="app-btn app-btn--secondary app-btn--full" href="index.html">All MarketSync apps</a>
-          </div>
-          <div class="app-card">
-            <h2 class="app-card__title">Don't have an account?</h2>
-            <p class="app-card__msg">Design Studio is available on its own — no dealership required. Join the waitlist for standalone sign-up and we'll email you the moment it opens.</p>
-            <form onsubmit="return MarketSyncApp.joinWaitlist(event, 'design-studio')">
-              <input required type="email" name="email" placeholder="you@example.com" autocomplete="email"
-                style="width:100%;padding:0.75rem 1rem;border-radius:0.75rem;border:1px solid var(--app-border);background:var(--app-surface-soft);color:var(--app-text);font-size:1rem;margin-bottom:0.75rem">
-              <button class="app-btn app-btn--primary app-btn--full" type="submit">Notify me at launch</button>
-            </form>
-            <div id="app-waitlist-result" style="margin-top:0.75rem;font-size:0.875rem;color:var(--app-text-soft)"></div>
-          </div>`
-      }
-    })
+    (function () {
+      var frame = document.getElementById('app-frame');
+      var signedOut = document.getElementById('app-signedout');
+      // If the framed dashboard bounces the user to /login, the iframe's
+      // top window would be redirected too — we forbid that by watching
+      // for load into /login and swapping to our own sign-in card.
+      frame.addEventListener('load', function () {
+        try {
+          var loc = frame.contentWindow.location.pathname;
+          if (loc && (loc.indexOf('/login') === 0 || loc.indexOf('/register') === 0)) {
+            frame.hidden = true;
+            signedOut.hidden = false;
+          }
+        } catch (e) { /* cross-origin — leave frame in place */ }
+      });
+    })();
   </script>
 </body>
 </html>

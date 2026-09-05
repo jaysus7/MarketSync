@@ -5,26 +5,62 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>CRM · MarketSync</title>
   <meta name="description" content="Every lead, every conversation, in one inbox. Reply from your pocket.">
-  <link rel="stylesheet" href="shell.css?v=20260905_apps_v1">
+  <link rel="stylesheet" href="shell.css?v=20260905_apps_iframe_v1">
+  <style>
+    /* Full-viewport frame — the tool lives inside; the shared shell just
+       gives it a MarketSync-branded header on top. When we ship a change
+       to the tool inside dashboard.html, this app inherits it. */
+    body { min-height:100vh; display:flex; flex-direction:column; background:var(--app-surface); }
+    .app-frame-wrap { flex:1 1 auto; display:flex; }
+    .app-frame { flex:1 1 auto; width:100%; border:0; background:var(--app-surface); }
+    .app-signedout {
+      max-width:32rem; margin:2rem auto; padding:0 1rem;
+    }
+    .app-signedout .app-card { text-align:center; }
+  </style>
 </head>
 <body>
-  <div id="app-root"></div>
-  <script src="shell.js?v=20260905_apps_v1"></script>
+  <header class="app-header">
+    <a href="/apps/" class="app-header__brand"><span class="app-header__mark"></span> MarketSync</a>
+    <div style="display:flex;align-items:center;gap:0.75rem">
+      <span class="app-header__meta">CRM</span>
+      <a href="/dashboard.html#crm" class="app-header__signin" target="_top">Open full</a>
+    </div>
+  </header>
+  <div class="app-frame-wrap">
+    <iframe id="app-frame" class="app-frame"
+      src="/dashboard.html?embedded=crm"
+      title="CRM"
+      referrerpolicy="same-origin"
+      allow="camera; microphone; clipboard-read; clipboard-write"
+      loading="eager"></iframe>
+  </div>
+  <div id="app-signedout" class="app-signedout" hidden>
+    <div class="app-card">
+      <h2 class="app-card__title">Sign in to use CRM</h2>
+      <p class="app-card__msg">CRM shares its source with your DealerOS workspace, so any account can open it here.</p>
+      <a class="app-btn app-btn--primary app-btn--full" href="/login.html?next=%2Fapps%2Fcrm.html" target="_top">Sign in</a>
+      <a class="app-btn app-btn--secondary app-btn--full" href="/register.html?next=%2Fapps%2Fcrm.html" target="_top">Create account</a>
+    </div>
+  </div>
+  <script src="shell.js?v=20260905_apps_iframe_v1"></script>
   <script>
-    MarketSyncApp.mount({
-      title: 'CRM',
-      subtitle: 'Every lead, every conversation, in one inbox. Reply from your pocket.',
-      eyebrow: 'Standalone product',
-      stage: 'dealeros',
-      render(main) {
-        main.innerHTML = MarketSyncApp.dealerOsAvailable({
-          slug: 'crm',
-          usableTitle: 'Ready in DealerOS today',
-          usableMsg: 'Sign in with your DealerOS account and open CRM from your workspace nav — every feature is live.',
-          standaloneMsg: 'A standalone single-user version of CRM is on the way. Join the waitlist and we\'ll email you the moment it opens.'
-        }) + `<div style="margin-top:1rem"><a class="app-btn app-btn--secondary app-btn--full" href="/dashboard.html#crm">Open in DealerOS</a></div>`
-      }
-    })
+    (function () {
+      var frame = document.getElementById('app-frame');
+      var signedOut = document.getElementById('app-signedout');
+      // If the framed dashboard bounces the user to /login, the iframe's
+      // top window would be redirected too — we forbid that by watching
+      // for load into /login and swapping to our own sign-in card.
+      frame.addEventListener('load', function () {
+        try {
+          var loc = frame.contentWindow.location.pathname;
+          if (loc && (loc.indexOf('/login') === 0 || loc.indexOf('/register') === 0)) {
+            frame.hidden = true;
+            signedOut.hidden = false;
+          }
+        } catch (e) { /* cross-origin — leave frame in place */ }
+      });
+    })();
   </script>
 </body>
 </html>

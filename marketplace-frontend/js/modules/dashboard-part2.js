@@ -2509,7 +2509,10 @@ function msApplyRoute() {
 window.addEventListener('popstate', msApplyRoute);
 window.addEventListener('hashchange', msApplyRoute);
 
-let __msBootTarget = msRouteFromHash();
+// Embedded /apps launcher wins over the hash: when the dashboard is
+// framed by a standalone app the URL param names the tool. Set by
+// dashboard.js early-boot into window.__msEmbeddedPage.
+let __msBootTarget = (typeof window !== 'undefined' && window.__msEmbeddedPage) || msRouteFromHash();
 let __msBootTries = 0;
 function msBootRoute() {
   if (!__msBootTarget || __msBootTries > 6) return;
