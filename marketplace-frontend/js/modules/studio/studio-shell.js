@@ -203,82 +203,48 @@ const STUDIO_VISUAL_ELEMENT_CATEGORIES = {
   Social: ['instagram', '#FAF5FF', '#9333EA']
 };
 
-// The visual elements catalog. Base rows + a colour palette; the
-// spread-and-multiply idiom below turns ~30 base shapes/icons into
-// 1000+ variants without hardcoding every row. Palette + base are
-// scoped inside the array expression so this whole const remains a
-// pure literal for the studio-creative-catalogs evaluator test.
+// The visual elements catalog. One row per shape / icon / graphic.
+// Colour is deliberately NOT multiplied here — the Color tool in the
+// inspector applies any colour to any element, so duplicating 1000
+// "same shape in 20 colours" rows was noise, not variety. User note:
+// "Shapes should just be one shape and then colours can change with
+// colour options".
+//
+// Every shape is fabric-native and therefore supports freeform
+// transform (drag to resize any axis, drag corner to skew, drag
+// rotation handle) out of the box — fabric-adapter.js enables all
+// handles on every added shape.
 const STUDIO_VISUAL_ELEMENTS = (() => {
-  const STUDIO_ELEMENT_PALETTE = [
-    ['#0F172A','Slate'],['#334155','Steel'],['#475569','Ash'],['#64748B','Fog'],
-    ['#DC2626','Red'],['#EA580C','Amber'],['#D97706','Ochre'],['#CA8A04','Gold'],
-    ['#16A34A','Green'],['#0F766E','Teal'],['#0891B2','Cyan'],['#0284C7','Sky'],
-    ['#2563EB','Blue'],['#4F46E5','Indigo'],['#7C3AED','Violet'],['#9333EA','Purple'],
-    ['#DB2777','Pink'],['#E11D48','Rose'],['#F59E0B','Sun'],['#EAB308','Yellow'],
-  ];
-  const STUDIO_SHAPE_BASE = [
-    ['circle','Circle','circle'],['ring','Outline circle','ring'],['square','Square','rect'],['rounded','Rounded square','rounded'],
-    ['triangle','Triangle','triangle'],['diamond','Diamond','diamond'],['star','Star','star'],['heart','Heart','heart'],
-    ['hexagon','Hexagon','hexagon'],['pill','Pill','badge'],['line','Line','line'],['arrow','Arrow','arrow'],
-  ];
   return [
-  // Shapes: 12 base × 20 colours = 240 variants (+ original 12 canonical
-  // rows below so the "recently used" fallbacks still resolve).
+  // Shapes — one row each.
   ...[
     ['shape-circle','Circle','circle','#111827'], ['shape-ring','Outline circle','ring','#2563EB'], ['shape-square','Square','rect','#7C3AED'], ['shape-round','Rounded square','rounded','#EC4899'],
     ['shape-triangle','Triangle','triangle','#F97316'], ['shape-diamond','Diamond','diamond','#06B6D4'], ['shape-star','Star','star','#EAB308'], ['shape-heart','Heart','heart','#E11D48'],
     ['shape-hexagon','Hexagon','hexagon','#0F766E'], ['shape-pill','Pill','badge','#4F46E5'], ['shape-line','Line','line','#334155'], ['shape-arrow','Arrow','arrow','#EA580C']
   ].map(([id,name,shape,color]) => ({ id,name,category:'Shapes',kind:'shape',shape,color })),
-  ...STUDIO_SHAPE_BASE.flatMap(([slug, label, shape]) =>
-    STUDIO_ELEMENT_PALETTE.map(([color, colorName]) => ({
-      id: `shape-${slug}-${color.slice(1).toLowerCase()}`,
-      name: `${colorName} ${label.toLowerCase()}`,
-      category: 'Shapes', kind: 'shape', shape, color,
-    }))
-  ),
+  // Graphics — recognisable brand marks and campaign motifs. Colour
+  // is a default; the Color tool changes it.
   ...[
     ['graphic-sparkles','Sparkles','sparkles','#7C3AED'], ['graphic-sun','Sun burst','sun','#F59E0B'], ['graphic-zap','Lightning','zap','#EAB308'], ['graphic-flame','Flame','flame','#EF4444'],
     ['graphic-megaphone','Megaphone','megaphone','#2563EB'], ['graphic-gift','Gift','gift','#DB2777'], ['graphic-trophy','Trophy','trophy','#D97706'], ['graphic-quote','Quote marks','quote','#0F766E'],
-    ['graphic-location','Location','map-pin','#DC2626'], ['graphic-road','Direction','navigation','#0284C7'], ['graphic-check','Approval check','badge-check','#16A34A'], ['graphic-shield','Shield','shield-check','#4F46E5']
+    ['graphic-location','Location','map-pin','#DC2626'], ['graphic-road','Direction','navigation','#0284C7'], ['graphic-check','Approval check','badge-check','#16A34A'], ['graphic-shield','Shield','shield-check','#4F46E5'],
+    ['graphic-award','Award','award','#B45309'], ['graphic-crown','Crown','crown','#D97706'], ['graphic-rocket','Rocket','rocket','#DC2626'], ['graphic-heart','Heart','heart','#E11D48'],
+    ['graphic-thumb','Thumb up','thumbs-up','#16A34A'], ['graphic-party','Party','party-popper','#F59E0B'], ['graphic-medal','Medal','medal','#CA8A04'], ['graphic-bell','Bell','bell','#2563EB'],
   ].map(([id,name,icon,color]) => ({ id,name,category:'Graphics',kind:'icon',icon,color })),
-  // Graphics variants: 12 base × 20 colours = 240
-  ...[
-    ['sparkles','Sparkles'],['sun','Sun'],['zap','Lightning'],['flame','Flame'],
-    ['megaphone','Megaphone'],['gift','Gift'],['trophy','Trophy'],['quote','Quote'],
-    ['map-pin','Location'],['navigation','Direction'],['badge-check','Check'],['shield-check','Shield'],
-    ['award','Award'],['crown','Crown'],['rocket','Rocket'],['heart','Heart'],
-    ['thumbs-up','Thumb up'],['party-popper','Party'],['confetti','Confetti'],['medal','Medal'],
-  ].flatMap(([icon, label]) => STUDIO_ELEMENT_PALETTE.map(([color, colorName]) => ({
-    id: `graphic-${icon}-${color.slice(1).toLowerCase()}`,
-    name: `${colorName} ${label.toLowerCase()}`,
-    category: 'Graphics', kind: 'icon', icon, color,
-  }))),
   ...[
     ['animation-sparkle','Floating sparkle','sparkles','#7C3AED','float'], ['animation-heart','Pulsing heart','heart','#E11D48','pulse'], ['animation-star','Bouncing star','star','#EAB308','bounce'], ['animation-gear','Spinning gear','settings','#2563EB','spin'],
     ['animation-arrow','Bouncing arrow','arrow-right','#EA580C','bounce'], ['animation-bell','Floating bell','bell','#D97706','float'], ['animation-badge','Pulsing badge','badge-check','#16A34A','pulse'], ['animation-flame','Floating flame','flame','#EF4444','float']
   ].map(([id,name,icon,color,animation]) => ({ id,name,category:'Animations',kind:'icon',icon,color,animation })),
+  // Icons — one row per icon (~60), automotive / business flavoured.
+  // Colour comes from the Color tool — no per-colour duplicates.
   ...[
-    ['icon-car','Car','car'], ['icon-key','Key','key-round'], ['icon-phone','Phone','phone'], ['icon-mail','Email','mail'], ['icon-calendar','Calendar','calendar'], ['icon-clock','Clock','clock'],
-    ['icon-user','Person','user'], ['icon-team','Team','users'], ['icon-camera','Camera','camera'], ['icon-video','Video','video'], ['icon-home','Building','building-2'], ['icon-globe','Website','globe-2'],
-    ['icon-tag','Price tag','tag'], ['icon-card','Payment','credit-card'], ['icon-wrench','Service','wrench'], ['icon-search','Search','search'], ['icon-share','Share','share-2'], ['icon-qr','QR code','qr-code']
-  ].map(([id,name,icon]) => ({ id,name,category:'Icons',kind:'icon',icon,color:'#2563EB' })),
-  // Icons: 50 automotive/business icons × 20 colours = 1000 icon variants
-  ...[
-    // Vehicles / automotive
-    'car','car-front','truck','bus','bike','fuel','gauge','wrench','wrench-2','cog','battery','battery-charging',
-    // People / customer
-    'user','user-check','users','user-plus','baby','handshake','headphones','contact','crown','shield',
-    // Communication
-    'phone','phone-call','phone-incoming','phone-outgoing','mail','mail-open','send','message-circle','message-square','bell',
-    // Commerce / money
-    'tag','tags','credit-card','wallet','banknote','coins','percent','shopping-cart','receipt','trending-up',
-    // Location / logistics
-    'map-pin','map','navigation','route','compass','truck','package','warehouse','anchor','plane',
-  ].flatMap((icon, idx) => STUDIO_ELEMENT_PALETTE.map(([color, colorName]) => ({
-    id: `icon-${icon}-${idx}-${color.slice(1).toLowerCase()}`,
-    name: `${colorName} ${icon.replace(/-/g,' ')}`,
-    category: 'Icons', kind: 'icon', icon, color,
-  }))),
+    ['car','Car'],['car-front','Car front'],['truck','Truck'],['bus','Bus'],['bike','Bike'],['fuel','Fuel'],['gauge','Gauge'],['wrench','Wrench'],['cog','Cog'],['battery','Battery'],['battery-charging','EV charge'],
+    ['user','Person'],['user-check','Approved'],['users','Team'],['user-plus','Add customer'],['handshake','Handshake'],['headphones','Support'],['contact','Contact'],['crown','VIP'],['shield','Shield'],
+    ['phone','Phone'],['phone-call','Call'],['phone-incoming','Incoming'],['phone-outgoing','Outgoing'],['mail','Email'],['mail-open','Open email'],['send','Send'],['message-circle','Chat'],['message-square','Message'],['bell','Bell'],
+    ['tag','Price tag'],['tags','Tags'],['credit-card','Payment'],['wallet','Wallet'],['banknote','Cash'],['coins','Coins'],['percent','Discount'],['shopping-cart','Cart'],['receipt','Receipt'],['trending-up','Trend up'],
+    ['map-pin','Location'],['map','Map'],['navigation','Navigation'],['route','Route'],['compass','Compass'],['package','Package'],['warehouse','Warehouse'],['anchor','Anchor'],['plane','Plane'],
+    ['calendar','Calendar'],['clock','Clock'],['camera','Camera'],['video','Video'],['building-2','Building'],['globe-2','Website'],['search','Search'],['share-2','Share'],['qr-code','QR'],['key-round','Key'],
+  ].map(([icon, name]) => ({ id: `icon-${icon}`, name, category: 'Icons', kind: 'icon', icon, color: '#2563EB' })),
   ...[
     ['frame-classic','Classic frame','classic'], ['frame-round','Rounded frame','round'], ['frame-circle','Circle frame','circle'], ['frame-polaroid','Polaroid frame','polaroid'],
     ['frame-phone','Phone frame','phone'], ['frame-window','Browser frame','window'], ['frame-arch','Arch frame','arch'], ['frame-double','Double frame','double']

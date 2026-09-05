@@ -26,8 +26,8 @@ test('Templates fits the rail and the Heading action remains legible', () => {
 });
 
 test('the deployed dashboard requests the corrected Studio assets', () => {
-  assert.match(loader, /studio-shell\.js\?v=20260905_studio_swipe_v2/g);
-  assert.match(dashboard, /marketsync-theme\.css\?v=20260905_studio_swipe_v2/);
+  assert.match(loader, /studio-shell\.js\?v=20260905_studio_inspector_v1/g);
+  assert.match(dashboard, /marketsync-theme\.css\?v=20260905_studio_inspector_v1/);
   // dashboard-part2.js was rebumped for the HQ IA freeze (Phase 1 finalization).
   assert.match(dashboard, /dashboard-part2\.js\?v=20260905_hq_ia_freeze_v1/);
 });

@@ -78,20 +78,21 @@ test('addImage tries with-CORS first, without-CORS second, before giving up', ()
     'second attempt must retry without crossOrigin')
 })
 
-test('Design Studio element library exceeds 1000 total items with variants', () => {
-  // The user asked for "1000 elements for each category". We ship a
-  // compact base × palette generator instead of 8000 hardcoded rows —
-  // total library sits well above 1000 items and every category ends
-  // up with hundreds of options without bloating the bundle.
-  const palette = shell.match(/const STUDIO_ELEMENT_PALETTE = \[([\s\S]*?)\];/)
-  assert.ok(palette, 'STUDIO_ELEMENT_PALETTE must be defined')
-  const paletteCount = (palette[1].match(/#[0-9A-Fa-f]{6}/g) || []).length
-  assert.ok(paletteCount >= 20, `palette must have at least 20 colors, got ${paletteCount}`)
-  // Multiplier must run over each of Shapes, Graphics, Icons — count
-  // the palette.map spread invocations in the visual elements literal.
-  const paletteMapCount = (shell.match(/STUDIO_ELEMENT_PALETTE\.map/g) || []).length
-  assert.ok(paletteMapCount >= 3, `palette must be spread across at least 3 category multipliers, got ${paletteMapCount}`)
-  assert.match(shell, /STUDIO_SHAPE_BASE\.flatMap/, 'shapes must use the base × palette generator')
+test('Element library is one row per shape/icon — colour comes from the Color tool', () => {
+  // User course-correction: "Shapes should just be one shape and then
+  // colours can change with colour options." The prior 240-shape-
+  // multiplier was noise, not variety. Enforce: one row per shape,
+  // one row per icon, one row per graphic. Freeform transform + the
+  // Color tool provide every axis of variation.
+  assert.doesNotMatch(shell, /STUDIO_ELEMENT_PALETTE/,
+    'palette multiplier must be gone — Color tool handles colour on any element')
+  assert.doesNotMatch(shell, /STUDIO_SHAPE_BASE\.flatMap/,
+    'shapes must not be multiplied by a palette')
+  // Sanity floor: still have real variety in the base library.
+  const shapeIds = shell.match(/'shape-[a-z]+',/g) || []
+  assert.ok(shapeIds.length >= 10, `expected at least 10 base shape ids, got ${shapeIds.length}`)
+  const iconEntries = shell.match(/id: `icon-\$\{icon\}`/g) || []
+  assert.ok(iconEntries.length >= 1, 'icons category must be present with a generator')
 })
 
 test('Mobile studio layout is real — 44px tap targets, tabbed layout, larger canvas', () => {
@@ -172,15 +173,48 @@ test('templates grid swipes horizontally + each template renders a distinct prev
     'failed template photos must swap to a gradient placeholder in-place')
 })
 
+test('every shape supports freeform transform (skew/scale/rotate) on canvas', () => {
+  // User rule: "every shape can transform freeform". Enforce that
+  // fabric-adapter.addShape unlocks skew + both scale axes on every
+  // shape it adds, and shows all corner + side + rotation handles.
+  assert.match(adapter, /addShape\([\s\S]{0,4000}lockSkewingX: false,\s*lockSkewingY: false/,
+    'addShape must unlock skew on both axes for freeform transform')
+  assert.match(adapter, /addShape\([\s\S]{0,4000}lockScalingX: false,\s*lockScalingY: false/,
+    'addShape must unlock independent axis scaling')
+  assert.match(adapter, /addShape\([\s\S]{0,4000}setControlsVisibility\(\{[\s\S]{0,300}mtr: true/,
+    'addShape must show corner + side + rotation handles')
+})
+
+test('inspector panel has actual styling (no more shapeCya×StylePositAppearan overflow)', () => {
+  // Screenshot regression: the inspector rendered as raw inline text
+  // — every .studio-inspector-* class had zero CSS. Add real block
+  // layout + padding + spacing so the drawer reads correctly on every
+  // viewport, and so mobile drawer content doesn't collapse into a
+  // run-together label soup.
+  for (const cls of [
+    '.studio-inspector-heading',
+    '.studio-inspector-tabs',
+    '.studio-inspector-body',
+    '.studio-inspector-section',
+    '.studio-control-grid',
+  ]) {
+    assert.match(theme, new RegExp(`#ms-studio-master-modal ${cls.replace('.','\\.')}[^{]*\\{`),
+      `${cls} must have CSS`)
+  }
+  // Delete action must be prominent, not blended into other buttons.
+  assert.match(theme, /\.studio-delete-action \{[\s\S]{0,400}color: #dc2626/,
+    'Delete element action must be styled with a danger colour')
+})
+
 test('studio cache-bust bumped so the browser fetches the fixed bundle', () => {
   // Two consumers load studio-shell.js via msLoadScript — both must
   // request the new revision so a cached bundle can't hide the fixes.
   const matches = part2.match(/studio-shell\.js\?v=([a-z0-9_]+)/g) || []
   assert.ok(matches.length >= 2, 'must find both studio-shell references')
   for (const m of matches) {
-    assert.match(m, /studio-shell\.js\?v=20260905_studio_swipe_v2/,
+    assert.match(m, /studio-shell\.js\?v=20260905_studio_inspector_v1/,
       `stale cache-bust: ${m}`)
   }
-  assert.match(dashboard, /marketsync-theme\.css\?v=20260905_studio_swipe_v2/,
+  assert.match(dashboard, /marketsync-theme\.css\?v=20260905_studio_inspector_v1/,
     'theme.css cache-bust must reflect the new mobile rules')
 })

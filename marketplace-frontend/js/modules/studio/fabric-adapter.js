@@ -635,6 +635,31 @@ class StudioFabricAdapter {
       });
     }
     shape.msData = { type: 'shape', shapeType, name: shapeType.toUpperCase() };
+    // Freeform transform: every shape can be rotated, scaled on either
+    // axis independently, AND skewed by dragging the side handles with
+    // shift. Uniform locks + skew locks stay OFF so nothing is
+    // permanently rigid. Rotation handle stays visible so touch users
+    // have a distinct control to grab. User rule: "every shape can
+    // transform freeform".
+    shape.set({
+      lockUniScaling: false,
+      lockScalingFlip: false,
+      lockScalingX: false,
+      lockScalingY: false,
+      lockRotation: false,
+      lockSkewingX: false,
+      lockSkewingY: false,
+      hasRotatingPoint: true,
+      centeredRotation: true,
+      centeredScaling: false,
+    });
+    if (typeof shape.setControlsVisibility === 'function') {
+      shape.setControlsVisibility({
+        tl: true, tr: true, bl: true, br: true, // corner scale (any axis)
+        ml: true, mr: true, mt: true, mb: true, // side handles (skew with shift)
+        mtr: true,                              // rotation handle
+      });
+    }
     this.fabricCanvas.add(shape);
     this.fabricCanvas.setActiveObject(shape);
     this.fabricCanvas.renderAll();
