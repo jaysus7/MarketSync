@@ -781,7 +781,7 @@ function studioApplyMobileChrome() {
     .forEach(el => (el.style.display = 'none'));
   modal.querySelectorAll('button').forEach(btn => {
     const t = (btn.textContent || '').trim();
-    if (t === 'Desktop' || t === 'Tablet' || t === 'Mobile' || /^Desk\s?a?$/.test(t)) btn.style.display = 'none';
+    if (t === 'Desktop' || t === 'Tablet' || t === 'Mobile' || /^Desk/i.test(t) || /^Tab/i.test(t)) btn.style.display = 'none';
   });
 
   // 1b. Hide the floating selection action pill (duplicate/trash bubble)
@@ -2606,7 +2606,15 @@ async function loadStudioTemplate(tmplKey) {
       zoomStudioFit();
       if (typeof studioDebugPush === 'function') {
         const fc2 = window.__studioAdapter?.fabricCanvas;
-        studioDebugPush(`repaint objs=${fc2?.getObjects().length ?? '?'} size=${fc2?.getWidth?.()}x${fc2?.getHeight?.()} zoom=${Math.round((window.__studioZoomLevel || 0) * 100)}%`);
+        const objs = fc2?.getObjects() || [];
+        studioDebugPush(`repaint objs=${objs.length} size=${fc2?.getWidth?.()}x${fc2?.getHeight?.()} zoom=${Math.round((window.__studioZoomLevel || 0) * 100)}%`);
+        const o0 = objs[0];
+        if (o0) studioDebugPush(`obj[0] t=${o0.type} L=${Math.round(o0.left)} T=${Math.round(o0.top)} W=${Math.round(o0.width * (o0.scaleX || 1))} H=${Math.round(o0.height * (o0.scaleY || 1))} vis=${o0.visible !== false} op=${o0.opacity}`);
+        // Sniff the actual canvas element dimensions vs container.
+        const cvs = document.getElementById('studio-main-canvas');
+        const wrap = cvs?.parentElement;
+        const cont = document.getElementById('studio-artboard-container');
+        if (cvs) studioDebugPush(`cvs attr=${cvs.width}x${cvs.height} css=${cvs.style.width || '?'}x${cvs.style.height || '?'} wrap=${wrap?.offsetWidth}x${wrap?.offsetHeight} cont=${cont?.offsetWidth}x${cont?.offsetHeight}`);
       }
     } catch (_) { /* swallow */ }
   };
