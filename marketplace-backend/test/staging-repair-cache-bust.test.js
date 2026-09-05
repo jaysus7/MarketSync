@@ -23,7 +23,7 @@ test('every frontend asset edited by the staging repair has the release cache ve
   }
 
   // marketsync-theme.css was bumped again for Design Studio mobile rules.
-  assert.ok(html.includes('css/marketsync-theme.css?v=20260905_studio_mobile_v1'), 'marketsync-theme.css mobile studio cache version is stale')
+  assert.ok(html.includes('css/marketsync-theme.css?v=20260905_studio_mobile_v2'), 'marketsync-theme.css mobile studio cache version is stale')
   // dashboard-part2.js was rebumped for the HQ IA freeze (Phase 1 finalization).
   assert.ok(html.includes(`js/modules/dashboard-part2.js?v=${hqIaVersion}`), 'dashboard-part2.js HQ IA cache version is stale')
 

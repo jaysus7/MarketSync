@@ -3876,3 +3876,75 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
+
+/* ── Design Studio · header / toolbar chrome on phones ─────────────────
+   Fixes to reported bugs:
+     • "Desk a" — the Desktop/Tablet/Mobile breakpoint switcher was
+       overflowing and reading as "Desk a" when clipped. That control
+       is a preview-desktop-layout-from-desktop feature; on a phone
+       there is nothing to preview — hide it.
+     • "Demo" pill overlapping the design name — that's the DealerOS
+       mode pill bleeding above the studio modal on mobile. Suppress
+       it inside the studio.
+     • Header cluttered and UNSAVED clipped — collapse the studio
+       identity strip: hide the brand logo and the STUDIO badge on
+       phones, shrink the name input, keep the save status visible.
+     • Toolbar packed too tight — drop history/review/AI/export/publish
+       into the mobile "Tools" panel; keep only Save + Publish visible.
+*/
+@media (max-width: 768px) {
+  /* Kill the DealerOS mode-switch pill inside the studio modal — it
+     doesn't belong here and it collides with the design name input. */
+  #ms-studio-master-modal #ms-mode-switch { display: none !important; }
+  /* Same for the DealerOS demo-reset link. */
+  #ms-studio-master-modal #ms-demo-reset { display: none !important; }
+  /* Hide the breakpoint device switcher — nothing to preview on a phone. */
+  #ms-studio-master-modal .studio-command-scroll > div[title*="breakpoint" i] { display: none !important; }
+  /* Hide desktop-only marketing widgets in the toolbar — they don't fit
+     on a phone and every one of them is available inside the Tools panel. */
+  #ms-studio-master-modal .studio-desktop-action { display: none !important; }
+  /* Trim the identity bar: hide the brand logo + the STUDIO badge so
+     the Back button, design name and UNSAVED indicator have room. The
+     brand mark still lives at /apps/design-studio.html above the frame. */
+  #ms-studio-master-modal .studio-brand-logo,
+  #ms-studio-master-modal .studio-brand-divider,
+  #ms-studio-master-modal .studio-title-badge,
+  #ms-studio-master-modal .studio-back-long { display: none !important; }
+  #ms-studio-master-modal .studio-back-short { display: inline !important; }
+  /* Design-name input: cap width so UNSAVED stays visible; ellipsis on
+     overflow rather than pushing the badge off-screen. */
+  #ms-studio-master-modal #studio-design-name {
+    max-width: 40vw;
+    min-width: 0;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  /* Identity bar horizontal padding: less on mobile so nothing overflows. */
+  #ms-studio-master-modal .studio-identity-bar { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
+  #ms-studio-master-modal .studio-identity-main { gap: 0.5rem !important; min-width: 0; }
+  /* Tabs nav must scroll cleanly, not clip its rightmost item. */
+  #ms-studio-master-modal nav[role="tablist"] {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  #ms-studio-master-modal nav[role="tablist"]::-webkit-scrollbar { display: none; }
+  /* Command bar: also less padding + scroll-snap so panning stops on
+     button boundaries instead of mid-icon. */
+  #ms-studio-master-modal .studio-command-bar {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    gap: 0.5rem !important;
+  }
+  #ms-studio-master-modal .studio-command-scroll {
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  #ms-studio-master-modal .studio-command-scroll::-webkit-scrollbar { display: none; }
+  #ms-studio-master-modal .studio-command-scroll > * { scroll-snap-align: start; }
+  /* Save status badge — keep it visible instead of shoved off-screen. */
+  #ms-studio-master-modal #studio-save-status { flex-shrink: 0; }
+}

@@ -107,6 +107,25 @@ test('Mobile studio layout is real — 44px tap targets, tabbed layout, larger c
     'element catalog must drop to 2 columns on the smallest phones')
 })
 
+test('mobile studio hides desktop-only chrome that was overflowing the header', () => {
+  // Screenshot regression: on iPhone-13 width the Desktop/Tablet/Mobile
+  // breakpoint switcher clipped and read as "Desk a"; the DealerOS
+  // demo pill overlapped the design-name input; UNSAVED was pushed
+  // off-screen. Each cause has its own hide rule now.
+  assert.match(theme, /#ms-studio-master-modal #ms-mode-switch \{ display: none/,
+    'mobile studio must suppress the DealerOS mode-switch pill')
+  assert.match(theme, /#ms-studio-master-modal \.studio-command-scroll > div\[title\*="breakpoint"[\s\S]{0,60}display: none/,
+    'the breakpoint switcher must be hidden on mobile — nothing to preview from a phone')
+  assert.match(theme, /#ms-studio-master-modal \.studio-desktop-action \{ display: none/,
+    'desktop-only toolbar actions must move into the Tools panel on mobile')
+  assert.match(theme, /#ms-studio-master-modal \.studio-title-badge[\s\S]{0,120}display: none/,
+    'the STUDIO badge must be hidden on mobile so the design name has room')
+  assert.match(theme, /#ms-studio-master-modal #studio-design-name \{[\s\S]{0,200}text-overflow: ellipsis/,
+    'design-name input must ellipsis on overflow instead of pushing UNSAVED off-screen')
+  assert.match(theme, /#ms-studio-master-modal nav\[role="tablist"\][\s\S]{0,200}-webkit-overflow-scrolling: touch/,
+    'tab-bar must scroll cleanly on touch without a visible scrollbar')
+})
+
 test('studio cache-bust bumped so the browser fetches the fixed bundle', () => {
   // Two consumers load studio-shell.js via msLoadScript — both must
   // request the new revision so a cached bundle can't hide the fixes.
@@ -116,6 +135,6 @@ test('studio cache-bust bumped so the browser fetches the fixed bundle', () => {
     assert.match(m, /studio-shell\.js\?v=20260905_studio_fixes_v1/,
       `stale cache-bust: ${m}`)
   }
-  assert.match(dashboard, /marketsync-theme\.css\?v=20260905_studio_mobile_v1/,
+  assert.match(dashboard, /marketsync-theme\.css\?v=20260905_studio_mobile_v2/,
     'theme.css cache-bust must reflect the new mobile rules')
 })
