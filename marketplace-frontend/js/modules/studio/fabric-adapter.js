@@ -271,30 +271,38 @@ class StudioFabricAdapter {
         await this.addVideo(el.src, el.name || 'Video', { left: el.x, top: el.y, width: el.width, opacity: el.opacity, restoring: true }).catch(() => {});
       } else if ((el.type === 'vehicle-image' || el.type === 'image') && (el.src || this.currentVehicle?.primary_photo_url)) {
         const imgSrc = el.src || this.currentVehicle?.primary_photo_url;
-        await new Promise((resolve) => {
-          fabric.Image.fromURL(imgSrc, (img) => {
-            if (img) {
-              img.set({
-                left: el.x ?? el.left ?? 100,
-                top: el.y ?? el.top ?? 100,
-                angle: el.rotation || 0,
-                opacity: el.opacity ?? 1
-              });
-              if (el.width && el.height) {
-                img.scaleToWidth(el.width);
-                img.scaleToHeight(el.height);
-              } else if (img.width > 500) {
-                img.scaleToWidth(500);
-              }
-              img.msData = el;
-              if (el.shadow) img.set('shadow', shadowFor(el.shadow));
-              img.set({ selectable: el.locked !== true, evented: el.locked !== true, visible: el.visible !== false, flipX: el.flipX === true, flipY: el.flipY === true, lockMovementX: el.locked === true, lockMovementY: el.locked === true, lockScalingX: el.locked === true, lockScalingY: el.locked === true, lockRotation: el.locked === true });
-              this.applyImageAdjustments(img, el.adjustments || {});
-              this.fabricCanvas.add(img);
-            }
-            resolve();
-          }, { crossOrigin: 'anonymous' });
-        });
+        // Two-pass load: with crossOrigin first (so we can export later),
+        // fall back without crossOrigin (Unsplash sometimes strips ACAO
+        // on staging), then a solid gradient placeholder so a failed
+        // image never leaves a huge invisible rectangle covering the
+        // whole template — which was the root cause of "canvas is white
+        // but 15 objects loaded" on iPhone.
+        const tryLoad = (opts) => new Promise(resolve => fabric.Image.fromURL(imgSrc, (img) => resolve(img && img.width > 0 && img.height > 0 ? img : null), opts));
+        let img = await tryLoad({ crossOrigin: 'anonymous' });
+        if (!img) img = await tryLoad({});
+        if (img) {
+          img.set({ left: el.x ?? el.left ?? 100, top: el.y ?? el.top ?? 100, angle: el.rotation || 0, opacity: el.opacity ?? 1 });
+          if (el.width && el.height) { img.scaleToWidth(el.width); img.scaleToHeight(el.height); }
+          else if (img.width > 500) img.scaleToWidth(500);
+          img.msData = el;
+          if (el.shadow) img.set('shadow', shadowFor(el.shadow));
+          img.set({ selectable: el.locked !== true, evented: el.locked !== true, visible: el.visible !== false, flipX: el.flipX === true, flipY: el.flipY === true, lockMovementX: el.locked === true, lockMovementY: el.locked === true, lockScalingX: el.locked === true, lockScalingY: el.locked === true, lockRotation: el.locked === true });
+          this.applyImageAdjustments(img, el.adjustments || {});
+          this.fabricCanvas.add(img);
+        } else {
+          // Placeholder: gradient rect so the template layout is visible
+          // even when the underlying photo host blocks the fetch.
+          const w = el.width || 400, h = el.height || 300;
+          const rect = new fabric.Rect({
+            left: el.x ?? 0, top: el.y ?? 0, width: w, height: h,
+            angle: el.rotation || 0, opacity: el.opacity ?? 1,
+            fill: new fabric.Gradient({ type: 'linear', gradientUnits: 'pixels', coords: { x1: 0, y1: 0, x2: w, y2: h }, colorStops: [{ offset: 0, color: '#4F46E5' }, { offset: 1, color: '#0EA5E9' }] }),
+            rx: 12, ry: 12,
+          });
+          rect.msData = { ...el, placeholder: true };
+          this.fabricCanvas.add(rect);
+          if (typeof window !== 'undefined' && typeof window.studioDebugPush === 'function') window.studioDebugPush(`img placeholder for ${el.name || 'image'} (src blocked)`);
+        }
       }
     }
 
