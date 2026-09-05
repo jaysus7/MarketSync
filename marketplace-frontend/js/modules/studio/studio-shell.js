@@ -694,8 +694,83 @@ window.openMarketSyncStudio = async function(designId = null, initialOptions = {
     window.__studioKeydownBound = true;
     document.addEventListener('keydown', studioKeydownHandler);
   }
+  // JS-level chrome cleanup for mobile. Cache-proof: forces the fixes
+  // whether or not the CSS or the newer JS classes have deployed yet.
+  // Runs once per open; harmless on desktop (the query selectors
+  // check viewport width).
+  studioApplyMobileChrome();
   if (initialOptions.templateKey) await loadStudioTemplate(initialOptions.templateKey);
 };
+
+function studioApplyMobileChrome() {
+  const isMobile = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+  if (!isMobile) return;
+  const modal = document.getElementById('ms-studio-master-modal');
+  if (!modal) return;
+
+  // 1. Hide desktop-only buttons directly by title attribute (works
+  //    even if the newer Tailwind hidden class hasn't shipped yet).
+  const breakpointSwitcher = modal.querySelector('[title*="breakpoint"]');
+  if (breakpointSwitcher) breakpointSwitcher.style.display = 'none';
+
+  // 2. Hide History/Review/AI Design/Export/Publish/Schedule desktop
+  //    actions by their onclick signatures (class-based hide can be
+  //    fought by a cached stylesheet).
+  const desktopSignatures = [
+    'openStudioRevisionHistory',
+    'openStudioCollaboration',
+    'openStudioAiDesign',
+    'openStudioExport',
+    'publishStudioDesign',
+    'openStudioSchedulerWithEntitlementCheck',
+  ];
+  modal.querySelectorAll('.studio-primary-actions button').forEach(btn => {
+    const onclick = btn.getAttribute('onclick') || '';
+    if (desktopSignatures.some(sig => onclick.includes(sig))) btn.style.display = 'none';
+  });
+
+  // 3. Hide brand logo + STUDIO badge + "Back to Marketing" long text
+  //    so the header fits on 390px.
+  ['.studio-brand-logo', '.studio-brand-divider', '.studio-title-badge', '.studio-back-long']
+    .forEach(sel => modal.querySelectorAll(sel).forEach(el => (el.style.display = 'none')));
+  modal.querySelectorAll('.studio-back-short').forEach(el => (el.style.display = 'inline'));
+
+  // 4. Move the inspector panel from a right sidebar to a bottom sheet.
+  //    Explicit inline styles beat any stylesheet cache.
+  const inspector = document.getElementById('studio-inspector-panel');
+  if (inspector) {
+    inspector.style.position = 'fixed';
+    inspector.style.left = '0';
+    inspector.style.right = '0';
+    inspector.style.bottom = '0';
+    inspector.style.top = 'auto';
+    inspector.style.width = '100%';
+    inspector.style.maxWidth = '100%';
+    inspector.style.height = 'auto';
+    inspector.style.maxHeight = '45vh';
+    inspector.style.borderLeft = '0';
+    inspector.style.borderTop = '1px solid #e2e8f0';
+    inspector.style.boxShadow = '0 -8px 24px rgba(15,23,42,.12)';
+    inspector.style.zIndex = '20';
+    inspector.style.overflowY = 'auto';
+    inspector.style.webkitOverflowScrolling = 'touch';
+    // Initially collapsed until something is selected.
+    if (!inspector.querySelector('.studio-inspector-heading')) {
+      inspector.style.transform = 'translateY(100%)';
+    }
+  }
+
+  // 5. Force the design-name input to ellipsis so UNSAVED stays visible.
+  const nameInput = document.getElementById('studio-design-name');
+  if (nameInput) {
+    nameInput.style.maxWidth = '40vw';
+    nameInput.style.minWidth = '0';
+    nameInput.style.textOverflow = 'ellipsis';
+    nameInput.style.overflow = 'hidden';
+    nameInput.style.whiteSpace = 'nowrap';
+  }
+}
+window.studioApplyMobileChrome = studioApplyMobileChrome;
 
 function renderDesignStudioTabsHtml() {
   return DESIGN_STUDIO_TABS.map(([id, label]) => `<button type="button" role="tab" data-design-studio-tab="${id}" aria-selected="${window.__studioWorkspaceTab === id}" onclick="setDesignStudioTab('${id}')" class="px-3.5 py-2 -mb-px whitespace-nowrap border-b-2 text-xs font-black transition ${window.__studioWorkspaceTab === id ? 'border-indigo-600 text-indigo-700 dark:text-indigo-300' : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'}">${label}</button>`).join('');
