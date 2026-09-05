@@ -2318,23 +2318,24 @@ async function loadWebsiteCommandCenter() {
   const host = document.getElementById('website-cc-root');
   if (!host) return;
   host.innerHTML = `<div class="text-sm text-slate-500 dark:text-slate-400 py-6">Loading website status…</div>`;
-  const [siteRes, blogRes, leadsRes, matrixRes, discRes, recsRes] = await Promise.all([
+  const [siteRes, blogRes, leadsRes, matrixRes, discRes, recsRes, aiRes] = await Promise.all([
     apiGetJson('/dealership/site').catch(() => null),
     apiGetJson('/dealership/blog').catch(() => null),
     apiGetJson('/leads').catch(() => null),
     apiGetJson('/integrations/matrix').catch(() => null),
     apiGetJson('/discoverability/overview').catch(() => null),
     apiGetJson('/discoverability/recommendations').catch(() => null),
+    apiGetJson('/ai/conversations?limit=200').catch(() => null),
   ]);
   if (!siteRes) {
     host.innerHTML = `<div class="ms-c p-5 text-sm text-slate-600 dark:text-slate-300">Website data isn't available right now. Sign in with website management access, or open the builder to get started.</div>`;
     return;
   }
-  host.innerHTML = renderWebsiteCommandCenter(siteRes, blogRes, leadsRes, matrixRes, discRes, recsRes);
+  host.innerHTML = renderWebsiteCommandCenter(siteRes, blogRes, leadsRes, matrixRes, discRes, recsRes, aiRes);
   // Perf tile is lazy — GA4 query is only fired when GA4 is actually connected
   // per the matrix. Otherwise we render an honest "Not connected" card without
   // ever hitting the API and getting an alarming 403/409.
-  const gaConnected = !!matrixRes?.matrix?.google_ga4?.connected;
+  const gaConnected = !!(matrixRes?.matrix?.google_analytics?.health === 'healthy');
   if (gaConnected) hydrateWebsitePerformanceTile();
 }
 window.loadWebsiteCommandCenter = loadWebsiteCommandCenter;
@@ -2376,7 +2377,7 @@ async function hydrateWebsitePerformanceTile() {
 }
 window.hydrateWebsitePerformanceTile = hydrateWebsitePerformanceTile;
 
-function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes, discRes, recsRes) {
+function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes, discRes, recsRes, aiRes) {
   const slug = site.site_slug || null;
   const publicUrl = slug && typeof wsPublicSiteUrl === 'function' ? wsPublicSiteUrl(slug) : null;
   const published = !!site.site_published;
@@ -2391,7 +2392,7 @@ function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes, discRes, re
   // to another channel (Facebook, walk-in, upload) and would mislead the
   // "how many leads did the website generate?" question.
   const websiteLeads = allLeads.filter(l => (l.source || '').toLowerCase() === 'website');
-  const gaConnected = !!matrixRes?.matrix?.google_ga4?.connected;
+  const gaConnected = !!(matrixRes?.matrix?.google_analytics?.health === 'healthy');
   const gaCanQuery = matrixRes !== null; // matrix responded → we have integrations.manage
   const blogPosts = Array.isArray(blog?.posts) ? blog.posts : (Array.isArray(blog) ? blog : []);
   const publishedBlog = blogPosts.filter(p => p.published || p.status === 'published').length;
@@ -2658,6 +2659,119 @@ function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes, discRes, re
         : `<div class="ms-c p-4 text-sm text-slate-500 dark:text-slate-400">Recommendations require the Discoverability entitlement.</div>`}
     </section>`;
 
-  return `${statusStrip}${quickActions}${discSnapshot}${recsSection}${perfSection}${leadsSection}${contentGrid}${inventorySection}`;
+  // Section 10 · Website integrations. Reads /integrations/matrix directly.
+  // Each row is real health state — never claim connected without evidence.
+  const matrix = matrixRes?.matrix || {};
+  const canQueryMatrix = matrixRes !== null;
+  const HEALTH_TONE = {
+    healthy: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+    authorization_required: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+    degraded: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+    expired: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+    blocked: 'bg-rose-500/15 text-rose-700 dark:text-rose-300',
+    partner_blocked: 'bg-rose-500/15 text-rose-700 dark:text-rose-300',
+    failed: 'bg-rose-500/15 text-rose-700 dark:text-rose-300',
+    not_connected: 'bg-slate-500/15 text-slate-600 dark:text-slate-400',
+  };
+  const HEALTH_LABEL = {
+    healthy: 'Connected', authorization_required: 'Needs attention',
+    degraded: 'Degraded', expired: 'Reconnect', blocked: 'Blocked',
+    partner_blocked: 'Blocked', failed: 'Failed', not_connected: 'Not connected',
+  };
+  const integrationRow = (label, key) => {
+    const row = matrix[key];
+    const h = row?.health || 'not_connected';
+    const tone = HEALTH_TONE[h] || HEALTH_TONE.not_connected;
+    const text = HEALTH_LABEL[h] || 'Unknown';
+    return `<li class="p-3 flex items-center justify-between gap-3 text-sm">
+      <span class="font-black text-slate-900 dark:text-white">${esc(label)}</span>
+      <span class="text-xs font-black px-2 py-0.5 rounded-full ${tone}">${esc(text)}</span>
+    </li>`;
+  };
+  const integrationsSection = `
+    <section class="space-y-3" data-website-cc-section="integrations">
+      <div class="flex items-end justify-between gap-3">
+        <div>
+          <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Section 10</div>
+          <h3 class="text-base font-black text-slate-900 dark:text-white">Website integrations</h3>
+        </div>
+        ${canQueryMatrix ? `<button type="button" onclick="if(typeof switchPage==='function')switchPage('integrations')" class="text-xs font-black text-indigo-700 dark:text-indigo-300">Manage →</button>` : ''}
+      </div>
+      ${canQueryMatrix
+        ? `<div class="ms-c"><ul class="divide-y divide-slate-200 dark:divide-white/10">
+             ${integrationRow('Google Analytics 4', 'google_analytics')}
+             ${integrationRow('Google Search Console', 'google_search_console')}
+             ${integrationRow('Google Ads', 'google_ads')}
+             ${integrationRow('Meta Lead Ads', 'meta_lead_ads')}
+             ${integrationRow('Email delivery (Resend)', 'resend')}
+             ${integrationRow('Calendar', 'calendar')}
+           </ul></div>`
+        : `<div class="ms-c p-5 text-sm text-slate-500 dark:text-slate-400">Integration status isn't visible from this account. Ask an admin with integrations access to review Google Analytics, Search Console, and Meta pixel connections.</div>`}
+    </section>`;
+
+  // Section 11 · Performance / speed. No Core Web Vitals or PageSpeed source
+  // exists in the repo. Honest "Not connected" chip only — no fake scores.
+  const speedSection = `
+    <section class="space-y-3" data-website-cc-section="speed">
+      <div class="flex items-end justify-between gap-3">
+        <div>
+          <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Section 11</div>
+          <h3 class="text-base font-black text-slate-900 dark:text-white">Performance &amp; Core Web Vitals</h3>
+        </div>
+      </div>
+      <div class="ms-c p-5 text-sm">
+        <div class="font-black text-slate-900 dark:text-white">Not connected</div>
+        <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Mobile/desktop speed scores and Core Web Vitals need a PageSpeed / CrUX data source.
+          No feed is wired yet — this section stays honest until one is.
+        </div>
+      </div>
+    </section>`;
+
+  // Section 12 · Accessibility. No a11y scanner in repo yet.
+  const a11ySection = `
+    <section class="space-y-3" data-website-cc-section="accessibility">
+      <div class="flex items-end justify-between gap-3">
+        <div>
+          <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Section 12</div>
+          <h3 class="text-base font-black text-slate-900 dark:text-white">Accessibility</h3>
+        </div>
+      </div>
+      <div class="ms-c p-5 text-sm">
+        <div class="font-black text-slate-900 dark:text-white">Not connected</div>
+        <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Contrast, alt-text, heading, and keyboard-nav audits require an axe/pa11y crawler.
+          No scanner is wired yet — this section stays honest until one is.
+        </div>
+      </div>
+    </section>`;
+
+  // Section 13 · AI Customer Agent status. Reads /ai/conversations (last 200).
+  // A dealer with no conversations gets a clear enable CTA instead of fake data.
+  const conversations = Array.isArray(aiRes?.conversations) ? aiRes.conversations : [];
+  const aiCanQuery = aiRes !== null;
+  const captured = conversations.filter(c => c.contact_id).length;
+  const booked = conversations.filter(c => c.booked).length;
+  const activeConvos = conversations.filter(c => (c.status || '').toLowerCase() === 'open' || (c.status || '').toLowerCase() === 'active').length;
+  const aiSection = `
+    <section class="space-y-3" data-website-cc-section="ai-agent">
+      <div class="flex items-end justify-between gap-3">
+        <div>
+          <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Section 13</div>
+          <h3 class="text-base font-black text-slate-900 dark:text-white">AI Customer Agent</h3>
+        </div>
+        <button type="button" onclick="if(typeof switchPage==='function')switchPage('chatbot')" class="text-xs font-black text-indigo-700 dark:text-indigo-300">Configure agent →</button>
+      </div>
+      ${aiCanQuery
+        ? `<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+             ${kpi('Conversations', conversations.length, 'last 200 · /ai/conversations')}
+             ${kpi('Leads captured', captured, captured ? 'linked to a contact' : 'no captures yet')}
+             ${kpi('Booked', booked, booked ? 'appointments' : 'no bookings yet')}
+             ${kpi('Active', activeConvos, activeConvos ? 'open threads' : 'all resolved')}
+           </div>`
+        : `<div class="ms-c p-5 text-sm text-slate-500 dark:text-slate-400">AI Customer Agent activity isn't visible from this account. Open the agent workspace to configure or enable it.</div>`}
+    </section>`;
+
+  return `${statusStrip}${quickActions}${discSnapshot}${recsSection}${perfSection}${leadsSection}${contentGrid}${inventorySection}${integrationsSection}${aiSection}${speedSection}${a11ySection}`;
 }
 window.renderWebsiteCommandCenter = renderWebsiteCommandCenter;

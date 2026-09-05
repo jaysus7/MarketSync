@@ -36,6 +36,8 @@ test('command center only reads canonical endpoints — no invented sources', ()
   // existing loadDealerSeo() workspace uses, no duplication.
   assert.match(block, /apiGetJson\(['"]\/discoverability\/overview['"]\)/, 'Phase D must read /discoverability/overview')
   assert.match(block, /apiGetJson\(['"]\/discoverability\/recommendations['"]\)/, 'Phase D must read /discoverability/recommendations')
+  // Phase E — AI Customer Agent counts read from the real conversations table.
+  assert.match(block, /apiGetJson\(['"]\/ai\/conversations\?limit=200['"]\)/, 'Phase E must read /ai/conversations')
   // GA4 query is lazy — only fires when the matrix says it's connected.
   assert.match(block, /fetch\(`\$\{API\}\/integrations\/google\/ga4\/query`/, 'GA4 query must be a real POST fetch, not a fake')
   // No parallel data endpoints.
@@ -63,6 +65,21 @@ test('Phase C surfaces honest disconnected chips for absent data — no fake met
   assert.match(block, /switchPage\(['"]discoverability['"]\)/, 'Snapshot must deep-link to the full Discoverability workspace')
   // Never fabricate a score — every displayed number reads from discRes.
   assert.match(block, /discRes\.compositeScore/, 'Composite score must read from /discoverability/overview response')
+  // Phase E · sections 10-13. Integrations reads real health; speed and a11y
+  // stay honest until a scanner is wired; AI agent reads real conversations.
+  assert.match(block, /data-website-cc-section="integrations"/, 'Section 10 must exist')
+  assert.match(block, /data-website-cc-section="speed"/, 'Section 11 must exist')
+  assert.match(block, /data-website-cc-section="accessibility"/, 'Section 12 must exist')
+  assert.match(block, /data-website-cc-section="ai-agent"/, 'Section 13 must exist')
+  // Speed and accessibility must be honest — no fake scores.
+  for (const key of ['speed', 'accessibility']) {
+    const idx = block.indexOf(`data-website-cc-section="${key}"`)
+    const slice = block.slice(idx, idx + 1000)
+    assert.match(slice, /Not connected/, `Section for ${key} must render a "Not connected" chip — no fabricated scores`)
+  }
+  // Integration health reads the real `.health` string, not a fabricated boolean.
+  assert.match(block, /google_analytics/, 'Integrations row must use the canonical matrix key google_analytics')
+  assert.match(block, /row\?\.health/, 'Integration status must read the real .health field from /integrations/matrix')
 })
 
 test('render uses real fields from /dealership/site — no fake metrics', () => {
