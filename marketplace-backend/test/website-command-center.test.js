@@ -23,16 +23,35 @@ test('website renderer mounts the command-center root above the SEO root', () =>
   assert.match(block, /loadWebsiteCommandCenter/, 'renderer must call loadWebsiteCommandCenter()')
 })
 
-test('command center only reads canonical endpoints — /dealership/site and /dealership/blog', () => {
+test('command center only reads canonical endpoints — no invented sources', () => {
   const start = wk.indexOf('async function loadWebsiteCommandCenter')
   assert.ok(start > 0, 'loadWebsiteCommandCenter must be defined')
-  const block = wk.slice(start, start + 800)
+  const block = wk.slice(start, start + 3500)
   assert.match(block, /apiGetJson\(['"]\/dealership\/site['"]\)/, 'must call /dealership/site')
   assert.match(block, /apiGetJson\(['"]\/dealership\/blog['"]\)/, 'must call /dealership/blog')
-  // No parallel data endpoints — everything the command center shows must
-  // come through the canonical site/blog contract.
+  // Phase C additions — real endpoints that already ship.
+  assert.match(block, /apiGetJson\(['"]\/leads['"]\)/, 'Phase C must read /leads for website-attributed count')
+  assert.match(block, /apiGetJson\(['"]\/integrations\/matrix['"]\)/, 'Phase C must check /integrations/matrix for GA4 state')
+  // GA4 query is lazy — only fires when the matrix says it's connected.
+  assert.match(block, /fetch\(`\$\{API\}\/integrations\/google\/ga4\/query`/, 'GA4 query must be a real POST fetch, not a fake')
+  // No parallel data endpoints.
   assert.doesNotMatch(block, /apiGetJson\(['"]\/website\//, 'must not call an invented /website/... endpoint')
   assert.doesNotMatch(block, /apiGetJson\(['"]\/hq\//, 'HQ endpoints are not available to dealers')
+})
+
+test('Phase C surfaces honest disconnected chips for absent data — no fake metrics', () => {
+  const start = wk.indexOf('function renderWebsiteCommandCenter')
+  const end = wk.indexOf('window.renderWebsiteCommandCenter', start)
+  const block = wk.slice(start, end)
+  // Performance section only shows numbers when GA4 is actually connected.
+  assert.match(block, /gaConnected/, 'perf gating on real gaConnected flag from /integrations/matrix')
+  // Inventory perf is honest — no page-view source exists in the repo yet.
+  assert.match(block, /data-website-cc-section="inventory-perf"/, 'Section 4 must exist')
+  const invStart = block.indexOf('data-website-cc-section="inventory-perf"')
+  const invBlock = block.slice(invStart, invStart + 1200)
+  assert.match(invBlock, /Not connected/, 'Section 4 must render an explicit "Not connected" state — no fake VDP/SRP counts')
+  // Website leads must come from real CRM data filtered by source === 'website'.
+  assert.match(block, /source \|\| ''\)\.toLowerCase\(\) === 'website'/, 'Section 3 must filter CRM leads by source')
 })
 
 test('render uses real fields from /dealership/site — no fake metrics', () => {

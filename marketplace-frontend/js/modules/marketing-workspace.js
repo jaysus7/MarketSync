@@ -2301,31 +2301,80 @@ window.mktUploadStudioAsset = async function (input) {
   } catch (e) { showToast(e.message, 'error'); }
 };
 
-// ── Website Command Center (Phase B) ─────────────────────────────────────────
-// Sections 1 (Status), 8 (Content), plus Quick Actions. All data comes from
-// existing canonical endpoints — no seeded or mocked values. Sections 2, 3, 4,
-// 5-7, 9-13 land in follow-up phases per the roadmap.
+// ── Website Command Center (Phases B + C) ────────────────────────────────────
+// Phase B: sections 1 (status), 8 (content), quick actions.
+// Phase C: sections 2 (performance), 3 (leads/forms), 4 (inventory perf).
+// All data comes from existing canonical endpoints — no seeded or mocked
+// values. Sections 5-7 already render below via loadDealerSeo (Discoverability).
+// Sections 9-13 land in follow-up phases.
 //
 // Data sources (repo audit, no forking):
-//   GET /dealership/site   → routes/site.js:630   (status, slug, domain, revisions, content.pages/forms)
-//   GET /dealership/blog   → routes/site.js:1161  (blog posts + status)
+//   GET  /dealership/site           → routes/site.js:630   (status, revisions, content.pages/forms)
+//   GET  /dealership/blog           → routes/site.js:1161  (blog posts)
+//   GET  /leads                     → routes/leads.js:117  (leads with source; client-filtered to website)
+//   GET  /integrations/matrix       → routes/integration-batches.js:252  (integration connection matrix — MFA/permission may 403)
+//   POST /integrations/google/ga4/query → routes/integration-batches.js:276 (returns 200 with measured data or 409)
 async function loadWebsiteCommandCenter() {
   const host = document.getElementById('website-cc-root');
   if (!host) return;
   host.innerHTML = `<div class="text-sm text-slate-500 dark:text-slate-400 py-6">Loading website status…</div>`;
-  const [siteRes, blogRes] = await Promise.all([
+  const [siteRes, blogRes, leadsRes, matrixRes] = await Promise.all([
     apiGetJson('/dealership/site').catch(() => null),
     apiGetJson('/dealership/blog').catch(() => null),
+    apiGetJson('/leads').catch(() => null),
+    apiGetJson('/integrations/matrix').catch(() => null),
   ]);
   if (!siteRes) {
     host.innerHTML = `<div class="ms-c p-5 text-sm text-slate-600 dark:text-slate-300">Website data isn't available right now. Sign in with website management access, or open the builder to get started.</div>`;
     return;
   }
-  host.innerHTML = renderWebsiteCommandCenter(siteRes, blogRes);
+  host.innerHTML = renderWebsiteCommandCenter(siteRes, blogRes, leadsRes, matrixRes);
+  // Perf tile is lazy — GA4 query is only fired when GA4 is actually connected
+  // per the matrix. Otherwise we render an honest "Not connected" card without
+  // ever hitting the API and getting an alarming 403/409.
+  const gaConnected = !!matrixRes?.matrix?.google_ga4?.connected;
+  if (gaConnected) hydrateWebsitePerformanceTile();
 }
 window.loadWebsiteCommandCenter = loadWebsiteCommandCenter;
 
-function renderWebsiteCommandCenter(site, blog) {
+async function hydrateWebsitePerformanceTile() {
+  const el = document.getElementById('website-cc-perf-tile');
+  if (!el) return;
+  try {
+    const end = new Date();
+    const start = new Date(end);
+    start.setDate(end.getDate() - 28);
+    const iso = d => d.toISOString().slice(0, 10);
+    const token = localStorage.getItem('token');
+    const r = await fetch(`${API}/integrations/google/ga4/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ start_date: iso(start), end_date: iso(end) }),
+    });
+    const res = await r.json().catch(() => ({}));
+    if (r.ok && res?.status === 'measured') {
+      const rows = res.rows || res.data || [];
+      const sessions = rows.reduce((s, r) => s + (Number(r.sessions) || 0), 0);
+      const users = rows.reduce((s, r) => s + (Number(r.users || r.totalUsers) || 0), 0);
+      const conv = rows.reduce((s, r) => s + (Number(r.conversions) || 0), 0);
+      el.innerHTML = `
+        <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Performance · last 28 days</div>
+        <div class="mt-2 grid grid-cols-3 gap-4">
+          <div><div class="text-2xl font-black text-slate-900 dark:text-white">${sessions.toLocaleString()}</div><div class="text-xs text-slate-500">sessions</div></div>
+          <div><div class="text-2xl font-black text-slate-900 dark:text-white">${users.toLocaleString()}</div><div class="text-xs text-slate-500">visitors</div></div>
+          <div><div class="text-2xl font-black text-slate-900 dark:text-white">${conv.toLocaleString()}</div><div class="text-xs text-slate-500">conversions</div></div>
+        </div>
+        <div class="mt-2 text-[11px] text-slate-500 dark:text-slate-400">Google Analytics 4 · measured</div>`;
+    } else {
+      el.innerHTML = `<div class="text-sm text-slate-500 dark:text-slate-400">Google Analytics is connected but returned no data yet.</div>`;
+    }
+  } catch (_) {
+    el.innerHTML = `<div class="text-sm text-slate-500 dark:text-slate-400">Google Analytics data couldn't be loaded.</div>`;
+  }
+}
+window.hydrateWebsitePerformanceTile = hydrateWebsitePerformanceTile;
+
+function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes) {
   const slug = site.site_slug || null;
   const publicUrl = slug && typeof wsPublicSiteUrl === 'function' ? wsPublicSiteUrl(slug) : null;
   const published = !!site.site_published;
@@ -2335,6 +2384,13 @@ function renderWebsiteCommandCenter(site, blog) {
   const pubRev = site.published_revision || null;
   const pages = Array.isArray(site.content?.pages) ? site.content.pages : [];
   const forms = Array.isArray(site.content?.forms) ? site.content.forms : [];
+  const allLeads = Array.isArray(leadsRes?.leads) ? leadsRes.leads : [];
+  // Website-attributed leads only. Anything without source='website' belongs
+  // to another channel (Facebook, walk-in, upload) and would mislead the
+  // "how many leads did the website generate?" question.
+  const websiteLeads = allLeads.filter(l => (l.source || '').toLowerCase() === 'website');
+  const gaConnected = !!matrixRes?.matrix?.google_ga4?.connected;
+  const gaCanQuery = matrixRes !== null; // matrix responded → we have integrations.manage
   const blogPosts = Array.isArray(blog?.posts) ? blog.posts : (Array.isArray(blog) ? blog : []);
   const publishedBlog = blogPosts.filter(p => p.published || p.status === 'published').length;
   const draftBlog = blogPosts.length - publishedBlog;
@@ -2409,6 +2465,105 @@ function renderWebsiteCommandCenter(site, blog) {
       </div>
     </section>`;
 
-  return `${statusStrip}${quickActions}${contentGrid}`;
+  // Section 2 · Performance. Only draws real numbers when GA4 is connected —
+  // otherwise the honest "Not connected" card links to integrations so the
+  // dealer can wire it up. We never fabricate visitor / conversion counts.
+  const perfSection = `
+    <section class="space-y-3" data-website-cc-section="performance">
+      <div class="flex items-end justify-between gap-3">
+        <div>
+          <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Section 2</div>
+          <h3 class="text-base font-black text-slate-900 dark:text-white">Website performance</h3>
+        </div>
+        ${gaConnected
+          ? `<button type="button" onclick="if(typeof switchPage==='function')switchPage('integrations')" class="text-xs font-black text-indigo-700 dark:text-indigo-300">Integrations →</button>`
+          : ''}
+      </div>
+      <div class="ms-c p-5" id="website-cc-perf-tile">
+        ${gaConnected
+          ? `<div class="text-sm text-slate-500 dark:text-slate-400">Loading Google Analytics…</div>`
+          : `<div class="flex flex-wrap items-center justify-between gap-3">
+               <div>
+                 <div class="text-sm font-black text-slate-900 dark:text-white">Not connected</div>
+                 <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                   Website visitors, sessions and conversions need Google Analytics 4.
+                   ${gaCanQuery ? 'Connect it in Integrations to light this section up.' : 'Ask an admin with integrations access to connect Google Analytics 4.'}
+                 </div>
+               </div>
+               ${gaCanQuery ? `<button type="button" onclick="if(typeof switchPage==='function')switchPage('integrations')" class="liquid-glass-btn px-3 py-1.5 rounded-lg text-xs font-black">Connect Google Analytics</button>` : ''}
+             </div>`}
+      </div>
+    </section>`;
+
+  // Section 3 · Leads & Forms. Website-attributed leads only. Forms come
+  // from site.content.forms which the builder already owns.
+  const recentLeads = websiteLeads.slice(0, 5);
+  const leadsSection = `
+    <section class="space-y-3" data-website-cc-section="leads">
+      <div class="flex items-end justify-between gap-3">
+        <div>
+          <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Section 3</div>
+          <h3 class="text-base font-black text-slate-900 dark:text-white">Leads &amp; forms</h3>
+        </div>
+        <button type="button" onclick="if(typeof switchPage==='function')switchPage('crm')" class="text-xs font-black text-indigo-700 dark:text-indigo-300">Open CRM →</button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="ms-c p-4">
+          <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Website leads</div>
+          <div class="mt-1 text-2xl font-black text-slate-900 dark:text-white">${websiteLeads.length}</div>
+          <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">${leadsRes ? 'from CRM · source = website' : 'CRM not readable · check permissions'}</div>
+        </div>
+        <div class="ms-c p-4">
+          <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Live forms</div>
+          <div class="mt-1 text-2xl font-black text-slate-900 dark:text-white">${forms.length}</div>
+          <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">${forms.length ? 'On the website' : 'No forms on site'}</div>
+        </div>
+        <div class="ms-c p-4">
+          <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Recent website lead</div>
+          <div class="mt-1 text-sm font-black text-slate-900 dark:text-white truncate">${recentLeads[0] ? esc(recentLeads[0].name || recentLeads[0].email || 'Unnamed lead') : '—'}</div>
+          <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">${recentLeads[0]?.created_at ? esc(new Date(recentLeads[0].created_at).toLocaleString()) : 'No website leads yet'}</div>
+        </div>
+      </div>
+      ${recentLeads.length ? `
+        <div class="ms-c">
+          <ul class="divide-y divide-slate-200 dark:divide-white/10">
+            ${recentLeads.map(l => `
+              <li class="p-3 flex items-center justify-between gap-3 text-sm">
+                <div class="min-w-0">
+                  <div class="font-black text-slate-900 dark:text-white truncate">${esc(l.name || l.email || 'Unnamed lead')}</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 truncate">${esc(l.email || l.phone || '')} · ${esc(l.status || 'new')}</div>
+                </div>
+                <div class="text-xs text-slate-500 dark:text-slate-400 shrink-0">${esc(l.created_at ? new Date(l.created_at).toLocaleDateString() : '')}</div>
+              </li>`).join('')}
+          </ul>
+        </div>` : ''}
+    </section>`;
+
+  // Section 4 · Inventory website performance (SRP/VDP views, aging exposure).
+  // No page-view telemetry endpoint exists in the repo — honest chip only.
+  const inventorySection = `
+    <section class="space-y-3" data-website-cc-section="inventory-perf">
+      <div class="flex items-end justify-between gap-3">
+        <div>
+          <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Section 4</div>
+          <h3 class="text-base font-black text-slate-900 dark:text-white">Inventory website performance</h3>
+        </div>
+      </div>
+      <div class="ms-c p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="text-sm font-black text-slate-900 dark:text-white">Not connected</div>
+            <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              SRP / VDP view counts, top-viewed vehicles and aging exposure require per-page telemetry
+              (GA4 events on inventory pages or a page-view feed). Configure GA4 events on
+              /inventory/* to light this section up.
+            </div>
+          </div>
+          ${gaCanQuery ? `<button type="button" onclick="if(typeof switchPage==='function')switchPage('integrations')" class="liquid-glass-btn-secondary px-3 py-1.5 rounded-lg text-xs font-black">Set up GA4 events</button>` : ''}
+        </div>
+      </div>
+    </section>`;
+
+  return `${statusStrip}${quickActions}${perfSection}${leadsSection}${contentGrid}${inventorySection}`;
 }
 window.renderWebsiteCommandCenter = renderWebsiteCommandCenter;
