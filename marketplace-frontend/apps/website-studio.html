@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Website Studio · MarketSync</title>
   <meta name="description" content="Edit pages, forms, pricing and SEO — from your phone or your desk.">
+  <!-- Fast-load: warm the backend + preload the iframe target so the tool
+       is painting before the shell finishes styling. -->
+  <link rel="preconnect" href="https://marketsync-staging-backend.onrender.com" crossorigin>
+  <link rel="preconnect" href="https://vehicle-marketplace-s0e4.onrender.com" crossorigin>
+  <link rel="preload" as="document" href="/dashboard.html?embedded=website-studio">
   <link rel="stylesheet" href="shell.css?v=20260905_apps_iframe_v1">
   <style>
     /* Full-viewport frame — the tool lives inside; the shared shell just

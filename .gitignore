@@ -14,3 +14,6 @@ commit_signing_key.pub
 .DS_Store
 .temp/
 supabase/.temp/
+
+# Playwright per-role auth fixtures — session cookies, never commit
+marketplace-backend/e2e/auth/
