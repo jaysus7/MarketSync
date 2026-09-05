@@ -942,10 +942,10 @@ function renderStudioWorkspaceHtml(designName, scene) {
            grids. Cache-proof duplicate of the .studio-scroll-row rule so a
            stale theme.css can't leave phones with the old 2-column stacked
            layout. */
-        #ms-studio-master-modal .studio-scroll-row{display:flex!important;grid-template-columns:none!important;overflow-x:auto;overflow-y:hidden;gap:.75rem!important;padding-bottom:.5rem;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;scrollbar-width:none;margin-left:-1rem;margin-right:-1rem;padding-left:1rem;padding-right:1rem}
-        #ms-studio-master-modal .studio-scroll-row::-webkit-scrollbar{display:none}
-        #ms-studio-master-modal .studio-scroll-row>*{flex:0 0 auto;width:62vw;max-width:240px;scroll-snap-align:start}
-        #ms-studio-master-modal .studio-scroll-row>.studio-home-set-card{width:78vw;max-width:320px}
+        .studio-scroll-row{display:flex!important;grid-template-columns:none!important;overflow-x:auto;overflow-y:hidden;gap:.75rem!important;padding-bottom:.5rem;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;scrollbar-width:none;margin-left:-1rem;margin-right:-1rem;padding-left:1rem;padding-right:1rem}
+        .studio-scroll-row::-webkit-scrollbar{display:none}
+        .studio-scroll-row>*{flex:0 0 auto;width:62vw;max-width:240px;scroll-snap-align:start}
+        .studio-scroll-row>.studio-home-set-card{width:78vw;max-width:320px}
       }
     </style>
     <!-- Header: two stacked layers — identity/branding on top, actions below.
@@ -1748,11 +1748,11 @@ function renderStudioHomeHtml() {
        cache can't hide them. -->
     <style data-studio-home-inline="1">
       @media (max-width:768px){
-        #ms-studio-master-modal .studio-scroll-row{display:flex!important;grid-template-columns:none!important;overflow-x:auto;overflow-y:hidden;gap:.75rem!important;padding-bottom:.5rem;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;scrollbar-width:none;margin-left:-1rem;margin-right:-1rem;padding-left:1rem;padding-right:1rem}
-        #ms-studio-master-modal .studio-scroll-row::-webkit-scrollbar{display:none}
-        #ms-studio-master-modal .studio-scroll-row>*{flex:0 0 auto;width:62vw;max-width:240px;scroll-snap-align:start}
-        #ms-studio-master-modal .studio-scroll-row>.studio-home-set-card{width:78vw;max-width:320px}
-        #ms-studio-master-modal .studio-scroll-row>.studio-home-template-card{width:52vw;max-width:220px}
+        .studio-scroll-row{display:flex!important;grid-template-columns:none!important;overflow-x:auto;overflow-y:hidden;gap:.75rem!important;padding-bottom:.5rem;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;scrollbar-width:none;margin-left:-1rem;margin-right:-1rem;padding-left:1rem;padding-right:1rem}
+        .studio-scroll-row::-webkit-scrollbar{display:none}
+        .studio-scroll-row>*{flex:0 0 auto;width:62vw;max-width:240px;scroll-snap-align:start}
+        .studio-scroll-row>.studio-home-set-card{width:78vw;max-width:320px}
+        .studio-scroll-row>.studio-home-template-card{width:52vw;max-width:220px}
         /* Home hero shrinks on phones — the 3xl → 5xl heading and
            the search input still fit without shoving the format
            shortcuts down 3 screens. */

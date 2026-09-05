@@ -3964,7 +3964,7 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
      one thumb-swipe pans the whole category instead of scrolling
      through 20 stacked rows. Desktop is untouched — the grid classes
      from Tailwind only kick in at sm/lg/xl breakpoints. */
-  #ms-studio-master-modal .studio-scroll-row {
+  .studio-scroll-row {
     display: flex !important;
     grid-template-columns: none !important;
     overflow-x: auto;
@@ -3974,24 +3974,19 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
     -webkit-overflow-scrolling: touch;
     scroll-snap-type: x mandatory;
     scrollbar-width: none;
-    /* Bleed to the viewport edges so the first tile isn't cut off by
-       the parent's container padding — negative margin + matching
-       padding keeps the layout aligned. */
     margin-left: -1rem;
     margin-right: -1rem;
     padding-left: 1rem;
     padding-right: 1rem;
   }
-  #ms-studio-master-modal .studio-scroll-row::-webkit-scrollbar { display: none; }
-  #ms-studio-master-modal .studio-scroll-row > * {
+  .studio-scroll-row::-webkit-scrollbar { display: none; }
+  .studio-scroll-row > * {
     flex: 0 0 auto;
     width: 62vw;
     max-width: 240px;
     scroll-snap-align: start;
   }
-  /* Design Set cards are richer — give them more room so the eyebrow
-     + title + description read comfortably. */
-  #ms-studio-master-modal .studio-scroll-row > .studio-home-set-card {
+  .studio-scroll-row > .studio-home-set-card {
     width: 78vw;
     max-width: 320px;
   }
