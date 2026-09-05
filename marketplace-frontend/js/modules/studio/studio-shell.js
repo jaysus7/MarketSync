@@ -761,6 +761,15 @@ function studioMountDebugPanel() {
     + '<b style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#e2e8f0">Studio diagnostics</b>'
     + '<button type="button" onclick="document.getElementById(\'studio-diag-panel\').hidden=true" style="background:none;border:0;color:#94a3b8;font-size:18px;cursor:pointer;line-height:1">×</button>'
     + '</div>'
+    // Raw Canvas Mode — user-invoked isolation per the render-layer plan.
+    // Turns off every responsive scaling / CSS transform / viewport transform
+    // and renders Fabric at raw 1080x1920 inside an overflow:auto wrapper so
+    // we can see whether the pixels themselves are missing or the fit layer
+    // is hiding them. Also dumps the full object + DOM-box diagnostics.
+    + '<div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem">'
+    + '<button type="button" id="studio-diag-raw-toggle" onclick="studioToggleRawCanvasMode()" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:11px;font-weight:900;padding:.35rem .6rem;border-radius:6px;cursor:pointer">Raw canvas mode: OFF</button>'
+    + '<button type="button" onclick="studioDumpRenderState()" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:11px;font-weight:900;padding:.35rem .6rem;border-radius:6px;cursor:pointer">Dump render state</button>'
+    + '</div>'
     + '<div id="studio-diag-body"></div>';
   fab.onclick = () => { panel.hidden = !panel.hidden; if (!panel.hidden) studioDebugRefresh(); };
   document.body.appendChild(fab);
@@ -768,6 +777,124 @@ function studioMountDebugPanel() {
   studioDebugPush('diag panel mounted');
 }
 window.studioMountDebugPanel = studioMountDebugPanel;
+
+// ── Raw Canvas Mode ──────────────────────────────────────────────────────────
+// User-invoked render-layer isolation. Turns off responsive fitting / CSS
+// transforms / Fabric viewport transforms so the artboard renders at raw
+// 1080x1920 inside an overflow:auto wrapper. If the objects appear here but
+// not in fitted mode, the fit layer is the bug. If they still don't appear,
+// dumpRenderState reveals which of {object coords, DOM box, covering white
+// layer, CSS} is at fault. Zero changes to template loading — pure viewport.
+function studioToggleRawCanvasMode() {
+  const btn = document.getElementById('studio-diag-raw-toggle');
+  const on = !window.__studioRawCanvasMode;
+  window.__studioRawCanvasMode = on;
+  const container = document.getElementById('studio-artboard-container');
+  const viewport = document.getElementById('studio-canvas-viewport');
+  const fc = window.__studioAdapter?.fabricCanvas;
+  if (on) {
+    // Save prior transforms so OFF can restore them cleanly.
+    if (container && !container.__msRawSaved) {
+      container.__msRawSaved = {
+        transform: container.style.transform,
+        left: container.style.left, top: container.style.top,
+        width: container.style.width, height: container.style.height,
+        position: container.style.position,
+      };
+      // Raw: put the artboard in a scrollable box at its true logical size.
+      container.style.position = 'static';
+      container.style.left = '0'; container.style.top = '0';
+      container.style.transform = 'none';
+      container.style.width = (fc?.getWidth?.() || 1080) + 'px';
+      container.style.height = (fc?.getHeight?.() || 1920) + 'px';
+    }
+    if (viewport && !viewport.__msRawSaved) {
+      viewport.__msRawSaved = { overflow: viewport.style.overflow };
+      viewport.style.overflow = 'auto';
+    }
+    // Freeze the fit observer so it doesn't re-scale us mid-inspection.
+    if (window.__studioFitObserver?.disconnect) { try { window.__studioFitObserver.disconnect(); } catch (_) {} }
+    if (fc) {
+      try {
+        fc.setViewportTransform([1, 0, 0, 1, 0, 0]);
+        fc.calcOffset();
+        fc.requestRenderAll();
+      } catch (_) {}
+    }
+    if (btn) btn.textContent = 'Raw canvas mode: ON';
+    studioDebugPush('raw canvas mode ON');
+    studioDumpRenderState();
+  } else {
+    if (container?.__msRawSaved) {
+      Object.assign(container.style, container.__msRawSaved);
+      delete container.__msRawSaved;
+    }
+    if (viewport?.__msRawSaved) {
+      viewport.style.overflow = viewport.__msRawSaved.overflow || '';
+      delete viewport.__msRawSaved;
+    }
+    if (typeof zoomStudioFit === 'function') zoomStudioFit();
+    if (btn) btn.textContent = 'Raw canvas mode: OFF';
+    studioDebugPush('raw canvas mode OFF');
+  }
+}
+window.studioToggleRawCanvasMode = studioToggleRawCanvasMode;
+
+// Phase 2 (objects + canvas state) + Phase 3 (covering white top layer).
+// Renders inline in the diagnostics panel so a phone screenshot is enough.
+function studioDumpRenderState() {
+  const fc = window.__studioAdapter?.fabricCanvas;
+  if (!fc) { studioDebugPush('dump: no fabric canvas'); return; }
+  const w = fc.getWidth?.() || 0, h = fc.getHeight?.() || 0;
+  const objs = fc.getObjects() || [];
+  const vt = (fc.viewportTransform || []).map(n => +n.toFixed(2)).join(',');
+  studioDebugPush(`state count=${objs.length} bg=${fc.backgroundColor || '-'} zoom=${fc.getZoom?.() ?? '?'} vt=[${vt}] size=${w}x${h}`);
+  // Per-object dump (last 5 in stack order — the ones most likely on top).
+  objs.slice(-5).forEach((o, i) => {
+    const idx = objs.length - 5 + i;
+    const bw = Math.round((o.width || 0) * (o.scaleX || 1));
+    const bh = Math.round((o.height || 0) * (o.scaleY || 1));
+    const src = typeof o.getSrc === 'function' ? (o.getSrc() || '').slice(-40) : '';
+    studioDebugPush(`obj[${idx}] ${o.type} L=${Math.round(o.left)} T=${Math.round(o.top)} W=${bw} H=${bh} sc=${(o.scaleX || 1).toFixed(2)}x${(o.scaleY || 1).toFixed(2)} vis=${o.visible !== false} op=${o.opacity} fill=${(o.fill || '').toString().slice(0, 12)} src=${src}`);
+  });
+  // Phase 3 — hunt for a covering near-white top layer.
+  const NEAR_WHITE = /^(?:#f{3,6}|#f[0-9a-f]f[0-9a-f]f[0-9a-f]|rgba?\(\s*2[45][0-9]\s*,\s*2[45][0-9]\s*,\s*2[45][0-9])/i;
+  const covering = objs.filter(o => o.visible !== false && (o.opacity ?? 1) > 0 && (o.left || 0) <= 0 && (o.top || 0) <= 0
+    && ((o.width || 0) * (o.scaleX || 1)) >= w && ((o.height || 0) * (o.scaleY || 1)) >= h);
+  if (covering.length) {
+    const c = covering[covering.length - 1];
+    const isWhite = typeof c.fill === 'string' && NEAR_WHITE.test(c.fill);
+    studioDebugPush(`COVER obj[${objs.indexOf(c)}] ${c.type} fill=${(c.fill || '?').toString().slice(0, 14)}${isWhite ? ' NEAR-WHITE' : ''} — sits over full canvas`);
+    // Auto-hide it and re-render so a viewer sees whether the template is
+    // underneath. The template's fix is to move this into backgroundColor
+    // instead of stacking as a top-layer rect.
+    c.visible = false;
+    fc.requestRenderAll();
+    studioDebugPush('COVER hidden — if template now visible, that rect is the bug');
+  }
+  // DOM box dump — lower/upper canvas vs container vs wrapper.
+  const dom = (sel) => {
+    const el = typeof sel === 'string' ? document.querySelector(sel) : sel;
+    if (!el) return `${sel}: missing`;
+    const r = el.getBoundingClientRect();
+    const s = getComputedStyle(el);
+    return `${sel} ${Math.round(r.width)}x${Math.round(r.height)} @${Math.round(r.left)},${Math.round(r.top)} ${s.display}/${s.visibility}/op${s.opacity}/z${s.zIndex} tf=${s.transform.slice(0, 20)}`;
+  };
+  studioDebugPush(dom('#studio-artboard-container'));
+  studioDebugPush(dom('.canvas-container'));
+  studioDebugPush(dom('.lower-canvas'));
+  studioDebugPush(dom('.upper-canvas'));
+  // Phase 6 assertion — objects but nothing paintable inside the viewport?
+  const view = document.getElementById('studio-canvas-viewport');
+  const cont = document.getElementById('studio-artboard-container');
+  if (view && cont && objs.length > 0) {
+    const vr = view.getBoundingClientRect(), cr = cont.getBoundingClientRect();
+    const overlap = !(cr.right < vr.left || cr.left > vr.right || cr.bottom < vr.top || cr.top > vr.bottom);
+    if (!overlap) studioDebugPush('ASSERT container is OUTSIDE viewport bounds — fit layer at fault');
+    else if (cr.width < 8 || cr.height < 8) studioDebugPush('ASSERT container collapsed to zero size — CSS at fault');
+  }
+}
+window.studioDumpRenderState = studioDumpRenderState;
 
 function studioApplyMobileChrome() {
   const isMobile = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
