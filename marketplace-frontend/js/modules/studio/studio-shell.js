@@ -796,6 +796,14 @@ function renderStudioWorkspaceHtml(designName, scene) {
         #ms-studio-master-modal .studio-title-badge,#ms-studio-master-modal .studio-brand-logo,#ms-studio-master-modal .studio-brand-divider,#ms-studio-master-modal .studio-back-long{display:none!important}
         #ms-studio-master-modal .studio-back-short{display:inline!important}
         #ms-studio-master-modal #studio-design-name{max-width:40vw;min-width:0;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
+        /* Horizontal swipe on the format tiles, design sets, and templates
+           grids. Cache-proof duplicate of the .studio-scroll-row rule so a
+           stale theme.css can't leave phones with the old 2-column stacked
+           layout. */
+        #ms-studio-master-modal .studio-scroll-row{display:flex!important;grid-template-columns:none!important;overflow-x:auto;overflow-y:hidden;gap:.75rem!important;padding-bottom:.5rem;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;scrollbar-width:none;margin-left:-1rem;margin-right:-1rem;padding-left:1rem;padding-right:1rem}
+        #ms-studio-master-modal .studio-scroll-row::-webkit-scrollbar{display:none}
+        #ms-studio-master-modal .studio-scroll-row>*{flex:0 0 auto;width:62vw;max-width:240px;scroll-snap-align:start}
+        #ms-studio-master-modal .studio-scroll-row>.studio-home-set-card{width:78vw;max-width:320px}
       }
     </style>
     <!-- Header: two stacked layers — identity/branding on top, actions below.
@@ -1268,13 +1276,117 @@ function studioDesignSetScene(formatKey, format, set, setIndex, purpose) {
     elements = [shape('Ad background',0,0,w,h,set.background), image('Ad photo',0,0,w,112), shape('Ad shade',0,0,w,112,'#07111F',{ opacity:.15 }), text('Ad label','MARKETSYNC MOTORS',18,126,180,18,11,set.accent,{ fontFamily:'Manrope', fontWeight:'900', charSpacing:35 }), text('Ad headline',purpose[1],18,151,180,45,24,'#FFFFFF',{ fontWeight:'900' }), shape('Ad CTA',205,145,78,68,set.accent,{ rx:12 }), text('Ad CTA text','SHOP\nNOW',217,158,54,38,12,'#FFFFFF',{ fontFamily:'Manrope', fontWeight:'900', textAlign:'center', lineHeight:1 })];
     pages = [page('front','Display ad',elements)];
   } else {
-    const portrait = h > w * 1.15, pad = Math.max(24, Math.round(Math.min(w,h) * .065));
+    // Each design set gets a DISTINCT composition — not just a colour
+    // swap. Screenshot regression: every card in a collection was
+    // rendering the same layout with different palette, which read as
+    // "super generic". Four layouts, one per set:
+    //   0 Midnight Luxe   — editorial full-bleed photo, small type
+    //                        top-left, oversized numeric mark
+    //   1 Electric Current — bold: huge angled colour block, giant
+    //                        display type running across it, photo
+    //                        pushed to a corner tile
+    //   2 Paper & Ledger  — classic centered typography, minimal
+    //                        rules, small hairline photo strip
+    //   3 Signal Red      — high impact: diagonal accent slash,
+    //                        condensed display type, photo at 60%
+    //                        with a corner cut
+    const portrait = h > w * 1.15;
+    const pad = Math.max(24, Math.round(Math.min(w,h) * .065));
+    const variant = setIndex % 4;
     if (portrait) {
-      const photoH = Math.round(h * .54), copyY = Math.round(h * .58), titleSize = Math.round(w * .078);
-      elements = [shape('Background',0,0,w,h,set.background), image('Feature photo',0,0,w,photoH), shape('Photo shade',0,0,w,photoH,'#07111F',{ opacity:.2 }), shape('Accent tab',pad,photoH-35,Math.round(w*.28),70,set.accent,{ rx:18 }), text('Accent label','MARKETSYNC MOTORS',pad+20,photoH-12,Math.round(w*.24),25,16,'#FFFFFF',{ fontFamily:'Manrope', fontWeight:'900', textAlign:'center' }), text('Headline',purpose[1],pad,copyY,w-pad*2,Math.round(h*.15),titleSize,ink,{ fontWeight:'900', lineHeight:.9 }), text('Supporting copy',purpose[2],pad,copyY+Math.round(h*.16),w-pad*2,Math.round(h*.09),Math.round(w*.03),muted,{ fontFamily:'Manrope', fontWeight:'500', lineHeight:1.3 }), shape('CTA',pad,h-pad-105,Math.round(w*.48),88,set.accent,{ rx:22 }), text('CTA text','EXPLORE NOW →',pad+28,h-pad-77,Math.round(w*.42),32,Math.round(w*.024),'#FFFFFF',{ fontFamily:'Manrope', fontWeight:'900', textAlign:'center' })];
+      if (variant === 0) {
+        // Editorial full-bleed
+        elements = [
+          shape('Background',0,0,w,h,set.background),
+          image('Full bleed',0,0,w,h),
+          shape('Bottom scrim',0,Math.round(h*.62),w,Math.round(h*.38),set.background,{ opacity:.82 }),
+          shape('Accent rule',pad,Math.round(h*.68),Math.round(w*.16),Math.max(6,Math.round(h*.008)),set.accent),
+          text('Collection',purpose[1].split(' ')[0]+' EDITION',pad,Math.round(h*.7),Math.round(w*.7),Math.round(h*.04),Math.round(w*.022),set.accent,{fontFamily:'Manrope',fontWeight:'900',charSpacing:80}),
+          text('Headline',purpose[1],pad,Math.round(h*.75),w-pad*2,Math.round(h*.14),Math.round(w*.09),'#FFFFFF',{fontWeight:'900',lineHeight:.88}),
+          text('Sub',purpose[2],pad,Math.round(h*.9),w-pad*2,Math.round(h*.06),Math.round(w*.028),muted,{fontFamily:'Manrope',fontWeight:'500',lineHeight:1.3}),
+        ];
+      } else if (variant === 1) {
+        // Bold angled colour block
+        elements = [
+          shape('Background',0,0,w,h,'#FFFFFF'),
+          shape('Angled block',-Math.round(w*.1),0,Math.round(w*1.2),Math.round(h*.55),set.background,{angle:-6}),
+          image('Corner photo',Math.round(w*.55),Math.round(h*.44),Math.round(w*.4),Math.round(h*.4),photo,{fit:'cover'}),
+          text('Eyebrow','NEW · '+purpose[1].split(' ')[0],pad,Math.round(h*.08),Math.round(w*.55),Math.round(h*.05),Math.round(w*.028),set.accent,{fontFamily:'Manrope',fontWeight:'900',charSpacing:70}),
+          text('Big headline',purpose[1],pad,Math.round(h*.15),Math.round(w*.9),Math.round(h*.35),Math.round(w*.13),'#FFFFFF',{fontWeight:'900',lineHeight:.85}),
+          text('Sub',purpose[2],pad,Math.round(h*.86),w-pad*2,Math.round(h*.08),Math.round(w*.028),'#0F172A',{fontFamily:'Manrope',fontWeight:'500',lineHeight:1.3}),
+          shape('CTA',pad,h-pad-Math.round(h*.06),Math.round(w*.45),Math.round(h*.06),set.accent,{rx:8}),
+          text('CTA txt','EXPLORE →',pad+12,h-pad-Math.round(h*.045),Math.round(w*.42),Math.round(h*.04),Math.round(w*.02),'#FFFFFF',{fontFamily:'Manrope',fontWeight:'900',textAlign:'center'}),
+        ];
+      } else if (variant === 2) {
+        // Classic centered
+        elements = [
+          shape('Background',0,0,w,h,set.background),
+          shape('Top rule',Math.round(w*.35),Math.round(h*.14),Math.round(w*.3),Math.max(4,Math.round(h*.005)),set.accent),
+          text('Collection','THE '+purpose[1].split(' ')[0]+' COLLECTION',pad,Math.round(h*.17),w-pad*2,Math.round(h*.04),Math.round(w*.022),set.accent,{fontFamily:'Manrope',fontWeight:'900',charSpacing:100,textAlign:'center'}),
+          text('Serif headline',purpose[1],pad,Math.round(h*.24),w-pad*2,Math.round(h*.28),Math.round(w*.095),ink,{fontFamily:set.font,fontWeight:'900',lineHeight:.95,textAlign:'center'}),
+          image('Centered photo',Math.round(w*.15),Math.round(h*.55),Math.round(w*.7),Math.round(h*.28),photo,{fit:'cover'}),
+          shape('Bottom rule',Math.round(w*.4),Math.round(h*.87),Math.round(w*.2),Math.max(3,Math.round(h*.004)),set.accent),
+          text('Sub',purpose[2],pad,Math.round(h*.9),w-pad*2,Math.round(h*.06),Math.round(w*.024),muted,{fontFamily:'Manrope',fontWeight:'500',lineHeight:1.35,textAlign:'center'}),
+        ];
+      } else {
+        // High-impact diagonal
+        elements = [
+          shape('Background',0,0,w,h,'#FFFFFF'),
+          image('Photo 60',0,0,w,Math.round(h*.62)),
+          shape('Photo shade',0,0,w,Math.round(h*.62),'#000000',{opacity:.24}),
+          shape('Diagonal slash',-Math.round(w*.05),Math.round(h*.55),Math.round(w*1.2),Math.round(h*.14),set.background,{angle:-4}),
+          text('Slash text',purpose[1].split(' ')[0].toUpperCase(),pad,Math.round(h*.58),w-pad*2,Math.round(h*.07),Math.round(w*.055),'#FFFFFF',{fontFamily:'Manrope',fontWeight:'900',charSpacing:60}),
+          text('Big display',purpose[1],pad,Math.round(h*.72),w-pad*2,Math.round(h*.18),Math.round(w*.115),ink,{fontFamily:'Manrope',fontWeight:'900',lineHeight:.85}),
+          shape('CTA',pad,h-pad-Math.round(h*.06),Math.round(w*.5),Math.round(h*.06),set.accent,{rx:0}),
+          text('CTA txt','SEE INVENTORY',pad+12,h-pad-Math.round(h*.045),Math.round(w*.47),Math.round(h*.04),Math.round(w*.022),'#0F172A',{fontFamily:'Manrope',fontWeight:'900',textAlign:'center',charSpacing:60}),
+        ];
+      }
     } else {
-      const photoLeft = setIndex % 2 === 1, photoW = Math.round(w * .54), copyX = photoLeft ? Math.round(w*.59) : pad, visualX = photoLeft ? 0 : w-photoW;
-      elements = [shape('Background',0,0,w,h,set.background), image('Feature photo',visualX,0,photoW,h), shape('Photo shade',visualX,0,photoW,h,'#07111F',{ opacity:.16 }), shape('Accent rule',copyX,pad,Math.round(w*.14),Math.max(6,Math.round(h*.015)),set.accent), text('Collection label','MARKETSYNC MOTORS',copyX,pad+Math.round(h*.06),Math.round(w*.34),Math.round(h*.06),Math.max(12,Math.round(w*.017)),set.accent,{ fontFamily:'Manrope', fontWeight:'900', charSpacing:55 }), text('Headline',purpose[1],copyX,Math.round(h*.28),Math.round(w*.35),Math.round(h*.25),Math.max(24,Math.round(w*.052)),ink,{ fontWeight:'900', lineHeight:.9 }), text('Supporting copy',purpose[2],copyX,Math.round(h*.58),Math.round(w*.34),Math.round(h*.14),Math.max(13,Math.round(w*.019)),muted,{ fontFamily:'Manrope', fontWeight:'500', lineHeight:1.3 }), shape('CTA',copyX,Math.round(h*.79),Math.round(w*.25),Math.round(h*.12),set.accent,{ rx:18 }), text('CTA text','LEARN MORE →',copyX+18,Math.round(h*.825),Math.round(w*.21),Math.round(h*.05),Math.max(12,Math.round(w*.017)),'#FFFFFF',{ fontFamily:'Manrope', fontWeight:'900', textAlign:'center' })];
+      // Landscape variants (same four styles, wider composition)
+      if (variant === 0) {
+        // Editorial: photo left 60%, text right
+        elements = [
+          shape('Background',0,0,w,h,set.background),
+          image('Left photo',0,0,Math.round(w*.6),h),
+          shape('Right panel',Math.round(w*.6),0,Math.round(w*.4),h,set.background),
+          text('Eyebrow',purpose[1].split(' ')[0]+' EDITION',Math.round(w*.6)+pad,Math.round(h*.14),Math.round(w*.34),Math.round(h*.06),Math.round(w*.017),set.accent,{fontFamily:'Manrope',fontWeight:'900',charSpacing:80}),
+          text('Headline',purpose[1],Math.round(w*.6)+pad,Math.round(h*.24),Math.round(w*.36),Math.round(h*.4),Math.round(w*.055),'#FFFFFF',{fontWeight:'900',lineHeight:.88}),
+          shape('Rule',Math.round(w*.6)+pad,Math.round(h*.7),Math.round(w*.08),Math.max(3,Math.round(h*.008)),set.accent),
+          text('Sub',purpose[2],Math.round(w*.6)+pad,Math.round(h*.76),Math.round(w*.36),Math.round(h*.15),Math.round(w*.019),muted,{fontFamily:'Manrope',fontWeight:'500',lineHeight:1.35}),
+        ];
+      } else if (variant === 1) {
+        // Bold: full colour block with photo tile
+        elements = [
+          shape('Background',0,0,w,h,set.background),
+          shape('Angled darker',0,0,Math.round(w*.65),h,'#000000',{opacity:.18,angle:-4}),
+          image('Corner tile',Math.round(w*.68),Math.round(h*.1),Math.round(w*.27),Math.round(h*.8),photo,{fit:'cover'}),
+          text('Eyebrow','NEW · '+purpose[1].split(' ')[0],pad,Math.round(h*.14),Math.round(w*.55),Math.round(h*.07),Math.round(w*.018),set.accent,{fontFamily:'Manrope',fontWeight:'900',charSpacing:70}),
+          text('Big',purpose[1],pad,Math.round(h*.24),Math.round(w*.55),Math.round(h*.55),Math.round(w*.075),'#FFFFFF',{fontWeight:'900',lineHeight:.88}),
+          shape('CTA',pad,h-pad-Math.round(h*.11),Math.round(w*.22),Math.round(h*.11),set.accent,{rx:8}),
+          text('CTA txt','EXPLORE →',pad+12,h-pad-Math.round(h*.075),Math.round(w*.2),Math.round(h*.06),Math.round(w*.021),'#FFFFFF',{fontFamily:'Manrope',fontWeight:'900',textAlign:'center'}),
+        ];
+      } else if (variant === 2) {
+        // Classic centered
+        elements = [
+          shape('Background',0,0,w,h,set.background),
+          shape('Rule top',Math.round(w*.42),Math.round(h*.16),Math.round(w*.16),Math.max(3,Math.round(h*.006)),set.accent),
+          text('Collection','THE '+purpose[1].split(' ')[0]+' COLLECTION',pad,Math.round(h*.21),w-pad*2,Math.round(h*.06),Math.round(w*.014),set.accent,{fontFamily:'Manrope',fontWeight:'900',charSpacing:100,textAlign:'center'}),
+          text('Serif',purpose[1],pad,Math.round(h*.3),w-pad*2,Math.round(h*.28),Math.round(w*.055),ink,{fontFamily:set.font,fontWeight:'900',lineHeight:.95,textAlign:'center'}),
+          image('Photo strip',Math.round(w*.2),Math.round(h*.62),Math.round(w*.6),Math.round(h*.2),photo,{fit:'cover'}),
+          text('Sub',purpose[2],pad,Math.round(h*.86),w-pad*2,Math.round(h*.08),Math.round(w*.014),muted,{fontFamily:'Manrope',fontWeight:'500',lineHeight:1.35,textAlign:'center'}),
+        ];
+      } else {
+        // High-impact diagonal
+        elements = [
+          shape('Background',0,0,w,h,'#FFFFFF'),
+          image('Photo bleed',0,0,Math.round(w*.62),h),
+          shape('Diagonal slash',Math.round(w*.5),-Math.round(h*.05),Math.round(w*.6),Math.round(h*1.2),set.background,{angle:8}),
+          text('Slash big',purpose[1].split(' ')[0].toUpperCase(),Math.round(w*.62),Math.round(h*.32),Math.round(w*.36),Math.round(h*.15),Math.round(w*.06),'#FFFFFF',{fontFamily:'Manrope',fontWeight:'900',charSpacing:60}),
+          text('Sub big',purpose[1],Math.round(w*.62),Math.round(h*.52),Math.round(w*.36),Math.round(h*.3),Math.round(w*.038),'#FFFFFF',{fontWeight:'900',lineHeight:.9}),
+          shape('CTA',Math.round(w*.62),h-pad-Math.round(h*.1),Math.round(w*.28),Math.round(h*.1),set.accent,{rx:0}),
+          text('CTA txt','SEE INVENTORY',Math.round(w*.62)+12,h-pad-Math.round(h*.07),Math.round(w*.26),Math.round(h*.06),Math.round(w*.018),'#0F172A',{fontFamily:'Manrope',fontWeight:'900',textAlign:'center',charSpacing:60}),
+        ];
+      }
     }
     pages = [page('front','Page 1',elements)];
   }
