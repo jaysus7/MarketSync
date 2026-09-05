@@ -330,6 +330,12 @@ async function apiSendJson(path, method = 'POST', body = null, { timeoutMs = 200
   return data || {};
 }
 
+// POST shortcut over apiSendJson — a few call sites (dashboard-part13.js,
+// dashboard-part23.js, marketing-workspace.js website perf tile) reference
+// apiPostJson directly. Defined here so those aren't latent ReferenceErrors.
+async function apiPostJson(path, body, opts) { return apiSendJson(path, 'POST', body, opts); }
+window.apiPostJson = apiPostJson;
+
 // Same contract as apiSendJson, for a FormData body (file uploads) — no
 // Content-Type header is set here on purpose; the browser must generate the
 // multipart boundary itself, which it can only do if the header is left unset.

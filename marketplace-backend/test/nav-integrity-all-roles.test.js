@@ -132,6 +132,9 @@ test('DealerOS Complete reaches every department it sells', () => {
 test('the set of ungated pages is exactly the known set', () => {
   const gated = new Set([...Object.keys(PAGE_FEATURE), ...Object.keys(PAGE_ANY), ...Object.keys(PAGE_PRODUCT)])
   const ungated = [...new Set(registry.msAllWorkspacePages().filter(p => !gated.has(p)))].sort()
-  assert.deepEqual(ungated, ['academy', 'ai-inbox', 'commissions'],
+  // 'commissions' used to sit here — it now carries a gate. 'academy' is the
+  // free training index and 'ai-inbox' is the always-on notification tray, both
+  // deliberately available on every plan.
+  assert.deepEqual(ungated, ['academy', 'ai-inbox'],
     `the ungated set changed — every entry here is reachable on every plan: ${ungated.join(', ')}`)
 })

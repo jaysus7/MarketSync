@@ -42,7 +42,7 @@ test('command center only reads canonical endpoints — no invented sources', ()
   assert.match(block, /apiGetJson\(['"]\/dealership\/site\/revisions['"]\)/, 'Phase F must read /dealership/site/revisions')
   assert.match(block, /apiGetJson\(['"]\/dealership\/site\/audit-log['"]\)/, 'Phase F must read /dealership/site/audit-log')
   // GA4 query is lazy — only fires when the matrix says it's connected.
-  assert.match(block, /fetch\(`\$\{API\}\/integrations\/google\/ga4\/query`/, 'GA4 query must be a real POST fetch, not a fake')
+  assert.match(block, /apiPostJson\(['"]\/integrations\/google\/ga4\/query['"]/, 'GA4 query must be a real POST via apiPostJson')
   // No parallel data endpoints.
   assert.doesNotMatch(block, /apiGetJson\(['"]\/website\//, 'must not call an invented /website/... endpoint')
   assert.doesNotMatch(block, /apiGetJson\(['"]\/hq\//, 'HQ endpoints are not available to dealers')

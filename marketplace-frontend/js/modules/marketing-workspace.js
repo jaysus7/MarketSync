@@ -2350,14 +2350,8 @@ async function hydrateWebsitePerformanceTile() {
     const start = new Date(end);
     start.setDate(end.getDate() - 28);
     const iso = d => d.toISOString().slice(0, 10);
-    const token = localStorage.getItem('token');
-    const r = await fetch(`${API}/integrations/google/ga4/query`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ start_date: iso(start), end_date: iso(end) }),
-    });
-    const res = await r.json().catch(() => ({}));
-    if (r.ok && res?.status === 'measured') {
+    const res = await apiPostJson('/integrations/google/ga4/query', { start_date: iso(start), end_date: iso(end) }).catch(() => ({}));
+    if (res?.status === 'measured') {
       const rows = res.rows || res.data || [];
       const sessions = rows.reduce((s, r) => s + (Number(r.sessions) || 0), 0);
       const users = rows.reduce((s, r) => s + (Number(r.users || r.totalUsers) || 0), 0);
