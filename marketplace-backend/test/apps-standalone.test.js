@@ -118,8 +118,13 @@ test('waitlist endpoint validates inputs, dedupes on unique violation, degrades 
   // before the visitor has an account.
   assert.match(src, /app\.post\(['"]\/api\/apps\/waitlist['"], async/,
     'waitlist route must be POST /api/apps/waitlist and public')
-  assert.doesNotMatch(src, /requireAuth/,
-    'waitlist must be reachable without authentication')
+  // Scope the "no auth gate" check to the waitlist route's own handler
+  // block — the same file now also registers /api/apps/entitlements
+  // which legitimately uses requireAuth.
+  const waitlistBlock = src.match(/app\.post\(['"]\/api\/apps\/waitlist['"], async \(req, res\) => \{[\s\S]*?\n  \}\)/)
+  assert.ok(waitlistBlock, 'waitlist handler block must be extractable')
+  assert.doesNotMatch(waitlistBlock[0], /requireAuth/,
+    'waitlist handler itself must not use requireAuth')
   // Product must be one of the eight — no unknown SKUs.
   assert.match(src, /VALID_PRODUCTS = new Set\(/,
     'waitlist must reject unknown product slugs')

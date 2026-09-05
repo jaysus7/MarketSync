@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sign up · MarketSync Apps</title>
+  <meta name="description" content="Create your MarketSync account and open the app you signed up for — no dealership required.">
+  <link rel="preconnect" href="https://marketsync-staging-backend.onrender.com" crossorigin>
+  <link rel="preconnect" href="https://vehicle-marketplace-s0e4.onrender.com" crossorigin>
+  <link rel="stylesheet" href="shell.css?v=20260905_apps_v2">
+  <style>
+    .signup-form { display:grid; gap:0.75rem; }
+    .signup-form label { display:block; font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--app-text-muted); margin-bottom:0.375rem; }
+    .signup-form input, .signup-form select {
+      width:100%; padding:0.75rem 1rem; border-radius:0.75rem;
+      border:1px solid var(--app-border); background:var(--app-surface-soft);
+      color:var(--app-text); font-size:1rem;
+    }
+    .signup-form input:focus, .signup-form select:focus {
+      outline:none; border-color:var(--app-brand); background:var(--app-surface);
+    }
+    #signup-error { color:var(--hq-danger, #dc2626); font-size:0.875rem; margin-top:0.5rem; min-height:1.25rem; }
+    .signup-legal { font-size:0.75rem; color:var(--app-text-muted); margin-top:1rem; text-align:center; }
+    .signup-legal a { color:var(--app-brand); }
+  </style>
+</head>
+<body>
+  <div id="app-root"></div>
+  <script src="shell.js?v=20260905_apps_v2"></script>
+  <script>
+    (function () {
+      const params = new URLSearchParams(location.search)
+      const requestedApp = String(params.get('app') || '').trim()
+      // Whitelist matches the 8 apps — same list the backend enforces.
+      const APPS = [
+        ['appraisals',      'Appraisals'],
+        ['video-studio',    'Video Studio'],
+        ['design-studio',   'Design Studio'],
+        ['website-studio',  'Website Studio'],
+        ['crm',             'CRM'],
+        ['email-sms',       'Email & SMS'],
+        ['desking',         'Desking'],
+        ['service-checkin', 'Service Check-in'],
+      ]
+      const defaultApp = APPS.some(([s]) => s === requestedApp) ? requestedApp : 'appraisals'
+      const appLabel = (APPS.find(([s]) => s === defaultApp) || [null, defaultApp])[1]
+
+      // Resolve backend the same way dashboard.js does so staging talks
+      // to the staging backend and prod talks to prod.
+      const API = location.hostname.includes('staging')
+        ? 'https://marketsync-staging-backend.onrender.com'
+        : 'https://vehicle-marketplace-s0e4.onrender.com'
+
+      MarketSyncApp.mount({
+        title: `Start your ${appLabel}`,
+        subtitle: 'Create a MarketSync account. No dealership required. You\'ll land inside the app the moment your account is ready.',
+        eyebrow: '14-day free trial',
+        stage: 'live',
+        render(main) {
+          main.innerHTML = `
+            <div class="app-card">
+              <form id="signup" class="signup-form" novalidate>
+                <div>
+                  <label for="fullName">Your name</label>
+                  <input id="fullName" name="fullName" required autocomplete="name" placeholder="Alex Rivera">
+                </div>
+                <div>
+                  <label for="email">Work email</label>
+                  <input id="email" name="email" required type="email" autocomplete="email" placeholder="you@yourshop.com">
+                </div>
+                <div>
+                  <label for="password">Password</label>
+                  <input id="password" name="password" required type="password" autocomplete="new-password" minlength="12" placeholder="At least 12 characters">
+                </div>
+                <div>
+                  <label for="app">App</label>
+                  <select id="app" name="app" required>
+                    ${APPS.map(([s, l]) => `<option value="${s}" ${s === defaultApp ? 'selected' : ''}>${l}</option>`).join('')}
+                  </select>
+                </div>
+                <button class="app-btn app-btn--primary app-btn--full" type="submit" id="submit">Create account &amp; open app</button>
+                <div id="signup-error" role="alert"></div>
+              </form>
+              <p class="signup-legal">By continuing you agree to the MarketSync <a href="/terms.html" target="_top">Terms</a> and <a href="/privacy.html" target="_top">Privacy Policy</a>.</p>
+            </div>
+            <div class="app-card">
+              <p class="app-card__msg" style="margin:0">Already have a DealerOS account? <a href="/login.html" target="_top" style="color:var(--app-brand);font-weight:700">Sign in</a> — every DealerOS user can open every app.</p>
+            </div>`
+
+          const form = document.getElementById('signup')
+          const err = document.getElementById('signup-error')
+          const submit = document.getElementById('submit')
+          form.addEventListener('submit', async (e) => {
+            e.preventDefault()
+            err.textContent = ''
+            submit.disabled = true
+            const originalLabel = submit.textContent
+            submit.textContent = 'Creating account…'
+            try {
+              const body = {
+                fullName: form.fullName.value.trim(),
+                email: form.email.value.trim(),
+                password: form.password.value,
+                app: form.app.value,
+              }
+              const res = await fetch(API + '/api/apps/signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+              })
+              const data = await res.json().catch(() => ({}))
+              if (!res.ok) {
+                const codes = {
+                  invalid_email: 'That email doesn\'t look right.',
+                  invalid_app: 'Please pick an app.',
+                  name_required: 'Please tell us your name.',
+                  email_in_use: 'That email is already registered — try signing in instead.',
+                }
+                err.textContent = codes[data.error] || data.detail || data.error || 'Sign-up failed. Please try again.'
+                submit.disabled = false
+                submit.textContent = originalLabel
+                return
+              }
+              // Store the session the same way login.html does so
+              // dashboard.js picks it up on the next request.
+              const tk = data.session && data.session.access_token
+              const rt = data.session && data.session.refresh_token
+              if (tk) localStorage.setItem('token', tk)
+              if (rt) localStorage.setItem('refresh_token', rt)
+              // Redirect to the app they signed up for.
+              location.assign(data.next || ('/apps/' + form.app.value + '.html'))
+            } catch (e) {
+              err.textContent = 'Network error. Please try again.'
+              submit.disabled = false
+              submit.textContent = originalLabel
+            }
+          })
+        }
+      })
+    })()
+  </script>
+</body>
+</html>
