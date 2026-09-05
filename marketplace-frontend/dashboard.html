@@ -623,6 +623,62 @@
 
   <main class="ms-dashboard-shell flex-1 w-full px-3 pb-3 pt-[112px] sm:px-4 sm:pb-4 sm:pt-[116px] md:pt-[116px] lg:px-5 lg:pb-5 flex flex-col gap-3 md:gap-5 min-h-0 overflow-hidden">
 
+    <!-- Boot watchdog: fills the empty content area during initial page
+         load so mobile users never see a blank screen. The moment
+         switchPage() renders any real page-content the __currentPage
+         guard clears this out. After 8s of nothing rendered, we swap
+         to a real error+retry card so nobody is stuck at a white void
+         (regression this catches: mobile boot silently failing when
+         the initial-page resolver depended on profileContext that
+         hadn't loaded yet). -->
+    <div id="ms-boot-watchdog" style="position:fixed;inset:112px 0 0 0;display:flex;align-items:center;justify-content:center;background:#f8fafc;z-index:1;pointer-events:none">
+      <div style="text-align:center;padding:2rem;max-width:22rem">
+        <div style="width:36px;height:36px;border:3px solid #e2e8f0;border-top-color:#2563eb;border-radius:50%;margin:0 auto 1rem;animation:ms-boot-spin 0.8s linear infinite"></div>
+        <div style="font-family:'Manrope',system-ui,sans-serif;font-weight:800;color:#0f172a;font-size:.9375rem;margin-bottom:.25rem">Loading MarketSync…</div>
+        <div style="font-size:.75rem;color:#64748b">Getting your dashboard ready.</div>
+      </div>
+    </div>
+    <style>@keyframes ms-boot-spin{to{transform:rotate(360deg)}}</style>
+    <script>
+    (function(){
+      // Hide the watchdog as soon as any real page-content becomes
+      // visible (switchPage removes the .hidden class on one at a time).
+      var host = document.getElementById('ms-boot-watchdog');
+      if (!host) return;
+      var hide = function(){ host.style.display = 'none'; };
+      var isRendered = function(){
+        var pages = document.querySelectorAll('[data-page-content]:not(.hidden)');
+        for (var i = 0; i < pages.length; i++) {
+          // A page container with children (any element or non-empty text) counts as rendered.
+          if (pages[i].children.length > 0 || (pages[i].textContent || '').trim().length > 0) return true;
+        }
+        // The studio + iframe apps hijack the shell — their presence also counts as rendered.
+        if (document.getElementById('ms-studio-master-modal')) return true;
+        return false;
+      };
+      var observer = new MutationObserver(function(){
+        if (isRendered()) { hide(); observer.disconnect(); }
+      });
+      observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
+      // 8-second failure fallback — replace the spinner with a real
+      // error card so the visitor has an action to take rather than
+      // a blank screen.
+      setTimeout(function(){
+        if (host.style.display === 'none') return;
+        if (isRendered()) { hide(); observer.disconnect(); return; }
+        host.style.pointerEvents = 'auto';
+        host.innerHTML = ''
+          + '<div style="text-align:center;padding:1.5rem;max-width:24rem">'
+          + '<div style="font-family:\'Manrope\',system-ui,sans-serif;font-weight:800;color:#0f172a;font-size:1.125rem;margin-bottom:.5rem">Something’s stuck loading</div>'
+          + '<div style="font-size:.875rem;color:#475569;margin-bottom:1.25rem">MarketSync couldn’t finish loading your dashboard. This is almost always fixed by clearing the browser cache and reloading.</div>'
+          + '<button onclick="location.reload()" style="width:100%;padding:.75rem 1rem;border-radius:.75rem;background:#2563eb;color:#fff;border:0;font-weight:700;font-size:.9375rem;margin-bottom:.5rem;cursor:pointer">Reload</button>'
+          + '<a href="/login.html" style="display:block;padding:.75rem 1rem;border-radius:.75rem;background:#f1f5f9;color:#0f172a;text-decoration:none;font-weight:700;font-size:.8125rem">Sign in again</a>'
+          + '<div style="font-size:.6875rem;color:#94a3b8;margin-top:1rem">iOS: Settings › Safari › Clear History and Website Data</div>'
+          + '</div>';
+      }, 8000);
+    })();
+    </script>
+
     <section id="dept-sidebar" class="flex flex-col shrink-0">
 
       <div id="profile-card" class="hidden">
