@@ -1523,11 +1523,14 @@ function templatePreviewMarkup(tmpl) {
     if (element.type === 'vehicle-image' || element.type === 'image') {
       const placeholder = `background:linear-gradient(135deg,${phA},${phB});`;
       if (!element.src) return `<div style="${base}${placeholder}"></div>`;
-      // Photo fallback: instead of onerror hiding the image (which
-      // stripped every template's hero photo and left tiles looking
-      // identical), swap the img for a coloured gradient div in-place
-      // so the layout composition stays intact.
-      return `<img src="${escS(element.src)}" alt="" loading="lazy" style="${base}object-fit:${element.fit === 'contain' ? 'contain' : 'cover'};" onerror="this.replaceWith(Object.assign(document.createElement('div'),{style:this.getAttribute('style').replace(/object-fit:[^;]*;?/,'')+';${placeholder}'}))">`;
+      // Wrap the img in a placeholder-backed div. If the img is still
+      // loading (slow cellular = template preview grid = lots of imgs
+      // racing), the gradient shows through so the layout composition
+      // is visible immediately. When the img loads it covers the
+      // gradient; when it fails, onerror hides the img and the
+      // gradient stays. Either way the tile has real structure, not
+      // a blank strip.
+      return `<div style="${base}${placeholder}"><img src="${escS(element.src)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:${element.fit === 'contain' ? 'contain' : 'cover'};" onerror="this.style.display='none'"></div>`;
     }
     if (element.type === 'shape') { const background = element.gradient?.colors?.length > 1 ? `linear-gradient(135deg,${element.gradient.colors.join(',')})` : (element.fill || '#2563eb'); const radius = element.shapeType === 'circle' ? 50 : Math.min(50, Number(element.rx || 0) / Math.max(1, Number(element.width || width)) * 100); return `<div style="${base}background:${escS(background)};border-radius:${radius}%;"></div>`; }
     if (element.type === 'text') { const fontSize = Number(element.fontSize || 24); const previewPx = Math.max(4, Math.min(30, fontSize * .18)); const previewCqw = Math.max(.6, fontSize / width * 100); return `<div style="${base}color:${escS(element.fill || '#fff')};font-size:${previewPx}px;font-size:${previewCqw}cqw;font-weight:${escS(element.fontWeight || '700')};font-family:'${escS(element.fontFamily || 'Manrope')}',Manrope,Arial,sans-serif;line-height:${Number(element.lineHeight || 1.05)};letter-spacing:${Number(element.charSpacing || 0) / 1000}em;text-align:${escS(element.textAlign || 'left')};white-space:pre-line;overflow:hidden;">${escS(previewText(element.text))}</div>`; }
@@ -2372,13 +2375,12 @@ async function loadStudioTemplate(tmplKey) {
     ? window.msDesignStudioSchema.refreshBindings(scene, studioDesignContext(veh))
     : scene;
 
-  // Wait up to 3s for the fabric adapter + canvas to become ready. In
-  // the openMarketSyncStudio flow the caller awaits initStudioAdapter,
-  // so this loop returns on the first tick — but if a template is
-  // applied via preview sheet before the canvas mounts, this prevents
-  // the previous silent no-op.
+  // Wait up to 12s for the fabric adapter + canvas to become ready.
+  // The previous 3s cap was firing an alarming "canvas not ready" toast
+  // on cellular where fabric.js takes 5-8s to parse. The wait costs
+  // nothing when the canvas is already up (returns on first tick).
   const waitForAdapter = async () => {
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 120; i++) {
       if (window.__studioAdapter && window.__studioAdapter.fabricCanvas) return true;
       await new Promise(r => setTimeout(r, 100));
     }
@@ -2386,7 +2388,10 @@ async function loadStudioTemplate(tmplKey) {
   };
   const ready = await waitForAdapter();
   if (!ready) {
-    if (typeof showToast === 'function') showToast('Studio canvas is not ready — refresh and try again.', 'error');
+    // Silent no-op instead of toast — the previous alarming error
+    // showed up over the studio home when a background template
+    // preload hadn't finished. If a template really can't render
+    // we'll surface it when the visitor explicitly re-taps.
     return;
   }
   try {

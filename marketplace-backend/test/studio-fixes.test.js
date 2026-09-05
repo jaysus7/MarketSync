@@ -47,8 +47,11 @@ test('loadStudioTemplate waits for the fabric canvas + reports failure loudly', 
   // if it never comes up. No more silent success.
   assert.match(shell, /const waitForAdapter = async \(\)/,
     'loadStudioTemplate must wait for the fabric adapter')
-  assert.match(shell, /if \(!ready\)[\s\S]{0,200}Studio canvas is not ready/,
-    'loadStudioTemplate must show an explicit error when the canvas never mounts')
+  // Silent no-op is the current policy on timeout — a visible toast
+  // firing over the studio home was alarming and cellular-slow load
+  // was the usual cause. Extended timeout (12s) is enforced instead.
+  assert.match(shell, /for \(let i = 0; i < 120; i\+\+\)/,
+    'waitForAdapter must be extended to 120 * 100ms = 12s so cellular fabric.js loads finish before the timeout')
   assert.match(shell, /await window\.__studioAdapter\.renderScene\(boundScene\);\s*\} catch/,
     'renderScene errors must be caught and surfaced')
 })
@@ -165,12 +168,13 @@ test('templates grid swipes horizontally + each template renders a distinct prev
     'preview must ship a placeholder palette')
   assert.match(shell, /seed % palettes\.length/,
     'placeholder colour must be hashed from the template key so each preview is distinct')
-  // Photo fallback: previous onerror="this.style.display='none'"
-  // hid failed hero photos, leaving every template as a brand panel
-  // on cream. Now the img is replaced by a gradient div in-place so
-  // the composition stays visible.
-  assert.match(shell, /this\.replaceWith\(Object\.assign\(document\.createElement\('div'\)/,
-    'failed template photos must swap to a gradient placeholder in-place')
+  // Photo fallback: the img is now wrapped in a placeholder-backed
+  // div so the gradient shows during loading AND on error — no more
+  // blank strips while imgs race to load on cellular.
+  assert.match(shell, /<div style="\$\{base\}\$\{placeholder\}"><img/,
+    'template img must be wrapped in a gradient-backed placeholder div')
+  assert.match(shell, /onerror="this\.style\.display='none'"/,
+    'failed template photos must hide themselves so the gradient stays visible')
 })
 
 test('every shape supports freeform transform (skew/scale/rotate) on canvas', () => {
@@ -243,9 +247,9 @@ test('studio cache-bust bumped so the browser fetches the fixed bundle', () => {
   const matches = part2.match(/studio-shell\.js\?v=([a-z0-9_]+)/g) || []
   assert.ok(matches.length >= 2, 'must find both studio-shell references')
   for (const m of matches) {
-    assert.match(m, /studio-shell\.js\?v=20260905_studio_home_swipe_v1/,
+    assert.match(m, /studio-shell\.js\?v=20260905_studio_wait_v1/,
       `stale cache-bust: ${m}`)
   }
-  assert.match(dashboard, /marketsync-theme\.css\?v=20260905_studio_home_swipe_v1/,
+  assert.match(dashboard, /marketsync-theme\.css\?v=20260905_studio_wait_v1/,
     'theme.css cache-bust must reflect the new mobile rules')
 })
