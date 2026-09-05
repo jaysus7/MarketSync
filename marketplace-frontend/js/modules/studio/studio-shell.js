@@ -2591,6 +2591,27 @@ async function loadStudioTemplate(tmplKey) {
     if (panel) panel.innerHTML = renderStudioToolPanelContent('templates');
   }
   zoomStudioFit();
+  // Belt + braces: the fabric canvas sometimes reports objects but
+  // paints nothing until a second renderAll after layout settles
+  // (image loads race the initial renderAll; canvas wrapper sizing
+  // races the CSS transform). Force two more renders + a zoom
+  // re-fit so a fresh template is guaranteed to paint.
+  const forceRepaint = () => {
+    try {
+      const fc = window.__studioAdapter?.fabricCanvas;
+      if (fc) {
+        fc.calcOffset && fc.calcOffset();
+        fc.renderAll();
+      }
+      zoomStudioFit();
+      if (typeof studioDebugPush === 'function') {
+        const fc2 = window.__studioAdapter?.fabricCanvas;
+        studioDebugPush(`repaint objs=${fc2?.getObjects().length ?? '?'} size=${fc2?.getWidth?.()}x${fc2?.getHeight?.()} zoom=${Math.round((window.__studioZoomLevel || 0) * 100)}%`);
+      }
+    } catch (_) { /* swallow */ }
+  };
+  setTimeout(forceRepaint, 120);
+  setTimeout(forceRepaint, 700);
   if (typeof showToast === 'function') showToast(`Loaded ${tmpl.name}`, 'success');
 }
 
