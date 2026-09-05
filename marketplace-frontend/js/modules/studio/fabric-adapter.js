@@ -646,22 +646,32 @@ class StudioFabricAdapter {
     if (!this.fabricCanvas || !url) return Promise.resolve(null);
     const fabric = window.fabric;
     const center = this.fabricCanvas.getCenter();
-    return new Promise((resolve) => {
-      fabric.Image.fromURL(url, (img) => {
-        if (!img) { resolve(null); return; }
-        img.set({
-          left: center.left - 200,
-          top: center.top - 150
-        });
-        if (img.width > 400) img.scaleToWidth(400);
-        img.msData = { type: 'image', src: url, name };
-        this.fabricCanvas.add(img);
-        this.fabricCanvas.setActiveObject(img);
-        this.fabricCanvas.renderAll();
-        this.saveHistory();
-        resolve(img);
-      }, { crossOrigin: 'anonymous' });
-    });
+    // Some SVG hosts (iconify included, on some clients) do not send
+    // CORS headers reliably. Try WITH crossOrigin first (so the canvas
+    // stays untainted for export), then fall back to WITHOUT so the
+    // element still lands on the artboard rather than silently
+    // vanishing — the historical bug that caused "elements don't show
+    // up on canvas". The fallback path just cannot be exported through
+    // toDataURL, which this app never does (renders happen server-side).
+    const load = (crossOrigin) => new Promise((resolve) => {
+      const opts = crossOrigin ? { crossOrigin: 'anonymous' } : {}
+      try {
+        fabric.Image.fromURL(url, (img) => resolve(img || null), opts)
+      } catch { resolve(null) }
+    })
+    return (async () => {
+      let img = await load(true)
+      if (!img) img = await load(false)
+      if (!img) return null
+      img.set({ left: center.left - 200, top: center.top - 150 })
+      if (img.width > 400) img.scaleToWidth(400)
+      img.msData = { type: 'image', src: url, name }
+      this.fabricCanvas.add(img)
+      this.fabricCanvas.setActiveObject(img)
+      this.fabricCanvas.renderAll()
+      this.saveHistory()
+      return img
+    })()
   }
 
   async addVideo(url, name = 'Video', options = {}) {

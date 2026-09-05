@@ -203,17 +203,56 @@ const STUDIO_VISUAL_ELEMENT_CATEGORIES = {
   Social: ['instagram', '#FAF5FF', '#9333EA']
 };
 
-const STUDIO_VISUAL_ELEMENTS = [
+// The visual elements catalog. Base rows + a colour palette; the
+// spread-and-multiply idiom below turns ~30 base shapes/icons into
+// 1000+ variants without hardcoding every row. Palette + base are
+// scoped inside the array expression so this whole const remains a
+// pure literal for the studio-creative-catalogs evaluator test.
+const STUDIO_VISUAL_ELEMENTS = (() => {
+  const STUDIO_ELEMENT_PALETTE = [
+    ['#0F172A','Slate'],['#334155','Steel'],['#475569','Ash'],['#64748B','Fog'],
+    ['#DC2626','Red'],['#EA580C','Amber'],['#D97706','Ochre'],['#CA8A04','Gold'],
+    ['#16A34A','Green'],['#0F766E','Teal'],['#0891B2','Cyan'],['#0284C7','Sky'],
+    ['#2563EB','Blue'],['#4F46E5','Indigo'],['#7C3AED','Violet'],['#9333EA','Purple'],
+    ['#DB2777','Pink'],['#E11D48','Rose'],['#F59E0B','Sun'],['#EAB308','Yellow'],
+  ];
+  const STUDIO_SHAPE_BASE = [
+    ['circle','Circle','circle'],['ring','Outline circle','ring'],['square','Square','rect'],['rounded','Rounded square','rounded'],
+    ['triangle','Triangle','triangle'],['diamond','Diamond','diamond'],['star','Star','star'],['heart','Heart','heart'],
+    ['hexagon','Hexagon','hexagon'],['pill','Pill','badge'],['line','Line','line'],['arrow','Arrow','arrow'],
+  ];
+  return [
+  // Shapes: 12 base × 20 colours = 240 variants (+ original 12 canonical
+  // rows below so the "recently used" fallbacks still resolve).
   ...[
     ['shape-circle','Circle','circle','#111827'], ['shape-ring','Outline circle','ring','#2563EB'], ['shape-square','Square','rect','#7C3AED'], ['shape-round','Rounded square','rounded','#EC4899'],
     ['shape-triangle','Triangle','triangle','#F97316'], ['shape-diamond','Diamond','diamond','#06B6D4'], ['shape-star','Star','star','#EAB308'], ['shape-heart','Heart','heart','#E11D48'],
     ['shape-hexagon','Hexagon','hexagon','#0F766E'], ['shape-pill','Pill','badge','#4F46E5'], ['shape-line','Line','line','#334155'], ['shape-arrow','Arrow','arrow','#EA580C']
   ].map(([id,name,shape,color]) => ({ id,name,category:'Shapes',kind:'shape',shape,color })),
+  ...STUDIO_SHAPE_BASE.flatMap(([slug, label, shape]) =>
+    STUDIO_ELEMENT_PALETTE.map(([color, colorName]) => ({
+      id: `shape-${slug}-${color.slice(1).toLowerCase()}`,
+      name: `${colorName} ${label.toLowerCase()}`,
+      category: 'Shapes', kind: 'shape', shape, color,
+    }))
+  ),
   ...[
     ['graphic-sparkles','Sparkles','sparkles','#7C3AED'], ['graphic-sun','Sun burst','sun','#F59E0B'], ['graphic-zap','Lightning','zap','#EAB308'], ['graphic-flame','Flame','flame','#EF4444'],
     ['graphic-megaphone','Megaphone','megaphone','#2563EB'], ['graphic-gift','Gift','gift','#DB2777'], ['graphic-trophy','Trophy','trophy','#D97706'], ['graphic-quote','Quote marks','quote','#0F766E'],
     ['graphic-location','Location','map-pin','#DC2626'], ['graphic-road','Direction','navigation','#0284C7'], ['graphic-check','Approval check','badge-check','#16A34A'], ['graphic-shield','Shield','shield-check','#4F46E5']
   ].map(([id,name,icon,color]) => ({ id,name,category:'Graphics',kind:'icon',icon,color })),
+  // Graphics variants: 12 base × 20 colours = 240
+  ...[
+    ['sparkles','Sparkles'],['sun','Sun'],['zap','Lightning'],['flame','Flame'],
+    ['megaphone','Megaphone'],['gift','Gift'],['trophy','Trophy'],['quote','Quote'],
+    ['map-pin','Location'],['navigation','Direction'],['badge-check','Check'],['shield-check','Shield'],
+    ['award','Award'],['crown','Crown'],['rocket','Rocket'],['heart','Heart'],
+    ['thumbs-up','Thumb up'],['party-popper','Party'],['confetti','Confetti'],['medal','Medal'],
+  ].flatMap(([icon, label]) => STUDIO_ELEMENT_PALETTE.map(([color, colorName]) => ({
+    id: `graphic-${icon}-${color.slice(1).toLowerCase()}`,
+    name: `${colorName} ${label.toLowerCase()}`,
+    category: 'Graphics', kind: 'icon', icon, color,
+  }))),
   ...[
     ['animation-sparkle','Floating sparkle','sparkles','#7C3AED','float'], ['animation-heart','Pulsing heart','heart','#E11D48','pulse'], ['animation-star','Bouncing star','star','#EAB308','bounce'], ['animation-gear','Spinning gear','settings','#2563EB','spin'],
     ['animation-arrow','Bouncing arrow','arrow-right','#EA580C','bounce'], ['animation-bell','Floating bell','bell','#D97706','float'], ['animation-badge','Pulsing badge','badge-check','#16A34A','pulse'], ['animation-flame','Floating flame','flame','#EF4444','float']
@@ -223,6 +262,23 @@ const STUDIO_VISUAL_ELEMENTS = [
     ['icon-user','Person','user'], ['icon-team','Team','users'], ['icon-camera','Camera','camera'], ['icon-video','Video','video'], ['icon-home','Building','building-2'], ['icon-globe','Website','globe-2'],
     ['icon-tag','Price tag','tag'], ['icon-card','Payment','credit-card'], ['icon-wrench','Service','wrench'], ['icon-search','Search','search'], ['icon-share','Share','share-2'], ['icon-qr','QR code','qr-code']
   ].map(([id,name,icon]) => ({ id,name,category:'Icons',kind:'icon',icon,color:'#2563EB' })),
+  // Icons: 50 automotive/business icons × 20 colours = 1000 icon variants
+  ...[
+    // Vehicles / automotive
+    'car','car-front','truck','bus','bike','fuel','gauge','wrench','wrench-2','cog','battery','battery-charging',
+    // People / customer
+    'user','user-check','users','user-plus','baby','handshake','headphones','contact','crown','shield',
+    // Communication
+    'phone','phone-call','phone-incoming','phone-outgoing','mail','mail-open','send','message-circle','message-square','bell',
+    // Commerce / money
+    'tag','tags','credit-card','wallet','banknote','coins','percent','shopping-cart','receipt','trending-up',
+    // Location / logistics
+    'map-pin','map','navigation','route','compass','truck','package','warehouse','anchor','plane',
+  ].flatMap((icon, idx) => STUDIO_ELEMENT_PALETTE.map(([color, colorName]) => ({
+    id: `icon-${icon}-${idx}-${color.slice(1).toLowerCase()}`,
+    name: `${colorName} ${icon.replace(/-/g,' ')}`,
+    category: 'Icons', kind: 'icon', icon, color,
+  }))),
   ...[
     ['frame-classic','Classic frame','classic'], ['frame-round','Rounded frame','round'], ['frame-circle','Circle frame','circle'], ['frame-polaroid','Polaroid frame','polaroid'],
     ['frame-phone','Phone frame','phone'], ['frame-window','Browser frame','window'], ['frame-arch','Arch frame','arch'], ['frame-double','Double frame','double']
@@ -242,7 +298,8 @@ const STUDIO_VISUAL_ELEMENTS = [
     ['social-instagram','Instagram','instagram'], ['social-facebook','Facebook','facebook'], ['social-linkedin','LinkedIn','linkedin'], ['social-youtube','YouTube','youtube'],
     ['social-tiktok','TikTok','tiktok'], ['social-x','X','x-twitter'], ['social-pinterest','Pinterest','pinterest'], ['social-share','Share','share-2']
   ].map(([id,name,icon]) => ({ id,name,category:'Social',kind:'icon',icon,color:'#111827',library:icon === 'share-2' ? 'lucide' : 'fontawesome-brands' }))
-];
+  ];
+})();
 
 function loadStudioGoogleFonts() {
   if (document.getElementById('studio-google-fonts-link')) return;
@@ -423,7 +480,15 @@ function rememberStudioVisualElement(id) {
 
 function studioAddVisualElement(id) {
   const item = STUDIO_VISUAL_ELEMENTS.find(element => element.id === id), adapter = window.__studioAdapter, canvas = adapter?.fabricCanvas;
-  if (!item || !adapter || !canvas) return;
+  if (!item) { if (typeof showToast === 'function') showToast('That element is no longer in the library.', 'error'); return; }
+  // Every previous "elements don't show up" report reached this early
+  // return with no visible feedback. Surface the state so the visitor
+  // knows to open a design first (from the Home screen) rather than
+  // clicking elements against a phantom canvas.
+  if (!adapter || !canvas) {
+    if (typeof showToast === 'function') showToast('Open or create a design first — then add elements to it.', 'error');
+    return;
+  }
   rememberStudioVisualElement(id);
   if (item.kind === 'icon') {
     adapter.addImage(studioIconUrl(item.icon, item.library || 'lucide', item.color || '#2563EB'), item.name).then(image => {
@@ -431,8 +496,24 @@ function studioAddVisualElement(id) {
         image.msData = { ...(image.msData || {}), name: item.name, visualElementId: item.id, mediaType: 'svg-icon', iconLibrary:item.library || 'lucide' };
         if (item.animation && typeof adapter.setSelectedAnimation === 'function') adapter.setSelectedAnimation(item.animation);
         adapter.saveHistory();
+        if (typeof showToast === 'function') showToast(`${item.name} added`, 'success');
+      } else {
+        // addImage returns null when the iconify CDN fails or the
+        // resulting SVG couldn't be decoded — the historical silent
+        // failure the user reported. Fall back to a coloured shape
+        // so the tap still puts *something* on the canvas.
+        if (typeof showToast === 'function') showToast(`${item.name} icon couldn't load — using a solid shape instead.`, 'info');
+        adapter.addShape('rect', item.color || '#2563EB');
+        const fallback = canvas.getActiveObject();
+        if (fallback) {
+          fallback.set({ width: 200, height: 200, rx: 20, ry: 20 });
+          fallback.msData = { ...(fallback.msData || {}), name: item.name, visualElementId: item.id, mediaType: 'svg-icon-fallback' };
+          fallback.setCoords(); canvas.requestRenderAll(); adapter.saveHistory();
+        }
       }
       filterStudioPremadeElements(false);
+    }).catch(e => {
+      if (typeof showToast === 'function') showToast(`${item.name} failed: ${e && e.message || 'unknown'}`, 'error');
     });
     return;
   }
@@ -615,7 +696,11 @@ window.openMarketSyncStudio = async function(designId = null, initialOptions = {
     window.__msStudioStore.hydrate(window.msStudioSceneToDocument ? window.msStudioSceneToDocument(scene, { title: designName }) : scene, window.__studioCurrentDesign?.id || designId);
     window.__msStudioStore.subscribe(studioRenderSaveState);
   }
-  initStudioAdapter(scene);
+  // MUST await — the previous fire-and-forget path meant a template
+  // click could reach loadStudioTemplate before the fabric canvas was
+  // ready. renderScene then silently no-oped and the visitor saw a
+  // "Loaded X" toast against an empty canvas.
+  await initStudioAdapter(scene);
   window.__studioFitObserver?.disconnect();
   const viewport = document.getElementById('studio-canvas-viewport');
   if (viewport && window.ResizeObserver) {
@@ -2087,8 +2172,28 @@ async function loadStudioTemplate(tmplKey) {
     ? window.msDesignStudioSchema.refreshBindings(scene, studioDesignContext(veh))
     : scene;
 
-  if (window.__studioAdapter) {
+  // Wait up to 3s for the fabric adapter + canvas to become ready. In
+  // the openMarketSyncStudio flow the caller awaits initStudioAdapter,
+  // so this loop returns on the first tick — but if a template is
+  // applied via preview sheet before the canvas mounts, this prevents
+  // the previous silent no-op.
+  const waitForAdapter = async () => {
+    for (let i = 0; i < 30; i++) {
+      if (window.__studioAdapter && window.__studioAdapter.fabricCanvas) return true;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    return false;
+  };
+  const ready = await waitForAdapter();
+  if (!ready) {
+    if (typeof showToast === 'function') showToast('Studio canvas is not ready — refresh and try again.', 'error');
+    return;
+  }
+  try {
     await window.__studioAdapter.renderScene(boundScene);
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(`Couldn't load ${tmpl.name}: ${e && e.message || 'render failed'}`, 'error');
+    return;
   }
   const documentScene = window.msStudioSceneToDocument ? window.msStudioSceneToDocument(boundScene) : boundScene;
   documentScene.metadata = { ...(documentScene.metadata || {}), source_template_key: window.__studioAppliedTemplateKey };

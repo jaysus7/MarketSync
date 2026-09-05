@@ -3826,3 +3826,53 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 @media (max-width: 768px) {
   .dark #ms-studio-master-modal .studio-workspace-body > [data-studio-region="rail"] { background: rgba(13,23,41,.98) !important; border-color: #293c5b !important; }
 }
+
+/* ── Design Studio · mobile polish ─────────────────────────────────────
+   The previous responsive rules only touched the tool rail. On phones
+   the canvas viewport was clipped, tap targets were too small, and the
+   catalog scroll fought the page scroll. These rules fix each in turn
+   without touching the desktop layout. */
+@media (max-width: 768px) {
+  #ms-studio-master-modal { touch-action: manipulation; }
+  #ms-studio-master-modal .studio-workspace-body {
+    grid-template-columns: 1fr !important;
+    grid-auto-rows: auto !important;
+  }
+  #ms-studio-master-modal [data-studio-region="rail"] {
+    position: sticky; top: 0; z-index: 20;
+    max-height: 42vh; overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #ms-studio-master-modal #studio-canvas-viewport {
+    min-height: 46vh;
+  }
+  /* Tap targets: 44px minimum per Apple HIG. */
+  #ms-studio-master-modal .studio-tool-rail-button,
+  #ms-studio-master-modal .studio-category-pill,
+  #ms-studio-master-modal .studio-element-card,
+  #ms-studio-master-modal .studio-text-template-card {
+    min-height: 44px;
+  }
+  /* Element catalog: 3-column on phone (was 6+), so cards are tappable. */
+  #ms-studio-master-modal #studio-premade-library {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 0.5rem !important;
+  }
+  /* Templates grid on the home screen: 2-up so previews are large enough
+     to identify without pinch-zooming. */
+  #ms-studio-master-modal #studio-home-template-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  /* Inspector panel: below the canvas rather than beside it. */
+  #ms-studio-master-modal #studio-inspector-panel {
+    position: sticky; bottom: 0; z-index: 15;
+    max-height: 40vh; overflow-y: auto;
+    border-top: 1px solid #e2e8f0;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+@media (max-width: 480px) {
+  #ms-studio-master-modal #studio-premade-library {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
