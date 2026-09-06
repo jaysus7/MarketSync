@@ -15,7 +15,7 @@
     [
       'js/modules/studio/studio-dashboard-home.js?v=20260904_home_dash_v4',
       'js/modules/studio/studio-template-previews.js?v=20260904_tmpl_preview_v4',
-      'js/modules/studio/studio-page-thumbs.js?v=20260904_white_canvas_v2',
+      'js/modules/studio/studio-page-thumbs.js?v=20260906_upper_canvas_fix_v1',
       'js/modules/studio/studio-context-toolbar.js?v=20260904_ctx_toolbar_v2',
       'js/modules/studio/studio-template-hydrate.js?v=20260905_disabled_v1',
       'js/modules/studio/studio-shape-drop.js?v=20260904_shape_drop_v1',
