@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { RELEASE_VERSION, assetVersion } from './helpers/asset-versions.js'
 
 const shell = fs.readFileSync(new URL('../../marketplace-frontend/js/modules/studio/studio-shell.js', import.meta.url), 'utf8');
 const theme = fs.readFileSync(new URL('../../marketplace-frontend/css/marketsync-theme.css', import.meta.url), 'utf8');
@@ -26,10 +27,11 @@ test('Templates fits the rail and the Heading action remains legible', () => {
 });
 
 test('the deployed dashboard requests the corrected Studio assets', () => {
-  assert.match(loader, /studio-shell\.js\?v=20260906_studio_tab_v1/g);
-  assert.match(dashboard, /marketsync-theme\.css\?v=20260906_studio_tab_v1/);
-  // dashboard-part2.js was rebumped for the HQ IA freeze (Phase 1 finalization).
-  assert.match(dashboard, /dashboard-part2\.js\?v=20260905_hq_ia_freeze_v1/);
+  // Compared against the live release version, not a literal: the point is that the
+  // shell, the theme and the boot chain are bumped together, not what today's tag says.
+  assert.match(loader, new RegExp(`studio-shell\\.js\\?v=${RELEASE_VERSION}`));
+  assert.equal(assetVersion('css/marketsync-theme.css'), RELEASE_VERSION);
+  assert.equal(assetVersion('js/modules/marketing-workspace.js'), RELEASE_VERSION);
 });
 
 test('dark mode gives Studio drawers, cards, icons, and canvas explicit contrast', () => {

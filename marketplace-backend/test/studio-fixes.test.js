@@ -14,6 +14,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
+import { RELEASE_VERSION, assetVersion } from './helpers/asset-versions.js'
 
 const shell = await readFile(
   new URL('../../marketplace-frontend/js/modules/studio/studio-shell.js', import.meta.url), 'utf8'
@@ -252,9 +253,9 @@ test('studio cache-bust bumped so the browser fetches the fixed bundle', () => {
   const matches = part2.match(/studio-shell\.js\?v=([a-z0-9_]+)/g) || []
   assert.ok(matches.length >= 1, 'must find the studio-shell reference')
   for (const m of matches) {
-    assert.match(m, /studio-shell\.js\?v=20260906_studio_tab_v1/,
-      `stale cache-bust: ${m}`)
+    assert.match(m, new RegExp(`studio-shell\\.js\\?v=${RELEASE_VERSION}`),
+      `stale cache-bust: ${m} (release is ${RELEASE_VERSION})`)
   }
-  assert.match(dashboard, /marketsync-theme\.css\?v=20260906_studio_tab_v1/,
-    'theme.css cache-bust must reflect the new mobile rules')
+  assert.equal(assetVersion('css/marketsync-theme.css'), RELEASE_VERSION,
+    'theme.css must ride the same cache-bust as the studio bundle')
 })

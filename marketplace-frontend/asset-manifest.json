@@ -1,0 +1,226 @@
+{
+  "css/marketsync-theme.css": {
+    "version": "20260906_studio_tab_v2",
+    "sha256": "41ad103bca3219e0"
+  },
+  "css/hq-ui.css": {
+    "version": "20260905_hq_ui_v1",
+    "sha256": "9781c20af716d2ae"
+  },
+  "css/tailwind-built.css": {
+    "version": "20260825_header_spacing_v1",
+    "sha256": "f09e81cb0703e9cb"
+  },
+  "css/ms-phase3-global.css": {
+    "version": "20260827_p4_v1",
+    "sha256": "a41ab6b296f77155"
+  },
+  "css/ms-phase4-routes.css": {
+    "version": "20260827_p4_s3",
+    "sha256": "9a74f45f66533ff1"
+  },
+  "css/ms-liquid-glass.css": {
+    "version": "20260903_appraisal_theme_v1",
+    "sha256": "014f31b2e2c689f1"
+  },
+  "css/ms-design-system.css": {
+    "version": "20260826_b1_v1",
+    "sha256": "76e826748f4733e8"
+  },
+  "js/modules/workspace-registry.js": {
+    "version": "20260902_staging_repair_v1",
+    "sha256": "ca5c7d67955972b6"
+  },
+  "dashboard.js": {
+    "version": "20260906_studio_tab_v2",
+    "sha256": "be181c8ba7c68e34"
+  },
+  "js/modules/dashboard-part2.js": {
+    "version": "20260906_studio_tab_v2",
+    "sha256": "aa65a5ad75eee2e0"
+  },
+  "js/modules/dashboard-part3.js": {
+    "version": "20260814_v12",
+    "sha256": "c9bb90e3eb8f96d3"
+  },
+  "js/modules/dashboard-part4.js": {
+    "version": "20260827_p4_crm_v1",
+    "sha256": "7720a88870e7400d"
+  },
+  "js/modules/dashboard-part5.js": {
+    "version": "20260906_studio_tab_v2",
+    "sha256": "7a9799d24954ffd3"
+  },
+  "js/modules/dashboard-part6.js": {
+    "version": "20260826_desk_glass_v1",
+    "sha256": "d83a7c3086bc6ce6"
+  },
+  "js/modules/dashboard-part7.js": {
+    "version": "20260814_v12",
+    "sha256": "4045db24f896e637"
+  },
+  "js/modules/dashboard-part8.js": {
+    "version": "20260829_pinterest_v1",
+    "sha256": "e8b1a9dc94109d4b"
+  },
+  "js/modules/dashboard-part9.js": {
+    "version": "20260825_settings_masonry_v1",
+    "sha256": "2223f1bdeb4f77ae"
+  },
+  "js/modules/hq-ui.js": {
+    "version": "20260905_hq_ui_v1",
+    "sha256": "04b6ea31fb31241d"
+  },
+  "js/modules/hq-workspace.js": {
+    "version": "20260905_hq_ui_v1",
+    "sha256": "b729b1f6b78a9038"
+  },
+  "js/modules/dashboard-part10.js": {
+    "version": "20260905_hq_ui_v1",
+    "sha256": "9f518faf6ed2d76b"
+  },
+  "js/modules/dashboard-part11.js": {
+    "version": "20260826_pulse_bottom_v1",
+    "sha256": "539b048d5055adfd"
+  },
+  "js/modules/dashboard-part12.js": {
+    "version": "20260825_deep_links_v1",
+    "sha256": "85ef1786f6b75b9a"
+  },
+  "js/modules/dashboard-part13.js": {
+    "version": "20260826_hq_b9_v1",
+    "sha256": "f2dda070d49ee640"
+  },
+  "js/modules/dashboard-part14.js": {
+    "version": "20260903_reports_v2",
+    "sha256": "3b8fa3e99f21f58a"
+  },
+  "js/modules/dashboard-part16.js": {
+    "version": "20260814_v12",
+    "sha256": "2b425620070e8cb1"
+  },
+  "js/modules/dashboard-part17.js": {
+    "version": "20260903_website_light_theme_v1",
+    "sha256": "069d8b4a4c4aa8c8"
+  },
+  "js/modules/dashboard-part18.js": {
+    "version": "20260906_studio_tab_v2",
+    "sha256": "a400e7992cc798bf"
+  },
+  "js/modules/dashboard-part19.js": {
+    "version": "20260826_catalog_null_v1",
+    "sha256": "a71b96ea0a0382c0"
+  },
+  "js/modules/dashboard-part20.js": {
+    "version": "20260824_inventory_accuracy_v1",
+    "sha256": "c5b4ec73ce510184"
+  },
+  "js/modules/dashboard-part21.js": {
+    "version": "20260826_pulse_bottom_v1",
+    "sha256": "b39ace78f198591b"
+  },
+  "js/modules/dashboard-part22.js": {
+    "version": "20260825_dead_handlers_v1",
+    "sha256": "ede396d93124667d"
+  },
+  "js/modules/dashboard-part23.js": {
+    "version": "20260903_reports_v2",
+    "sha256": "664864c935c8b067"
+  },
+  "js/modules/dashboard-part24.js": {
+    "version": "20260814_v12",
+    "sha256": "5966884a5db73e17"
+  },
+  "js/modules/dashboard-part25.js": {
+    "version": "20260826_clock_mobile_v1",
+    "sha256": "a5038a3e8b0ef089"
+  },
+  "js/modules/dashboard-part26.js": {
+    "version": "20260824_staff_password_css_v1",
+    "sha256": "00c90ceab46e9f08"
+  },
+  "js/modules/sales-workspace.js": {
+    "version": "20260826_lb_dept_v1",
+    "sha256": "9ce8c7f16b2f77ce"
+  },
+  "js/modules/inventory-workspace.js": {
+    "version": "20260826_inv_intel_pulse_v1",
+    "sha256": "f79d0284e3f6e281"
+  },
+  "js/modules/fni-workspace.js": {
+    "version": "20260826_lb_dept_v1",
+    "sha256": "3b7f928330be0844"
+  },
+  "js/modules/vehicle-record.js": {
+    "version": "20260824_inventory_accuracy_v1",
+    "sha256": "4004a9a0eb4de4eb"
+  },
+  "js/modules/receipt-engine.js": {
+    "version": "20260824_real_receipt_data_v1",
+    "sha256": "290c6173579aa92c"
+  },
+  "js/modules/service-views.js": {
+    "version": "20260826_tech_board_v1",
+    "sha256": "d3792de3a03b5c08"
+  },
+  "js/modules/service-workspace.js": {
+    "version": "20260826_loaners_v1",
+    "sha256": "bbbec2ead2dd474d"
+  },
+  "js/modules/parts-views.js": {
+    "version": "20260825_dead_handlers_v1",
+    "sha256": "65438a095642e8e4"
+  },
+  "js/modules/parts-workspace.js": {
+    "version": "20260826_lb_dept_v1",
+    "sha256": "c281af1ceb0cb4a2"
+  },
+  "js/modules/accounting-views.js": {
+    "version": "20260817_simple_internal",
+    "sha256": "079fd384f6f551cc"
+  },
+  "js/modules/accounting-workspace.js": {
+    "version": "20260826_lb_dept_v1",
+    "sha256": "e640598d78f8ac04"
+  },
+  "js/modules/video-studio.js": {
+    "version": "20260826_video_fix_v2",
+    "sha256": "1d416ed17adae174"
+  },
+  "js/modules/marketing-workspace.js": {
+    "version": "20260906_studio_tab_v2",
+    "sha256": "8ac9e9917386c2ad"
+  },
+  "js/modules/discoverability-workspace.js": {
+    "version": "20260827_discoverability_v1",
+    "sha256": "65bd02eb581f31e2"
+  },
+  "js/modules/launch-workspace.js": {
+    "version": "20260824_ai_panel_contrast_v1",
+    "sha256": "631bcc0475a1c58b"
+  },
+  "js/modules/academy-workspace.js": {
+    "version": "20260824_ai_panel_contrast_v1",
+    "sha256": "a66e1eef577b68bd"
+  },
+  "js/modules/people-views.js": {
+    "version": "20260826_hr_cal_v1",
+    "sha256": "4c1c59ced2fe715d"
+  },
+  "js/modules/people-workspace.js": {
+    "version": "20260906_studio_tab_v2",
+    "sha256": "8e974c871caccb27"
+  },
+  "js/modules/staff-chat-dock.js": {
+    "version": "20260827_p3_fab_v1",
+    "sha256": "21b73ca0a763db4a"
+  },
+  "js/modules/demo-control-panel.js": {
+    "version": "20260906_studio_tab_v2",
+    "sha256": "bc1c857d343a817c"
+  },
+  "table-sort.js": {
+    "version": "20260706a_noemoji",
+    "sha256": "c81be8f0afd6cbff"
+  }
+}

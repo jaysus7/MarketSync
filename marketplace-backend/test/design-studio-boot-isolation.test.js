@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { RELEASE_VERSION } from './helpers/asset-versions.js'
 
 const dashboardPart2 = readFileSync(
   new URL('../../marketplace-frontend/js/modules/dashboard-part2.js', import.meta.url),
@@ -20,7 +21,9 @@ test('Design Studio boots independently from Social Scheduler', () => {
   // what broke the Design Studio tab in the Marketing dashboard.
   assert.match(studioBranch, /msLoadDesignStudioShell\(\)/)
   assert.match(dashboardPart2, /function msLoadDesignStudioShell/)
-  assert.match(dashboardPart2, /studio-shell\.js\?v=20260906_studio_tab_v1/)
+  // The lazily-loaded shell must ride the same cache-bust as the chain that loads
+  // it: a new part2.js pointing at a stale studio-shell.js is the worst of both.
+  assert.match(dashboardPart2, new RegExp(`studio-shell\\.js\\?v=${RELEASE_VERSION}`))
   assert.match(studioBranch, /catch\(renderMarketSyncStudioBootError\)/)
 })
 
