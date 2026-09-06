@@ -2230,19 +2230,20 @@ window.mktDeleteStudioFolder = async function (folderId) {
 
 async function mktLoadStudioBrandAndAssets() {
   const brandHost = document.getElementById('mkt-studio-brand');
-  const [brandResult, sitesResult, assetsResult, designsResult, foldersResult] = await Promise.all([
+  // There is no GET /websites on the backend — that call 404'd on every open and its
+  // `site.*` fallbacks below could therefore never fire. /branding is the canonical
+  // brand record (the same one Settings → Branding and the website wordmark read).
+  const [brandResult, assetsResult, designsResult, foldersResult] = await Promise.all([
     apiGetJson('/branding').catch(() => ({})),
-    apiGetJson('/websites').catch(() => ({})),
     apiGetJson('/marketing/assets').catch(() => ({ assets: [] })),
     apiGetJson('/marketing/studio/designs').catch(() => ({ designs: [] })),
     apiGetJson('/marketing/studio/folders').catch(() => ({ folders: [] })),
   ]);
   const brand = brandResult.branding || {};
-  const site = (sitesResult.sites || sitesResult.websites || [])[0] || sitesResult.site || {};
-  const logo = brand.logo_url || site.logo_url || '';
-  const primary = brand.primary_color || site.primary_color || '#4f46e5';
-  const accent = brand.secondary_color || site.accent_color || '#0f172a';
-  const tagline = brand.tagline || site.tagline || '';
+  const logo = brand.logo_url || '';
+  const primary = brand.primary_color || '#4f46e5';
+  const accent = brand.secondary_color || '#0f172a';
+  const tagline = brand.tagline || '';
   window.__mktStudioBrand = { ...brand, logo_url: logo, primary_color: primary, secondary_color: accent, tagline };
   if (brandHost) brandHost.innerHTML = `
     <div class="flex items-center gap-3">

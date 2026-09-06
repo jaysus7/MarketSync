@@ -32,13 +32,33 @@ test('major chrome surfaces use light-default + dark: variant pairs', () => {
 })
 
 test('no more bare dark-only slate utility classes remain unpaired', () => {
-  // Every bg-slate-900/950/800/700/600 and border-slate-800/700 token in the file should
-  // now be preceded by a light-mode class immediately before it (i.e. be part of a pair),
-  // or be immediately preceded by "dark:" itself. A bare, unpaired occurrence would mean
-  // a spot was missed in the conversion.
-  const tokenPattern = /(?<!dark:)(?<!dark:hover:)(?<!dark:focus:)\b(bg|border)-slate-(900|950|800|700|600)\b(?!\/)/g
-  const bareMatches = [...studio.matchAll(tokenPattern)]
-  assert.equal(bareMatches.length, 0, `found unpaired dark-only slate classes: ${bareMatches.map(m => m[0]).join(', ')}`)
+  // Every bg-slate-900/950/800/700/600 and border-slate-800/700 token in the file must be
+  // part of a light/dark pair, i.e. the same class list also carries a `dark:` variant of
+  // the same property. That is checked per class attribute rather than by looking at the
+  // single token immediately to the left, so a dark-only token still fails even when some
+  // unrelated bg-* class happens to sit in front of it, and a genuine pair written in
+  // either order (`bg-white dark:bg-slate-900`, or the inverted CTA `bg-slate-900
+  // dark:bg-white`) is correctly recognised as paired.
+  const darkOnly = /\b(bg|border)-slate-(?:900|950|800|700|600)\b(?!\/)/
+  const unpaired = []
+  for (const attr of studio.match(/class="[^"]*"/g) || []) {
+    const classes = attr.slice(7, -1).split(/\s+/).filter(Boolean)
+    // Which properties this class list themes: bg / border / text ...
+    const themed = new Set(
+      classes
+        .filter((c) => c.startsWith('dark:'))
+        .map((c) => c.replace(/^dark:(?:hover:|focus:|group-hover:)?/, '').split('-')[0])
+    )
+    for (const cls of classes) {
+      if (cls.startsWith('dark:')) continue
+      const bare = cls.replace(/^(?:hover:|focus:|group-hover:)/, '')
+      const hit = bare.match(darkOnly)
+      if (!hit) continue
+      if (themed.has(hit[1])) continue // paired with a dark: variant of the same property
+      unpaired.push(cls)
+    }
+  }
+  assert.deepEqual(unpaired, [], `found unpaired dark-only slate classes: ${unpaired.join(', ')}`)
 })
 
 test('fabric-adapter.js and scene-model.js carry no Tailwind classes needing conversion', () => {
