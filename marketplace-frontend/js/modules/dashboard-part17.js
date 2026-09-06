@@ -2700,7 +2700,7 @@ function renderWsDiscoverabilityInspector() {
   // is one tap away from either surface.
   const editAction = { label: 'Edit in Builder', onclick: 'openWebsiteBuilder()' };
   const scanAction = { label: 'Run public crawl', onclick: 'wsRunPublicCrawl(this)' };
-  const gscAction = { label: 'Connect Search Console', onclick: "switchPage('integrations')" };
+  const gscAction = { label: 'Connect Search Console', onclick: "openSetupModal('integrations')" };
   const canonicalAction = { label: 'Set site address', onclick: "openSetupModal('domain')" };
   const aiRefreshAction = { label: 'Refresh AI evidence', onclick: 'loadWebsiteDiscoverability(true)' };
   const checks = [
@@ -3232,13 +3232,28 @@ function wsDiscoveryCheck(label, status, detail, action) {
 async function wsRunPublicCrawl(btn) {
   const original = btn?.textContent || '';
   if (btn) { btn.disabled = true; btn.textContent = 'Scanning…'; }
+  // Visible confirmation the click reached the handler — matters when the
+  // backend fails silently (403 entitlement, network, etc.).
+  if (typeof showToast === 'function') showToast('Starting public crawl…', 'info');
   try {
     await apiSendJson('/discoverability/validation/scan', 'POST', {});
     __wsDiscoveryData = null;
     await loadWebsiteDiscoverability(true);
     showToast('Public crawl completed — evidence refreshed', 'success');
   } catch (e) {
-    showToast(e.message || 'Public crawl could not be run', 'error');
+    // Surface the real reason instead of a bare "Crawl failed". The
+    // Discoverability route returns 403 when the entitlement is missing,
+    // 401 without MFA, 500 on backend errors — each needs a different fix.
+    const msg = (e?.message || '').toLowerCase();
+    let friendly = e?.message || 'Public crawl could not be run';
+    if (/403|entitlement|not entitled/.test(msg)) {
+      friendly = 'Discoverability entitlement required — enable it in Settings → Products first.';
+    } else if (/401|unauthor/.test(msg)) {
+      friendly = 'This account needs MFA to run a crawl. Sign out and back in with MFA.';
+    } else if (/network|failed to fetch|timed out/.test(msg)) {
+      friendly = 'Network error — crawl request never reached the server.';
+    }
+    if (typeof showToast === 'function') showToast(friendly, 'error');
     if (btn) { btn.disabled = false; btn.textContent = original; }
   }
 }
@@ -3263,7 +3278,7 @@ function wsDiscoveryChecks(data = {}) {
   // without a next step.
   const editAction = { label: 'Edit in Builder', onclick: 'openWebsiteBuilder()' };
   const scanAction = { label: 'Run public crawl', onclick: 'wsRunPublicCrawl(this)' };
-  const gscAction = { label: 'Connect Search Console', onclick: "switchPage('integrations')" };
+  const gscAction = { label: 'Connect Search Console', onclick: "openSetupModal('integrations')" };
   const canonicalAction = { label: 'Set site address', onclick: "openSetupModal('domain')" };
   const aiRefreshAction = { label: 'Refresh AI evidence', onclick: 'loadWebsiteDiscoverability(true)' };
   return [

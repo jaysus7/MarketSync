@@ -23,9 +23,20 @@ test('wsDiscoveryCheck renders an action button when status is not pass', () => 
 test('wsRunPublicCrawl calls the real /discoverability/validation/scan endpoint', () => {
   const start = src.indexOf('async function wsRunPublicCrawl')
   assert.ok(start > 0, 'wsRunPublicCrawl must exist')
-  const block = src.slice(start, start + 500)
+  const block = src.slice(start, start + 1600)
   assert.match(block, /apiSendJson\(['"]\/discoverability\/validation\/scan['"], 'POST'/, 'must POST to the real scan endpoint')
   assert.match(block, /loadWebsiteDiscoverability\(true\)/, 'must refresh evidence after a successful scan')
+  // Errors must surface the real reason — a demo account without the
+  // entitlement was seeing nothing when the endpoint returned 403.
+  assert.match(block, /entitlement required/, 'must translate 403 into an entitlement message')
+  assert.match(block, /Starting public crawl/, 'must confirm the click reached the handler with a visible toast')
+})
+
+test('Connect Search Console opens the real integrations setup modal', () => {
+  // switchPage('integrations') never worked — there is no page with that
+  // id in workspace-registry.js. Integrations live in the setup modal.
+  assert.match(src, /openSetupModal\(['"]integrations['"]\)/, 'gscAction must open the integrations setup modal')
+  assert.doesNotMatch(src, /switchPage\(['"]integrations['"]\)/, 'stale switchPage integrations call must be gone')
 })
 
 test('every check tuple carries an action so UNKNOWN never leaves the user stranded', () => {
