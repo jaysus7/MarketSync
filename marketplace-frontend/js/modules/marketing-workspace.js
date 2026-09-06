@@ -2679,9 +2679,18 @@ function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes, discRes, re
     const h = row?.health || 'not_connected';
     const tone = HEALTH_TONE[h] || HEALTH_TONE.not_connected;
     const text = HEALTH_LABEL[h] || 'Unknown';
-    return `<li class="p-3 flex items-center justify-between gap-3 text-sm">
-      <span class="font-black text-slate-900 dark:text-white">${esc(label)}</span>
-      <span class="text-xs font-black px-2 py-0.5 rounded-full ${tone}">${esc(text)}</span>
+    // Freshness — last_success_at / last_verified_at are populated by the
+    // matrix when the integration has ever produced real evidence.
+    const stamp = row?.last_verified_at || row?.last_success_at || null;
+    const stampLine = stamp ? `Last verified ${new Date(stamp).toLocaleDateString()}` : (row?.selected ? esc(String(row.selected).slice(0, 42)) : '');
+    const reason = row?.reason || row?.last_error || '';
+    return `<li class="p-3 flex items-start justify-between gap-3 text-sm">
+      <div class="min-w-0">
+        <div class="font-black text-slate-900 dark:text-white truncate">${esc(label)}</div>
+        ${stampLine ? `<div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">${stampLine}</div>` : ''}
+        ${h !== 'healthy' && reason ? `<div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">${esc(String(reason).slice(0, 140))}</div>` : ''}
+      </div>
+      <span class="shrink-0 text-xs font-black px-2 py-0.5 rounded-full ${tone}">${esc(text)}</span>
     </li>`;
   };
   const integrationsSection = `
@@ -2749,6 +2758,7 @@ function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes, discRes, re
   const captured = conversations.filter(c => c.contact_id).length;
   const booked = conversations.filter(c => c.booked).length;
   const activeConvos = conversations.filter(c => (c.status || '').toLowerCase() === 'open' || (c.status || '').toLowerCase() === 'active').length;
+  const captureRate = conversations.length ? Math.round((captured / conversations.length) * 100) : null;
   const aiSection = `
     <section class="space-y-3" data-website-cc-section="ai-agent">
       <div class="flex items-end justify-between gap-3">
@@ -2761,7 +2771,7 @@ function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes, discRes, re
       ${aiCanQuery
         ? `<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
              ${kpi('Conversations', conversations.length, 'last 200 · /ai/conversations')}
-             ${kpi('Leads captured', captured, captured ? 'linked to a contact' : 'no captures yet')}
+             ${kpi('Leads captured', captured, captureRate != null ? `${captureRate}% capture rate` : (captured ? 'linked to a contact' : 'no captures yet'))}
              ${kpi('Booked', booked, booked ? 'appointments' : 'no bookings yet')}
              ${kpi('Active', activeConvos, activeConvos ? 'open threads' : 'all resolved')}
            </div>`
@@ -2778,24 +2788,44 @@ function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes, discRes, re
   const canReadHistory = revisionsRes !== null || auditRes !== null;
   // Merge into one chronological activity feed. Every row keeps its source
   // so a viewer knows why it happened (revision draft, deploy, audit event).
+  // Actor lookup: prefer audit events' actor_email since the revisions table
+  // only stores actor_id. When an audit event and a revision share a
+  // timestamp within 60s and the audit action is site.revision_saved / …
+  // published, we can attribute the revision to that actor.
+  const actorByTime = new Map();
+  auditEvents.forEach(a => {
+    if (a.actor_email && a.created_at) actorByTime.set(a.created_at.slice(0, 16), a.actor_email);
+  });
+  const attrActor = (revision) => {
+    const key = (revision.published_at || revision.created_at || '').slice(0, 16);
+    return actorByTime.get(key) || null;
+  };
   const merged = [
     ...revisions.slice(0, 15).map(r => ({
       when: r.published_at || r.created_at,
       title: r.state === 'published' ? `Published revision #${r.revision_number}` : `Draft revision #${r.revision_number}`,
       sub: r.change_summary || (r.state === 'published' ? 'Went live' : 'Saved as draft'),
       kind: r.state === 'published' ? 'publish' : 'draft',
+      actor: attrActor(r),
+      revisionId: r.id,
+      canRestore: true,
     })),
     ...deployments.slice(0, 15).map(d => ({
       when: d.deployed_at || d.created_at,
-      title: `Deployment · ${esc(d.status || 'unknown')}`,
-      sub: d.published_summary || d.trigger_type || 'Deployment run',
-      kind: d.status === 'succeeded' ? 'publish' : (d.status === 'failed' ? 'error' : 'deploy'),
+      title: `Deployment · ${esc(d.status || 'unknown')}${d.trigger_type ? ' · ' + esc(d.trigger_type) : ''}`,
+      sub: (d.published_summary && typeof d.published_summary === 'object'
+        ? (d.published_summary.change_summary || `revision ${d.published_summary.revision_number || '?'}`)
+        : (d.trigger_type || 'Deployment run')),
+      kind: d.status === 'succeeded' || d.status === 'verified' ? 'publish' : (d.status === 'failed' ? 'error' : 'deploy'),
+      deploymentId: d.id,
+      canRollback: (d.status === 'succeeded' || d.status === 'verified') && d.published_summary?.revision_id,
     })),
     ...auditEvents.slice(0, 20).map(a => ({
       when: a.created_at,
       title: (a.action || '').replace(/^site\./, '').replace(/_/g, ' ') || 'site event',
       sub: a.actor_email || (a.actor_id ? `actor ${a.actor_id.slice(0, 8)}…` : 'system'),
       kind: 'audit',
+      actor: a.actor_email,
     })),
   ]
     .filter(e => e.when)
@@ -2822,11 +2852,13 @@ function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes, discRes, re
                    <li class="p-3 flex items-start justify-between gap-3 text-sm">
                      <div class="min-w-0">
                        <div class="font-black text-slate-900 dark:text-white truncate">${esc(e.title)}</div>
-                       <div class="text-xs text-slate-500 dark:text-slate-400 truncate">${esc(e.sub)}</div>
+                       <div class="text-xs text-slate-500 dark:text-slate-400 truncate">${esc(e.sub)}${e.actor ? ' · ' + esc(e.actor) : ''}</div>
                      </div>
                      <div class="shrink-0 flex flex-col items-end gap-1">
                        <span class="text-xs font-black px-2 py-0.5 rounded-full ${kindTone(e.kind)}">${esc(e.kind)}</span>
                        <span class="text-[11px] text-slate-500 dark:text-slate-400">${esc(new Date(e.when).toLocaleString())}</span>
+                       ${e.canRollback ? `<button type="button" onclick="wsCcRollbackDeployment('${esc(e.deploymentId)}',this)" class="text-[10px] font-black text-indigo-700 dark:text-indigo-300 hover:underline">Rollback</button>` : ''}
+                       ${e.canRestore && e.kind === 'draft' ? `<button type="button" onclick="wsCcRestoreRevision('${esc(e.revisionId)}',this)" class="text-[10px] font-black text-indigo-700 dark:text-indigo-300 hover:underline">Restore as draft</button>` : ''}
                      </div>
                    </li>`).join('')}
                </ul></div>`
@@ -2837,3 +2869,36 @@ function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes, discRes, re
   return `${statusStrip}${quickActions}${discSnapshot}${recsSection}${perfSection}${leadsSection}${contentGrid}${activitySection}${inventorySection}${integrationsSection}${aiSection}${speedSection}${a11ySection}`;
 }
 window.renderWebsiteCommandCenter = renderWebsiteCommandCenter;
+
+// Section 9 action handlers — POST to the real endpoints (routes/site.js:863
+// restore + :873 rollback). Both require MFA + site.manage; on success we
+// reload the command center so the new revision/deployment appears immediately.
+async function wsCcRollbackDeployment(deploymentId, btn) {
+  if (!confirm('Rollback: republish the revision this deployment installed?')) return;
+  const original = btn?.textContent || '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Rolling back…'; }
+  try {
+    await apiSendJson(`/dealership/site/deployments/${encodeURIComponent(deploymentId)}/rollback`, 'POST', {});
+    if (typeof showToast === 'function') showToast('Rollback published', 'success');
+    if (typeof loadWebsiteCommandCenter === 'function') loadWebsiteCommandCenter();
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message || 'Rollback failed', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = original; }
+  }
+}
+window.wsCcRollbackDeployment = wsCcRollbackDeployment;
+
+async function wsCcRestoreRevision(revisionId, btn) {
+  if (!confirm('Restore this revision as a new editable draft?')) return;
+  const original = btn?.textContent || '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Restoring…'; }
+  try {
+    await apiSendJson(`/dealership/site/revisions/${encodeURIComponent(revisionId)}/restore`, 'POST', {});
+    if (typeof showToast === 'function') showToast('Revision restored as draft', 'success');
+    if (typeof loadWebsiteCommandCenter === 'function') loadWebsiteCommandCenter();
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message || 'Restore failed', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = original; }
+  }
+}
+window.wsCcRestoreRevision = wsCcRestoreRevision;

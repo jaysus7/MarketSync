@@ -88,6 +88,20 @@ test('Phase C surfaces honest disconnected chips for absent data — no fake met
   assert.match(block, /data-website-cc-section="activity"/, 'Section 9 must exist')
   assert.match(block, /revisionsRes\?\.revisions/, 'Activity must read revisions from /dealership/site/revisions')
   assert.match(block, /auditRes\?\.events/, 'Activity must read events from /dealership/site/audit-log')
+  // Phase F+ · rollback/restore buttons on Section 9 rows.
+  assert.match(block, /wsCcRollbackDeployment/, 'Section 9 must expose rollback action')
+  assert.match(block, /wsCcRestoreRevision/, 'Section 9 must expose restore-as-draft action')
+  // Section 10 must surface last_verified_at / last_success_at when the
+  // matrix provides them, plus the row's reason when unhealthy.
+  assert.match(block, /last_verified_at \|\| row\?\.last_success_at/, 'Integrations must show real freshness stamps')
+})
+
+test('rollback + restore handlers post to the real endpoints', () => {
+  const src = wk
+  assert.match(src, /apiSendJson\(`\/dealership\/site\/deployments\/\$\{encodeURIComponent\(deploymentId\)\}\/rollback`, 'POST'/,
+    'wsCcRollbackDeployment must POST to the real rollback route')
+  assert.match(src, /apiSendJson\(`\/dealership\/site\/revisions\/\$\{encodeURIComponent\(revisionId\)\}\/restore`, 'POST'/,
+    'wsCcRestoreRevision must POST to the real restore route')
 })
 
 test('render uses real fields from /dealership/site — no fake metrics', () => {
