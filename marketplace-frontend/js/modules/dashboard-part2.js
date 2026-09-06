@@ -1568,7 +1568,16 @@ function renderDeptTabbar(pageId) {
   // communication runtime do not strand the user inside one studio.
   const dealerDeptId = (__activeDept && DEPARTMENTS[__activeDept]?.pages.some(p => p.page === pageId)) ? __activeDept
     : Object.keys(DEPARTMENTS).find(id => DEPARTMENTS[id].pages.some(p => p.page === pageId && !p.legacy));
-  if (dealerDeptId === 'marketing') {
+  // ...except on a page that registers its OWN engine. marketing-overview does,
+  // and its engine tab bar already carries every studio this switcher lists
+  // (studio, video-studio, website, automations, campaigns), so rendering both
+  // stacked two tab strips on one screen. The generic rule a few lines below —
+  // "a registered engine already owns the department title and primary tabs" —
+  // has said this all along; this branch simply returned before reaching it.
+  // Every other marketing page (website, video-studio, automation-builder) has no
+  // engine tab bar of its own and still needs this switcher, which is what stops
+  // the user being stranded inside one studio.
+  if (dealerDeptId === 'marketing' && !(typeof ENGINES !== 'undefined' && ENGINES[pageId])) {
     __activeDept = 'marketing';
     const dept = DEPARTMENTS.marketing;
     const pages = dept.pages.filter(deptPageAllowed);
@@ -2371,8 +2380,8 @@ function msLoadDesignStudioShell() {
     .then(() => window.msLoadScript('js/modules/studio/document-model.js?v=20260906_studio_tab_v1'))
     .then(() => window.msLoadScript('js/modules/studio/studio-store.js?v=20260906_studio_tab_v1'))
     .then(() => window.msLoadScript('js/modules/studio/studio-autosave.js?v=20260906_studio_tab_v1'))
-    .then(() => window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260906_studio_tab_v4'))
-    .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260906_studio_tab_v4'))
+    .then(() => window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260906_studio_tab_v6'))
+    .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260906_studio_tab_v6'))
     .then(() => typeof window.__msOpenStudioReal === 'function' || typeof window.openMarketSyncStudio === 'function')
     .catch((error) => { window.__msDesignStudioShellPromise = null; throw error })
   return window.__msDesignStudioShellPromise
