@@ -60,6 +60,10 @@ const BUILTIN = new Set([
   'scrollTo', 'scrollBy', 'matchMedia', 'getComputedStyle', 'btoa', 'atob', 'postMessage', 'reportError',
   'if', 'for', 'while', 'switch', 'catch', 'return', 'typeof', 'function', 'new', 'delete', 'void',
   'do', 'else', 'try', 'finally', 'with', 'in', 'of', 'case', 'throw', 'await', 'yield',
+  // CSS functions. A handler that passes a colour or a length inline —
+  // `f({color:'rgba(0,0,0,.35)'})` — is not calling a page function called
+  // rgba, and no page could define one that a stylesheet would use.
+  'rgba', 'rgb', 'hsl', 'hsla', 'url', 'calc', 'var', 'clamp', 'translate', 'rotate', 'scale',
 ])
 
 // A bare `name(` — not `obj.name(`, not `obj?.name(`, and not the tail of a
@@ -70,12 +74,71 @@ const OPTIONAL_CALL = /(^|[^\w$.])([A-Za-z_$][\w$]*)\?\.\(/g
 const HANDLER_ATTR = /\bon([a-z]+)\s*=\s*(["'])([\s\S]*?)\2/gi
 
 function calleesOf(expr) {
+  // Walk the handler text tracking quote state instead of pattern-matching it.
+  // These attributes are themselves inside JS string literals, so quotes arrive
+  // escaped (\') and nested apostrophes appear in prose — regex blanking got
+  // both wrong, reporting CSS colours (rgba) and English ("the") as handlers.
+  //
+  // Only a bare `name(` at top level, outside every quote and outside a
+  // ${...} interpolation, can be a function this page calls.
   const names = new Set()
-  for (const m of expr.matchAll(CALL)) names.add(m[2])
-  for (const m of expr.matchAll(OPTIONAL_CALL)) names.add(m[2])
+  let quote = null      // "'" | '"' | '`' | null
+  let depth = 0         // ${ } nesting inside a template
+  let word = ''
+  let dotted = false    // was this identifier preceded by . or ?.
+  let prev = ''
+
+  for (let i = 0; i < expr.length; i++) {
+    const c = expr[i]
+
+    if (c === '\\') { i++; word = ''; continue }          // escaped char: skip both
+
+    if (quote) {
+      if (quote === '`' && c === '$' && expr[i + 1] === '{') { depth++; i++; continue }
+      if (depth > 0 && c === '}') { depth--; continue }
+      if (c === quote && depth === 0) quote = null
+      word = ''
+      continue
+    }
+
+    if (c === '"' || c === "'" || c === '`') { quote = c; word = ''; continue }
+
+    // A name built by interpolation is not statically knowable, so drop the
+    // identifier on either side of it.
+    if (c === '$' && expr[i + 1] === '{') {
+      let d = 1
+      i += 2
+      while (i < expr.length && d > 0) {
+        if (expr[i] === '{') d++
+        else if (expr[i] === '}') d--
+        i++
+      }
+      i--
+      word = ''
+      // Swallow the identifier tail that follows the interpolation.
+      while (expr[i + 1] && /[\w$]/.test(expr[i + 1])) i++
+      continue
+    }
+
+    if (/[\w$]/.test(c)) {
+      if (!word) dotted = prev === '.' || prev === '?'   // obj.name( / obj?.name(
+      word += c
+      prev = c
+      continue
+    }
+    // A method on something is not a bare global handler, so only an
+    // undotted `name(` counts — the same rule the original regex encoded as
+    // its `(^|[^\w$.?])` prefix.
+    if (c === '(' && word && !dotted) names.add(word)
+    word = ''
+    prev = c
+  }
+
   for (const b of BUILTIN) names.delete(b)
   return names
 }
+
+
 
 const references = []
 for (const [file, text] of src) {
@@ -95,6 +158,11 @@ for (const text of src.values()) {
   for (const m of text.matchAll(/\b(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/g)) defined.add(m[1])
   for (const m of text.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/g)) defined.add(m[1])
   for (const m of text.matchAll(/\bwindow\.([A-Za-z_$][\w$]*)\s*=/g)) defined.add(m[1])
+  // Several studio modules are IIFEs that take window as `global` (or use
+  // globalThis), so `global.studioApplyMotion = applyMotion` is just as much a
+  // global definition as `window.x =`. Missing this reported live handlers as
+  // dead.
+  for (const m of text.matchAll(/\b(?:global|globalThis|self)\.([A-Za-z_$][\w$]*)\s*=/g)) defined.add(m[1])
   for (const m of text.matchAll(/Object\.assign\(\s*window\s*,\s*\{([\s\S]*?)\}\s*\)/g)) {
     for (const part of m[1].split(',')) {
       const key = part.split(':')[0].trim()
