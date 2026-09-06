@@ -2371,8 +2371,8 @@ function msLoadDesignStudioShell() {
     .then(() => window.msLoadScript('js/modules/studio/document-model.js?v=20260906_studio_tab_v1'))
     .then(() => window.msLoadScript('js/modules/studio/studio-store.js?v=20260906_studio_tab_v1'))
     .then(() => window.msLoadScript('js/modules/studio/studio-autosave.js?v=20260906_studio_tab_v1'))
-    .then(() => window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260906_studio_tab_v1'))
-    .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260906_studio_tab_v2'))
+    .then(() => window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260906_studio_tab_v4'))
+    .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260906_studio_tab_v4'))
     .then(() => typeof window.__msOpenStudioReal === 'function' || typeof window.openMarketSyncStudio === 'function')
     .catch((error) => { window.__msDesignStudioShellPromise = null; throw error })
   return window.__msDesignStudioShellPromise

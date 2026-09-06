@@ -1626,15 +1626,23 @@ function renderEngine(engineId, force = false) {
       <button type="button" onclick="deptGo('inventory','facebook')" class="px-3.5 py-2 rounded-xl bg-[#1877F2] hover:bg-[#166fe0] text-white text-[13px] font-black shadow-sm transition">Facebook Auto Poster</button>
       <button type="button" onclick="openEmailSmsBuilder({ mode: 'email' })" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-[13px] font-black transition">New Campaign</button>` : '';
 
-  root.innerHTML = (eng.hideHeader ? '' : `
-    <div class="ms-engine-header flex items-start justify-between flex-wrap gap-3 mb-3">
+  // `hideTitle` keeps the header's ACTIONS but drops the icon/title/subtitle block.
+  // On a page reached through the workspace tab strip, that block is a second
+  // header saying what the highlighted workspace chip and the page tab above it
+  // already say — three rows of chrome before any content, and on a phone the
+  // title alone took roughly a quarter of the screen. Actions still need a home,
+  // so this is not the same as hideHeader.
+  const titleBlock = eng.hideTitle ? '' : `
       <div class="flex items-center gap-3 min-w-0">
         <div class="ms-engine-mark w-11 h-11 rounded-xl ${A.bg} ${A.text} flex items-center justify-center flex-shrink-0 shadow-xs">${svgIcon(eng.icon || 'chart', 'w-5.5 h-5.5')}</div>
         <div class="min-w-0">
           <h1 class="ms-engine-title text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">${esc(eng.title)}</h1>
           <p class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mt-1">${esc(eng.subtitle || '')}</p>
         </div>
-      </div>
+      </div>`;
+  root.innerHTML = (eng.hideHeader ? '' : `
+    <div class="ms-engine-header flex items-start ${eng.hideTitle ? 'justify-end' : 'justify-between'} flex-wrap gap-3 mb-3">
+      ${titleBlock}
       <div class="flex items-center gap-2 flex-wrap">
         ${suiteActions}
         <button onclick="renderEngine('${engineId}', true)" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[13px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-1.5 transition">${svgIcon('refresh', 'w-3.5 h-3.5')}Refresh</button>

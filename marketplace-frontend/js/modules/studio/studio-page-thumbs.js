@@ -25,7 +25,16 @@
         ring:none !important;
         outline:none !important;
       }
-      #studio-canvas-host,canvas.lower-canvas,canvas.upper-canvas{
+      /* The lower canvas ONLY. Fabric's upper canvas is the transparent
+         interaction layer that sits ON TOP of the artwork — painting it opaque
+         covers the whole design with a white sheet, which is exactly what
+         5b07ea9 did when it added canvas.upper-canvas to this rule. The
+         artboard then looked blank while the drawing underneath was perfectly
+         intact: the bitmap had pixels, objects reported, selection still
+         worked, and nothing was visible. A background on the LOWER canvas is
+         safe because it renders behind the bitmap, giving an empty page its
+         white default. */
+      #studio-canvas-host,canvas.lower-canvas{
         background:#fff !important;
       }
       #studio-safe-guides > div{
