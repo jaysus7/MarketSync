@@ -41,13 +41,34 @@ test('the studio panel can never be stranded on its loading placeholder', () => 
     'a shell that fails to load must resolve to false, not reject')
 })
 
+test('a stalled shell load times out instead of hanging forever', () => {
+  // msLoadScript and msLoadDesignStudioShell both memoise by key. A request that
+  // stalls rather than fails leaves a pending promise cached for the life of the
+  // page, so every later attempt awaits the SAME stuck promise — a "Loading…"
+  // that reopening the tab cannot clear.
+  const fn = code(ws).match(/function mktEnsureStudioShell\(\)[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(fn, 'the shell loader must exist')
+  assert.match(fn, /Promise\.race\(/, 'the wait must be bounded')
+  assert.match(fn, /MKT_STUDIO_SHELL_TIMEOUT_MS/, 'the bound must be a named constant')
+  // Both the timeout and the failure path must clear the memo, or "retry" is just
+  // another await on the stuck promise.
+  assert.equal((fn.match(/window\.__msDesignStudioShellPromise = null/g) || []).length, 2,
+    'both the timeout and the catch must discard the memoised promise')
+  assert.match(fn, /clearTimeout\(timer\)/, 'the timer must not outlive a successful load')
+})
+
 test('a page reached from the workspace tabs does not repeat its own title', () => {
   // hideTitle drops the icon/title/subtitle block but keeps the header's actions,
   // which is what separates it from hideHeader.
   assert.match(code(engine), /eng\.hideTitle \? '' :/, 'renderEngine must support hideTitle')
   assert.match(code(engine), /\$\{titleBlock\}/, 'the header must render through the gated block')
-  assert.match(code(engine), /hideTitle \? 'justify-end' : 'justify-between'/,
-    'the action row must still sit correctly when the title is gone')
+  // The card styling is the point: ms-engine-header carries padding, a border, a
+  // glass background and min-height:7rem on mobile. Keeping it with the title gone
+  // left an empty box holding only Refresh — the very extra header row hideTitle
+  // exists to remove. So the class must be dropped, not just the text.
+  assert.match(code(engine),
+    /eng\.hideTitle \? 'flex items-center justify-end' : 'ms-engine-header flex items-start justify-between'/,
+    'a title-less header must drop the card class, not render an empty card')
   // Actions are NOT part of what hideTitle removes.
   const header = code(engine).match(/const titleBlock = [\s\S]*?<\/div>`\) \+ `/)?.[0] || ''
   assert.match(header, /suiteActions/, 'suite actions must survive hideTitle')

@@ -81,7 +81,7 @@
     '/js/modules/studio/studio-elements-upgrade.js?v=20260904_elements_v1',
     '/js/modules/studio/studio-unify-elements.js?v=20260904_unify_v1',
     '/js/modules/studio/studio-template-previews.js?v=20260904_tmpl_preview_v4',
-    '/js/modules/studio/studio-context-toolbar.js?v=20260904_ctx_toolbar_v2'
+    '/js/modules/studio/studio-context-toolbar.js?v=20260906_touch_motion_v1'
   ].forEach(function (src) {
     var s = document.createElement('script');
     s.src = src;

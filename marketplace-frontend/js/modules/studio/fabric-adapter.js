@@ -39,30 +39,127 @@ function loadFabricJs() {
 // the single owner of the document coordinate system, exactly as
 // docs/studio-scaling-inventory.md requires.
 //
-// The budget below is deliberately half of WebKit's hard ceiling: Fabric
-// allocates THREE bitmaps of this size per canvas (lower, upper, and the
-// object cache), so 8.39M px each (~33MB) keeps the total near 100MB, well
-// inside the per-tab canvas memory WebKit will hand out on a phone. At this
-// budget a 1080x1920 story renders at ratio 2 (2160x3840) and a 1080x1080
-// square at ratio ~2.7 — still retina-sharp, never blank.
-const MS_MAX_CANVAS_BITMAP_PX = 8388608; // 2048 x 4096
+// The first version of this budget capped ONE bitmap at 8.39M px and reasoned
+// that the total would land "near 100MB, well inside" what a phone grants.
+// Measured against the real adapter and the real tmpl_pricedrop_story scene, at
+// 440x796 / dpr 3, that was wrong in two ways:
+//
+//     lower-canvas   2160x3840   8.29M px
+//     upper-canvas   2160x3840   8.29M px   <- Fabric ALWAYS makes this one
+//     15 object caches           11.91M px  <- one canvas per cached object
+//                                -----------
+//                                28.5M px  (~114MB)
+//
+// The pair alone is 16.6M px — over WebKit's ~16.7M ceiling by itself, before
+// a single object cache. Capping one canvas moved the artboard from far over
+// the line to exactly on it, which is why it stayed blank.
+//
+// So the budget is now per PAGE, not per canvas: WebKit's ceiling, split
+// across the pair, with room left for the object caches that share the same
+// per-tab pool.
+const MS_WEBKIT_MAX_BITMAP_PX = 16777216;   // ~4096x4096, per allocation
+const MS_CANVAS_PAIR = 2;                   // fabric: lower-canvas + upper-canvas
+const MS_OBJECT_CACHE_SHARE = 0.45;         // the rest is left for object caches
+const MS_MAX_CANVAS_BITMAP_PX = Math.floor(MS_WEBKIT_MAX_BITMAP_PX * MS_OBJECT_CACHE_SHARE / MS_CANVAS_PAIR);
 
-function msStudioSafeRetinaRatio(width, height) {
+// Fabric gives every cached object its own canvas, sized to the object times
+// the retina ratio. Large objects gain least from caching (they are re-rendered
+// rarely) and cost most, so above this area they draw straight to the canvas.
+const MS_MAX_CACHED_OBJECT_AREA = 250000;   // ~500x500 scene units
+
+// How sharp the bitmap needs to be is set by what reaches the screen, not by
+// the logical page size. A 1080px-wide page shown at 28% on a 3x phone covers
+// 906 device pixels, so a ratio of 1 already provides more detail than the
+// display can show. Rendering it at 2 costs four times the memory for pixels
+// nobody can see. The headroom keeps a moderate zoom-in sharp before the next
+// render re-applies the budget.
+const MS_ZOOM_HEADROOM = 1.5;
+
+function msStudioSafeRetinaRatio(width, height, displayedCssWidth) {
   const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
   const area = Math.max(1, (Number(width) || 1) * (Number(height) || 1));
   const budgetRatio = Math.sqrt(MS_MAX_CANVAS_BITMAP_PX / area);
-  const capped = Math.min(dpr, budgetRatio);
+  // Only applied when the caller knows the on-screen width; without it the
+  // absolute budget governs on its own.
+  const shown = Number(displayedCssWidth) || 0;
+  const displayRatio = (shown > 0 && Number(width) > 0)
+    ? (shown * dpr / Number(width)) * MS_ZOOM_HEADROOM
+    : Infinity;
+  const capped = Math.min(dpr, budgetRatio, displayRatio);
   // The page fits at the device's own ratio: hand that back untouched, so a
   // 1.25x or 1.5x display keeps exactly the sharpness the browser intends.
   if (capped >= dpr) return Math.max(1, dpr);
-  // The page had to be capped. Quantise DOWN to a half-step so the bitmap
-  // lands on whole pixels — a fractional ratio truncates the canvas width
-  // attribute while the context is still scaled by the fraction, which
-  // crops a sliver off the right and bottom edge of the artboard.
-  // Never below 1: the bitmap must not be smaller than the logical page.
+  // The page had to be capped. Quantise DOWN so the bitmap lands on whole
+  // pixels — a fractional ratio truncates the canvas width attribute while the
+  // context is still scaled by the fraction, which crops a sliver off the right
+  // and bottom edge of the artboard.
+  //
+  // This is allowed below 1:1. The print formats (letterhead, flyer and
+  // brochure are all 2550x3300) cost 16.8M px for the canvas pair at 1:1 —
+  // over WebKit's ceiling on their own — so a floor of 1 left those three
+  // formats permanently blank on a phone. Below 1 the artboard is softer when
+  // zoomed right in and completely sharp at fit zoom, where a 2550-wide page
+  // occupies ~900 device pixels and a 1275px bitmap still oversamples it.
+  // Soft beats blank.
+  // Never below 1. Fabric's getRetinaScaling() is `Math.max(1, devicePixelRatio)`,
+  // so a fraction here is silently ignored — a page that still does not fit at 1:1
+  // needs msStudioRasterScale below, which uses Fabric's zoom instead.
   return Math.max(1, Math.floor(capped * 2) / 2);
 }
 window.msStudioSafeRetinaRatio = msStudioSafeRetinaRatio;
+
+// Some pages cannot fit even at 1:1. The print formats — letterhead, flyer and
+// brochure are all 2550x3300 — cost 8.4M px per canvas, so the pair alone is
+// 16.8M px, past WebKit's ceiling before a single object cache. Those artboards
+// were blank on a phone no matter what the retina ratio did.
+//
+// The fix cannot go through fabric.devicePixelRatio: getRetinaScaling() clamps to
+// Math.max(1, ...), so anything below 1 is discarded. Fabric's own zoom can do it
+// — draw the full-size document into a smaller canvas. The document model keeps
+// its real dimensions, so coordinates, snapping and the saved scene are all
+// unchanged, and export is unaffected because it renders server-side from the
+// scene JSON rather than from this bitmap.
+//
+// The cost is sharpness when zoomed right in. At fit zoom there is none to speak
+// of: a 2550-wide page occupies roughly 900 device pixels on a phone, and a
+// 1275px raster still oversamples that. Soft beats blank.
+function msStudioRasterScale(width, height) {
+  const area = Math.max(1, (Number(width) || 1) * (Number(height) || 1));
+  if (area <= MS_MAX_CANVAS_BITMAP_PX) return 1;
+  // Quarter steps so the canvas lands on whole pixels.
+  return Math.max(0.25, Math.floor(Math.sqrt(MS_MAX_CANVAS_BITMAP_PX / area) * 4) / 4);
+}
+window.msStudioRasterScale = msStudioRasterScale;
+
+// The artboard's real on-screen width, which already accounts for the fit
+// zoom applied as a CSS transform. Returns 0 when it cannot be measured, so
+// the ratio falls back to the absolute budget rather than guessing.
+function msStudioDisplayedArtboardWidth() {
+  if (typeof document === 'undefined') return 0;
+  const el = document.getElementById('studio-artboard-container');
+  if (!el || !el.getBoundingClientRect) return 0;
+  const w = el.getBoundingClientRect().width;
+  return w > 0 ? w : 0;
+}
+window.msStudioDisplayedArtboardWidth = msStudioDisplayedArtboardWidth;
+
+// Drops the per-object cache canvas for objects too large to be worth one.
+// Returns how many were switched off, for the diagnostics panel.
+function msStudioTrimObjectCaches(fabricCanvas) {
+  if (!fabricCanvas || !fabricCanvas.getObjects) return 0;
+  let trimmed = 0;
+  for (const obj of fabricCanvas.getObjects()) {
+    const w = (obj.getScaledWidth ? obj.getScaledWidth() : obj.width) || 0;
+    const h = (obj.getScaledHeight ? obj.getScaledHeight() : obj.height) || 0;
+    if (w * h > MS_MAX_CACHED_OBJECT_AREA && obj.objectCaching !== false) {
+      obj.set('objectCaching', false);
+      if (obj._cacheCanvas) { obj._cacheCanvas.width = 0; obj._cacheCanvas.height = 0; obj._cacheCanvas = null; }
+      trimmed++;
+    }
+  }
+  return trimmed;
+}
+window.msStudioTrimObjectCaches = msStudioTrimObjectCaches;
 
 // Applies the budget to Fabric's global ratio. MUST run before `new
 // fabric.Canvas(...)` and before every setDimensions() call, because both
@@ -70,11 +167,12 @@ window.msStudioSafeRetinaRatio = msStudioSafeRetinaRatio;
 function msStudioApplyRetinaBudget(width, height) {
   const fabric = window.fabric;
   if (!fabric) return 1;
-  const ratio = msStudioSafeRetinaRatio(width, height);
+  const ratio = msStudioSafeRetinaRatio(width, height, msStudioDisplayedArtboardWidth());
   fabric.devicePixelRatio = ratio;
   if (typeof window.studioDebugPush === 'function') {
     const px = Math.round(width * ratio) * Math.round(height * ratio);
-    window.studioDebugPush(`retina dpr=${(window.devicePixelRatio || 1)} eff=${ratio.toFixed(2)} bitmap=${Math.round(width * ratio)}x${Math.round(height * ratio)} (${(px / 1e6).toFixed(1)}Mpx)`);
+    // Reported as the PAIR, because that is what WebKit is actually asked for.
+    window.studioDebugPush(`retina dpr=${(window.devicePixelRatio || 1)} eff=${ratio.toFixed(2)} bitmap=${Math.round(width * ratio)}x${Math.round(height * ratio)} x2 canvases (${((px * MS_CANVAS_PAIR) / 1e6).toFixed(1)}Mpx)`);
   }
   return ratio;
 }
@@ -92,6 +190,7 @@ class StudioFabricAdapter {
     this.isRendering = false;
     this.activeBreakpoint = 'desktop';
     this.activePageId = null;
+    this.rasterScale = 1;
     this.animationFrame = null;
   }
 
@@ -122,7 +221,6 @@ class StudioFabricAdapter {
 
     this.bindEvents();
     await this.renderScene(this.currentScene);
-    this.startAnimationLoop();
   }
 
   normalizeScene(scene) {
@@ -132,36 +230,162 @@ class StudioFabricAdapter {
     return scene || window.msCreateDefaultScene();
   }
 
-  startAnimationLoop() {
-    if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
-    const tick = (time) => {
-      const objects = this.fabricCanvas?.getObjects?.() || [];
-      objects.forEach(object => {
-        const animation = object.msData?.animation;
-        if (!animation || animation === 'none') return;
-        object.__animationBase ||= { left: object.left || 0, top: object.top || 0, angle: object.angle || 0, opacity: object.opacity ?? 1, scaleX: object.scaleX || 1, scaleY: object.scaleY || 1 };
-        const base = object.__animationBase;
-        const duration = Number(animation.duration || 1600);
-        const phase = (time % duration) / duration;
-        const wave = Math.sin(phase * Math.PI * 2);
-        if (animation.type === 'float') object.set({ top: base.top + wave * 12 });
-        else if (animation.type === 'pulse') object.set({ opacity: base.opacity * (0.78 + (wave + 1) * 0.11), scaleX: base.scaleX * (1 + wave * 0.035), scaleY: base.scaleY * (1 + wave * 0.035) });
-        else if (animation.type === 'spin') object.set({ angle: base.angle + phase * 360 });
-        else if (animation.type === 'bounce') object.set({ top: base.top - Math.max(0, wave) * 24 });
-        else if (animation.type === 'fade') object.set({ opacity: 0.45 + (wave + 1) * 0.25 });
-      });
-      this.fabricCanvas?.requestRenderAll();
-      this.animationFrame = requestAnimationFrame(tick);
+  // Animations are an EXPORT property, not an editor state. This used to run a
+  // permanent requestAnimationFrame loop that wrote straight onto the real object
+  // — left, top, angle, opacity, scaleX, scaleY — with the untouched values kept
+  // only in a non-persisted __animationBase. Saving while a loop was mid-cycle
+  // therefore wrote whatever frame it happened to be on into the scene, so a
+  // "float" element drifted a little further up every save. It also re-rendered
+  // every frame forever, which on a phone is a flat battery and a canvas that
+  // fights you while you drag.
+  //
+  // So the editor previews an animation ONCE when you apply it and then puts every
+  // value back exactly as it was. The saved scene keeps `msData.animation`, and the
+  // render service plays it on export.
+  previewAnimation(object, { loop = false } = {}) {
+    if (!object || !this.fabricCanvas) return;
+    const animation = object.msData?.animation;
+    if (!animation || animation === 'none' || !animation.type) return;
+    this.stopAnimationPreview();
+    const base = {
+      left: object.left || 0, top: object.top || 0, angle: object.angle || 0,
+      opacity: object.opacity ?? 1, scaleX: object.scaleX || 1, scaleY: object.scaleY || 1,
     };
-    this.animationFrame = requestAnimationFrame(tick);
+    const duration = Math.max(300, Number(animation.duration) || 1600);
+    const started = performance.now();
+    const restore = () => {
+      this.__animationPreview = null;
+      // Always exactly the values we started with — never a rounded frame.
+      object.set(base);
+      object.setCoords();
+      this.fabricCanvas?.requestRenderAll();
+    };
+    const tick = (now) => {
+      if (this.__animationPreview?.object !== object) return;
+      const elapsed = now - started;
+      if (!loop && elapsed >= duration) { restore(); return; }
+      const phase = (elapsed % duration) / duration;
+      const wave = Math.sin(phase * Math.PI * 2);
+      if (animation.type === 'float') object.set({ top: base.top + wave * 12 });
+      else if (animation.type === 'pulse') object.set({ opacity: base.opacity * (0.78 + (wave + 1) * 0.11), scaleX: base.scaleX * (1 + wave * 0.035), scaleY: base.scaleY * (1 + wave * 0.035) });
+      else if (animation.type === 'spin') object.set({ angle: base.angle + phase * 360 });
+      else if (animation.type === 'bounce') object.set({ top: base.top - Math.max(0, wave) * 24 });
+      else if (animation.type === 'fade') object.set({ opacity: 0.45 + (wave + 1) * 0.25 });
+      // The five motions the context toolbar offers. They used to live in a second
+      // perpetual loop inside studio-context-toolbar.js with its own copy of the
+      // base-value bug; there is one player now.
+      else if (animation.type === 'slide') object.set({ left: base.left + wave * 28 });
+      else if (animation.type === 'rise') object.set({ top: base.top - Math.max(0, wave) * 36, opacity: 0.55 + (wave + 1) * 0.22 });
+      else if (animation.type === 'shake') object.set({ left: base.left + Math.sin(phase * Math.PI * 8) * 10 });
+      else if (animation.type === 'wiggle') object.set({ angle: base.angle + Math.sin(phase * Math.PI * 6) * 8 });
+      else if (animation.type === 'pop') object.set({ scaleX: base.scaleX * (1 + Math.max(0, wave) * 0.12), scaleY: base.scaleY * (1 + Math.max(0, wave) * 0.12) });
+      this.fabricCanvas?.requestRenderAll();
+      this.__animationPreview.frame = requestAnimationFrame(tick);
+    };
+    this.__animationPreview = { object, base, restore, frame: requestAnimationFrame(tick) };
+  }
+
+  // Fabric draws selection handles in canvas pixels, and the artboard is then CSS
+  // scaled down to fit the phone — so at the 21-38% fit zoom the default 13px
+  // corner lands on screen at 3-5px. That is why the corners could not be grabbed
+  // on a phone: they were being drawn, just far too small to hit. Sizing them
+  // against the current zoom keeps them a constant finger-sized target instead.
+  applyControlSizing() {
+    const fabric = window.fabric;
+    if (!fabric || !this.fabricCanvas) return;
+    const zoom = Math.max(0.05, Number(window.__studioZoomLevel) || 0.55);
+    const corner = Math.round(14 / zoom);
+    const touch = Math.round(44 / zoom);
+    const style = {
+      cornerSize: corner,
+      touchCornerSize: touch,
+      cornerStyle: 'circle',
+      cornerColor: '#2563EB',
+      cornerStrokeColor: '#FFFFFF',
+      transparentCorners: false,
+      borderColor: '#2563EB',
+      borderScaleFactor: Math.max(1, Math.round(1.5 / zoom)),
+      padding: Math.round(6 / zoom),
+    };
+    Object.assign(fabric.Object.prototype, style);
+    this.fabricCanvas.getObjects().forEach(object => { object.set(style); object.setCoords(); });
+    this.fabricCanvas.requestRenderAll();
+  }
+
+  // Pinch-to-scale. Fabric's stock build ignores multi-touch entirely, so two
+  // fingers did nothing at all on the canvas — the other half of "transform does
+  // not work on mobile".
+  bindPinchToScale() {
+    const el = this.fabricCanvas?.upperCanvasEl;
+    if (!el || el.__msPinchBound) return;
+    el.__msPinchBound = true;
+    const spread = (touches) => Math.hypot(
+      touches[0].clientX - touches[1].clientX,
+      touches[0].clientY - touches[1].clientY
+    );
+    let start = null;
+    el.addEventListener('touchstart', (event) => {
+      if (event.touches.length !== 2) return;
+      const object = this.fabricCanvas.getActiveObject();
+      if (!object || object.lockScalingX || object.lockScalingY) return;
+      start = {
+        object,
+        distance: spread(event.touches) || 1,
+        scaleX: object.scaleX || 1,
+        scaleY: object.scaleY || 1,
+        left: object.left, top: object.top,
+      };
+      this.fabricCanvas.setActiveObject(object);
+      event.preventDefault();
+    }, { passive: false });
+    el.addEventListener('touchmove', (event) => {
+      if (!start || event.touches.length !== 2) return;
+      event.preventDefault();
+      const factor = Math.min(20, Math.max(0.05, spread(event.touches) / start.distance));
+      start.object.set({
+        scaleX: start.scaleX * factor,
+        scaleY: start.scaleY * factor,
+        // Scale about the object's own centre so it does not crawl across the page.
+        left: start.left, top: start.top,
+      });
+      start.object.setCoords();
+      this.fabricCanvas.requestRenderAll();
+    }, { passive: false });
+    const finish = () => {
+      if (!start) return;
+      start = null;
+      this.saveHistory();
+      this.onChange?.();
+    };
+    el.addEventListener('touchend', finish);
+    el.addEventListener('touchcancel', finish);
+  }
+
+  // Ends a preview early and restores the object, so a save, an export or a drag
+  // can never capture a half-played frame.
+  stopAnimationPreview() {
+    const preview = this.__animationPreview;
+    if (!preview) return;
+    cancelAnimationFrame(preview.frame);
+    this.__animationPreview = null;
+    preview.object.set(preview.base);
+    preview.object.setCoords();
+    this.fabricCanvas?.requestRenderAll();
   }
 
   setSelectedAnimation(type = 'none', duration = 1600) {
     const object = this.fabricCanvas?.getActiveObject();
     if (!object) return false;
-    if (type === 'none') { delete object.msData.animation; delete object.__animationBase; }
-    else { object.msData = { ...(object.msData || {}), animation: { type, duration: Math.max(300, Number(duration) || 1600) } }; object.__animationBase = { left: object.left || 0, top: object.top || 0, angle: object.angle || 0, opacity: object.opacity ?? 1, scaleX: object.scaleX || 1, scaleY: object.scaleY || 1 }; }
-    this.saveHistory(); this.fabricCanvas.requestRenderAll(); return true;
+    // Any preview still running would otherwise bake its current frame into what
+    // we save next.
+    this.stopAnimationPreview();
+    if (type === 'none') { delete object.msData.animation; }
+    else { object.msData = { ...(object.msData || {}), animation: { type, duration: Math.max(300, Number(duration) || 1600) } }; }
+    this.saveHistory();
+    this.fabricCanvas.requestRenderAll();
+    // Play it once so the choice is visible, then put everything back.
+    if (type !== 'none') this.previewAnimation(object);
+    return true;
   }
 
   nudgeSelected(dx = 0, dy = 0) {
@@ -250,10 +474,23 @@ class StudioFabricAdapter {
     // Re-apply the bitmap budget for THIS page's size: a square page and a
     // story page get different safe ratios, and setDimensions re-allocates
     // the backing store from fabric.devicePixelRatio as it is right now.
-    msStudioApplyRetinaBudget(pageWidth, pageHeight);
-    this.fabricCanvas.setDimensions({ width: pageWidth, height: pageHeight });
+    // A page too large to raster at 1:1 is drawn smaller and zoomed up. The scene
+    // keeps its real coordinates; only the bitmap shrinks.
+    const raster = msStudioRasterScale(pageWidth, pageHeight);
+    this.rasterScale = raster;
+    const canvasWidth = Math.round(pageWidth * raster);
+    const canvasHeight = Math.round(pageHeight * raster);
+    msStudioApplyRetinaBudget(canvasWidth, canvasHeight);
+    this.fabricCanvas.setDimensions({ width: canvasWidth, height: canvasHeight });
+    this.fabricCanvas.setZoom(raster);
+    if (raster !== 1 && typeof window.studioDebugPush === 'function') {
+      window.studioDebugPush(`raster ${raster} — ${pageWidth}x${pageHeight} page drawn at ${canvasWidth}x${canvasHeight}`);
+    }
+    // The artboard box is the CANVAS size, not the page size: the fit zoom scales
+    // this box to the viewport, so a half-size box simply fits at twice the factor
+    // and lands on screen at exactly the same size.
     const artboard = document.getElementById('studio-artboard-container');
-    if (artboard) { artboard.style.width = `${pageWidth}px`; artboard.style.height = `${pageHeight}px`; }
+    if (artboard) { artboard.style.width = `${canvasWidth}px`; artboard.style.height = `${canvasHeight}px`; }
 
     this.fabricCanvas.clear();
     this.fabricCanvas.setBackgroundColor(pageBackground, () => this.fabricCanvas.renderAll());
@@ -372,6 +609,14 @@ class StudioFabricAdapter {
       }
     }
 
+    // Handles must be re-sized for the zoom this page renders at, and the pinch
+    // gesture bound once the upper canvas exists.
+    this.applyControlSizing();
+    this.bindPinchToScale();
+    const trimmed = msStudioTrimObjectCaches(this.fabricCanvas);
+    if (trimmed && typeof window.studioDebugPush === 'function') {
+      window.studioDebugPush(`object caches off for ${trimmed} large object(s)`);
+    }
     this.fabricCanvas.renderAll();
     this.isRendering = false;
     this.verifyBitmapPainted(pageWidth, pageHeight);

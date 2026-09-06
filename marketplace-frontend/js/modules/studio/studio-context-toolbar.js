@@ -41,11 +41,29 @@
       #studio-context-quick{position:absolute;top:72px;right:12px;z-index:80;display:none;gap:6px;padding:6px;border-radius:18px;background:rgba(15,23,42,.92);color:#fff}
       #studio-context-quick.is-open{display:flex}
       #studio-context-quick button{width:36px;height:36px;border:0;border-radius:12px;background:transparent;color:#fff;font-size:16px;cursor:pointer}
-      #studio-context-sheet{position:absolute;left:0;right:0;bottom:0;z-index:90;display:none;max-height:52%;overflow:auto;padding:14px 16px 24px;border-radius:22px 22px 0 0;background:#0f172a;color:#fff}
+      /* The sheet used to be hardcoded dark (#0f172a on #fff text) inside an editor
+         that is light by default, so every panel opened as a black slab. It follows
+         the app theme now, and only goes dark when the app does. */
+      #studio-context-sheet{position:absolute;left:0;right:0;bottom:0;z-index:90;display:none;max-height:62%;overflow:auto;padding:14px 16px 24px;border-radius:22px 22px 0 0;background:#fff;color:#0f172a;box-shadow:0 -12px 40px rgba(15,23,42,.18)}
       #studio-context-sheet.is-open{display:block}
       #studio-context-sheet h4{margin:0 0 10px;font:800 13px/1.2 -apple-system,Segoe UI,sans-serif}
-      #studio-context-sheet label{display:block;font:700 11px/1.2 -apple-system,Segoe UI,sans-serif;color:#94a3b8;margin:8px 0}
-      #studio-context-sheet input,#studio-context-sheet select{width:100%;margin-top:4px;border-radius:10px;border:1px solid #334155;background:#1e293b;color:#fff;padding:8px}
+      #studio-context-sheet label{display:block;font:700 11px/1.2 -apple-system,Segoe UI,sans-serif;color:#64748b;margin:8px 0}
+      #studio-context-sheet input,#studio-context-sheet select{width:100%;margin-top:4px;border-radius:10px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;padding:8px}
+      #studio-ctx-close{border:0;background:transparent;color:#64748b;font-size:20px;line-height:1;cursor:pointer}
+      /* Colour grid: tapping a colour is the common case, so it leads. */
+      .studio-swatch-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:7px;margin:6px 0 2px}
+      .studio-swatch{aspect-ratio:1;border-radius:8px;border:1px solid rgba(15,23,42,.14);padding:0;cursor:pointer;box-shadow:0 1px 2px rgba(15,23,42,.08)}
+      .studio-swatch[aria-pressed="true"]{outline:2.5px solid #2563eb;outline-offset:2px}
+      .studio-swatch-heading{font:800 10px/1.2 -apple-system,Segoe UI,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#64748b;margin:12px 0 2px}
+      .studio-swatch-current{display:flex;align-items:center;gap:9px;font:700 12px/1.2 -apple-system,Segoe UI,sans-serif}
+      .studio-swatch-current span.chip{width:26px;height:26px;border-radius:8px;border:1px solid rgba(15,23,42,.18)}
+      .dark #studio-context-sheet{background:#0f172a;color:#f8fafc;box-shadow:0 -12px 40px rgba(0,0,0,.5)}
+      .dark #studio-context-sheet label{color:#94a3b8}
+      .dark #studio-context-sheet input,.dark #studio-context-sheet select{border-color:#334155;background:#1e293b;color:#fff}
+      .dark #studio-ctx-close{color:#94a3b8}
+      .dark .studio-swatch{border-color:rgba(255,255,255,.22)}
+      .dark .studio-swatch-heading{color:#94a3b8}
+      .dark .studio-swatch-current span.chip{border-color:rgba(255,255,255,.28)}
       .studio-motion-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
       .studio-motion-grid button{border:1px solid #334155;background:#1e293b;color:#e2e8f0;border-radius:14px;padding:10px 6px;font:800 11px/1.2 -apple-system,Segoe UI,sans-serif}
       .studio-motion-grid button[aria-current="true"]{border-color:#818cf8;background:#312e81;color:#fff}
@@ -92,9 +110,63 @@
   function openSheet(title, html) {
     const ui = ensure();
     if (!ui) return;
-    ui.sheet.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h4>' + title + '</h4><button type="button" id="studio-ctx-close" style="border:0;background:transparent;color:#fff;font-size:20px">✕</button></div>' + html;
+    ui.sheet.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h4>' + title + '</h4><button type="button" id="studio-ctx-close" aria-label="Close">&times;</button></div>' + html;
     ui.sheet.classList.add('is-open');
     ui.sheet.querySelector('#studio-ctx-close').onclick = function () { ui.sheet.classList.remove('is-open'); };
+  }
+
+  // A single colour bar gave no idea what was available and needed a fiddly drag on
+  // a phone. Tapping a swatch is the common case, so the grid leads and the native
+  // picker stays underneath for an exact value.
+  const STUDIO_FILL_NEUTRALS = [
+    '#FFFFFF', '#F1F5F9', '#CBD5E1', '#94A3B8', '#64748B', '#334155', '#1E293B', '#000000',
+  ];
+  const STUDIO_FILL_COLOURS = [
+    '#FEE2E2', '#FCA5A5', '#EF4444', '#B91C1C', '#FFEDD5', '#FDBA74', '#F97316', '#C2410C',
+    '#FEF3C7', '#FCD34D', '#F59E0B', '#B45309', '#DCFCE7', '#86EFAC', '#22C55E', '#15803D',
+    '#CCFBF1', '#5EEAD4', '#14B8A6', '#0F766E', '#DBEAFE', '#93C5FD', '#3B82F6', '#1D4ED8',
+    '#E0E7FF', '#A5B4FC', '#6366F1', '#4338CA', '#F3E8FF', '#D8B4FE', '#A855F7', '#7E22CE',
+    '#FCE7F3', '#F9A8D4', '#EC4899', '#BE185D', '#F5F5F4', '#D6D3D1', '#78716C', '#292524',
+  ];
+
+  function swatchRow(colours, current) {
+    return colours.map(function (hex) {
+      const on = String(hex).toUpperCase() === String(current || '').toUpperCase();
+      return '<button type="button" class="studio-swatch" aria-pressed="' + on + '" aria-label="' + hex +
+        '" title="' + hex + '" style="background:' + hex + '" data-studio-fill="' + hex + '"></button>';
+    }).join('');
+  }
+
+  function colorSheetHtml(current) {
+    return '<div class="studio-swatch-current"><span class="chip" id="studio-fill-chip" style="background:' + current +
+      '"></span><span id="studio-fill-value">' + current + '</span></div>' +
+      '<div class="studio-swatch-heading">Neutrals</div>' +
+      '<div class="studio-swatch-grid">' + swatchRow(STUDIO_FILL_NEUTRALS, current) + '</div>' +
+      '<div class="studio-swatch-heading">Colours</div>' +
+      '<div class="studio-swatch-grid">' + swatchRow(STUDIO_FILL_COLOURS, current) + '</div>' +
+      '<label>Custom<input type="color" id="studio-fill-custom" value="' + current + '"></label>';
+  }
+
+  // Delegated so it survives the sheet being re-rendered.
+  document.addEventListener('click', function (ev) {
+    const btn = ev.target && ev.target.closest && ev.target.closest('[data-studio-fill]');
+    if (!btn) return;
+    ev.preventDefault();
+    applyFill(btn.getAttribute('data-studio-fill'));
+  });
+  document.addEventListener('input', function (ev) {
+    if (ev.target && ev.target.id === 'studio-fill-custom') applyFill(ev.target.value);
+  });
+
+  function applyFill(hex) {
+    if (typeof global.studioSetObjectStyle === 'function') global.studioSetObjectStyle('color', hex);
+    const chip = document.getElementById('studio-fill-chip');
+    const value = document.getElementById('studio-fill-value');
+    if (chip) chip.style.background = hex;
+    if (value) value.textContent = hex;
+    document.querySelectorAll('[data-studio-fill]').forEach(function (el) {
+      el.setAttribute('aria-pressed', String(el.getAttribute('data-studio-fill')).toUpperCase() === String(hex).toUpperCase());
+    });
   }
 
   function currentMotion() {
@@ -108,16 +180,15 @@
     if (!adapter || !obj) return;
     if (typeof adapter.setSelectedAnimation === 'function') adapter.setSelectedAnimation(type, duration || 1600);
     else if (typeof global.studioSetAnimation === 'function') global.studioSetAnimation(type);
-    if (obj) {
-      delete obj.__animationBase;
-      if (type === 'none') {
-        if (obj.msData) delete obj.msData.animation;
-      } else {
-        obj.msData = Object.assign({}, obj.msData || {}, { animation: { type: type, duration: duration || 1600 } });
-      }
+    // setSelectedAnimation already records msData.animation, previews it once and
+    // restores every value. Writing msData a second time here — and stamping
+    // __animationBase — is what let a half-played frame reach the saved scene.
+    if (typeof adapter.setSelectedAnimation !== 'function' && obj) {
+      if (type === 'none') { if (obj.msData) delete obj.msData.animation; }
+      else obj.msData = Object.assign({}, obj.msData || {}, { animation: { type: type, duration: duration || 1600 } });
+      if (typeof adapter.previewAnimation === 'function') adapter.previewAnimation(obj);
     }
-    if (typeof adapter.startAnimationLoop === 'function') adapter.startAnimationLoop();
-    if (typeof showToast === 'function') showToast(type === 'none' ? 'Animation removed' : type + ' animation playing', 'success');
+    if (typeof showToast === 'function') showToast(type === 'none' ? 'Animation removed' : type + ' animation previewed — it plays on export', 'success');
     openAnimateSheet();
   }
   global.studioApplyMotion = applyMotion;
@@ -129,7 +200,7 @@
     const grid = MOTIONS.map(function (item) {
       return '<button type="button" aria-current="' + (current === item[0]) + '" onclick="studioApplyMotion(\'' + item[0] + '\',' + duration + ')">' + item[1] + '<div>' + item[2] + '</div></button>';
     }).join('');
-    openSheet('Animate', '<div class="studio-motion-grid">' + grid + '</div><label>Speed<input type="range" min="400" max="4000" step="100" value="' + duration + '" oninput="studioApplyMotion(\'' + current + '\', Number(this.value))"></label><p style="font-size:11px;color:#94a3b8">Plays on the canvas and is included in animated exports.</p>');
+    openSheet('Animate', '<div class="studio-motion-grid">' + grid + '</div><label>Speed<input type="range" min="400" max="4000" step="100" value="' + duration + '" oninput="studioApplyMotion(\'' + current + '\', Number(this.value))"></label><p style="font-size:11px;color:#64748b">Previews once here. It plays in full on export.</p>');
   }
 
   function runTool(id) {
@@ -141,7 +212,7 @@
       return;
     }
     if (id === 'animate') return openAnimateSheet();
-    if (id === 'color') return openSheet('Color', '<label>Fill<input type="color" value="' + hexColor(obj) + '" oninput="studioSetObjectStyle(\'color\', this.value)"></label>');
+    if (id === 'color') return openSheet('Colour', colorSheetHtml(hexColor(obj)));
     if (id === 'opacity') return openSheet('Transparency', '<label>Opacity<input type="range" min="0" max="100" value="' + Math.round((obj.opacity == null ? 1 : obj.opacity) * 100) + '" oninput="studioSetObjectStyle(\'opacity\', Number(this.value)/100)"></label>');
     if (id === 'corners') return openSheet('Corners', '<label>Radius<input type="range" min="0" max="120" value="' + Math.round(obj.rx || 0) + '" oninput="studioSetObjectStyle(\'rx\', Number(this.value));studioSetObjectStyle(\'ry\', Number(this.value))"></label>');
     if (id === 'style' || id === 'effects') return openSheet('Style', '<label>Shadow<select onchange="studioSetObjectStyle(\'shadow\', this.value===\'none\'?null:{color:\'rgba(0,0,0,.35)\',blur:12,offsetY:6})"><option value="none">None</option><option value="soft">Soft</option><option value="lift">Lift</option></select></label>');
@@ -156,42 +227,10 @@
     }
   }
 
-  function applyExtraMotion(object, animation, time) {
-    if (!animation || !animation.type) return;
-    object.__animationBase = object.__animationBase || { left: object.left || 0, top: object.top || 0, angle: object.angle || 0, opacity: object.opacity == null ? 1 : object.opacity, scaleX: object.scaleX || 1, scaleY: object.scaleY || 1 };
-    const base = object.__animationBase;
-    const duration = Number(animation.duration || 1600);
-    const phase = (time % duration) / duration;
-    const wave = Math.sin(phase * Math.PI * 2);
-    const type = animation.type;
-    if (type === 'slide') object.set({ left: base.left + wave * 28 });
-    else if (type === 'rise') object.set({ top: base.top - Math.max(0, wave) * 36, opacity: 0.55 + (wave + 1) * 0.22 });
-    else if (type === 'shake') object.set({ left: base.left + Math.sin(phase * Math.PI * 8) * 10 });
-    else if (type === 'wiggle') object.set({ angle: base.angle + Math.sin(phase * Math.PI * 6) * 8 });
-    else if (type === 'pop') object.set({ scaleX: base.scaleX * (1 + Math.max(0, wave) * 0.12), scaleY: base.scaleY * (1 + Math.max(0, wave) * 0.12) });
-  }
-
-  function hookAnimations(adapter) {
-    if (!adapter || adapter.__motionHooked || typeof adapter.startAnimationLoop !== 'function') return;
-    const orig = adapter.startAnimationLoop.bind(adapter);
-    adapter.startAnimationLoop = function () {
-      orig();
-      const canvas = adapter.fabricCanvas;
-      if (!canvas || canvas.__msExtraMotion) return;
-      canvas.__msExtraMotion = true;
-      const tick = function (time) {
-        (canvas.getObjects && canvas.getObjects() || []).forEach(function (object) {
-          const animation = object.msData && object.msData.animation;
-          if (animation && animation.type && ['slide','rise','shake','wiggle','pop'].indexOf(animation.type) >= 0) applyExtraMotion(object, animation, time);
-        });
-        canvas.requestRenderAll && canvas.requestRenderAll();
-        canvas.__msExtraMotionFrame = requestAnimationFrame(tick);
-      };
-      canvas.__msExtraMotionFrame = requestAnimationFrame(tick);
-    };
-    adapter.__motionHooked = true;
-    adapter.startAnimationLoop();
-  }
+  // applyExtraMotion() and hookAnimations() lived here: a second requestAnimationFrame
+  // loop, running forever alongside the adapter's, writing the same object properties
+  // through its own __animationBase. Both are gone — StudioFabricAdapter.previewAnimation
+  // plays every motion type once and puts the values back.
 
   function render(selected) {
     const ui = ensure();
@@ -222,7 +261,6 @@
   function hookAdapter() {
     const adapter = global.__studioAdapter;
     if (!adapter) return;
-    hookAnimations(adapter);
     if (adapter.__ctxToolbarHooked) return;
     const orig = adapter.onSelectionChange.bind(adapter);
     adapter.onSelectionChange = function (selected) {
