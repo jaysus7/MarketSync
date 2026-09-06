@@ -4129,6 +4129,16 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 #ms-studio-master-modal .studio-control-label-row { display: flex; justify-content: space-between; align-items: baseline; }
 #ms-studio-master-modal .studio-control-help { font-size: .6875rem; color: #64748b; margin: 0; }
 #ms-studio-master-modal .studio-control-unit { font-size: .625rem; color: #64748b; }
+
+/* Background panel: a swatch grid, same tap-first idea as the Fill sheet. */
+#ms-studio-master-modal .studio-bg-swatch-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+#ms-studio-master-modal .studio-bg-swatch { aspect-ratio: 1; border-radius: 7px; border: 1px solid rgba(15,23,42,.14); padding: 0; cursor: pointer; }
+#ms-studio-master-modal .studio-bg-swatch[aria-pressed="true"] { outline: 2.5px solid #2563eb; outline-offset: 2px; }
+#ms-studio-master-modal .studio-bg-fit { padding: .5rem .5rem; border-radius: .75rem; border: 1px solid #cbd5e1; background: #fff; color: #0f172a; font: 900 11px/1 ui-sans-serif, sans-serif; cursor: pointer; }
+#ms-studio-master-modal .studio-bg-fit[aria-pressed="true"] { border-color: #2563eb; color: #1d4ed8; background: #eff6ff; }
+.dark #ms-studio-master-modal .studio-bg-swatch { border-color: rgba(255,255,255,.22); }
+.dark #ms-studio-master-modal .studio-bg-fit { border-color: #334155; background: #1e293b; color: #e2e8f0; }
+.dark #ms-studio-master-modal .studio-bg-fit[aria-pressed="true"] { border-color: #3b82f6; color: #93c5fd; background: #1e3a8a33; }
 #ms-studio-master-modal .studio-control-action {
   padding: .5rem .75rem;
   border-radius: .5rem; border: 1px solid #e2e8f0;

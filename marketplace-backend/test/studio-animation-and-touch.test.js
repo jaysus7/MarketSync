@@ -1,11 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { stripComments } from './helpers/strip-comments.js'
 
 const adapter = readFileSync(new URL('../../marketplace-frontend/js/modules/studio/fabric-adapter.js', import.meta.url), 'utf8')
 const toolbar = readFileSync(new URL('../../marketplace-frontend/js/modules/studio/studio-context-toolbar.js', import.meta.url), 'utf8')
 const shell = readFileSync(new URL('../../marketplace-frontend/js/modules/studio/studio-shell.js', import.meta.url), 'utf8')
-const code = (src) => src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^[ \t]*\/\/.*$/gm, ' ')
+const code = (src) => stripComments(src)
 
 // An animation is an EXPORT property. The editor used to run a permanent
 // requestAnimationFrame loop that wrote straight onto the real object — left, top,

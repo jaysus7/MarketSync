@@ -1315,6 +1315,9 @@ function renderStudioWorkspaceHtml(designName, scene) {
           <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Templates
         </button>
         <button onclick="setDesignStudioTab('projects')" id="tool-btn-projects" data-studio-tool="projects" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base mb-0.5">▣</span>Projects</button>
+        <button onclick="setStudioTool('background')" id="tool-btn-background" data-studio-tool="background" aria-current="${window.__studioActiveTool === 'background' ? 'page' : 'false'}" class="studio-tool-rail-button">
+          <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Background
+        </button>
         <button onclick="setStudioTool('elements')" id="tool-btn-elements" data-studio-tool="elements" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base mb-0.5">✦</span>Elements</button>
         <button onclick="setStudioTool('inventory')" id="tool-btn-inventory" data-studio-tool="inventory" aria-current="false" class="studio-tool-rail-button">
           <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 17a2 2 0 100 4 2 2 0 000-4zm10 0a2 2 0 100 4 2 2 0 000-4zM4 9h16l-1.5 5H5.5L4 9z"/></svg>Inventory
@@ -2149,6 +2152,42 @@ function renderStudioTemplateCards(_filter = window.__studioTemplateFormat || 'c
 }
 
 function renderStudioToolPanelContent(tool) {
+  if (tool === 'background') {
+    const adapter = window.__studioAdapter;
+    const scene = adapter?.currentScene || {};
+    const page = Array.isArray(scene.pages) ? (scene.pages.find(p => p.id === adapter?.activePageId) || scene.pages[0]) : null;
+    const bg = (page || scene).background || {};
+    const current = bg.color || '#FFFFFF';
+    const fit = bg.fit === 'contain' ? 'contain' : 'cover';
+    const swatch = (hex) => `<button type="button" onclick="studioSetBackgroundColor('${hex}')" aria-pressed="${String(hex).toUpperCase() === String(current).toUpperCase()}" title="${hex}" class="studio-bg-swatch" style="background:${hex}"></button>`;
+    const colours = ['#FFFFFF','#F8FAFC','#E2E8F0','#94A3B8','#334155','#0F172A','#000000','#FEE2E2',
+                     '#FCA5A5','#EF4444','#B91C1C','#FFEDD5','#F97316','#FEF3C7','#F59E0B','#DCFCE7',
+                     '#22C55E','#15803D','#CCFBF1','#14B8A6','#DBEAFE','#3B82F6','#1D4ED8','#E0E7FF',
+                     '#6366F1','#4338CA','#F3E8FF','#A855F7','#7E22CE','#FCE7F3','#EC4899','#BE185D'];
+    return `<div class="p-4 space-y-4">
+      <div>
+        <h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Background</h3>
+        <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Applies to this page. A background image sits behind everything and cannot be selected by accident.</p>
+      </div>
+      <div>
+        <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Colour</div>
+        <div class="studio-bg-swatch-grid">${colours.map(swatch).join('')}</div>
+        <label class="mt-3 block text-[11px] font-bold text-slate-600 dark:text-slate-300">Custom
+          <input type="color" value="${escS(current)}" oninput="studioSetBackgroundColor(this.value)" class="mt-1 w-full h-10 rounded-lg bg-transparent cursor-pointer">
+        </label>
+      </div>
+      <div class="pt-3 border-t border-slate-200 dark:border-slate-700">
+        <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Image</div>
+        ${bg.image ? `<div class="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 mb-2"><img src="${escS(bg.image)}" alt="Current background" class="w-full h-24 object-cover"></div>` : '<p class="text-[11px] text-slate-500 dark:text-slate-400 mb-2">No background image.</p>'}
+        <label class="block px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-center text-xs font-black text-white cursor-pointer">${bg.image ? 'Replace image' : '+ Upload image'}<input type="file" accept="image/*" class="hidden" onchange="studioUploadBackgroundImage(this)"></label>
+        <div class="grid grid-cols-2 gap-2 mt-2">
+          <button type="button" onclick="studioSetBackgroundFit('cover')" aria-pressed="${fit === 'cover'}" class="studio-bg-fit">Fill page</button>
+          <button type="button" onclick="studioSetBackgroundFit('contain')" aria-pressed="${fit === 'contain'}" class="studio-bg-fit">Fit whole</button>
+        </div>
+        ${bg.image ? '<button type="button" onclick="studioClearBackgroundImage()" class="mt-2 w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-black text-slate-700 dark:text-slate-200">Remove image</button>' : ''}
+      </div>
+    </div>`;
+  }
   if (tool === 'media') {
     return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Media library</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Reusable dealership images and videos. Select an asset to place it on the artboard.</p></div><label class="block px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-center text-xs font-black text-white cursor-pointer">+ Upload image<input type="file" accept="image/*" class="hidden" onchange="uploadStudioImage(this)"></label><input id="studio-media-query" oninput="filterStudioMediaLibrary(this.value)" placeholder="Search your media…" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white"><div id="studio-media-library" class="grid grid-cols-2 gap-2"><div class="col-span-2 p-5 text-center text-xs text-slate-500">Loading media…</div></div></div>`;
   }
@@ -2706,6 +2745,50 @@ async function uploadStudioImage(input) {
   const file = input.files?.[0]; if (!file) return;
   try { const form = new FormData(); form.append('file', file); form.append('title', file.name); const response = await fetch(`${API}/marketing/assets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }); const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Upload failed'); await loadStudioMediaLibrary(); if (typeof showToast === 'function') showToast('Image added to Media library', 'success'); } catch (error) { if (typeof showToast === 'function') showToast(error.message, 'error'); }
 }
+function studioSetBackgroundColor(hex) {
+  if (!window.__studioAdapter?.setSceneBackground) return;
+  window.__studioAdapter.setSceneBackground({ color: hex });
+  if (window.__studioActiveTool === 'background') setStudioTool('background');
+}
+window.studioSetBackgroundColor = studioSetBackgroundColor;
+
+function studioSetBackgroundFit(fit) {
+  if (!window.__studioAdapter?.setSceneBackground) return;
+  window.__studioAdapter.setSceneBackground({ fit });
+  if (window.__studioActiveTool === 'background') setStudioTool('background');
+}
+window.studioSetBackgroundFit = studioSetBackgroundFit;
+
+function studioClearBackgroundImage() {
+  if (!window.__studioAdapter?.setSceneBackground) return;
+  window.__studioAdapter.setSceneBackground({ image: null });
+  if (window.__studioActiveTool === 'background') setStudioTool('background');
+  if (typeof showToast === 'function') showToast('Background image removed', 'success');
+}
+window.studioClearBackgroundImage = studioClearBackgroundImage;
+
+// Reuses the same POST /marketing/assets upload the Media library uses, so a
+// background image lands in the library too rather than becoming a one-off blob.
+async function studioUploadBackgroundImage(input) {
+  const file = input.files?.[0]; if (!file) return;
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('title', file.name);
+    const response = await fetch(`${API}/marketing/assets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Upload failed');
+    const url = data.asset?.url || data.url || data.asset?.file_url;
+    if (!url) throw new Error('Upload succeeded but returned no image URL');
+    window.__studioAdapter?.setSceneBackground({ image: url });
+    if (window.__studioActiveTool === 'background') setStudioTool('background');
+    if (typeof showToast === 'function') showToast('Background image applied', 'success');
+  } catch (error) {
+    if (typeof showToast === 'function') showToast(error.message, 'error');
+  }
+}
+window.studioUploadBackgroundImage = studioUploadBackgroundImage;
+
 window.uploadStudioImage = uploadStudioImage;
 async function archiveStudioMedia(assetId) {
   if (!assetId || !confirm('Archive this media asset?')) return;

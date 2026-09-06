@@ -374,6 +374,65 @@ class StudioFabricAdapter {
     el.addEventListener('touchcancel', finish);
   }
 
+  // Page background image. Stored as the source URL on the scene so the export
+  // service can re-render it server-side; fabric only ever holds the scaled copy.
+  applyBackgroundImage(src, fit = 'cover', width, height) {
+    const fabric = window.fabric;
+    if (!this.fabricCanvas || !fabric) return;
+    this.backgroundImageSrc = src || null;
+    this.backgroundImageFit = fit === 'contain' ? 'contain' : 'cover';
+    if (!src) {
+      this.fabricCanvas.setBackgroundImage(null, () => this.fabricCanvas.requestRenderAll());
+      return;
+    }
+    const pageWidth = width || this.fabricCanvas.getWidth();
+    const pageHeight = height || this.fabricCanvas.getHeight();
+    fabric.Image.fromURL(src, (image) => {
+      if (!image || !this.fabricCanvas) return;
+      if (this.backgroundImageSrc !== src) return;   // a newer background won the race
+      const scaleW = pageWidth / (image.width || pageWidth);
+      const scaleH = pageHeight / (image.height || pageHeight);
+      // cover fills the page and crops the overflow; contain fits it whole.
+      const scale = this.backgroundImageFit === 'contain'
+        ? Math.min(scaleW, scaleH)
+        : Math.max(scaleW, scaleH);
+      image.set({
+        originX: 'center', originY: 'center',
+        left: pageWidth / 2, top: pageHeight / 2,
+        scaleX: scale, scaleY: scale,
+        selectable: false, evented: false,
+      });
+      this.fabricCanvas.setBackgroundImage(image, () => this.fabricCanvas.requestRenderAll());
+    }, { crossOrigin: 'anonymous' });
+  }
+
+  // The one entry point the UI uses. Any field left undefined keeps its current
+  // value, so setting a colour cannot silently drop the image and vice versa.
+  setSceneBackground({ color, image, fit } = {}) {
+    if (!this.fabricCanvas) return false;
+    const scene = this.currentScene || {};
+    const page = Array.isArray(scene.pages) ? (scene.pages.find(p => p.id === this.activePageId) || scene.pages[0]) : null;
+    const target = page || scene;
+    target.background = { ...(target.background || {}) };
+    if (color !== undefined) {
+      target.background.color = color;
+      this.fabricCanvas.setBackgroundColor(color, () => this.fabricCanvas.requestRenderAll());
+    }
+    if (image !== undefined) target.background.image = image || null;
+    if (fit !== undefined) target.background.fit = fit;
+    if (image !== undefined || fit !== undefined) {
+      this.applyBackgroundImage(
+        target.background.image,
+        target.background.fit || 'cover',
+        target.width || scene.width,
+        target.height || scene.height
+      );
+    }
+    this.saveHistory();
+    this.onChange?.();
+    return true;
+  }
+
   // Ends a preview early and restores the object, so a save, an export or a drag
   // can never capture a half-played frame.
   stopAnimationPreview() {
@@ -507,6 +566,11 @@ class StudioFabricAdapter {
 
     this.fabricCanvas.clear();
     this.fabricCanvas.setBackgroundColor(pageBackground, () => this.fabricCanvas.renderAll());
+    // A background image sits behind every object and is not selectable, so it can
+    // never be picked up or dragged by accident while editing what is on top of it.
+    const pageBackgroundImage = page?.background?.image || scene.background?.image || null;
+    const pageBackgroundFit = page?.background?.fit || scene.background?.fit || 'cover';
+    this.applyBackgroundImage(pageBackgroundImage, pageBackgroundFit, pageWidth, pageHeight);
 
     const elements = [...(page?.objects || scene.elements || scene.layers || [])];
     const repeaters = Array.isArray(scene.components) ? scene.components.filter(component => component.type === 'repeater') : [];
@@ -738,7 +802,13 @@ class StudioFabricAdapter {
       format_key: this.currentScene.format_key || 'square',
       width: this.fabricCanvas.width,
       height: this.fabricCanvas.height,
-      background: { color: this.fabricCanvas.backgroundColor || '#0F172A' },
+      background: {
+        color: this.fabricCanvas.backgroundColor || '#0F172A',
+        // Keep the SOURCE url, never fabric's scaled image object — the scene has
+        // to stay renderable by the export service, which has no canvas.
+        image: this.backgroundImageSrc || null,
+        fit: this.backgroundImageFit || 'cover',
+      },
       elements,
       pages: this.currentScene.pages ? this.currentScene.pages.map(page => page.id === this.activePageId ? { ...page, objects: elements } : page) : undefined,
       breakpoint: this.activeBreakpoint,
