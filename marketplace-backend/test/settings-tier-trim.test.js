@@ -139,12 +139,21 @@ test('every independent single-product tier gets the simplified header, while De
 
 test('Design Studio sidebar exposes Studio and its merged Scheduler, but not a second Settings row', () => {
   const fn = dashboard.match(/function restrictedNavPages\(\) \{[\s\S]*?\nwindow\.restrictedNavPages = restrictedNavPages;/)?.[0] || ''
-  const branch = fn.match(/if \(activeProducts\.length === 1 && \/design_studio\/\.test\(product\)\) \{[\s\S]*?\n {2}\}/)?.[0] || ''
+  // The single-product tiers were restructured: one outer
+  // `if (activeProducts.length === 1)` with a per-product `if (/…/.test(only))`
+  // inside it, each returning through the one(page, label, icon, extra) helper.
+  assert.match(fn, /if \(activeProducts\.length === 1\) \{/, 'the single-product tier must exist')
+  const branch = fn.match(/if \(\/design_studio\/\.test\(only\)\) \{[\s\S]*?\n {4}\}/)?.[0] || ''
   assert.ok(branch, 'the design_studio branch of restrictedNavPages must exist')
-  const itemCount = (branch.match(/\{ page:/g) || []).length
-  assert.equal(itemCount, 2, 'Design Studio should return Studio and Scheduler entries')
-  assert.match(branch, /label: 'Scheduler'/, 'the merged scheduler must remain visible')
+
+  // "Single purchased product: exactly ONE nav destination … In-page tabs
+  // (Setup, Calendar, Builder, etc.) stay on the page." The merged Scheduler is
+  // reached from inside the Studio, not from a second sidebar row.
+  assert.match(branch, /one\('studio', 'Design Studio', 'camera'/, 'Studio is the one destination')
+  assert.match(branch, /studioLaunch: true/, 'and it opens the full-screen Studio')
   assert.doesNotMatch(branch, /label: 'Settings'/, 'Settings must not be a sidebar row — it lives under the header Profile icon')
+  // The merged Scheduler still has to be reachable, just not as a sidebar row.
+  assert.match(dashboard, /studioSchedulerLaunch/, 'the merged Scheduler entry point must still exist')
 })
 
 test('the Facebook-tier sidebar no longer carries its own Settings row (dropped from dashboard.html)', () => {
@@ -237,7 +246,11 @@ test('Design Studio nav entries use a real icon key, not the non-existent "image
   assert.doesNotMatch(svgIconsBlock, /\bimage:/, 'SVG_ICONS has no "image" key — this test documents that gap')
   assert.doesNotMatch(dashboard, /icon: 'image'/, 'dashboard.js must not reference the non-existent "image" icon key')
   assert.doesNotMatch(marketingWorkspace, /icon: 'image'/, 'marketing-workspace.js must not reference the non-existent "image" icon key')
-  assert.match(dashboard, /label: 'Design Studio', icon: 'camera'/, 'the Design Studio nav entry should use a real icon key')
+  // The entry is built through the one(page, label, icon, extra) helper now, so
+  // the icon is positional rather than an object key. What matters is unchanged:
+  // it names a real SVG_ICONS entry.
+  assert.match(dashboard, /one\('studio', 'Design Studio', 'camera'/, 'the Design Studio nav entry should use a real icon key')
+  assert.match(svgIconsBlock, /\bcamera:/, "and 'camera' must actually exist in SVG_ICONS")
 })
 
 test('the Daily Shift Punch Clock modal is skipped for single-product accounts, checked inside its setTimeout not at the top of the function', () => {
