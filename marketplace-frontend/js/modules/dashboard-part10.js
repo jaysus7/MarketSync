@@ -1640,8 +1640,13 @@ function renderEngine(engineId, force = false) {
           <p class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 mt-1">${esc(eng.subtitle || '')}</p>
         </div>
       </div>`;
+  // With the title gone, `ms-engine-header` would still paint its card — padding,
+  // border, glass background and min-height:7rem on mobile — leaving an empty box
+  // holding nothing but Refresh. That reads as exactly the extra header row
+  // hideTitle exists to remove, so the actions drop out of the card and sit as a
+  // plain right-aligned row instead.
   root.innerHTML = (eng.hideHeader ? '' : `
-    <div class="ms-engine-header flex items-start ${eng.hideTitle ? 'justify-end' : 'justify-between'} flex-wrap gap-3 mb-3">
+    <div class="${eng.hideTitle ? 'flex items-center justify-end' : 'ms-engine-header flex items-start justify-between'} flex-wrap gap-3 mb-3">
       ${titleBlock}
       <div class="flex items-center gap-2 flex-wrap">
         ${suiteActions}

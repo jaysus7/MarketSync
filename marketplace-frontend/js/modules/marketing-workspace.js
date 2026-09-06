@@ -2305,12 +2305,30 @@ window.mktLoadStudioBrandAndAssets = mktLoadStudioBrandAndAssets;
 // studio-shell.js is a classic script, so once it evaluates its top-level
 // function declarations (openStudioSizePicker, renderStudioHomeFormatShortcuts,
 // startStudioBlankDesign, …) are globals — no separate export step needed.
+// The shell is ~28 lazily-loaded scripts. If one request stalls rather than fails,
+// its promise never settles — and BOTH msLoadScript and msLoadDesignStudioShell
+// memoise by key forever, so every later attempt is handed the same pending
+// promise. That is a permanent "Loading sizes, collections and templates…" that no
+// amount of reopening the tab can clear, which is what was being reported.
+//
+// So: bound the wait, and on timeout throw away the memoised promise so a retry is
+// a real retry rather than a second await on the same stuck one.
+const MKT_STUDIO_SHELL_TIMEOUT_MS = 20000
+
 function mktEnsureStudioShell() {
   if (typeof window.openStudioSizePicker === 'function') return Promise.resolve(true)
   if (typeof window.msLoadDesignStudioShell !== 'function') return Promise.resolve(false)
-  return window.msLoadDesignStudioShell()
+  let timer
+  const timeout = new Promise(resolve => {
+    timer = setTimeout(() => {
+      window.__msDesignStudioShellPromise = null
+      resolve(false)
+    }, MKT_STUDIO_SHELL_TIMEOUT_MS)
+  })
+  const load = window.msLoadDesignStudioShell()
     .then(() => typeof window.openStudioSizePicker === 'function')
-    .catch(() => false)
+    .catch(() => { window.__msDesignStudioShellPromise = null; return false })
+  return Promise.race([load, timeout]).then(ok => { clearTimeout(timer); return ok })
 }
 window.mktEnsureStudioShell = mktEnsureStudioShell
 
@@ -2339,7 +2357,7 @@ async function mktLoadStudioCreativeHome() {
   const ready = await mktEnsureStudioShell().catch(() => false)
   if (!ready || typeof window.renderStudioHomeFormatShortcuts !== 'function') {
     host.innerHTML = `<div class="ms-c ms-c--standard ms-c--glass p-6 space-y-3">
-      <p class="text-sm text-rose-600 dark:text-rose-300">Design Studio could not be loaded, so sizes and collections are unavailable right now.</p>
+      <p class="text-sm text-rose-600 dark:text-rose-300">Design Studio did not finish loading, so sizes and collections are unavailable right now.</p>
       <button type="button" onclick="mktLoadStudioCreativeHome()" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Try again</button>
     </div>`
     return
