@@ -403,7 +403,15 @@ class StudioFabricAdapter {
           const y = Math.min(el.height - 1, Math.max(0, Math.floor(el.height * fy)));
           if (ctx.getImageData(x, y, 1, 1).data[3] !== 0) { painted = true; break; }
         }
-        if (painted) return;
+        if (painted) {
+          // Log the success too. A probe that is silent when it passes is a
+          // diagnostic hole: "no message" then means both "the bitmap is fine"
+          // and "the probe never ran", and those need completely different
+          // fixes. Saying so turns a blank artboard into a one-line answer
+          // about whether the pixels exist but are not reaching the screen.
+          push(`bitmap painted ok at ${el.width}x${el.height}`);
+          return;
+        }
         this.__retinaFallbackApplied = true;
         push(`bitmap blank at ${el.width}x${el.height} — falling back to 1:1`);
         if (window.fabric) window.fabric.devicePixelRatio = 1;
@@ -412,8 +420,11 @@ class StudioFabricAdapter {
         fc.renderAll();
       } catch (_) {
         // Tainted canvas (a photo loaded without CORS) or no 2D context.
-        // Both mean the probe cannot answer; leave the render alone.
-        push('bitmap probe unavailable');
+        // Both mean the probe cannot answer; leave the render alone. NOTE this
+        // is not evidence the canvas painted — tainting only records that a
+        // cross-origin image was drawn to it, which says nothing about whether
+        // the backing store was granted. It means "unknown", not "fine".
+        push('bitmap probe unavailable (tainted or no 2d context)');
       }
     }, 260);
   }

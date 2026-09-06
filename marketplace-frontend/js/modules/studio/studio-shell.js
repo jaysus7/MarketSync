@@ -741,6 +741,48 @@ function studioDebugRefresh() {
       const mp = (el.width * el.height) / 1e6;
       return `${el.width}x${el.height} (${mp.toFixed(1)}Mpx${mp > 16.7 ? ' ✗ over iOS cap' : ' ✓'})`;
     })()],
+    // A canvas can hold a perfectly painted bitmap and still show nothing,
+    // because the element is off-screen, zero-sized, transparent or covered.
+    // The rows below separate those two worlds — without them a blank artboard
+    // looks identical whether the pixels are missing or merely not reaching the
+    // screen, and those have completely different fixes.
+    ['on screen', (() => {
+      const el = document.getElementById('studio-main-canvas');
+      if (!el) return '—';
+      const r = el.getBoundingClientRect();
+      const off = r.width < 1 || r.height < 1 ? ' ✗ zero-sized'
+        : (r.bottom < 0 || r.top > window.innerHeight || r.right < 0 || r.left > window.innerWidth) ? ' ✗ outside viewport' : ' ✓';
+      return `${Math.round(r.width)}x${Math.round(r.height)} at ${Math.round(r.left)},${Math.round(r.top)}${off}`;
+    })()],
+    ['hit test', (() => {
+      const el = document.getElementById('studio-main-canvas');
+      if (!el || !document.elementFromPoint) return '—';
+      const r = el.getBoundingClientRect();
+      const x = Math.min(window.innerWidth - 1, Math.max(0, r.left + r.width / 2));
+      const y = Math.min(window.innerHeight - 1, Math.max(0, r.top + r.height / 2));
+      const hit = document.elementFromPoint(x, y);
+      if (!hit) return 'nothing at artboard centre ✗';
+      // Fabric puts an interaction canvas over the drawing one, so the upper
+      // canvas (or anything else inside fabric's wrapper) is the healthy answer.
+      const wrapper = el.parentElement;
+      if (hit === el || hit === wrapper || (wrapper && wrapper.contains(hit))) {
+        return `${hit === el ? 'canvas' : hit.tagName.toLowerCase() + (hit.className ? '.' + String(hit.className).split(' ')[0] : '')} ✓`;
+      }
+      return `covered by ${hit.tagName.toLowerCase()}${hit.id ? '#' + hit.id : ''} ✗`;
+    })()],
+    ['painted', (() => {
+      // Reads the bitmap directly rather than trusting the object count.
+      const el = document.getElementById('studio-main-canvas');
+      const ctx = el && el.getContext && el.getContext('2d');
+      if (!ctx || !el.width) return '—';
+      try {
+        for (const [fx, fy] of [[0.5, 0.5], [0.25, 0.25], [0.75, 0.75], [0.5, 0.12]]) {
+          const d = ctx.getImageData(Math.floor(el.width * fx), Math.floor(el.height * fy), 1, 1).data;
+          if (d[3] !== 0) return `yes — centre rgb(${d[0]},${d[1]},${d[2]}) ✓`;
+        }
+        return 'NO — every sample transparent ✗';
+      } catch (_) { return 'cannot read (cross-origin image on canvas)'; }
+    })()],
   ];
   body.innerHTML = ''
     + '<div style="padding:.5rem 0;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:.5rem;">'
