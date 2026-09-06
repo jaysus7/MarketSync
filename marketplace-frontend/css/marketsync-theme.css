@@ -2960,6 +2960,31 @@ html:not(.website-builder-mode) [data-ws-theme] div[data-page-content="website"]
 @media (max-width: 640px) {
   .website-studio-hero { padding: 1rem !important; }
   .website-studio-tabs button { padding-left: .75rem !important; padding-right: .75rem !important; }
+  /* Hard containment on phones: user reported the studio shell bleeding
+     past the viewport (long domains, extra buttons injected by other
+     modules, wide tab strips). Force every layer to fit and let anything
+     wider scroll internally rather than push the page body sideways. */
+  .website-studio-shell,
+  .website-studio-shell > *,
+  .website-studio-view,
+  .website-studio-view > * {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+  }
+  /* Tab rail is the one legitimate horizontal scroller. */
+  .website-studio-tabs { overflow-x: auto !important; }
+  /* Any long text inside a card (custom domain, published URL) wraps
+     instead of clipping. */
+  .website-studio-shell .rounded-xl,
+  .website-studio-shell .rounded-2xl { overflow-wrap: anywhere; }
+  /* Hide the injected "Desktop" viewport-switcher pill on mobile — it
+     belongs to the desktop-only preview strip and clips as "Desk a"
+     because there's no room for the full label. */
+  .website-studio-shell [data-view="desktop"],
+  .website-studio-shell [data-view="tablet"],
+  .website-studio-shell [data-view="mobile"],
+  .website-studio-shell .ws-device-btn { display: none !important; }
 }
 html[data-dash-mode="marketsync"] :is(#dept-tabbar, .page-content .eng-shell-header, .page-content .rounded-xl.border:not(.ms-kpi), .page-content .rounded-2xl.border:not(.ms-kpi)) {
   background: linear-gradient(145deg, rgba(255,255,255,.72), rgba(245,248,255,.52)) !important;
