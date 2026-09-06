@@ -1751,14 +1751,17 @@ function restrictedNavPages() {
   // 'sales-team' is deliberately absent — no restricted tier gets it as a nav
   // page any more, Staff management lives in Settings for all of them.
   if (__productAllowedPages) {
-    const meta = { ...META, 'ai-home': AI, leaderboard: LEADER, inventory: INV('Inventory') };
+    const meta = { ...META, 'ai-home': AI, leaderboard: LEADER, inventory: INV(canManageTeam ? 'Inventory' : 'My Inventory') };
     const identity = { page: 'crm', label: 'Customer Verification', icon: 'shield' };
     if (__productAllowedPages.has('crm')) return [identity];
     return ['marketing-overview', 'email-marketing', 'video-studio', 'website', 'ai-home', 'inventory', 'leaderboard']
       .filter(p => __productAllowedPages.has(p)).map(p => meta[p]);
   }
   // Legacy pure fb_only accounts with no product set: the same two Facebook items.
-  if (__fbOnly) return [INV('Inventory'), LEADER];
+  // A rep sees only their own book, so the label says so — the per-tier contract
+  // documented at the top of this function. canManageTeam had gone unreferenced, which
+  // is how every restricted tier ended up showing a manager's "Inventory" label.
+  if (__fbOnly) return canManageTeam ? [INV('Inventory'), LEADER] : [INV('My Inventory'), LEADER];
   return null;
 }
 window.restrictedNavPages = restrictedNavPages;

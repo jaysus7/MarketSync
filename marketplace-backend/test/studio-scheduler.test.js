@@ -11,12 +11,24 @@ const studioShell = readFileSync(new URL('../../marketplace-frontend/js/modules/
 const part2 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part2.js', import.meta.url), 'utf8')
 const dashboard = readFileSync(new URL('../../marketplace-frontend/dashboard.js', import.meta.url), 'utf8')
 
-test('studio-scheduler.js is registered as a script in dashboard.html, after fabric-adapter.js', () => {
-  const fabricIdx = dashboardHtml.indexOf('js/modules/studio/fabric-adapter.js')
-  const schedIdx = dashboardHtml.indexOf('js/modules/studio/studio-scheduler.js')
-  assert.ok(fabricIdx > -1, 'fabric-adapter.js must be present')
-  assert.ok(schedIdx > -1, 'studio-scheduler.js must be registered')
-  assert.ok(schedIdx > fabricIdx, 'studio-scheduler.js must load after fabric-adapter.js')
+test('studio-scheduler.js is lazily registered and never assumes the Studio bundle is present', () => {
+  // These were eager <script> tags in dashboard.html. Both are now loaded on
+  // demand — the scheduler when its page opens, the Studio bundle through
+  // msLoadDesignStudioShell() — so the old "must appear after fabric-adapter in
+  // the HTML" ordering rule no longer has anything to order.
+  assert.equal(dashboardHtml.indexOf('js/modules/studio/studio-scheduler.js'), -1,
+    'the scheduler is lazily loaded; an eager tag would pull the bundle onto every page')
+  assert.match(part2, /pageId === 'social-scheduler'[\s\S]*?msLoadScript\('js\/modules\/studio\/studio-scheduler\.js/,
+    'the scheduler must be fetched when its page opens')
+
+  // The dependency the ordering rule actually protected: the scheduler must
+  // reach the Studio only through the guarded lazy entry point, never by
+  // assuming fabric-adapter has already run.
+  for (const call of scheduler.match(/openMarketSyncStudio\(/g) || []) {
+    assert.ok(call, 'sanity')
+  }
+  assert.doesNotMatch(schedulerCode, /\bnew\s+fabric\./, 'the scheduler must not touch fabric directly')
+  assert.doesNotMatch(schedulerCode, /__studioAdapter\s*\./, 'nor reach into the Studio adapter')
 })
 
 test('the studio scheduler never reuses ENGINE_DATA/mktReload/engineTab — those assume the Marketing engine page is mounted', () => {
@@ -60,12 +72,19 @@ test('the Studio header has a Schedule button wired through the entitlement-awar
 })
 
 test('standalone Design Studio navigation exposes its merged Scheduler without routing to the standalone Social Scheduler dashboard', () => {
-  const branch = dashboard.match(/if \(activeProducts\.length === 1 && \/design_studio\/\.test\(product\)\) \{[\s\S]*?\n {2}\}/)?.[0] || ''
-  assert.match(branch, /label: 'Design Studio'/)
-  assert.match(branch, /label: 'Scheduler'/)
-  assert.match(branch, /studioSchedulerLaunch: true/)
-  assert.doesNotMatch(branch, /page: 'social-scheduler'/)
-  assert.match(part2, /p\.studioSchedulerLaunch[\s\S]*?window\.openStudioSchedulerWithEntitlementCheck\(\)/)
+  const branch = dashboard.match(/if \(\/design_studio\/\.test\(only\)\) \{[\s\S]*?\n {4}\}/)?.[0] || ''
+  assert.ok(branch, 'the design_studio single-product branch must exist')
+  // restrictedNavPages() now states the rule outright: "Single purchased
+  // product: exactly ONE nav destination … In-page tabs (Setup, Calendar,
+  // Builder, etc.) stay on the page." So a standalone Design Studio account
+  // gets one row, and the merged Scheduler is reached from inside the Studio
+  // rather than from a second sidebar row.
+  assert.match(branch, /'Design Studio'/)
+  assert.match(branch, /studioLaunch: true/)
+  assert.doesNotMatch(branch, /page: 'social-scheduler'/,
+    'it must never route to the standalone Social Scheduler dashboard')
+  assert.match(part2, /p\.studioSchedulerLaunch[\s\S]*?window\.openStudioSchedulerWithEntitlementCheck\(\)/,
+    'the merged Scheduler entry point must still exist for the Studio to call')
 })
 
 test('renderStudioDesignAndPublish keeps the user inside the Studio interface instead of closing it and calling the Marketing engine composer', () => {

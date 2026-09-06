@@ -155,7 +155,10 @@ test('a tile with records expands in place instead of navigating away', () => {
 // The affordance is chrome, not data — on a zero tile it would be an invitation
 // to open an empty list.
 test('a quiet tile does not advertise records it has none of', () => {
-  assert.match(ds, /\[data-emphasis="quiet"\] \.ms-kpi__hint \{ display: none; \}/)
+  // Matched against whitespace-normalised CSS: the rule's meaning is the contract,
+  // whether it is written on one line or expanded across three by a reformat.
+  const dsn = ds.replace(/\s+/g, ' ')
+  assert.match(dsn, /\[data-emphasis="quiet"\] \.ms-kpi__hint \{ display: none; \}/)
 })
 
 // ── Links land on the record, not the department page ────────────────────────

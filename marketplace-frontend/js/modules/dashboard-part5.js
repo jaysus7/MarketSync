@@ -229,6 +229,10 @@ function setupMobileMoreMenu() {
         });
         list.appendChild(b);
       });
+      // The marketing-suite path is a nav path like any other: it gets the same
+      // upgrade CTA (which no-ops for top-tier and platform staff on its own) and
+      // the same way out as the desktop header.
+      appendMobileUpgrade();
       appendMobileSignOut();
       menu.classList.remove('hidden');
       return;

@@ -9,8 +9,12 @@ const part17 = readFileSync(new URL('../../marketplace-frontend/js/modules/dashb
 const dashboardHtml = readFileSync(new URL('../../marketplace-frontend/dashboard.html', import.meta.url), 'utf8')
 
 test('Content → Video paints immediately and refreshes its library without blocking navigation', () => {
-  const loadFn = videoStudio.match(/function loadVideoStudioPage\(\) \{[\s\S]*?\n\}/)?.[0] || ''
-  assert.ok(loadFn, 'loadVideoStudioPage must be synchronous so navigation can paint immediately')
+  // Takes an optional mount container so the Marketing tab can host Video inside its
+  // own pane; the signature is matched loosely, the `async`-ness is asserted directly.
+  const loadFn = videoStudio.match(/function loadVideoStudioPage\([^)]*\) \{[\s\S]*?\n\}/)?.[0] || ''
+  assert.ok(loadFn, 'loadVideoStudioPage must exist')
+  assert.doesNotMatch(videoStudio, /async function loadVideoStudioPage/,
+    'loadVideoStudioPage must be synchronous so navigation can paint immediately')
   assert.match(loadFn, /root\.innerHTML = renderVideoStudioWorkspace\(__videoLibraryVideos\)/,
     'cached or demo videos render before the network refresh')
   assert.match(loadFn, /void refreshVideoLibrary\(\)\.then/,

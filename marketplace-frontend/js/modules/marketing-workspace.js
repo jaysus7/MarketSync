@@ -2230,19 +2230,20 @@ window.mktDeleteStudioFolder = async function (folderId) {
 
 async function mktLoadStudioBrandAndAssets() {
   const brandHost = document.getElementById('mkt-studio-brand');
-  const [brandResult, sitesResult, assetsResult, designsResult, foldersResult] = await Promise.all([
+  // There is no GET /websites on the backend — that call 404'd on every open and its
+  // `site.*` fallbacks below could therefore never fire. /branding is the canonical
+  // brand record (the same one Settings → Branding and the website wordmark read).
+  const [brandResult, assetsResult, designsResult, foldersResult] = await Promise.all([
     apiGetJson('/branding').catch(() => ({})),
-    apiGetJson('/websites').catch(() => ({})),
     apiGetJson('/marketing/assets').catch(() => ({ assets: [] })),
     apiGetJson('/marketing/studio/designs').catch(() => ({ designs: [] })),
     apiGetJson('/marketing/studio/folders').catch(() => ({ folders: [] })),
   ]);
   const brand = brandResult.branding || {};
-  const site = (sitesResult.sites || sitesResult.websites || [])[0] || sitesResult.site || {};
-  const logo = brand.logo_url || site.logo_url || '';
-  const primary = brand.primary_color || site.primary_color || '#4f46e5';
-  const accent = brand.secondary_color || site.accent_color || '#0f172a';
-  const tagline = brand.tagline || site.tagline || '';
+  const logo = brand.logo_url || '';
+  const primary = brand.primary_color || '#4f46e5';
+  const accent = brand.secondary_color || '#0f172a';
+  const tagline = brand.tagline || '';
   window.__mktStudioBrand = { ...brand, logo_url: logo, primary_color: primary, secondary_color: accent, tagline };
   if (brandHost) brandHost.innerHTML = `
     <div class="flex items-center gap-3">
@@ -2276,25 +2277,25 @@ window.mktLoadStudioBrandAndAssets = mktLoadStudioBrandAndAssets;
 // EDITOR opens full screen. Every card below ends in startStudioBlankDesign()
 // or openMarketSyncStudio(), which are the full-screen paths.
 
-const MKT_STUDIO_SCRIPTS = [
-  'js/modules/studio/fabric-adapter.js?v=20260906_studio_tab_v1',
-  'js/modules/studio/studio-shell.js?v=20260906_studio_tab_v1',
-]
-
-// Resolves once studio-shell.js is in the page. studio-shell.js is a classic
-// script, so its top-level function declarations (openStudioSizePicker,
-// renderStudioHomeFormatShortcuts, startStudioBlankDesign, …) are already
-// globals once it loads — no separate export step needed.
-let __mktStudioShellPromise = null
+// Resolves once the Design Studio shell is in the page.
+//
+// This MUST go through msLoadDesignStudioShell() (dashboard-part2.js) rather
+// than loading studio-shell.js directly. studio-shell.js does not stand alone:
+// it needs scene-model, the whole js/design-studio/* set, document-model,
+// studio-store and studio-autosave loaded first. An earlier version of this
+// function fetched only fabric-adapter + studio-shell, so studio-shell threw
+// while evaluating, openMarketSyncStudio was never defined, and this tab
+// reported "Design Studio could not be loaded" every time.
+//
+// studio-shell.js is a classic script, so once it evaluates its top-level
+// function declarations (openStudioSizePicker, renderStudioHomeFormatShortcuts,
+// startStudioBlankDesign, …) are globals — no separate export step needed.
 function mktEnsureStudioShell() {
-  if (typeof window.openMarketSyncStudio === 'function') return Promise.resolve(true)
-  if (__mktStudioShellPromise) return __mktStudioShellPromise
-  if (typeof window.msLoadScript !== 'function') return Promise.resolve(false)
-  __mktStudioShellPromise = MKT_STUDIO_SCRIPTS
-    .reduce((chain, src) => chain.then(() => window.msLoadScript(src)), Promise.resolve())
-    .then(() => typeof window.openMarketSyncStudio === 'function')
-    .catch(() => { __mktStudioShellPromise = null; return false })
-  return __mktStudioShellPromise
+  if (typeof window.openStudioSizePicker === 'function') return Promise.resolve(true)
+  if (typeof window.msLoadDesignStudioShell !== 'function') return Promise.resolve(false)
+  return window.msLoadDesignStudioShell()
+    .then(() => typeof window.openStudioSizePicker === 'function')
+    .catch(() => false)
 }
 window.mktEnsureStudioShell = mktEnsureStudioShell
 
@@ -2560,7 +2561,7 @@ function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes, discRes, re
         </div>
         <div class="flex flex-wrap gap-2 shrink-0">
           <button type="button" onclick="if(typeof openWebsiteBuilder==='function')openWebsiteBuilder()" class="liquid-glass-btn px-4 py-2 rounded-xl text-xs font-black">Edit website</button>
-          ${publicUrl ? `<a href="${esc(publicUrl)}" target="_blank" rel="noopener noreferrer" class="liquid-glass-btn-secondary px-4 py-2 rounded-xl text-xs font-black">View live ↗</a>` : ''}
+          ${publicUrl ? `<a href="${esc(publicUrl)}" target="_blank" rel="noopener noreferrer" class="liquid-glass-btn-secondary px-4 py-2 rounded-xl text-xs font-black">View live</a>` : ''}
           ${hasDraftChanges ? `<button type="button" onclick="if(typeof openWebsiteBuilder==='function')openWebsiteBuilder()" class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-black">Publish changes</button>` : ''}
           <button type="button" onclick="if(typeof openSetupModal==='function')openSetupModal('domain')" class="liquid-glass-btn-secondary px-4 py-2 rounded-xl text-xs font-black">Manage domain</button>
         </div>
@@ -2590,7 +2591,7 @@ function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes, discRes, re
         <span class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-2">Quick actions</span>
         <button type="button" onclick="if(typeof openWebsiteBuilder==='function')openWebsiteBuilder()" class="liquid-glass-btn px-3 py-1.5 rounded-lg text-xs font-black">Edit website</button>
         <button type="button" onclick="if(typeof openWebsiteBuilder==='function')openWebsiteBuilder()" class="liquid-glass-btn-secondary px-3 py-1.5 rounded-lg text-xs font-black">Create page</button>
-        ${publicUrl ? `<a href="${esc(publicUrl)}" target="_blank" rel="noopener noreferrer" class="liquid-glass-btn-secondary px-3 py-1.5 rounded-lg text-xs font-black">View live ↗</a>` : ''}
+        ${publicUrl ? `<a href="${esc(publicUrl)}" target="_blank" rel="noopener noreferrer" class="liquid-glass-btn-secondary px-3 py-1.5 rounded-lg text-xs font-black">View live</a>` : ''}
         <button type="button" onclick="if(typeof switchPage==='function')switchPage('discoverability')" class="liquid-glass-btn-secondary px-3 py-1.5 rounded-lg text-xs font-black">View discoverability</button>
         <button type="button" onclick="if(typeof openSetupModal==='function')openSetupModal('domain')" class="liquid-glass-btn-secondary px-3 py-1.5 rounded-lg text-xs font-black">Manage domain</button>
       </div>

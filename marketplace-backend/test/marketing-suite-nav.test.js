@@ -88,15 +88,39 @@ test('Marketing Suite — Horizontal Top Tabs & Clean Email & SMS Landing', asyn
   });
 
   await t.test('Email & SMS command center renders overview with 6 tabs and KPI metrics', () => {
-    assert.match(dashPart18Js, /role="tablist" aria-label="Campaigns and Automations" class="flex items-center/, 'renders the reports menu horizontally');
+    // The tab strip is still one horizontal tablist; its aria-label became
+    // per-studio ("Automations Studio" / "Email and SMS Studio") instead of the
+    // single fixed "Campaigns and Automations", which is a better label, not a
+    // different layout. Assert the layout and that it is still labelled.
+    assert.match(dashPart18Js, /role="tablist" aria-label="[^"]+" class="flex items-center/, 'renders the reports menu horizontally');
+    assert.match(dashPart18Js, /role="tablist"[^>]*class="flex items-center[^"]*overflow-x-auto/, 'the tab strip scrolls horizontally rather than stacking');
     assert.doesNotMatch(dashPart18Js, /class="space-y-1">\s*<div[^>]*>Workspace Nav/, 'does not render the legacy vertical workspace menu');
     assert.match(dashPart18Js, /role="tab" aria-selected=/, 'tabs expose accessible selected state');
-    assert.match(dashPart18Js, /tabBtn\('overview', 'Overview'/, 'renders Overview tab');
-    assert.match(dashPart18Js, /tabBtn\('automations', 'Automations'/, 'renders Automations tab');
-    assert.match(dashPart18Js, /tabBtn\('campaigns', 'Campaigns'/, 'renders Campaigns tab');
-    assert.match(dashPart18Js, /tabBtn\('templates', 'Templates'/, 'renders Templates tab');
-    assert.match(dashPart18Js, /tabBtn\('audiences', 'Audiences'/, 'renders Audiences tab');
-    assert.match(dashPart18Js, /tabBtn\('performance', 'Performance'/, 'renders Performance tab');
+    // Tabs come from the studioTabs data now (mapped through tabBtn) rather
+    // than one hardcoded tabBtn() call per tab, and the strip is per-studio.
+    // 'overview' is deliberately not a tab any more — it is the landing state,
+    // and the code redirects away from it: `|| __autoTab === 'overview'`.
+    const studioTabs = dashPart18Js.slice(dashPart18Js.indexOf('const studioTabs'),
+                                          dashPart18Js.indexOf('tabsEl.innerHTML'))
+    const tabPairs = [...studioTabs.matchAll(/\['([a-z-]+)', '([^']+)'\]/g)].map(m => [m[1], m[2]])
+    const tabIds = tabPairs.map(([id]) => id)
+    const has = (id, label) => assert.ok(
+      tabPairs.some(([i, l]) => i === id && l === label), `renders the ${label} tab`)
+
+    assert.ok(!tabIds.includes('overview'), 'overview is the landing state, not a tab')
+    assert.match(dashPart18Js, /__autoTab === 'overview'/, 'and the code must redirect away from it')
+
+    // Automations studio
+    has('automations', 'My Automations')
+    has('triggers', 'Triggers')
+    has('actions', 'Actions')
+    has('history', 'History')
+    // Email & SMS studio
+    has('campaigns', 'Campaigns')
+    has('templates', 'Templates')
+    has('audiences', 'Audiences')
+    has('automations', 'Automations')
+    has('performance', 'Results')
 
     assert.match(dashPart18Js, /Active Automations/, 'renders Active Automations metric');
     assert.match(dashPart18Js, /Messages Sent/, 'renders Messages Sent metric');
@@ -112,7 +136,15 @@ test('Marketing Suite — Horizontal Top Tabs & Clean Email & SMS Landing', asyn
 test('Marketing Suite — Two Distinct Full-Screen Builders & Shared Template Linkage', async (t) => {
   await t.test('provides distinct Automation Workflow Builder and Email/SMS Content Builder buttons', () => {
     assert.match(dashPart18Js, /<button onclick="openVisualWorkflowBuilder\(\)"[^>]*>[\s\S]*?<span>Build Automation<\/span>/, 'Build Automation button');
-    assert.match(dashPart18Js, /<button onclick="openEmailSmsBuilder\(\{ mode: 'email' \}\)"[^>]*>[\s\S]*?<span>Build Email \/ SMS<\/span>/, 'Build Email / SMS button');
+    // The two builders are still distinct and separately reachable; the entry
+    // points were relabelled and moved (the Email/SMS builder is now opened
+    // from New Campaign, from template creation, and from a workflow node)
+    // rather than from one button captioned "Build Email / SMS".
+    assert.match(dashPart18Js, /onclick="openVisualWorkflowBuilder\(\)"/, 'the automation workflow builder must have its own entry point');
+    assert.match(dashPart18Js, /<span>Build Automation<\/span>/, 'and be labelled as the automation builder');
+    assert.match(dashPart18Js, /onclick="openEmailSmsBuilder\(\{[^}]*mode: 'email'/, 'the Email/SMS content builder must have its own entry point');
+    // Distinct: neither builder may be an alias of the other.
+    assert.doesNotMatch(dashPart18Js, /openVisualWorkflowBuilder\s*=\s*openEmailSmsBuilder/);
   });
 
   await t.test('Visual Automation Builder renders full-screen DAG canvas with node palette and inspector', () => {

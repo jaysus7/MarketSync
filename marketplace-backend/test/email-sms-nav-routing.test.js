@@ -13,7 +13,9 @@ const marketingWorkspaceJs = readFileSync(new URL('../../marketplace-frontend/js
 // Clicking "Email & SMS" always landed on Automation Builder's Overview launchpad instead
 // of its Campaigns tab.
 test('deptGo re-applies the requested tab for email-sms/email-marketing after switchPage remaps them into automation-builder', () => {
-  const fn = dashPart2Js.match(/function deptGo\(page, invmode, tab\) \{[\s\S]*?\n\}/)?.[0] || ''
+  // deptGo grew a fourth `studio` parameter when Email/SMS and Automations started
+  // sharing one engine; match the signature loosely so a new parameter is not a failure.
+  const fn = dashPart2Js.match(/function deptGo\(page, invmode, tab[^)]*\) \{[\s\S]*?\n\}/)?.[0] || ''
   assert.ok(fn, 'deptGo must exist')
   assert.match(fn, /switchPage\(page\);/, 'must call switchPage before re-applying the tab')
   const afterSwitch = fn.slice(fn.indexOf('switchPage(page);'))

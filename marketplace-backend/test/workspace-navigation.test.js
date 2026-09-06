@@ -142,10 +142,13 @@ test('DealerOS Marketing exposes exactly five studios on canonical engines', () 
   assert.deepEqual(studios.map(page => page.label), [
     'Website Studio', 'Design Studio', 'Video Studio', 'Email/SMS Studio', 'Automations Studio',
   ])
+  // Design Studio moved onto the marketing-overview page as its 'studio' tab, so the
+  // browsing UI (sizes, collections, recent designs) lives in the Marketing dashboard
+  // and only the canvas goes full-screen. It is a page + tab now, not a studioLaunch.
   assert.deepEqual(studios.map(page => page.page), [
-    'website', 'studio', 'video-studio', 'automation-builder', 'automation-builder',
+    'website', 'marketing-overview', 'video-studio', 'automation-builder', 'automation-builder',
   ])
-  assert.equal(studios.find(page => page.label === 'Design Studio').studioLaunch, true)
+  assert.equal(studios.find(page => page.label === 'Design Studio').tab, 'studio')
   assert.deepEqual(studios.filter(page => page.page === 'automation-builder').map(page => page.studio), ['email', 'automation'])
   assert.match(part2, /aria-label="Marketing Studios"/)
   assert.match(part2, /function deptGo\(page, invmode, tab, studio\)/)

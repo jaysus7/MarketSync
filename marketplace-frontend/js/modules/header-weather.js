@@ -2,14 +2,19 @@
 (function (global) {
   'use strict';
 
+  // Condition names only. These used to carry an emoji glyph each, rendered
+  // straight into the header chip as the weather icon — the exact "emoji as UI"
+  // the zero-emoji rule forbids (icons come from the SVG icon system, and a
+  // glyph renders differently on every platform and reads as nothing to a
+  // screen reader). The chip now shows the condition in words.
   const WMO = {
-    0: ['Clear', '☀️'], 1: ['Mostly clear', '🌤️'], 2: ['Partly cloudy', '⛅'], 3: ['Cloudy', '☁️'],
-    45: ['Fog', '🌫️'], 48: ['Icy fog', '🌫️'],
-    51: ['Drizzle', '🌦️'], 53: ['Drizzle', '🌦️'], 55: ['Heavy drizzle', '🌧️'],
-    61: ['Rain', '🌧️'], 63: ['Rain', '🌧️'], 65: ['Heavy rain', '🌧️'],
-    71: ['Snow', '❄️'], 73: ['Snow', '❄️'], 75: ['Heavy snow', '❄️'],
-    80: ['Showers', '🌧️'], 81: ['Showers', '🌧️'], 82: ['Heavy showers', '🌧️'],
-    95: ['Thunder', '⛈️'], 96: ['Storm', '⛈️'], 99: ['Storm', '⛈️']
+    0: ['Clear'], 1: ['Mostly clear'], 2: ['Partly cloudy'], 3: ['Cloudy'],
+    45: ['Fog'], 48: ['Icy fog'],
+    51: ['Drizzle'], 53: ['Drizzle'], 55: ['Heavy drizzle'],
+    61: ['Rain'], 63: ['Rain'], 65: ['Heavy rain'],
+    71: ['Snow'], 73: ['Snow'], 75: ['Heavy snow'],
+    80: ['Showers'], 81: ['Showers'], 82: ['Heavy showers'],
+    95: ['Thunder'], 96: ['Storm'], 99: ['Storm']
   };
 
   function injectCss() {
@@ -29,6 +34,13 @@
         white-space:nowrap;flex-shrink:0;
       }
       .dark #header-weather-chip{background:rgba(15,23,42,.9);color:#e2e8f0;border-color:rgba(51,65,85,.9)}
+      /* The condition is a word now, not a single glyph, and the chip is
+         nowrap + flex-shrink:0 — so bound it, or "Partly cloudy" widens the
+         mobile header the way this file's own media query works to prevent.
+         Below 480px the word is dropped entirely; the chip's title attribute
+         still carries the full condition. */
+      #header-weather-chip .wx-cond{max-width:9ch;overflow:hidden;text-overflow:ellipsis}
+      @media (max-width: 479px){ #header-weather-chip .wx-cond{display:none} }
       @media (max-width: 767px) {
         header.ms-chrome-glass,
         body > header.fixed {
@@ -94,10 +106,10 @@
 
   function renderWeather(chip, data) {
     const code = Number(data.weather_code);
-    const pair = WMO[code] || WMO[Math.floor(code)] || ['Local', '🌤️'];
+    const pair = WMO[code] || WMO[Math.floor(code)] || ['Local'];
     const temp = Math.round(Number(data.temperature_2m));
     const place = data.place ? '<span class="wx-place">' + data.place + '</span>' : '';
-    chip.innerHTML = '<span>' + pair[1] + '</span><span class="wx-temp">' + temp + '°</span>' + place;
+    chip.innerHTML = '<span class="wx-cond">' + pair[0] + '</span><span class="wx-temp">' + temp + '°</span>' + place;
     chip.title = pair[0] + (data.place ? ' · ' + data.place : '');
   }
 

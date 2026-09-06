@@ -2346,19 +2346,41 @@ function switchPage(pageId) {
   if (pageId === 'automation') loadAutomationPage();
   if (pageId === 'automation-builder') loadAutoBuilderPage();
   if (pageId === 'email-marketing' || pageId === 'email-campaigns') loadDealerEmail();
+// ── The one Design Studio boot chain ────────────────────────────────────────
+// studio-shell.js does NOT stand alone: it needs scene-model, the whole
+// js/design-studio/* set, document-model, studio-store and studio-autosave
+// loaded first, in this order. Loading only fabric-adapter + studio-shell makes
+// studio-shell throw while evaluating, so openMarketSyncStudio never gets
+// defined and every caller reports "Design Studio could not be loaded".
+//
+// This list used to be copy-pasted in two places, and a third caller
+// (the Design Studio tab in the Marketing dashboard) copied a SHORTENED version
+// of it — which is exactly how that tab broke. One list, one owner, three
+// callers.
+function msLoadDesignStudioShell() {
+  if (typeof window.msLoadScript !== 'function') return Promise.resolve(false)
+  if (window.__msDesignStudioShellPromise) return window.__msDesignStudioShellPromise
+  const DS = 'v=20260903_studio_mobile_dark_v1'
+  window.__msDesignStudioShellPromise = Promise.resolve(window.msLoadScript('js/modules/studio/scene-model.js?v=20260814_v12'))
+    .then(() => Promise.all([
+      'js/design-studio/state/document-schema.js', 'js/design-studio/state/history-store.js', 'js/design-studio/state/studio-store.js',
+      'js/design-studio/editor/canvas-engine.js', 'js/design-studio/editor/selection-engine.js', 'js/design-studio/editor/transform-engine.js', 'js/design-studio/editor/snapping-engine.js', 'js/design-studio/editor/keyboard-engine.js',
+      'js/design-studio/panels/layers-panel.js', 'js/design-studio/panels/properties-panel.js', 'js/design-studio/panels/assets-panel.js', 'js/design-studio/panels/templates-panel.js', 'js/design-studio/panels/brand-panel.js', 'js/design-studio/panels/pages-panel.js', 'js/design-studio/panels/history-panel.js',
+      'js/design-studio/services/autosave-service.js', 'js/design-studio/services/version-service.js', 'js/design-studio/services/media-service.js', 'js/design-studio/services/export-service.js', 'js/design-studio/services/publishing-service.js', 'js/design-studio/services/ai-service.js', 'js/design-studio/studio-shell.js'
+    ].map(path => window.msLoadScript(`${path}?${DS}`))))
+    .then(() => window.msLoadScript('js/modules/studio/document-model.js?v=20260906_studio_tab_v1'))
+    .then(() => window.msLoadScript('js/modules/studio/studio-store.js?v=20260906_studio_tab_v1'))
+    .then(() => window.msLoadScript('js/modules/studio/studio-autosave.js?v=20260906_studio_tab_v1'))
+    .then(() => window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260906_studio_tab_v1'))
+    .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260906_studio_tab_v2'))
+    .then(() => typeof window.__msOpenStudioReal === 'function' || typeof window.openMarketSyncStudio === 'function')
+    .catch((error) => { window.__msDesignStudioShellPromise = null; throw error })
+  return window.__msDesignStudioShellPromise
+}
+window.msLoadDesignStudioShell = msLoadDesignStudioShell
+
   if (pageId === 'studio' || pageId === 'design-studio') {
-    Promise.resolve(window.msLoadScript ? window.msLoadScript('js/modules/studio/scene-model.js?v=20260814_v12') : null)
-      .then(() => window.msLoadScript && Promise.all([
-        'js/design-studio/state/document-schema.js', 'js/design-studio/state/history-store.js', 'js/design-studio/state/studio-store.js',
-        'js/design-studio/editor/canvas-engine.js', 'js/design-studio/editor/selection-engine.js', 'js/design-studio/editor/transform-engine.js', 'js/design-studio/editor/snapping-engine.js', 'js/design-studio/editor/keyboard-engine.js',
-        'js/design-studio/panels/layers-panel.js', 'js/design-studio/panels/properties-panel.js', 'js/design-studio/panels/assets-panel.js', 'js/design-studio/panels/templates-panel.js', 'js/design-studio/panels/brand-panel.js', 'js/design-studio/panels/pages-panel.js', 'js/design-studio/panels/history-panel.js',
-        'js/design-studio/services/autosave-service.js', 'js/design-studio/services/version-service.js', 'js/design-studio/services/media-service.js', 'js/design-studio/services/export-service.js', 'js/design-studio/services/publishing-service.js', 'js/design-studio/services/ai-service.js', 'js/design-studio/studio-shell.js'
-      ].map(path => window.msLoadScript(`${path}?v=20260903_studio_mobile_dark_v1`))))
-      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/document-model.js?v=20260830_prostudio'))
-      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-store.js?v=20260830_prostudio'))
-      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-autosave.js?v=20260830_prostudio'))
-      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260906_studio_tab_v1'))
-      .then(() => window.msLoadScript && window.msLoadScript('js/modules/studio/studio-shell.js?v=20260906_studio_tab_v1'))
+    msLoadDesignStudioShell()
       .then(() => { if (typeof openMarketSyncStudio === 'function') openMarketSyncStudio(); })
       .catch(renderMarketSyncStudioBootError);
   }
@@ -2640,14 +2662,7 @@ window.ensureOpenMarketSyncStudio = function ensureOpenMarketSyncStudio(designId
     window.__msOpenStudioReal = window.openMarketSyncStudio;
     return run();
   }
-  const load = window.msLoadScript
-    ? Promise.resolve(window.msLoadScript('js/modules/studio/scene-model.js?v=20260814_v12'))
-        .then(() => Promise.all([
-          'js/design-studio/state/document-schema.js', 'js/design-studio/state/history-store.js', 'js/design-studio/state/studio-store.js', 'js/design-studio/editor/canvas-engine.js', 'js/design-studio/editor/selection-engine.js', 'js/design-studio/editor/transform-engine.js', 'js/design-studio/editor/snapping-engine.js', 'js/design-studio/editor/keyboard-engine.js', 'js/design-studio/panels/layers-panel.js', 'js/design-studio/panels/properties-panel.js', 'js/design-studio/panels/assets-panel.js', 'js/design-studio/panels/templates-panel.js', 'js/design-studio/panels/brand-panel.js', 'js/design-studio/panels/pages-panel.js', 'js/design-studio/panels/history-panel.js', 'js/design-studio/services/autosave-service.js', 'js/design-studio/services/version-service.js', 'js/design-studio/services/media-service.js', 'js/design-studio/services/export-service.js', 'js/design-studio/services/publishing-service.js', 'js/design-studio/services/ai-service.js', 'js/design-studio/studio-shell.js'
-        ].map(path => window.msLoadScript(`${path}?v=20260903_studio_mobile_dark_v1`))))
-        .then(() => window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260906_studio_tab_v1'))
-        .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260906_studio_tab_v1'))
-    : Promise.resolve();
+  const load = msLoadDesignStudioShell();
   return Promise.resolve(load).then(() => {
     if (typeof window.openMarketSyncStudio === 'function' && window.openMarketSyncStudio !== ensureOpenMarketSyncStudio) {
       window.__msOpenStudioReal = window.openMarketSyncStudio;

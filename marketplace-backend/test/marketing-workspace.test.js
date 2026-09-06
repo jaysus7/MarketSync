@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 
 // Phase 6 PR 6.5 — the Marketing operating workspace.
 //
@@ -116,11 +117,14 @@ test('Marketing Pulse renders connected sources and never demo KPIs', () => {
   for (const fake of ['9,480', '19.4%', '14,820', '99.4%', '99.8%', '18.2%', '$148.2k', '$94.5k']) {
     assert.ok(!view.includes(fake), `Marketing Pulse must not render hard-coded demo metric ${fake}`)
   }
+  // The per-suite demo markup that used to trail the Pulse call is gone entirely, so
+  // `overview` is now just: build the caveat, render the connected Pulse, return. That
+  // is stronger than the old "unreachable" guarantee — assert the branch cannot come back.
   const overviewStart = ws.indexOf('overview(body, d)')
   const pulseCall = ws.indexOf('mktPulseOverview(body, d, suite, cfg, caveat)', overviewStart)
-  const legacySalesBranch = ws.indexOf("if (suite === 'sales')", overviewStart)
-  assert.ok(pulseCall > overviewStart && pulseCall < legacySalesBranch, 'connected Pulse must render before legacy suite markup')
-  assert.match(ws.slice(pulseCall, legacySalesBranch), /return;/, 'legacy demo markup must be unreachable')
+  assert.ok(pulseCall > overviewStart, 'connected Pulse must render from the overview tab')
+  assert.doesNotMatch(ws, /if \(suite === 'sales'\)/, 'legacy per-suite demo markup must stay deleted')
+  assert.match(ws.slice(pulseCall, pulseCall + 200), /return;/, 'overview must end at the connected Pulse')
 })
 
 test('Marketing Pulse preserves API failure separately from a real zero', () => {
@@ -134,21 +138,42 @@ test('Marketing Pulse preserves API failure separately from a real zero', () => 
 })
 
 test('it composes existing endpoints and introduces none', () => {
-  // '/marketing/attention' became '/my-day' in 6.10 — the same composition, widened across
-  // departments and gated per source.
-  const KNOWN = ['/my-day', '/campaigns', '/social/accounts', '/social/posts',
-                 '/conversations', '/marketing/roi', '/marketing/assets', '/inventory', '/automation/campaigns']
-  for (const c of [...ws.matchAll(/apiGetJson\('([^'?]+)/g)].map(m => m[1])) {
-    assert.ok(KNOWN.includes(c), `unexpected read endpoint: ${c}`)
+  // The workspace must only call endpoints the backend actually serves. A hand-kept
+  // whitelist went stale the moment the Website/Discoverability/Leads tabs landed AND
+  // silently let a dead call through (`GET /websites`, which has no route at all and
+  // 404'd on every Design Studio open). So index the real Express routes and check
+  // every call against them instead — no list to maintain, and a genuinely new or
+  // misspelled endpoint still fails.
+  const routes = new Set()
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry)
+      if (statSync(full).isDirectory()) walk(full)
+      else if (full.endsWith('.js')) {
+        for (const m of readFileSync(full, 'utf8')
+          .matchAll(/\b(?:app|router)\.(?:get|post|put|patch|delete)\(\s*['"`]([^'"`]+)['"`]/g)) routes.add(m[1])
+      }
+    }
   }
-  const WRITES = ['/campaigns/${id}/status', '/conversations/${conversationId}/takeover',
-                  '/social/posts', '/social/posts/${postId}/publish', '/social/posts/${postId}',
-                  '/social/posts/${postId}/approve', '/social/posts/${postId}/cancel', '/marketing/studio/render',
-                  // Connecting a social account is a real, permissioned write the composer offers.
-                  '/social/accounts']
-  for (const w of [...ws.matchAll(/apiSendJson\([`']([^`']+)[`']/g)].map(m => m[1])) {
-    assert.ok(WRITES.includes(w), `unexpected write target: ${w}`)
+  walk(new URL('../routes', import.meta.url).pathname)
+  assert.ok(routes.size > 100, 'the route index must actually have found the backend routes')
+
+  // `${expr}` path segments are dynamic ids; match them against Express `:param` slots.
+  const covered = (endpoint) => {
+    const parts = endpoint.replace(/\$\{[^}]*\}/g, ':p').split('?')[0].replace(/\/+$/, '').split('/')
+    for (const route of routes) {
+      const rp = route.split('/')
+      if (rp.length !== parts.length) continue
+      if (parts.every((seg, i) => rp[i].startsWith(':') || seg === ':p' || rp[i] === seg)) return true
+    }
+    return false
   }
+
+  const reads = [...ws.matchAll(/apiGetJson\(['`]([^'`]+)/g)].map((m) => m[1])
+  const writes = [...ws.matchAll(/apiSendJson\([`']([^`']+)[`']/g)].map((m) => m[1])
+  assert.ok(reads.length && writes.length, 'the workspace must still be composing real calls')
+  for (const endpoint of reads) assert.ok(covered(endpoint), `unserved read endpoint: ${endpoint}`)
+  for (const endpoint of writes) assert.ok(covered(endpoint), `unserved write target: ${endpoint}`)
 })
 
 test('the composer offers only accounts the server said this user may publish to', () => {
@@ -246,7 +271,13 @@ test('Marketing is wired into the shell and leads with My Day', () => {
   assert.match(part2, /if \(pageId === 'marketing-overview'\) loadMarketingWorkspace\(\)/)
   assert.match(part2, /'marketing-overview': 'os\.marketing'/, 'must carry an entitlement key')
   const block = registry.match(/\n  marketing: \{[\s\S]*?\n  \},/)?.[0] || ''
-  assert.match(block, /\{ page: 'marketing-overview', label: 'Pulse' \}/)
+  // The sidebar entry for marketing-overview now opens the Design Studio tab (commits
+  // 49d4824 / 50251b0 moved Design Studio onto this page). Pulse did not go away — it is
+  // the workspace's own first tab — so assert the page is registered here AND that Pulse
+  // is still a reachable destination inside it, rather than pinning the sidebar label.
+  assert.match(block, /\{ page: 'marketing-overview',/, 'marketing-overview must stay in the Marketing group')
+  assert.match(ws, /suiteItem\('marketing-overview', 'Pulse', 'chart', \{ tab: 'overview' \}\)/,
+    'Marketing Pulse must remain reachable from the workspace nav')
   // The existing pages stay reachable — KEEP over REPLACE.
   for (const p of ['email-marketing', 'website', 'ai-home', 'ai-inbox']) {
     assert.ok(block.includes(`page: '${p}'`), `existing page "${p}" must stay reachable`)
