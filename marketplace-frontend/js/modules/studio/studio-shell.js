@@ -732,6 +732,15 @@ function studioDebugRefresh() {
     ['active page', adapter?.activePageId || 'none'],
     ['zoom', canvas ? `${Math.round((canvas.getZoom() || 1) * 100)}%` : '—'],
     ['viewport', `${window.innerWidth}x${window.innerHeight}`],
+    // Bitmap row: the backing store WebKit was actually asked for. Anything
+    // over ~16.7M pixels is refused silently on iOS and paints nothing, which
+    // is why this is on the panel next to the object count.
+    ['bitmap', (() => {
+      const el = document.getElementById('studio-main-canvas');
+      if (!el || !el.width) return '—';
+      const mp = (el.width * el.height) / 1e6;
+      return `${el.width}x${el.height} (${mp.toFixed(1)}Mpx${mp > 16.7 ? ' ✗ over iOS cap' : ' ✓'})`;
+    })()],
   ];
   body.innerHTML = ''
     + '<div style="padding:.5rem 0;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:.5rem;">'
@@ -1802,6 +1811,13 @@ async function loadStudioTemplateCatalog(force = false) {
   return STUDIO_TEMPLATES_CATALOG;
 }
 window.loadStudioTemplateCatalog = loadStudioTemplateCatalog;
+// Exposed for the Design Studio tab inside the Marketing dashboard
+// (mktLoadStudioCreativeHome). Top-level `function` declarations in this file
+// are already globals because it is a classic script, but `const` declarations
+// are not — without these two the tab could not build its size filter chips.
+// One list of formats in the product; the tab reads it rather than copying it.
+window.STUDIO_SOCIAL_FORMATS = STUDIO_SOCIAL_FORMATS;
+window.STUDIO_FORMAT_GROUPS = STUDIO_FORMAT_GROUPS;
 
 function renderStudioSafeGuides(formatKey) {
   const format = STUDIO_SOCIAL_FORMATS[formatKey] || STUDIO_SOCIAL_FORMATS.square;

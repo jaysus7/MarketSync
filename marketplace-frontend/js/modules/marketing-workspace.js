@@ -1225,9 +1225,13 @@ ENGINES['marketing-overview'] = {
     studio(body, d) {
       body.innerHTML = `
         <div class="space-y-4">
-          ${typeof mktSuiteBand === 'function' ? mktSuiteBand('Creative', 'Design Studio', 'Choose a format, template, design set, or saved project here. The full-screen Studio opens only for the actual canvas editor.', '<button type="button" onclick="mktOpenStudioSizePicker()" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Create design</button>') : ''}
-          <section id="mkt-studio-creative-home" class="studio-home min-h-64" aria-label="Design Studio formats and templates">
-            <div class="ms-c ms-c--standard ms-c--glass p-8 text-center text-sm text-slate-500 dark:text-slate-300">Loading formats, design sets, and matching templates…</div>
+          <!-- No suite band here on purpose. This tab renders inside the
+               marketing-overview engine, which already paints a page header and
+               tab strip above it; adding mktSuiteBand('Creative','Design Studio')
+               stacked a SECOND header row on the same screen. The tab's action
+               lives on the Sizes section header below instead, so nothing is lost. -->
+          <section id="mkt-studio-creative-home" class="studio-home min-h-64" aria-label="Design Studio sizes, collections and templates">
+            <div class="ms-c ms-c--standard ms-c--glass p-8 text-center text-sm text-slate-500 dark:text-slate-300">Loading sizes, collections and templates…</div>
           </section>
           <section class="ms-c ms-c--standard ms-c--glass p-4 md:p-5 space-y-4" aria-labelledby="mkt-studio-projects-heading">
             <div class="flex items-start justify-between gap-3 flex-wrap">
@@ -2259,6 +2263,130 @@ async function mktLoadStudioBrandAndAssets() {
   mktRenderStudioAssets();
 }
 window.mktLoadStudioBrandAndAssets = mktLoadStudioBrandAndAssets;
+
+// ── Design Studio inside the Marketing dashboard ────────────────────────────
+// The Studio tab calls mktOpenStudioSizePicker() and mktLoadStudioCreativeHome().
+// Neither existed: the two buttons were inert and the formats/collections panel
+// sat on "Loading…" forever. They need `mkt` wrappers rather than calling the
+// studio functions directly, because studio-shell.js is lazily loaded — on this
+// tab it usually has not been fetched yet.
+//
+// Division of labour, per the product decision: BROWSING (sizes, collections,
+// templates, saved projects) stays here in the Marketing dashboard; the CANVAS
+// EDITOR opens full screen. Every card below ends in startStudioBlankDesign()
+// or openMarketSyncStudio(), which are the full-screen paths.
+
+const MKT_STUDIO_SCRIPTS = [
+  'js/modules/studio/fabric-adapter.js?v=20260906_studio_tab_v1',
+  'js/modules/studio/studio-shell.js?v=20260906_studio_tab_v1',
+]
+
+// Resolves once studio-shell.js is in the page. studio-shell.js is a classic
+// script, so its top-level function declarations (openStudioSizePicker,
+// renderStudioHomeFormatShortcuts, startStudioBlankDesign, …) are already
+// globals once it loads — no separate export step needed.
+let __mktStudioShellPromise = null
+function mktEnsureStudioShell() {
+  if (typeof window.openMarketSyncStudio === 'function') return Promise.resolve(true)
+  if (__mktStudioShellPromise) return __mktStudioShellPromise
+  if (typeof window.msLoadScript !== 'function') return Promise.resolve(false)
+  __mktStudioShellPromise = MKT_STUDIO_SCRIPTS
+    .reduce((chain, src) => chain.then(() => window.msLoadScript(src)), Promise.resolve())
+    .then(() => typeof window.openMarketSyncStudio === 'function')
+    .catch(() => { __mktStudioShellPromise = null; return false })
+  return __mktStudioShellPromise
+}
+window.mktEnsureStudioShell = mktEnsureStudioShell
+
+// "Create design" / "New design". Opens the shell's own size picker, so there is
+// one list of formats in the product rather than a second copy here. Choosing a
+// size hands off to the full-screen editor.
+async function mktOpenStudioSizePicker() {
+  const ready = await mktEnsureStudioShell()
+  if (!ready || typeof window.openStudioSizePicker !== 'function') {
+    if (typeof showToast === 'function') showToast('Design Studio could not be loaded. Reload the page and try again.', 'error')
+    return
+  }
+  window.openStudioSizePicker('new')
+}
+window.mktOpenStudioSizePicker = mktOpenStudioSizePicker
+
+// Sizes + collections + templates, rendered from the studio shell's own
+// renderers so the tab and the full-screen home can never drift apart. The
+// template grid keeps the shell's element ids (#studio-home-templates,
+// #studio-home-template-grid) so the shell's existing filter handlers keep
+// working unchanged when they run from this tab.
+async function mktLoadStudioCreativeHome() {
+  const host = document.getElementById('mkt-studio-creative-home')
+  if (!host) return
+
+  const ready = await mktEnsureStudioShell()
+  if (!ready || typeof window.renderStudioHomeFormatShortcuts !== 'function') {
+    host.innerHTML = `<div class="ms-c ms-c--standard ms-c--glass p-6 text-sm text-rose-600 dark:text-rose-300">
+      Design Studio could not be loaded, so sizes and collections are unavailable right now. Reload the page to try again.
+    </div>`
+    return
+  }
+
+  // The template catalogue backs the grid; without it the grid renders empty.
+  if (typeof window.loadStudioTemplateCatalog === 'function') {
+    await window.loadStudioTemplateCatalog().catch(() => null)
+  }
+
+  const sizes = window.renderStudioHomeFormatShortcuts()
+  const sets = typeof window.renderStudioHomeDesignSets === 'function' ? window.renderStudioHomeDesignSets() : ''
+  const cards = typeof window.studioHomeTemplateCards === 'function' ? window.studioHomeTemplateCards() : ''
+  const formatKeys = (window.STUDIO_FORMAT_GROUPS || []).flatMap(group => group.keys || [])
+  const formatChips = formatKeys.map(key => {
+    const format = (window.STUDIO_SOCIAL_FORMATS || {})[key]
+    if (!format) return ''
+    return `<button type="button" data-studio-home-format="${key}" onclick="studioFilterHomeFormat('${key}')" class="whitespace-nowrap rounded-full border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">${esc(format.label)}</button>`
+  }).join('')
+
+  host.innerHTML = `
+    <div class="space-y-6">
+      <section class="ms-c ms-c--standard ms-c--glass p-4 md:p-5 space-y-4" aria-labelledby="mkt-studio-sizes-heading">
+        <div class="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <div class="text-[11px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-300">Start at the right size</div>
+            <h3 id="mkt-studio-sizes-heading" class="text-xl font-black text-slate-950 dark:text-white">Sizes</h3>
+            <p class="text-sm text-slate-600 dark:text-slate-300">Pick the final output first — the full-screen editor opens at those exact dimensions.</p>
+          </div>
+          <button type="button" onclick="mktOpenStudioSizePicker()" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Create design</button>
+        </div>
+        ${sizes}
+      </section>
+
+      ${sets ? `<section class="ms-c ms-c--standard ms-c--glass p-4 md:p-5 space-y-4" aria-labelledby="mkt-studio-sets-heading">
+        <div>
+          <div class="text-[11px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-300">Coordinated collections</div>
+          <h3 id="mkt-studio-sets-heading" class="text-xl font-black text-slate-950 dark:text-white">Collections</h3>
+          <p class="text-sm text-slate-600 dark:text-slate-300">Carry one look across social posts, stationery, presentations and ads.</p>
+        </div>
+        <div class="studio-scroll-row grid gap-4 sm:grid-cols-2 xl:grid-cols-4">${sets}</div>
+      </section>` : ''}
+
+      <section id="studio-home-templates" class="ms-c ms-c--standard ms-c--glass p-4 md:p-5 space-y-4" aria-labelledby="mkt-studio-templates-heading">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div class="text-[11px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-300">Editable starting points</div>
+            <h3 id="mkt-studio-templates-heading" class="text-xl font-black text-slate-950 dark:text-white">Templates</h3>
+          </div>
+          <button type="button" onclick="studioResetHomeTemplateFilters()" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">Clear filters</button>
+        </div>
+        <div class="flex gap-2 overflow-x-auto pb-1">
+          <button type="button" data-studio-home-format="all" onclick="studioFilterHomeFormat('all')" class="whitespace-nowrap rounded-full border border-slate-300 px-3 py-2 text-xs font-black dark:border-slate-700">All sizes</button>
+          ${formatChips}
+        </div>
+        <div id="studio-home-template-grid" class="studio-scroll-row grid items-start grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">${cards}</div>
+      </section>
+    </div>`
+
+  // Sync the pressed state on the filter chips the same way the shell does.
+  if (typeof window.renderStudioHomeTemplateGrid === 'function') window.renderStudioHomeTemplateGrid()
+}
+window.mktLoadStudioCreativeHome = mktLoadStudioCreativeHome
+
 
 window.mktSaveStudioBrand = async function () {
   const payload = {

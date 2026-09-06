@@ -29,6 +29,40 @@ of the build; `docs/DEALEROS_UI_AUDIT.md` and the Stage 0 docs hold the detail.
 | **Staging storage buckets** | Staging had only `staff-documents`. `vehicle-photos` / `vehicle-pdfs` are referenced throughout the code but did not exist there and nothing creates buckets at runtime, so **every vehicle-photo upload was failing on staging**. All three plus `sales-videos` created 2026-08-10. |
 | **PR base branch** | **`staging`, not `main`.** `main` shares no merge base with the working branch — a PR opened against it shows ~4,700 files and drags whole-repo CodeQL findings onto the diff. PR #84 was opened against `main` by mistake and retargeted. |
 
+## MarketSync HQ — foundation repaired 2026-09-06
+
+**HQ had no database.** All 43 tables owned by the six HQ migrations (CRM,
+finance ledger, website control plane, command centre, announcements, income)
+were missing from **both** staging and production. Root cause: two incompatible
+`CREATE TABLE IF NOT EXISTS public.hq_expense_categories` declarations. The
+second no-opped, and the foreign key on the very next statement
+(`hq_vendor_expenses.category_key -> hq_expense_categories(key)`) then bound
+against a table with no `key` column, aborting the whole command-centre
+migration and everything behind it. The AI-workforce `hq_*` tables were
+migrated separately and did exist, which is exactly why the agent hub was the
+one HQ feature that worked.
+
+The migration ledger was not trustworthy here: `hq_website_control_plane` is
+recorded at version `20260830192541` on staging while having created zero of
+its 16 tables. **A recorded migration is not evidence that it ran** — check
+`information_schema` (and note Postgres `LIKE` has no `[_]` character class;
+use `like 'hq\_%'` or an exact IN list, or you will get a false zero).
+
+Fixed: declarations merged into one superset (`key`/`label`/`monthly_budget` +
+nullable `account_code`, `description`, `is_cogs`; the dropped `name` and
+`budget_limit_monthly` had zero consumers), additive convergence guards and a
+backfill added to the command-centre file, all six migrations applied to
+**staging only**, and budget-vs-actual proven on real rows ($412.50 against a
+$2,500 category budget = 17%, unbudgeted categories reporting `null` not `0`).
+Guarded by `test/hq-schema-integrity.test.js`, which is mutation-checked: 3 of
+its 4 tests fail against the pre-fix migrations. It also found a second,
+independent duplicate (`discoverability_validation_jobs`) that is benign and
+explicitly allow-listed with the reason.
+
+**Production is untouched and still has none of these tables.** See
+`docs/HQ_OPERATING_SYSTEM.md` for the architecture map, the ~100-item
+navigation gap ledger (26 real screens today), and the build order.
+
 ## Read before coding
 
 1. `docs/DEALEROS_ROADMAP.md` — **the phase authority.** What is done, what is next.

@@ -35,7 +35,7 @@
       'js/modules/calendar-booking-upgrade.js?v=20260904_cal_book_v1',
       'js/modules/service-ro-mobile.js?v=20260904_ro_mobile_v1',
       'js/modules/dvi-text-wrap.js?v=20260904_dvi_wrap_v1',
-      'js/modules/academy-theme-fix.js?v=20260904_acad_light_v1'
+      'js/modules/academy-theme-fix.js?v=20260906_acad_scoped_v1'
     ].forEach(load);
   }
 })();

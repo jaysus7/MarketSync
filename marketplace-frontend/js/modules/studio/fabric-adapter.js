@@ -22,6 +22,64 @@ function loadFabricJs() {
   return window.__fabricLoadedPromise;
 }
 
+// ── Canvas bitmap budget (the blank-artboard bug) ────────────────────────────
+// WebKit (every browser on iOS, plus desktop Safari) refuses to allocate a
+// canvas backing store larger than roughly 16.7M pixels. It does not throw.
+// The element stays in the DOM, Fabric still reports its objects, every
+// renderAll() returns cleanly — and nothing is ever painted. That is exactly
+// the reported failure: `canvas 15 objects`, `canvas el in DOM`, blank
+// artboard, on a 3x iPhone loading a 1080x1920 story page:
+//
+//     1080 x 1920 logical  x  devicePixelRatio 3  =  3240 x 5760 = 18.7M px
+//
+// Fabric owns the multiplication (enableRetinaScaling is on by default and
+// multiplies the logical page size by fabric.devicePixelRatio), so the honest
+// fix is to hand Fabric a device pixel ratio that keeps the bitmap inside the
+// budget. No manual width/height math is introduced anywhere — Fabric remains
+// the single owner of the document coordinate system, exactly as
+// docs/studio-scaling-inventory.md requires.
+//
+// The budget below is deliberately half of WebKit's hard ceiling: Fabric
+// allocates THREE bitmaps of this size per canvas (lower, upper, and the
+// object cache), so 8.39M px each (~33MB) keeps the total near 100MB, well
+// inside the per-tab canvas memory WebKit will hand out on a phone. At this
+// budget a 1080x1920 story renders at ratio 2 (2160x3840) and a 1080x1080
+// square at ratio ~2.7 — still retina-sharp, never blank.
+const MS_MAX_CANVAS_BITMAP_PX = 8388608; // 2048 x 4096
+
+function msStudioSafeRetinaRatio(width, height) {
+  const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+  const area = Math.max(1, (Number(width) || 1) * (Number(height) || 1));
+  const budgetRatio = Math.sqrt(MS_MAX_CANVAS_BITMAP_PX / area);
+  const capped = Math.min(dpr, budgetRatio);
+  // The page fits at the device's own ratio: hand that back untouched, so a
+  // 1.25x or 1.5x display keeps exactly the sharpness the browser intends.
+  if (capped >= dpr) return Math.max(1, dpr);
+  // The page had to be capped. Quantise DOWN to a half-step so the bitmap
+  // lands on whole pixels — a fractional ratio truncates the canvas width
+  // attribute while the context is still scaled by the fraction, which
+  // crops a sliver off the right and bottom edge of the artboard.
+  // Never below 1: the bitmap must not be smaller than the logical page.
+  return Math.max(1, Math.floor(capped * 2) / 2);
+}
+window.msStudioSafeRetinaRatio = msStudioSafeRetinaRatio;
+
+// Applies the budget to Fabric's global ratio. MUST run before `new
+// fabric.Canvas(...)` and before every setDimensions() call, because both
+// read fabric.devicePixelRatio at that moment to size the bitmap.
+function msStudioApplyRetinaBudget(width, height) {
+  const fabric = window.fabric;
+  if (!fabric) return 1;
+  const ratio = msStudioSafeRetinaRatio(width, height);
+  fabric.devicePixelRatio = ratio;
+  if (typeof window.studioDebugPush === 'function') {
+    const px = Math.round(width * ratio) * Math.round(height * ratio);
+    window.studioDebugPush(`retina dpr=${(window.devicePixelRatio || 1)} eff=${ratio.toFixed(2)} bitmap=${Math.round(width * ratio)}x${Math.round(height * ratio)} (${(px / 1e6).toFixed(1)}Mpx)`);
+  }
+  return ratio;
+}
+window.msStudioApplyRetinaBudget = msStudioApplyRetinaBudget;
+
 class StudioFabricAdapter {
   constructor(canvasEl, options = {}) {
     this.canvasEl = canvasEl;
@@ -45,6 +103,10 @@ class StudioFabricAdapter {
     if (this.fabricCanvas) {
       this.fabricCanvas.dispose();
     }
+
+    // Size the retina bitmap to the budget BEFORE the canvas exists — Fabric
+    // reads fabric.devicePixelRatio inside the constructor.
+    msStudioApplyRetinaBudget(this.currentScene.width, this.currentScene.height);
 
     this.fabricCanvas = new fabric.Canvas(this.canvasEl, {
       width: this.currentScene.width,
@@ -185,6 +247,10 @@ class StudioFabricAdapter {
     const pageWidth = page?.width || scene.width || 1080;
     const pageHeight = page?.height || scene.height || 1080;
     const pageBackground = page?.background?.color || scene.background?.color || '#0F172A';
+    // Re-apply the bitmap budget for THIS page's size: a square page and a
+    // story page get different safe ratios, and setDimensions re-allocates
+    // the backing store from fabric.devicePixelRatio as it is right now.
+    msStudioApplyRetinaBudget(pageWidth, pageHeight);
     this.fabricCanvas.setDimensions({ width: pageWidth, height: pageHeight });
     const artboard = document.getElementById('studio-artboard-container');
     if (artboard) { artboard.style.width = `${pageWidth}px`; artboard.style.height = `${pageHeight}px`; }
@@ -308,6 +374,48 @@ class StudioFabricAdapter {
 
     this.fabricCanvas.renderAll();
     this.isRendering = false;
+    this.verifyBitmapPainted(pageWidth, pageHeight);
+  }
+
+  // Safety net for the blank-artboard failure. WebKit refuses an oversized
+  // canvas backing store WITHOUT throwing, so a clean renderAll() is no
+  // evidence that a single pixel reached the screen — the symptom is a canvas
+  // that is in the DOM, reports its objects, and shows nothing. This samples
+  // the bitmap after paint: if every sampled pixel is fully transparent while
+  // the scene has objects, the allocation failed, so fall back to a 1:1
+  // bitmap (the smallest any device will refuse to grant) and paint again.
+  // Runs at most once per adapter, never touches the scene, and gives up
+  // quietly when the canvas is tainted by a non-CORS image (getImageData
+  // throws there, and a tainted canvas is one that definitely did paint).
+  verifyBitmapPainted(pageWidth, pageHeight) {
+    if (this.__retinaFallbackApplied) return;
+    const push = (msg) => { if (typeof window !== 'undefined' && typeof window.studioDebugPush === 'function') window.studioDebugPush(msg); };
+    setTimeout(() => {
+      try {
+        const fc = this.fabricCanvas;
+        if (!fc || this.isRendering || !fc.getObjects || !fc.getObjects().length) return;
+        const el = fc.lowerCanvasEl;
+        const ctx = el && el.getContext && el.getContext('2d');
+        if (!ctx || !el.width || !el.height) return;
+        let painted = false;
+        for (const [fx, fy] of [[0.5, 0.5], [0.25, 0.25], [0.75, 0.75], [0.5, 0.12], [0.5, 0.88]]) {
+          const x = Math.min(el.width - 1, Math.max(0, Math.floor(el.width * fx)));
+          const y = Math.min(el.height - 1, Math.max(0, Math.floor(el.height * fy)));
+          if (ctx.getImageData(x, y, 1, 1).data[3] !== 0) { painted = true; break; }
+        }
+        if (painted) return;
+        this.__retinaFallbackApplied = true;
+        push(`bitmap blank at ${el.width}x${el.height} — falling back to 1:1`);
+        if (window.fabric) window.fabric.devicePixelRatio = 1;
+        fc.setDimensions({ width: pageWidth || fc.getWidth(), height: pageHeight || fc.getHeight() });
+        fc.calcOffset();
+        fc.renderAll();
+      } catch (_) {
+        // Tainted canvas (a photo loaded without CORS) or no 2D context.
+        // Both mean the probe cannot answer; leave the render alone.
+        push('bitmap probe unavailable');
+      }
+    }, 260);
   }
 
   exportScene() {
@@ -543,6 +651,7 @@ class StudioFabricAdapter {
       }
       object.setCoords();
     });
+    msStudioApplyRetinaBudget(width, height);
     this.fabricCanvas.setDimensions({ width, height });
     this.currentScene.width = width; this.currentScene.height = height;
     this.fabricCanvas.requestRenderAll();
