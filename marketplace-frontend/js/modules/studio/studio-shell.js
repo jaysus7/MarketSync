@@ -794,7 +794,27 @@ function studioDebugRefresh() {
     + '</div>';
 }
 
+// Opt-in only. This panel found the blank-artboard regression, so the code stays
+// — but it is a debugging tool, not part of the product, and it used to mount for
+// every phone user: a floating ⓘ button over the editor and a sheet covering the
+// canvas. Turn it on with ?studiodebug=1 on the dashboard URL (which remembers the
+// choice on that device), or localStorage.setItem('ms_studio_debug','1').
+// ?studiodebug=0 turns it back off.
+function studioDebugEnabled() {
+  try {
+    const flag = new URLSearchParams(window.location.search).get('studiodebug');
+    if (flag === '1' || flag === 'true') { localStorage.setItem('ms_studio_debug', '1'); return true; }
+    if (flag === '0' || flag === 'false') { localStorage.removeItem('ms_studio_debug'); return false; }
+    return localStorage.getItem('ms_studio_debug') === '1';
+  } catch (_) {
+    // Private mode can throw on localStorage; a debug panel is never worth an error.
+    return false;
+  }
+}
+window.studioDebugEnabled = studioDebugEnabled;
+
 function studioMountDebugPanel() {
+  if (!studioDebugEnabled()) return;
   const isMobile = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
   if (!isMobile) return;
   if (document.getElementById('studio-diag-fab')) return;
