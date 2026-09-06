@@ -71,6 +71,96 @@ const ACTIONS = {
   default: ['notify_manager']
 }
 
+// The first reports in every department are named operating reports that a
+// dealership can recognize immediately. The remaining definitions expand each
+// library with valid metric/dimension combinations for deeper analysis.
+const CURATED_REPORTS = Object.freeze({
+  executive: [
+    ['Dealer Principal Daily Scorecard', 'units_sold', 'day'],
+    ['Month-to-Date Revenue', 'revenue', 'day'],
+    ['Total Gross Performance', 'total_gross', 'month'],
+    ['Store Close Rate', 'close_rate', 'month']
+  ],
+  sales: [
+    ['Daily Sales Pace', 'units_sold', 'day'],
+    ['Salesperson Unit Scorecard', 'units_sold', 'salesperson'],
+    ['Salesperson Gross Scorecard', 'total_gross', 'salesperson'],
+    ['Lead Source Close Rate', 'close_rate', 'lead_source']
+  ],
+  inventory: [
+    ['Inventory Aging & Days to Sell', 'days_to_sell', 'inventory_age'],
+    ['Inventory Turn by Make', 'inventory_turn', 'make'],
+    ['Price-to-Market by Model', 'market_position', 'model'],
+    ['Leads per Vehicle', 'leads_per_vehicle', 'model']
+  ],
+  crm: [
+    ['Speed-to-Lead by Salesperson', 'response_time', 'salesperson'],
+    ['Untouched Leads', 'untouched_leads', 'lead_source'],
+    ['Overdue Follow-Ups', 'overdue_followups', 'employee'],
+    ['Appointment Conversion', 'appointment_rate', 'lead_source']
+  ],
+  marketing: [
+    ['Return on Ad Spend by Campaign', 'roas', 'campaign'],
+    ['Cost per Lead by Channel', 'cpl', 'channel'],
+    ['Customer Acquisition Cost', 'cac', 'campaign'],
+    ['Cost per Sale', 'cost_per_sale', 'campaign']
+  ],
+  website: [
+    ['Vehicle Detail Page Views', 'vdp_views', 'model'],
+    ['Website Leads per Vehicle', 'leads_per_vehicle', 'model'],
+    ['Website Lead Close Rate', 'close_rate', 'lead_source'],
+    ['VDP Views by Make', 'vdp_views', 'make']
+  ],
+  fni: [
+    ['F&I Product Penetration', 'fni_penetration', 'fni_manager'],
+    ['Back Gross by F&I Manager', 'back_gross', 'fni_manager'],
+    ['Accounting Back Gross by Salesperson', 'back_gross', 'salesperson'],
+    ['F&I Revenue Trend', 'revenue', 'month']
+  ],
+  service: [
+    ['Service Revenue by Advisor', 'service_revenue', 'advisor'],
+    ['Service Revenue by Technician', 'service_revenue', 'technician'],
+    ['Effective Labour Rate', 'effective_labour_rate', 'advisor'],
+    ['Technician Efficiency', 'technician_efficiency', 'technician']
+  ],
+  parts: [
+    ['Parts Inventory Turn', 'parts_turn', 'month'],
+    ['Parts-Supported Service Revenue', 'service_revenue', 'repair_category'],
+    ['Parts Turn Trend', 'parts_turn', 'month'],
+    ['Service Revenue by Repair Category', 'service_revenue', 'repair_category']
+  ],
+  accounting: [
+    ['Revenue by Month', 'revenue', 'month'],
+    ['Front Gross by Salesperson', 'front_gross', 'salesperson'],
+    ['Back Gross by Salesperson', 'back_gross', 'salesperson'],
+    ['Total Gross by Department', 'total_gross', 'department']
+  ],
+  people: [
+    ['Employee Productivity', 'employee_productivity', 'employee'],
+    ['Close Rate by Salesperson', 'close_rate', 'salesperson'],
+    ['Follow-Up Completion by Employee', 'followup_completion_rate', 'employee'],
+    ['Video Adoption by Salesperson', 'video_send_rate', 'salesperson']
+  ],
+  customers: [
+    ['Customer Lifetime Value', 'ltv', 'customer_cohort'],
+    ['Repeat vs New Customer Sales', 'units_sold', 'repeat_new'],
+    ['Customer Close Rate by Source', 'close_rate', 'lead_source'],
+    ['Customer Revenue by Geography', 'revenue', 'geography']
+  ],
+  communications: [
+    ['Video Send Rate by Salesperson', 'video_send_rate', 'salesperson'],
+    ['Video View Rate by Salesperson', 'video_view_rate', 'salesperson'],
+    ['Video-to-Sale Conversion', 'video_to_sale_rate', 'salesperson'],
+    ['Response Time by Contact Channel', 'response_time', 'channel']
+  ],
+  automations: [
+    ['Automation Return on Investment', 'automation_roi', 'month'],
+    ['AI Usage Cost', 'ai_cost', 'month'],
+    ['AI-Influenced Revenue', 'ai_influenced_revenue', 'month'],
+    ['Automation ROI by Department', 'automation_roi', 'department']
+  ]
+})
+
 function combinations(arr, k) {
   if (k === 0) return [[]]
   if (k > arr.length) return []
@@ -113,6 +203,28 @@ export function seedReportLibrary() {
     const dims = (DEPT_DIMS[dept] || ['month']).filter((id) => DIMENSIONS[id])
     let n = 0
     let seq = 0
+    for (const [name, metricId, dimension] of CURATED_REPORTS[dept] || []) {
+      if (n >= target || !METRICS[metricId]) break
+      const allowed = METRICS[metricId].allowed_dimensions || []
+      const dimensions = dimension && allowed.includes(dimension) ? [dimension] : []
+      seq++
+      reports.push({
+        id: `rpt_${dept}_${String(seq).padStart(4, '0')}`,
+        name,
+        description: `${METRICS[metricId].description}. Live ${titleDept(dept)} operating report${dimensions.length ? ` grouped by ${dimensions.join(', ')}` : ''}.`,
+        department: dept,
+        metric_ids: [metricId],
+        default_dimensions: dimensions,
+        filters: {},
+        date_range: { days: 30 },
+        comparison: 'prior_period',
+        visualization: dimensions.length ? 'bar' : 'kpi',
+        drilldowns: dimensions.length ? [...dimensions] : ['month'],
+        recommended_actions: recommendedActions(dept),
+        permissions: [`reports.${dept}.view`, 'reports.view']
+      })
+      n++
+    }
     while (n < target) {
       for (const metricId of metrics) {
         if (n >= target) break

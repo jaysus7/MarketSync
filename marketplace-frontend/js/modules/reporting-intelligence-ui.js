@@ -26,6 +26,7 @@
     if (global.MS_API_BASE) return global.MS_API_BASE.replace(/\/$/, '')
     const host = global.location && global.location.hostname
     if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:10000'
+    if (host && host.includes('staging')) return 'https://marketsync-staging-backend.onrender.com'
     return 'https://vehicle-marketplace-s0e4.onrender.com'
   }
 
@@ -154,8 +155,7 @@
             filters: compiled.plan.filters,
             date_range: compiled.plan.date_range,
             comparison: compiled.plan.comparison,
-            visualization: compiled.plan.visualization,
-            dataset: {}
+            visualization: compiled.plan.visualization
           }) })
         } catch (qerr) {
           query = { results: [{ metric_id: compiled.plan.metric_ids[0], groups: [] }], note: qerr.message }
@@ -170,7 +170,7 @@
             <span class="ri-pill">${esc(compiled.plan.visualization)}</span>
           </div>
           ${(query.results || []).map(renderTable).join('')}
-          <p class="ri-hint">Formulas stay locked in the metric registry. Empty grids mean staging has no fixture rows yet — the plan is still valid.</p>`
+          <p class="ri-hint">Formulas stay locked in the metric registry. Values are read from this dealership's canonical live records.</p>`
         status.textContent = compiled.ok ? 'Ready' : 'Check plan'
         root._lastDefinition = compiled.definition
       } catch (err) {
@@ -227,13 +227,13 @@
       const q = (search.value || '').toLowerCase()
       const filtered = reports.filter((r) => !q || (r.name || '').toLowerCase().includes(q) || (r.metric_ids || []).join(' ').includes(q))
       list.innerHTML = filtered.slice(0, 80).map((r) => `
-        <button type="button" class="ri-report" data-id="${esc(r.id)}">
+        <a class="ri-report" href="/dashboard.html?report=${encodeURIComponent(r.id)}#/p/reports" data-id="${esc(r.id)}">
           <strong>${esc(r.name)}</strong>
           <span>${esc((r.metric_ids || []).map(labelize).join(', '))}</span>
           <em>${esc((r.default_dimensions || []).map(labelize).join(' × ') || 'Store totals')} · ${esc(r.visualization || 'table')}</em>
-        </button>`).join('') + (filtered.length > 80 ? `<p class="ri-hint">Showing 80 of ${filtered.length}. Narrow the search.</p>` : '')
+        </a>`).join('') + (filtered.length > 80 ? `<p class="ri-hint">Showing 80 of ${filtered.length}. Narrow the search.</p>` : '')
       list.querySelectorAll('.ri-report').forEach((btn) => {
-        btn.addEventListener('click', () => runSaved(rById(btn.getAttribute('data-id'))))
+        btn.addEventListener('click', (event) => { event.preventDefault(); runSaved(rById(btn.getAttribute('data-id'))) })
       })
     }
 

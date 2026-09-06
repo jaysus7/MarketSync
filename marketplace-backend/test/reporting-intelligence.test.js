@@ -4,7 +4,7 @@ import {
   METRICS, getMetric, assertApprovedMetricIds, metricsCount,
   DIMENSIONS, seasonFromIso, assertApprovedDimensions, dimensionsCount,
   buildReportPlan, executePlan, computeMetricFromRows, sliceByDimensions,
-  assertTenantIsolation, MAX_DIMENSIONS,
+  assertTenantIsolation, MAX_DIMENSIONS, loadLiveReportingDataset,
   getReportLibrary, predefinedReportCount, DEPARTMENT_TARGETS,
   compileReportLab, reportLabCatalog,
   interpretReportingQuestion,
@@ -84,6 +84,8 @@ describe('reporting semantic layer', () => {
   it('seeds at least 1400 predefined report definitions', () => {
     const n = predefinedReportCount()
     assert.ok(n >= 1400, `expected >=1400 got ${n}`)
+    assert.equal(new Set(getReportLibrary().map((report) => report.id)).size, n)
+    assert.equal(new Set(getReportLibrary().map((report) => report.name)).size, n)
     const byDept = {}
     for (const r of getReportLibrary()) byDept[r.department] = (byDept[r.department] || 0) + 1
     for (const [dept, target] of Object.entries(DEPARTMENT_TARGETS)) assert.equal(byDept[dept], target, dept)
@@ -142,5 +144,50 @@ describe('reporting semantic layer', () => {
 
   it('salesperson x video x conversion plan is valid', () => {
     assert.equal(buildReportPlan({ metric_ids: ['video_to_sale_rate'], dimensions: ['salesperson'] }).metric_ids[0], 'video_to_sale_rate')
+  })
+
+  it('loads report sources from canonical tables with dealership isolation', async () => {
+    const tables = {
+      deals: [
+        { dealership_id: A, deal_status: 'sold', sold_at: '2026-08-20T12:00:00Z' },
+        { dealership_id: B, deal_status: 'sold', sold_at: '2026-08-20T12:00:00Z' }
+      ],
+      leads: [
+        { dealership_id: A, created_at: '2026-08-18T12:00:00Z' },
+        { dealership_id: B, created_at: '2026-08-18T12:00:00Z' }
+      ]
+    }
+    const client = {
+      from(table) {
+        const filters = []
+        let limit = Infinity
+        const query = {
+          select() { return query },
+          eq(key, value) { filters.push((row) => row[key] === value); return query },
+          gte(key, value) { filters.push((row) => !row[key] || row[key] >= value); return query },
+          lte(key, value) { filters.push((row) => !row[key] || row[key] <= value); return query },
+          order() { return query },
+          limit(value) { limit = value; return query },
+          then(resolve) { return resolve({ data: (tables[table] || []).filter((row) => filters.every((fn) => fn(row))).slice(0, limit), error: null }) }
+        }
+        return query
+      }
+    }
+    const plan = buildReportPlan({ metric_id: 'close_rate', date_range: { start: '2026-08-01', end: '2026-08-31' } })
+    const loaded = await loadLiveReportingDataset(plan, { dealershipId: A, client })
+    assert.equal(loaded.dataset.deals.length, 1)
+    assert.equal(loaded.dataset.leads.length, 1)
+    assert.equal(loaded.source_status.deals.table, 'deals')
+    assert.equal(executePlan(plan, loaded.dataset, { dealershipId: A }).results[0].groups[0].value, 100)
+  })
+
+  it('marks schema sources that do not exist as unavailable instead of zero', async () => {
+    const plan = buildReportPlan({ metric_id: 'technician_efficiency' })
+    const client = { from: () => { const query = { select: () => query, eq: () => query, gte: () => query, lte: () => query, order: () => query, limit: () => query, then: (resolve) => resolve({ data: [], error: null }) }; return query } }
+    const loaded = await loadLiveReportingDataset(plan, { dealershipId: A, client })
+    assert.equal(loaded.source_status.time_clock.available, false)
+    const group = executePlan(plan, loaded.dataset, { dealershipId: A }).results[0].groups[0]
+    assert.equal(group.value, null)
+    assert.equal(group.available, false)
   })
 })
