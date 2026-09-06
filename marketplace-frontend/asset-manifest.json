@@ -1,6 +1,6 @@
 {
   "css/marketsync-theme.css": {
-    "version": "20260906_studio_tab_v6",
+    "version": "20260906_print_raster_v1",
     "sha256": "41ad103bca3219e0"
   },
   "css/hq-ui.css": {
@@ -32,12 +32,12 @@
     "sha256": "ca5c7d67955972b6"
   },
   "dashboard.js": {
-    "version": "20260906_studio_tab_v6",
+    "version": "20260906_print_raster_v1",
     "sha256": "be181c8ba7c68e34"
   },
   "js/modules/dashboard-part2.js": {
-    "version": "20260906_studio_tab_v6",
-    "sha256": "4b27a40d635766ac"
+    "version": "20260906_print_raster_v1",
+    "sha256": "0307a48e1dd790ad"
   },
   "js/modules/dashboard-part3.js": {
     "version": "20260814_v12",
@@ -48,7 +48,7 @@
     "sha256": "7720a88870e7400d"
   },
   "js/modules/dashboard-part5.js": {
-    "version": "20260906_studio_tab_v6",
+    "version": "20260906_print_raster_v1",
     "sha256": "7a9799d24954ffd3"
   },
   "js/modules/dashboard-part6.js": {
@@ -76,7 +76,7 @@
     "sha256": "b729b1f6b78a9038"
   },
   "js/modules/dashboard-part10.js": {
-    "version": "20260906_studio_tab_v6",
+    "version": "20260906_print_raster_v1",
     "sha256": "e3941389a8e919a3"
   },
   "js/modules/dashboard-part11.js": {
@@ -104,7 +104,7 @@
     "sha256": "069d8b4a4c4aa8c8"
   },
   "js/modules/dashboard-part18.js": {
-    "version": "20260906_studio_tab_v6",
+    "version": "20260906_print_raster_v1",
     "sha256": "a400e7992cc798bf"
   },
   "js/modules/dashboard-part19.js": {
@@ -188,7 +188,7 @@
     "sha256": "1d416ed17adae174"
   },
   "js/modules/marketing-workspace.js": {
-    "version": "20260906_studio_tab_v6",
+    "version": "20260906_print_raster_v1",
     "sha256": "0483af945d841b73"
   },
   "js/modules/discoverability-workspace.js": {
@@ -208,7 +208,7 @@
     "sha256": "4c1c59ced2fe715d"
   },
   "js/modules/people-workspace.js": {
-    "version": "20260906_studio_tab_v6",
+    "version": "20260906_print_raster_v1",
     "sha256": "8e974c871caccb27"
   },
   "js/modules/staff-chat-dock.js": {
@@ -216,7 +216,7 @@
     "sha256": "21b73ca0a763db4a"
   },
   "js/modules/demo-control-panel.js": {
-    "version": "20260906_studio_tab_v6",
+    "version": "20260906_print_raster_v1",
     "sha256": "bc1c857d343a817c"
   },
   "table-sort.js": {

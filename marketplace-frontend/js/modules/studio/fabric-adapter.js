@@ -39,30 +39,127 @@ function loadFabricJs() {
 // the single owner of the document coordinate system, exactly as
 // docs/studio-scaling-inventory.md requires.
 //
-// The budget below is deliberately half of WebKit's hard ceiling: Fabric
-// allocates THREE bitmaps of this size per canvas (lower, upper, and the
-// object cache), so 8.39M px each (~33MB) keeps the total near 100MB, well
-// inside the per-tab canvas memory WebKit will hand out on a phone. At this
-// budget a 1080x1920 story renders at ratio 2 (2160x3840) and a 1080x1080
-// square at ratio ~2.7 — still retina-sharp, never blank.
-const MS_MAX_CANVAS_BITMAP_PX = 8388608; // 2048 x 4096
+// The first version of this budget capped ONE bitmap at 8.39M px and reasoned
+// that the total would land "near 100MB, well inside" what a phone grants.
+// Measured against the real adapter and the real tmpl_pricedrop_story scene, at
+// 440x796 / dpr 3, that was wrong in two ways:
+//
+//     lower-canvas   2160x3840   8.29M px
+//     upper-canvas   2160x3840   8.29M px   <- Fabric ALWAYS makes this one
+//     15 object caches           11.91M px  <- one canvas per cached object
+//                                -----------
+//                                28.5M px  (~114MB)
+//
+// The pair alone is 16.6M px — over WebKit's ~16.7M ceiling by itself, before
+// a single object cache. Capping one canvas moved the artboard from far over
+// the line to exactly on it, which is why it stayed blank.
+//
+// So the budget is now per PAGE, not per canvas: WebKit's ceiling, split
+// across the pair, with room left for the object caches that share the same
+// per-tab pool.
+const MS_WEBKIT_MAX_BITMAP_PX = 16777216;   // ~4096x4096, per allocation
+const MS_CANVAS_PAIR = 2;                   // fabric: lower-canvas + upper-canvas
+const MS_OBJECT_CACHE_SHARE = 0.45;         // the rest is left for object caches
+const MS_MAX_CANVAS_BITMAP_PX = Math.floor(MS_WEBKIT_MAX_BITMAP_PX * MS_OBJECT_CACHE_SHARE / MS_CANVAS_PAIR);
 
-function msStudioSafeRetinaRatio(width, height) {
+// Fabric gives every cached object its own canvas, sized to the object times
+// the retina ratio. Large objects gain least from caching (they are re-rendered
+// rarely) and cost most, so above this area they draw straight to the canvas.
+const MS_MAX_CACHED_OBJECT_AREA = 250000;   // ~500x500 scene units
+
+// How sharp the bitmap needs to be is set by what reaches the screen, not by
+// the logical page size. A 1080px-wide page shown at 28% on a 3x phone covers
+// 906 device pixels, so a ratio of 1 already provides more detail than the
+// display can show. Rendering it at 2 costs four times the memory for pixels
+// nobody can see. The headroom keeps a moderate zoom-in sharp before the next
+// render re-applies the budget.
+const MS_ZOOM_HEADROOM = 1.5;
+
+function msStudioSafeRetinaRatio(width, height, displayedCssWidth) {
   const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
   const area = Math.max(1, (Number(width) || 1) * (Number(height) || 1));
   const budgetRatio = Math.sqrt(MS_MAX_CANVAS_BITMAP_PX / area);
-  const capped = Math.min(dpr, budgetRatio);
+  // Only applied when the caller knows the on-screen width; without it the
+  // absolute budget governs on its own.
+  const shown = Number(displayedCssWidth) || 0;
+  const displayRatio = (shown > 0 && Number(width) > 0)
+    ? (shown * dpr / Number(width)) * MS_ZOOM_HEADROOM
+    : Infinity;
+  const capped = Math.min(dpr, budgetRatio, displayRatio);
   // The page fits at the device's own ratio: hand that back untouched, so a
   // 1.25x or 1.5x display keeps exactly the sharpness the browser intends.
   if (capped >= dpr) return Math.max(1, dpr);
-  // The page had to be capped. Quantise DOWN to a half-step so the bitmap
-  // lands on whole pixels — a fractional ratio truncates the canvas width
-  // attribute while the context is still scaled by the fraction, which
-  // crops a sliver off the right and bottom edge of the artboard.
-  // Never below 1: the bitmap must not be smaller than the logical page.
+  // The page had to be capped. Quantise DOWN so the bitmap lands on whole
+  // pixels — a fractional ratio truncates the canvas width attribute while the
+  // context is still scaled by the fraction, which crops a sliver off the right
+  // and bottom edge of the artboard.
+  //
+  // This is allowed below 1:1. The print formats (letterhead, flyer and
+  // brochure are all 2550x3300) cost 16.8M px for the canvas pair at 1:1 —
+  // over WebKit's ceiling on their own — so a floor of 1 left those three
+  // formats permanently blank on a phone. Below 1 the artboard is softer when
+  // zoomed right in and completely sharp at fit zoom, where a 2550-wide page
+  // occupies ~900 device pixels and a 1275px bitmap still oversamples it.
+  // Soft beats blank.
+  // Never below 1. Fabric's getRetinaScaling() is `Math.max(1, devicePixelRatio)`,
+  // so a fraction here is silently ignored — a page that still does not fit at 1:1
+  // needs msStudioRasterScale below, which uses Fabric's zoom instead.
   return Math.max(1, Math.floor(capped * 2) / 2);
 }
 window.msStudioSafeRetinaRatio = msStudioSafeRetinaRatio;
+
+// Some pages cannot fit even at 1:1. The print formats — letterhead, flyer and
+// brochure are all 2550x3300 — cost 8.4M px per canvas, so the pair alone is
+// 16.8M px, past WebKit's ceiling before a single object cache. Those artboards
+// were blank on a phone no matter what the retina ratio did.
+//
+// The fix cannot go through fabric.devicePixelRatio: getRetinaScaling() clamps to
+// Math.max(1, ...), so anything below 1 is discarded. Fabric's own zoom can do it
+// — draw the full-size document into a smaller canvas. The document model keeps
+// its real dimensions, so coordinates, snapping and the saved scene are all
+// unchanged, and export is unaffected because it renders server-side from the
+// scene JSON rather than from this bitmap.
+//
+// The cost is sharpness when zoomed right in. At fit zoom there is none to speak
+// of: a 2550-wide page occupies roughly 900 device pixels on a phone, and a
+// 1275px raster still oversamples that. Soft beats blank.
+function msStudioRasterScale(width, height) {
+  const area = Math.max(1, (Number(width) || 1) * (Number(height) || 1));
+  if (area <= MS_MAX_CANVAS_BITMAP_PX) return 1;
+  // Quarter steps so the canvas lands on whole pixels.
+  return Math.max(0.25, Math.floor(Math.sqrt(MS_MAX_CANVAS_BITMAP_PX / area) * 4) / 4);
+}
+window.msStudioRasterScale = msStudioRasterScale;
+
+// The artboard's real on-screen width, which already accounts for the fit
+// zoom applied as a CSS transform. Returns 0 when it cannot be measured, so
+// the ratio falls back to the absolute budget rather than guessing.
+function msStudioDisplayedArtboardWidth() {
+  if (typeof document === 'undefined') return 0;
+  const el = document.getElementById('studio-artboard-container');
+  if (!el || !el.getBoundingClientRect) return 0;
+  const w = el.getBoundingClientRect().width;
+  return w > 0 ? w : 0;
+}
+window.msStudioDisplayedArtboardWidth = msStudioDisplayedArtboardWidth;
+
+// Drops the per-object cache canvas for objects too large to be worth one.
+// Returns how many were switched off, for the diagnostics panel.
+function msStudioTrimObjectCaches(fabricCanvas) {
+  if (!fabricCanvas || !fabricCanvas.getObjects) return 0;
+  let trimmed = 0;
+  for (const obj of fabricCanvas.getObjects()) {
+    const w = (obj.getScaledWidth ? obj.getScaledWidth() : obj.width) || 0;
+    const h = (obj.getScaledHeight ? obj.getScaledHeight() : obj.height) || 0;
+    if (w * h > MS_MAX_CACHED_OBJECT_AREA && obj.objectCaching !== false) {
+      obj.set('objectCaching', false);
+      if (obj._cacheCanvas) { obj._cacheCanvas.width = 0; obj._cacheCanvas.height = 0; obj._cacheCanvas = null; }
+      trimmed++;
+    }
+  }
+  return trimmed;
+}
+window.msStudioTrimObjectCaches = msStudioTrimObjectCaches;
 
 // Applies the budget to Fabric's global ratio. MUST run before `new
 // fabric.Canvas(...)` and before every setDimensions() call, because both
@@ -70,11 +167,12 @@ window.msStudioSafeRetinaRatio = msStudioSafeRetinaRatio;
 function msStudioApplyRetinaBudget(width, height) {
   const fabric = window.fabric;
   if (!fabric) return 1;
-  const ratio = msStudioSafeRetinaRatio(width, height);
+  const ratio = msStudioSafeRetinaRatio(width, height, msStudioDisplayedArtboardWidth());
   fabric.devicePixelRatio = ratio;
   if (typeof window.studioDebugPush === 'function') {
     const px = Math.round(width * ratio) * Math.round(height * ratio);
-    window.studioDebugPush(`retina dpr=${(window.devicePixelRatio || 1)} eff=${ratio.toFixed(2)} bitmap=${Math.round(width * ratio)}x${Math.round(height * ratio)} (${(px / 1e6).toFixed(1)}Mpx)`);
+    // Reported as the PAIR, because that is what WebKit is actually asked for.
+    window.studioDebugPush(`retina dpr=${(window.devicePixelRatio || 1)} eff=${ratio.toFixed(2)} bitmap=${Math.round(width * ratio)}x${Math.round(height * ratio)} x2 canvases (${((px * MS_CANVAS_PAIR) / 1e6).toFixed(1)}Mpx)`);
   }
   return ratio;
 }
@@ -92,6 +190,7 @@ class StudioFabricAdapter {
     this.isRendering = false;
     this.activeBreakpoint = 'desktop';
     this.activePageId = null;
+    this.rasterScale = 1;
     this.animationFrame = null;
   }
 
@@ -250,10 +349,23 @@ class StudioFabricAdapter {
     // Re-apply the bitmap budget for THIS page's size: a square page and a
     // story page get different safe ratios, and setDimensions re-allocates
     // the backing store from fabric.devicePixelRatio as it is right now.
-    msStudioApplyRetinaBudget(pageWidth, pageHeight);
-    this.fabricCanvas.setDimensions({ width: pageWidth, height: pageHeight });
+    // A page too large to raster at 1:1 is drawn smaller and zoomed up. The scene
+    // keeps its real coordinates; only the bitmap shrinks.
+    const raster = msStudioRasterScale(pageWidth, pageHeight);
+    this.rasterScale = raster;
+    const canvasWidth = Math.round(pageWidth * raster);
+    const canvasHeight = Math.round(pageHeight * raster);
+    msStudioApplyRetinaBudget(canvasWidth, canvasHeight);
+    this.fabricCanvas.setDimensions({ width: canvasWidth, height: canvasHeight });
+    this.fabricCanvas.setZoom(raster);
+    if (raster !== 1 && typeof window.studioDebugPush === 'function') {
+      window.studioDebugPush(`raster ${raster} — ${pageWidth}x${pageHeight} page drawn at ${canvasWidth}x${canvasHeight}`);
+    }
+    // The artboard box is the CANVAS size, not the page size: the fit zoom scales
+    // this box to the viewport, so a half-size box simply fits at twice the factor
+    // and lands on screen at exactly the same size.
     const artboard = document.getElementById('studio-artboard-container');
-    if (artboard) { artboard.style.width = `${pageWidth}px`; artboard.style.height = `${pageHeight}px`; }
+    if (artboard) { artboard.style.width = `${canvasWidth}px`; artboard.style.height = `${canvasHeight}px`; }
 
     this.fabricCanvas.clear();
     this.fabricCanvas.setBackgroundColor(pageBackground, () => this.fabricCanvas.renderAll());
@@ -372,6 +484,10 @@ class StudioFabricAdapter {
       }
     }
 
+    const trimmed = msStudioTrimObjectCaches(this.fabricCanvas);
+    if (trimmed && typeof window.studioDebugPush === 'function') {
+      window.studioDebugPush(`object caches off for ${trimmed} large object(s)`);
+    }
     this.fabricCanvas.renderAll();
     this.isRendering = false;
     this.verifyBitmapPainted(pageWidth, pageHeight);
