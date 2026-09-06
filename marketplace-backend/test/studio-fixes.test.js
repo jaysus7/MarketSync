@@ -247,9 +247,9 @@ test('studio cache-bust bumped so the browser fetches the fixed bundle', () => {
   const matches = part2.match(/studio-shell\.js\?v=([a-z0-9_]+)/g) || []
   assert.ok(matches.length >= 2, 'must find both studio-shell references')
   for (const m of matches) {
-    assert.match(m, /studio-shell\.js\?v=20260906_raw_toggle_v2/,
+    assert.match(m, /studio-shell\.js\?v=20260906_raw_toggle_v3/,
       `stale cache-bust: ${m}`)
   }
-  assert.match(dashboard, /marketsync-theme\.css\?v=20260906_raw_toggle_v2/,
+  assert.match(dashboard, /marketsync-theme\.css\?v=20260906_raw_toggle_v3/,
     'theme.css cache-bust must reflect the new mobile rules')
 })

@@ -755,39 +755,69 @@ function studioMountDebugPanel() {
   const panel = document.createElement('div');
   panel.id = 'studio-diag-panel';
   panel.hidden = true;
-  panel.style.cssText = 'position:fixed;bottom:60px;left:12px;right:12px;z-index:100000;background:#0f172a;color:#fff;border-radius:12px;padding:.75rem 1rem;box-shadow:0 12px 32px rgba(0,0,0,.35);max-height:60vh;overflow-y:auto';
-  panel.innerHTML = ''
-    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;">'
-    + '<b style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#e2e8f0">Studio diagnostics</b>'
-    + '<button type="button" id="studio-diag-close" style="background:none;border:0;color:#94a3b8;font-size:18px;cursor:pointer;line-height:1">×</button>'
-    + '</div>'
-    // Raw Canvas Mode + Dump — DIAGNOSTIC ONLY, per the render-layer plan.
-    // Buttons are real DOM elements wired with addEventListener (not inline
-    // onclick strings) so nothing — a strict CSP, a stale onclick handler,
-    // or a parent stopPropagation — can neuter the click.
-    + '<div id="studio-diag-controls" style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem"></div>'
-    + '<div id="studio-diag-body"></div>';
-  const controls = panel.querySelector('#studio-diag-controls');
-  const closeBtn = panel.querySelector('#studio-diag-close');
-  if (closeBtn) closeBtn.addEventListener('click', () => { panel.hidden = true; });
-  // Raw canvas toggle — button state mirrors window.__studioRawCanvasMode.
+  // Panel becomes a flex COLUMN: header + controls row are flex-shrink:0
+  // (fixed height, tappable), the log body is the only scrolling child.
+  // This is the shape iOS Safari treats reliably: buttons inside an
+  // overflow:auto container are sometimes consumed as scroll gestures.
+  panel.style.cssText = 'position:fixed;bottom:60px;left:12px;right:12px;z-index:100000;background:#0f172a;color:#fff;border-radius:12px;padding:.75rem 1rem;box-shadow:0 12px 32px rgba(0,0,0,.35);max-height:60vh;display:flex;flex-direction:column;gap:.5rem';
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;flex:0 0 auto';
+  header.innerHTML = '<b style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#e2e8f0">Studio diagnostics</b>';
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.id = 'studio-diag-close';
+  closeBtn.setAttribute('aria-label', 'Close diagnostics');
+  closeBtn.style.cssText = 'background:none;border:0;color:#94a3b8;font-size:18px;cursor:pointer;line-height:1;padding:.25rem .5rem;touch-action:manipulation';
+  closeBtn.textContent = '×';
+  closeBtn.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); panel.hidden = true; });
+  header.appendChild(closeBtn);
+  panel.appendChild(header);
+  // Controls row — never scrolls, always tappable.
+  const controls = document.createElement('div');
+  controls.id = 'studio-diag-controls';
+  controls.style.cssText = 'display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;flex:0 0 auto';
+  panel.appendChild(controls);
+  const btnStyle = 'background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:11px;font-weight:900;padding:.5rem .8rem;border-radius:6px;cursor:pointer;pointer-events:auto;touch-action:manipulation;min-height:36px;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:rgba(255,255,255,.1)';
   const rawBtn = document.createElement('button');
   rawBtn.type = 'button';
   rawBtn.id = 'studio-diag-raw-toggle';
-  rawBtn.style.cssText = 'background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:11px;font-weight:900;padding:.35rem .6rem;border-radius:6px;cursor:pointer;pointer-events:auto;touch-action:manipulation';
+  rawBtn.style.cssText = btnStyle;
   rawBtn.textContent = window.__studioRawCanvasMode ? 'Raw canvas mode: ON' : 'Raw canvas mode: OFF';
   rawBtn.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); studioToggleRawCanvasMode(); });
   controls.appendChild(rawBtn);
   const dumpBtn = document.createElement('button');
   dumpBtn.type = 'button';
   dumpBtn.id = 'studio-diag-dump';
-  dumpBtn.style.cssText = rawBtn.style.cssText;
+  dumpBtn.style.cssText = btnStyle;
   dumpBtn.textContent = 'Dump render state';
   dumpBtn.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); studioDumpRenderState(); });
   controls.appendChild(dumpBtn);
-  fab.onclick = () => { panel.hidden = !panel.hidden; if (!panel.hidden) studioDebugRefresh(); };
+  // Body — the only scrolling child.
+  const body = document.createElement('div');
+  body.id = 'studio-diag-body';
+  body.style.cssText = 'flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch';
+  panel.appendChild(body);
+  fab.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); panel.hidden = !panel.hidden; if (!panel.hidden) studioDebugRefresh(); });
   document.body.appendChild(fab);
   document.body.appendChild(panel);
+  // Belt-and-braces safety net: even if the direct listeners above are
+  // wiped by a MutationObserver rewriting the panel HTML, a document-level
+  // delegator ensures the button IDs always route to the right handler.
+  if (!window.__studioDiagDelegated) {
+    window.__studioDiagDelegated = true;
+    document.addEventListener('click', (ev) => {
+      const t = ev.target && ev.target.closest && ev.target.closest('#studio-diag-raw-toggle, #studio-diag-dump, #studio-diag-close, #studio-diag-fab');
+      if (!t) return;
+      if (t.id === 'studio-diag-raw-toggle') { ev.preventDefault(); ev.stopPropagation(); studioToggleRawCanvasMode(); }
+      else if (t.id === 'studio-diag-dump')  { ev.preventDefault(); ev.stopPropagation(); studioDumpRenderState(); }
+      else if (t.id === 'studio-diag-close') { ev.preventDefault(); ev.stopPropagation(); const p = document.getElementById('studio-diag-panel'); if (p) p.hidden = true; }
+      else if (t.id === 'studio-diag-fab') {
+        // The FAB's own listener already handles the normal case; the
+        // delegator is here as a fallback that never fires under normal
+        // conditions.
+      }
+    }, true /* capture — fires before any child stopPropagation could hide it */);
+  }
   studioDebugPush('diag panel mounted');
 }
 window.studioMountDebugPanel = studioMountDebugPanel;
