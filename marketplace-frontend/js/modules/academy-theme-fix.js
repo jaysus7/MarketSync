@@ -1,10 +1,59 @@
 /* Academy follows dashboard light theme; banner and cards wrap cleanly. */
 (function () {
-  try {
-    if (localStorage.getItem('ms-theme') !== 'dark' && localStorage.getItem('theme') !== 'dark') {
-      document.documentElement.classList.remove('dark');
+  // ── Why this is page-scoped now ────────────────────────────────────────────
+  // This module used to strip `dark` off <html> unconditionally at load:
+  //
+  //     if (ms-theme !== 'dark') document.documentElement.classList.remove('dark')
+  //
+  // It is loaded by the ALWAYS-ON dashboard companion loader
+  // (website-mobile-layout.js), not by an Academy page, so that one line ran on
+  // every dashboard boot and turned dark mode off for the ENTIRE app -- HQ
+  // included. Nothing put it back: the inline bootstrap in dashboard.html only
+  // toggles `dark` on a prefers-color-scheme CHANGE event, never again on load.
+  // And the opt-out it checked (`ms-theme`) is written only by
+  // toggleAcademyTheme() in training.js, a different page, so a dashboard user
+  // could never have set it. Net effect: dark mode was dead app-wide.
+  //
+  // Academy still wants its light treatment, so keep it -- but only while the
+  // Academy page is actually on screen, and restore the real theme on the way
+  // out. Everything else in the dashboard keeps whatever theme it should have.
+  const root = document.documentElement;
+
+  const userWantsDark = () => {
+    try {
+      return localStorage.getItem('ms-theme') === 'dark' || localStorage.getItem('theme') === 'dark';
+    } catch (e) { return false; }
+  };
+  const prefersDark = () => !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  // Visible means: the Academy page container exists and is not the hidden one.
+  // offsetParent is null for a `display:none` subtree, which is exactly what
+  // the SPA's `.hidden` class produces.
+  function academyOnScreen() {
+    const page = document.querySelector('[data-page-content="academy"]');
+    if (page) return !page.classList.contains('hidden') && page.offsetParent !== null;
+    const rootEl = document.getElementById('academy-root');
+    return !!(rootEl && rootEl.offsetParent !== null);
+  }
+
+  // Restores to the only theme source the dashboard actually has today: the OS
+  // setting. If a real in-app theme preference is ever added, read it here.
+  function restoreTheme() {
+    root.classList.toggle('dark', userWantsDark() || prefersDark());
+  }
+
+  function syncAcademyTheme() {
+    if (userWantsDark()) return;          // explicit dark opt-in wins everywhere
+    if (academyOnScreen()) {
+      if (root.classList.contains('dark')) {
+        root.classList.remove('dark');
+        root.dataset.msAcademyLight = '1';   // remember that WE dimmed it
+      }
+    } else if (root.dataset.msAcademyLight === '1') {
+      delete root.dataset.msAcademyLight;
+      restoreTheme();
     }
-  } catch (e) {}
+  }
 
   if (!document.getElementById('academy-theme-fix-css')) {
     const style = document.createElement('style');
@@ -53,6 +102,7 @@
       card.style.color = '#881337';
     });
   }
-  setInterval(fixBanner, 800);
+  setInterval(function () { fixBanner(); syncAcademyTheme(); }, 800);
   fixBanner();
+  syncAcademyTheme();
 })();
