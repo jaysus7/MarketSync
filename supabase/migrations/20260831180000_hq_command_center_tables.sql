@@ -27,13 +27,49 @@ comment on table public.hq_daily_snapshots is
 -- MarketSync's own operating expenses (vendors, tools, ads, contractors). This
 -- is the OPERATING company's ledger — NOT the dealership accounting ledger,
 -- which stays in the accounting-engine tables.
+-- Same table as 20260828000003_hq_finance_ledger.sql section 7. Both files
+-- must converge on the merged shape no matter which order they run in, so
+-- the create below is followed by additive guards: if the ledger migration
+-- created the table first (or an older shape is already live), these bring
+-- it up to the shape hq_vendor_expenses and the /saas/accounting routes
+-- need, instead of silently no-opping the way this file used to.
 create table if not exists public.hq_expense_categories (
   id uuid primary key default gen_random_uuid(),
   key text not null unique,
   label text not null,
   monthly_budget numeric(12,2),
+  account_code text,
+  description text,
+  is_cogs boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+alter table public.hq_expense_categories add column if not exists key text;
+alter table public.hq_expense_categories add column if not exists label text;
+alter table public.hq_expense_categories add column if not exists monthly_budget numeric(12,2);
+alter table public.hq_expense_categories add column if not exists account_code text;
+alter table public.hq_expense_categories add column if not exists description text;
+alter table public.hq_expense_categories add column if not exists is_cogs boolean not null default false;
+
+-- Backfill key/label from the superseded (name, budget_limit_monthly) shape
+-- before enforcing NOT NULL, so an environment that already ran the older
+-- ledger definition converges rather than failing.
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+             where table_schema='public' and table_name='hq_expense_categories' and column_name='name') then
+    execute 'update public.hq_expense_categories set key = coalesce(key, lower(regexp_replace(name, ''[^a-zA-Z0-9]+'', ''_'', ''g''))), label = coalesce(label, name) where key is null or label is null';
+  end if;
+  if exists (select 1 from information_schema.columns
+             where table_schema='public' and table_name='hq_expense_categories' and column_name='budget_limit_monthly') then
+    execute 'update public.hq_expense_categories set monthly_budget = coalesce(monthly_budget, budget_limit_monthly)';
+  end if;
+end $$;
+
+-- The foreign key below targets hq_expense_categories(key), so the unique
+-- constraint has to exist even when the table was created elsewhere.
+create unique index if not exists hq_expense_categories_key_uniq
+  on public.hq_expense_categories (key);
 
 create table if not exists public.hq_vendor_expenses (
   id uuid primary key default gen_random_uuid(),

@@ -137,13 +137,36 @@ CREATE TABLE IF NOT EXISTS hq_receipts (
 );
 
 -- 7. HQ Expense Categories
+--
+-- MERGED DEFINITION (2026-09-06). This table was declared twice with
+-- incompatible shapes: here as (name, account_code NOT NULL,
+-- budget_limit_monthly), and again in
+-- 20260831180000_hq_command_center_tables.sql as (key, label,
+-- monthly_budget). Both used CREATE TABLE IF NOT EXISTS, so the later
+-- one silently no-opped -- and then its own hq_vendor_expenses.category_key
+-- foreign key, which targets hq_expense_categories(key), failed against a
+-- table that had no `key` column at all. That error aborted the whole
+-- command-center migration -- which is why, before 2026-09-06, NOT ONE of
+-- the 43 tables owned by the six HQ migrations (CRM, finance ledger, website
+-- control plane, command centre, announcements, income) existed on staging
+-- or production. The separately-migrated AI-workforce hq_* tables did exist,
+-- which is exactly why the agent hub was the one HQ feature that worked.
+--
+-- The shape below is the superset both consumers need. `key` / `label` /
+-- `monthly_budget` are what the live /saas/accounting/expenses routes read
+-- and what hq_vendor_expenses references. `account_code` is retained for GL
+-- roll-up but is NULLABLE: a category is allowed to exist before anyone has
+-- mapped it to an account, and the seeded defaults have no account yet.
+-- The dropped columns (`name`, `budget_limit_monthly`, and the NOT NULL on
+-- account_code) had zero consumers in the backend.
 CREATE TABLE IF NOT EXISTS hq_expense_categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL UNIQUE,
-  account_code TEXT NOT NULL REFERENCES hq_chart_of_accounts(code) ON DELETE RESTRICT,
+  key TEXT NOT NULL UNIQUE,
+  label TEXT NOT NULL,
+  monthly_budget NUMERIC(12, 2),
+  account_code TEXT REFERENCES hq_chart_of_accounts(code) ON DELETE RESTRICT,
   description TEXT,
   is_cogs BOOLEAN NOT NULL DEFAULT false,
-  budget_limit_monthly NUMERIC(12, 2) DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
