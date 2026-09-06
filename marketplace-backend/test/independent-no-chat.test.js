@@ -19,8 +19,18 @@ test('independent programs hide chat, while Facebook Dealer and full DealerOS ke
   }
   // The staff-chat dock mounts itself + polls, so it must be told to tear down.
   assert.match(block, /window\.disableStaffChatDock === 'function'\) window\.disableStaffChatDock\(\)/)
-  assert.match(fn, /if \(products\.dealer_os\) \{[\s\S]*?window\.__teamChatAllowed = true;[\s\S]*?window\.enableStaffChatDock/,
-    'the reachable DealerOS branch must restore Team Chat before returning')
+  // Team Messaging is no longer unconditional on DealerOS — it requires the os.team
+  // entitlement (Complete / paid Team), so the branch resolves that first and restores
+  // the dock only for a dealership that has it, tearing it down for one that does not.
+  const osBranch = fn.match(/if \(products\.dealer_os\) \{[\s\S]*?\n {2}\}/)?.[0] || ''
+  assert.ok(osBranch, 'the DealerOS branch must exist')
+  assert.match(osBranch, /pageFeatureOk\('people-overview'\)|includes\('os\.team'\)/,
+    'Team Chat on DealerOS must be gated on the os.team entitlement')
+  assert.match(osBranch, /window\.__teamChatAllowed = !!teamOk;/)
+  assert.match(osBranch, /if \(teamOk\) \{[\s\S]*?window\.enableStaffChatDock\(\)/,
+    'an entitled dealership must get Team Chat restored before returning')
+  assert.match(osBranch, /\} else \{[\s\S]*?window\.disableStaffChatDock\(\)/,
+    'an unentitled dealership must have the dock torn down, not left running')
 })
 
 test('the staff-chat dock refuses to run on independent programs and can be torn down', () => {

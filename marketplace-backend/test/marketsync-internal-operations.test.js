@@ -32,11 +32,22 @@ test('internal workspace routing is server-authored and never inferred from a de
 })
 
 test('MarketSync Internal has one focused operating navigation', () => {
-  for (const label of ['Pulse', 'Accounts', 'Leads', 'Work', 'People', 'Communications', 'Money']) {
-    assert.match(part2, new RegExp(`label: '${label}'`))
+  // The HQ information architecture was frozen (see the comment above SAAS_DEPARTMENTS):
+  // HOME · CUSTOMERS · REVENUE · FINANCE · PEOPLE · MARKETING · AI WORKFORCE · PLATFORM ·
+  // SETTINGS. Route slugs were deliberately preserved so backend contracts did not move —
+  // only the grouping and labels changed — so the destinations are still what is asserted.
+  const hq = part2.match(/const SAAS_DEPARTMENTS = \{[\s\S]*?\n\};/)?.[0] || ''
+  assert.ok(hq, 'the HQ department registry must exist')
+  for (const label of ['Home', 'Customers', 'Revenue', 'Finance', 'People',
+                       'Marketing', 'AI Workforce', 'Platform', 'Settings']) {
+    assert.match(hq, new RegExp(`label: '${label}'`), `HQ nav must carry the ${label} group`)
   }
-  assert.match(part2, /communications:[\s\S]*saas-automation/)
-  assert.match(part2, /people:[\s\S]*saas-employees/)
+  assert.match(hq, /marketing:[\s\S]*?saas-automation/)
+  assert.match(hq, /people:[\s\S]*?saas-employees/)
+  // "HQ must have no dead navigation" — the static placeholder pages stay unlisted.
+  for (const dead of ['saas-products', 'saas-roles', 'saas-flags', 'saas-all-users']) {
+    assert.ok(!new RegExp(`page: '${dead}'`).test(hq), `${dead} is a placeholder and must not be navigable`)
+  }
 })
 
 test('People directory exposes editable contact, department, status and role data to the owner', () => {

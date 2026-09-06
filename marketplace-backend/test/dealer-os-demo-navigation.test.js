@@ -15,7 +15,10 @@ test('DealerOS keeps its existing workspace registry and applies role and packag
     assert.ok(registry.includes(`label: '${label}'`), `DealerOS registry should retain ${label}`)
   }
   assert.match(dashboard, /function deptRoleOk\(spec\)/)
-  assert.match(dashboard, /function deptPageAllowed\(p\) \{ return !p\.legacy && deptRoleOk\(p\) && deptPageVisible/)
+  // Matched whitespace-tolerantly: the gate chain is the contract, not whether the
+  // body is written on one line or several.
+  assert.match(dashboard.replace(/\s+/g, ' '),
+    /function deptPageAllowed\(p\) \{ return !p\.legacy && deptRoleOk\(p\) && deptPageVisible/)
   assert.match(dashboard, /const demoEntitlements = window\.__demoEntitlements/)
 })
 

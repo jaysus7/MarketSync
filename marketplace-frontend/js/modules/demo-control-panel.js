@@ -211,6 +211,16 @@
       } else if (isMarketingSuiteDemo) {
         if (typeof deptGo === 'function') deptGo('marketing-overview', '', 'overview');
         else if (typeof switchPage === 'function') switchPage('marketing-overview');
+      } else if (typeof switchPage === 'function' && !singleProduct) {
+        // A full-package demo lands on Inventory rather than a Home page that may have
+        // nothing in it yet. 'inventory' (not 'inventory-overview'): this account can
+        // switch between a full DealerOS package and a Facebook-only one, and
+        // switchPage() resolves the generic id to whichever tier is currently active.
+        // Not for suite or standalone demos — those have their own landing above, and
+        // for a single-product workspace Inventory may not exist at all. That guard is
+        // why `singleProduct` is resolved; without this branch it was computed and
+        // then never read.
+        switchPage('inventory');
       }
     } catch (e) { /* network hiccup — no demo panel this load, not fatal */ }
     document.body.classList.remove('ms-app-booting');
