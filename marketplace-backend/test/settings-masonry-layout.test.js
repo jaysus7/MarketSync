@@ -20,9 +20,9 @@ test('the top-level Settings hub uses real column-based masonry, not a rigid gri
   assert.match(hub, /break-inside-avoid mb-3 rounded-xl/, 'each Settings hub section card should avoid breaking across columns')
 })
 
-test('Website Setup & Configuration uses real column-based masonry, not a rigid grid', () => {
-  const setup = dashboardPart17.slice(dashboardPart17.indexOf('function wsSetup'), dashboardPart17.indexOf('function wsSetup') + 6000)
-  assert.match(setup, /columns-1 md:columns-2 lg:columns-3 gap-5/, 'Website Setup container should use CSS multi-column, not grid-cols')
-  assert.doesNotMatch(setup, /grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5/, 'Website Setup should no longer use a rigid grid container')
-  assert.match(setup, /break-inside-avoid mb-5 bg-white/, 'each Website Setup card should avoid breaking across columns')
-})
+// The second "Website Setup & Configuration" landing (wsSetup) was deleted — website
+// configuration lives once, under Website Studio → Settings, which renders a fixed-height
+// form grid rather than variable-height masonry cards. test/website-setup-landing.test.js
+// ('keeps all website configuration under Settings without a second Setup page') is what
+// holds that line now, including asserting wsSetup cannot come back. Nothing to lay out
+// as masonry here any more, so the masonry check for it is gone with the screen.

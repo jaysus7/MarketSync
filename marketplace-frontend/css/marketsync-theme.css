@@ -1683,7 +1683,10 @@ body.website-builder-mode {
 .website-builder-mode #ws-left-drawer-content input::placeholder,
 .website-builder-mode #ws-inspector-panel input::placeholder,
 .website-builder-mode #ws-inspector-panel textarea::placeholder {
-  color: #8fa2bd !important;
+  /* Themed, not a single hardcoded value: #8fa2bd was picked for the dark builder
+     and rendered at ~2.6:1 on the light one. --ws-text-muted is #8F9BB3 dark / #64748B
+     light, so each theme gets a placeholder that passes on its own field. */
+  color: var(--ws-text-muted) !important;
   opacity: 1 !important;
 }
 .website-builder-mode #ws-left-drawer-content .liquid-glass-card,
@@ -3524,7 +3527,7 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 #ms-studio-master-modal .studio-shape-colour-row input[type="color"] { width: 42px; height: 36px; padding: 2px !important; border-radius: 10px; cursor: pointer; }
 #ms-studio-master-modal .studio-shape-colour-row input[type="text"],
 #ms-studio-master-modal .studio-shape-colour-row input:not([type]) { width: 88px; height: 36px; padding: 6px 8px !important; border-radius: 10px; font: 700 11px/1 monospace; }
-#ms-studio-master-modal .studio-text-template-preview { height: 74px; padding: 13px 12px; border-radius: 9px; color: #fff; overflow: hidden; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 6px 14px rgba(15,23,42,.18); }
+#ms-studio-master-modal .studio-text-template-preview { height: 74px; padding: 13px 12px; border-radius: 9px; overflow: hidden; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 6px 14px rgba(15,23,42,.18); }
 #ms-studio-master-modal .studio-text-template-preview small { display: block; font: 900 8px/1 ui-sans-serif,sans-serif; letter-spacing: .12em; }
 #ms-studio-master-modal .studio-text-template-preview strong { display: block; margin-top: 5px; font: 900 13px/.9 ui-sans-serif,sans-serif; letter-spacing: -.02em; }
 
@@ -3603,7 +3606,7 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 #ms-studio-master-modal .studio-element-preview-legal { height:56px; margin-block:21px; background:#f8fafc; color:#475569; border:1px solid #cbd5e1; }
 #ms-studio-master-modal .studio-element-preview-social { width:92px; margin-inline:auto; border-radius:50%; flex-direction:column; justify-content:center; text-align:center; background:#111827; }
 #ms-studio-master-modal .studio-element-preview-rating { background:#fffbeb; color:#78350f; border:1px solid #f59e0b; }
-#ms-studio-master-modal .studio-element-preview-rating .studio-element-preview-icon { width:auto; color:#f59e0b; font-size:11px; letter-spacing:1px; }
+#ms-studio-master-modal .studio-element-preview-rating .studio-element-preview-icon { width:auto; color:#b45309; font-size:11px; letter-spacing:1px; }
 #ms-studio-master-modal .studio-element-preview-date,
 #ms-studio-master-modal .studio-element-preview-stat { width:98px; margin-inline:auto; border-radius:25px; flex-direction:column; justify-content:center; text-align:center; background:#7c3aed; }
 #ms-studio-master-modal .studio-element-preview-stat { border-radius:50%; background:#0e7490; }
@@ -3653,8 +3656,8 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 #ms-studio-master-modal .studio-home { overscroll-behavior: contain; scrollbar-gutter: stable; }
 #ms-studio-master-modal .studio-home-hero { background: linear-gradient(135deg,#0891b2 0%,#1d4ed8 48%,#6d28d9 100%) !important; color:#fff !important; }
 #ms-studio-master-modal .studio-home-hero h1 { color:#fff !important; }
-#ms-studio-master-modal .studio-home-hero-eyebrow { color:#cffafe !important; }
-#ms-studio-master-modal .studio-home-hero-copy { color:#dbeafe !important; }
+#ms-studio-master-modal .studio-home-hero .studio-home-hero-eyebrow { color:#cffafe !important; }
+#ms-studio-master-modal .studio-home-hero .studio-home-hero-copy { color:#dbeafe !important; }
 #ms-studio-master-modal .studio-home-hero label { background:#fff !important; color:#0f172a !important; }
 #ms-studio-master-modal .studio-home-hero input { color:#0f172a !important; }
 #ms-studio-master-modal .studio-home-template-card .studio-template-preview { max-height: 270px; }
@@ -3721,7 +3724,7 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 #ms-studio-master-modal .studio-gif-card span, #ms-studio-master-modal .studio-gif-result-title { display: block; overflow: hidden; padding: 6px 7px; color: #334155; font: 800 9px/1.1 ui-sans-serif, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
 #ms-studio-master-modal .studio-gif-search-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
 #ms-studio-master-modal .studio-gif-search-row input, #ms-studio-master-modal .studio-gif-search-row select, #ms-studio-master-modal .studio-gif-paste input { min-width: 0; height: 36px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: #0f172a; padding: 0 10px; font: 700 11px/1 ui-sans-serif, sans-serif; }
-#ms-studio-master-modal .studio-gif-search-row input::placeholder, #ms-studio-master-modal .studio-gif-paste input::placeholder { color: #94a3b8; }
+#ms-studio-master-modal .studio-gif-search-row input::placeholder, #ms-studio-master-modal .studio-gif-paste input::placeholder { color: #64748b; }
 #ms-studio-master-modal .studio-gif-search-row button, #ms-studio-master-modal .studio-gif-paste button { min-height: 36px; border: 0; border-radius: 10px; background: #2563eb; color: #fff; padding: 0 13px; font: 900 11px/1 ui-sans-serif, sans-serif; cursor: pointer; }
 #ms-studio-master-modal .studio-gif-search-row button:hover, #ms-studio-master-modal .studio-gif-paste button:hover { background: #1d4ed8; }
 #ms-studio-master-modal .studio-gif-quick-label { color: #64748b; font: 900 9px/1 ui-sans-serif, sans-serif; text-transform: uppercase; letter-spacing: .08em; }
@@ -4125,7 +4128,7 @@ h2, h3, .ms-title-section, .text-xl, .text-lg {
 #ms-studio-master-modal .studio-control-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
 #ms-studio-master-modal .studio-control-label-row { display: flex; justify-content: space-between; align-items: baseline; }
 #ms-studio-master-modal .studio-control-help { font-size: .6875rem; color: #64748b; margin: 0; }
-#ms-studio-master-modal .studio-control-unit { font-size: .625rem; color: #94a3b8; }
+#ms-studio-master-modal .studio-control-unit { font-size: .625rem; color: #64748b; }
 #ms-studio-master-modal .studio-control-action {
   padding: .5rem .75rem;
   border-radius: .5rem; border: 1px solid #e2e8f0;

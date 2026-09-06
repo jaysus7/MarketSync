@@ -88,17 +88,44 @@ test('modal placeholders are legible in the theme they render in', () => {
 // theme must not be applied by a rule that paints both.
 test('no modal rule sets a light-on-light text colour for both themes at once', () => {
   const modalish = /(?:modal|dialog|drawer|crm-glass|crm-actions|popover)/i
+  const norm = (sel) => sel.replace(/\s+/g, ' ').trim()
+
+  // A rule is judged against the white card only when nothing supplies a surface under
+  // it. That can come from the same block, from the wrapper the selector names (the
+  // `h1` in `.studio-home-hero h1` sits on the hero's gradient), or from the Tailwind
+  // bg-*/text-white utility the selector explicitly targets. The modal ROOT does not
+  // count as that wrapper — it is the card itself, so exempting on it would exempt
+  // every rule in the modal. A qualifying wrapper therefore has a descendant part of
+  // its own, i.e. at least two space-separated compounds.
+  const painted = []
+  for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (!/background(?:-color|-image)?:/.test(m[2])) continue
+    for (const one of m[1].split(',')) {
+      const sel = norm(one)
+      if (sel && !sel.startsWith('@') && sel.split(' ').length >= 2) painted.push(sel)
+    }
+  }
+  const hasSurface = (sel, body) => {
+    if (/background(?:-color|-image)?:/.test(body)) return true
+    if (/\[class\*="bg-|\.bg-|\.text-white/.test(sel)) return true
+    return painted.some((p) => p !== sel &&
+      (sel.startsWith(p + ' ') || sel.startsWith(p + '::') || sel.startsWith(p + ':')))
+  }
+
   const offenders = []
   for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    const [sel, body] = [m[1].trim(), m[2]]
-    if (!modalish.test(sel)) continue
-    if (/(^|\s)\.dark(\s|\.)/.test(sel)) continue
-    // A rule that paints its own background is judged against that, not the card.
-    if (/background(?:-color|-image)?:/.test(body)) continue
+    const body = m[2]
     const col = body.match(/(?<!-)color:\s*(#[0-9a-fA-F]{3,6})/)
     if (!col) continue
-    if (contrast(col[1], '#FFFFFF') < 4.5) offenders.push(`${col[1]} in ${sel.replace(/\s+/g, ' ').slice(0, 70)}`)
+    for (const raw of m[1].split(',')) {
+      const sel = norm(raw)
+      if (!sel || !modalish.test(sel)) continue
+      if (/(^|\s)\.dark(\s|\.)/.test(sel)) continue
+      if (hasSurface(sel, body)) continue
+      if (contrast(col[1], '#FFFFFF') < 4.5) offenders.push(`${col[1]} in ${sel.slice(0, 70)}`)
+    }
   }
+
   assert.deepEqual(offenders, [],
-    `these unscoped modal rules put low-contrast text on the light card:\n  ${offenders.join('\n  ')}`)
+    `these unscoped modal rules put low-contrast text on the surface they land on:\n  ${offenders.join('\n  ')}`)
 })
