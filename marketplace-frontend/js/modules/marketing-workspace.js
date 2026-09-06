@@ -958,6 +958,12 @@ function mktPulseOverview(body, d, suite, cfg, dayCaveat = '') {
 
 ENGINES['marketing-overview'] = {
   rootId: 'marketing-overview-root',
+  // The workspace switcher already highlights Marketing and the page tab strip
+  // already names the destination you picked, so repeating "Marketing" in a
+  // full-size page header made three stacked chrome rows before any content —
+  // the "two header menus" on the Design Studio tab. Actions (Facebook Auto
+  // Poster, New Campaign, Refresh) stay: only the title block goes.
+  hideTitle: true,
   // Suite products use the feature name (Complete / Sales / Service Marketing Suite,
   // MarketSync Digital) — never the DealerOS "Marketing Department" label.
   get title() {
@@ -1306,7 +1312,16 @@ ENGINES['marketing-overview'] = {
           </div>
         </div>`;
       if (typeof mktLoadStudioBrandAndAssets === 'function') mktLoadStudioBrandAndAssets();
-      if (typeof mktLoadStudioCreativeHome === 'function') mktLoadStudioCreativeHome();
+      if (typeof mktLoadStudioCreativeHome === 'function') {
+        // Never leave the panel on its placeholder because of an unhandled reject.
+        Promise.resolve(mktLoadStudioCreativeHome()).catch(() => {
+          const host = document.getElementById('mkt-studio-creative-home');
+          if (host) host.innerHTML = `<div class="ms-c ms-c--standard ms-c--glass p-6 space-y-3">
+            <p class="text-sm text-rose-600 dark:text-rose-300">Sizes and collections could not be loaded.</p>
+            <button type="button" onclick="mktLoadStudioCreativeHome()" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Try again</button>
+          </div>`;
+        });
+      }
     },
 
     // ── Website ──────────────────────────────────────────────────────────────
@@ -2321,22 +2336,26 @@ async function mktLoadStudioCreativeHome() {
   const host = document.getElementById('mkt-studio-creative-home')
   if (!host) return
 
-  const ready = await mktEnsureStudioShell()
+  const ready = await mktEnsureStudioShell().catch(() => false)
   if (!ready || typeof window.renderStudioHomeFormatShortcuts !== 'function') {
-    host.innerHTML = `<div class="ms-c ms-c--standard ms-c--glass p-6 text-sm text-rose-600 dark:text-rose-300">
-      Design Studio could not be loaded, so sizes and collections are unavailable right now. Reload the page to try again.
+    host.innerHTML = `<div class="ms-c ms-c--standard ms-c--glass p-6 space-y-3">
+      <p class="text-sm text-rose-600 dark:text-rose-300">Design Studio could not be loaded, so sizes and collections are unavailable right now.</p>
+      <button type="button" onclick="mktLoadStudioCreativeHome()" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Try again</button>
     </div>`
     return
   }
 
-  // The template catalogue backs the grid; without it the grid renders empty.
-  if (typeof window.loadStudioTemplateCatalog === 'function') {
-    await window.loadStudioTemplateCatalog().catch(() => null)
-  }
-
+  // Sizes and collections come from STUDIO_FORMAT_GROUPS / STUDIO_DESIGN_SETS,
+  // which ship in the bundle and need no network at all. They used to sit behind
+  // `await loadStudioTemplateCatalog()`, so a slow or failing
+  // GET /marketing/studio/templates held the whole panel on "Loading sizes,
+  // collections and templates…" through its retry budget — and any throw in
+  // there left that placeholder up for good, because nothing caught it. Only the
+  // template CARDS need the catalogue, so paint everything else first and fill
+  // the grid in afterwards.
   const sizes = window.renderStudioHomeFormatShortcuts()
   const sets = typeof window.renderStudioHomeDesignSets === 'function' ? window.renderStudioHomeDesignSets() : ''
-  const cards = typeof window.studioHomeTemplateCards === 'function' ? window.studioHomeTemplateCards() : ''
+  const cards = `<div class="col-span-full py-6 text-center text-sm text-slate-500 dark:text-slate-400">Loading templates…</div>`
   const formatKeys = (window.STUDIO_FORMAT_GROUPS || []).flatMap(group => group.keys || [])
   const formatChips = formatKeys.map(key => {
     const format = (window.STUDIO_SOCIAL_FORMATS || {})[key]
@@ -2383,8 +2402,23 @@ async function mktLoadStudioCreativeHome() {
       </section>
     </div>`
 
-  // Sync the pressed state on the filter chips the same way the shell does.
-  if (typeof window.renderStudioHomeTemplateGrid === 'function') window.renderStudioHomeTemplateGrid()
+  // Now the catalogue, which only the template grid depends on. A failure here
+  // costs the templates, never the sizes and collections already on screen.
+  const grid = document.getElementById('studio-home-template-grid')
+  try {
+    if (typeof window.loadStudioTemplateCatalog === 'function') await window.loadStudioTemplateCatalog()
+    if (!grid || !grid.isConnected) return
+    grid.innerHTML = typeof window.studioHomeTemplateCards === 'function' ? window.studioHomeTemplateCards() : ''
+    // Sync the pressed state on the filter chips the same way the shell does.
+    if (typeof window.renderStudioHomeTemplateGrid === 'function') window.renderStudioHomeTemplateGrid()
+  } catch (_) {
+    if (grid && grid.isConnected) {
+      grid.innerHTML = `<div class="col-span-full py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+        Templates could not be loaded. Sizes and collections above still work.
+        <button type="button" onclick="mktLoadStudioCreativeHome()" class="ml-1 font-black text-blue-600 dark:text-blue-300 underline">Retry</button>
+      </div>`
+    }
+  }
 }
 window.mktLoadStudioCreativeHome = mktLoadStudioCreativeHome
 

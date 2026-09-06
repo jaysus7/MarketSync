@@ -82,7 +82,7 @@ away from the Tailwind Play CDN, and is worth folding into the same phase.
 | Primitive | Uses in markup |
 |---|---|
 | `.ms-board` | 3 |
-| `.ms-c--*` (card variants) | 85 |
+| `.ms-c--*` (card variants) | 87 |
 | `.ms-span-*` | 0 |
 | `.ms-surface--*` | 0 |
 | `.ms-touch` | 0 |
