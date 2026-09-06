@@ -1017,9 +1017,16 @@ ENGINES['marketing-overview'] = {
     // The MarketSync Digital surfaces — shown when the plan grants each product. In
     // DealerOS Complete (full Digital bundle) all four appear; a Core/Pro operational
     // plan without Digital shows none of them.
-    if (has('design.canvas', 'design.templates')) base.push('studio');
+    // These gates MUST match what the nav promises in workspace-registry.js. The
+    // registry offers Design Studio on anyFeature [design.canvas, design.templates,
+    // os.marketing] while this list required design.canvas/design.templates only —
+    // so a dealership entitled through os.marketing was shown the Design Studio
+    // link, tapped it, and renderEngine found 'studio' missing from tabOrder and
+    // silently fell back to order[0]. You asked for Design Studio and landed on
+    // Pulse. Video Studio had the same mismatch.
+    if (has('design.canvas', 'design.templates', 'os.marketing')) base.push('studio');
     if (has('social.scheduler', 'os.marketing') || all) base.push('scheduler');
-    if (has('video.library', 'video.record')) base.push('video-studio');
+    if (has('video.library', 'video.record', 'os.marketing')) base.push('video-studio');
     if (has('ai.conversations', 'ai.overview')) base.push('chatbot');
     if (has('website.builder', 'website.pages', 'os.website')) base.push('website');
     return base;
