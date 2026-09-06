@@ -93,7 +93,7 @@ ENGINES['people-overview'] = {
     overview: 'Pulse',
     people: 'People',
     work: 'Staff',
-    insights: 'Insights', time: 'Time & Docs', reports: 'Reports',
+    insights: 'Insights', reports: 'Reports',
     time: 'Time',
     hiring: 'Hiring',
     compliance: 'Compliance',

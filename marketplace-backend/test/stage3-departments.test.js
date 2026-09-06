@@ -98,11 +98,11 @@ test('Inventory Work exposes the vehicle lifecycle', () => {
   for (const heading of ['Vehicles']) {
     assert.ok(fn.includes(heading), `Inventory (work tab) must still cover ${heading}`)
   }
-  for (const heading of ['Acquisition', 'Merchandising', 'Pricing and age', 'Cleanup', 'Reconditioning']) {
+  for (const heading of ['Acquisition', 'Merchandising', 'Pricing & Age', 'Cleanup', 'Reconditioning']) {
     assert.ok(!fn.includes(heading), `${heading} must not render in the Inventory list tab`)
   }
   const engineBlock = inv.slice(inv.indexOf("ENGINES['inventory-overview']"))
-  for (const heading of ['Acquisition', 'Merchandising', 'Pricing and age']) {
+  for (const heading of ['Acquisition', 'Merchandising', 'Pricing & Age']) {
     assert.ok(engineBlock.includes(heading), `Pulse (overview) must cover ${heading}`)
   }
   assert.match(fn, /engMountPage\(body, 'inventory'/, 'adding and removing vehicles happens here')
@@ -110,8 +110,10 @@ test('Inventory Work exposes the vehicle lifecycle', () => {
   // Facebook publishing is a marketing channel and now lives under Marketing. It must not be
   // stranded — the registry keeps it reachable — but it is no longer an Inventory view.
   assert.ok(!fn.includes("'syndication'"), 'Facebook publishing belongs to Marketing')
-  const reg = read('js/modules/workspace-registry.js')
-  assert.match(reg, /marketing:[\s\S]*?invmode: 'facebook'/, 'and it must still be reachable from Marketing')
+  // Marketing's own suite nav carries the destination now, not the global registry.
+  const mkt = read('js/modules/marketing-workspace.js')
+  assert.match(mkt, /suiteItem\('inventory', '[^']*Auto Poster', 'megaphone', \{ invmode: 'facebook' \}\)/,
+    'and it must still be reachable from Marketing')
 })
 
 // ── Stage 3B.2 — Acquisition, Merchandising, Vehicle Record ──────────────────

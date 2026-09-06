@@ -59,7 +59,12 @@ test('SEO Suite - Advanced Mode Dual Architecture & Component Completeness', asy
   });
 
   await t.test('Deep SEO route parsing in switchPage supports easy/advanced modes', () => {
-    assert.match(p2Content, /seo\/advanced/);
+    // switchPage parses the mode off the deep route rather than matching a literal
+    // 'seo/advanced' string, so it covers seo/easy in the same branch.
+    assert.match(p2Content, /pageId === 'seo' \|\| pageId\.startsWith\('seo\/'\)/,
+      'deep seo/* routes must be recognised');
+    assert.match(p2Content, /endsWith\('\/advanced'\)/, 'seo/advanced must select advanced mode');
+    assert.match(p2Content, /endsWith\('\/easy'\)/, 'seo/easy must select easy mode');
     assert.match(p2Content, /marketsync_seo_mode/);
   });
 

@@ -38,8 +38,11 @@ test('the department reads HR without renaming what everything is keyed to', () 
 test('Team is Staff, and Settings exists', () => {
   assert.match(ws, /work: 'Staff'/)
   assert.match(ws, /settings: 'Settings'/)
+  // Insights folded into Compliance and Time/Reports became first-class tabs; Settings
+  // is manager-only. Pulse still leads and Staff still comes second.
   const order = ws.match(/get tabOrder\(\)[\s\S]*?\n  \},/)?.[0] || ''
-  assert.match(order, /'overview', 'work', 'insights', 'settings'/)
+  assert.match(order, /'overview', 'work', 'time', 'reports', 'settings'/, 'managers get Settings')
+  assert.match(order, /'overview', 'work', 'time', 'reports'\]/, 'non-managers get the same tabs without Settings')
   assert.match(ws, /settings: pplRenderSettings/)
   assert.match(ws, /function pplRenderSettings/)
 })
@@ -147,7 +150,8 @@ test('offboarding names what they still own before revoking anything', () => {
   const fn = ws.slice(ws.indexOf('async function pplOffboard'))
   assert.match(fn, /owned-work/, 'it must ask what they still hold')
   assert.match(fn, /Nothing was offboarded/, 'a failed check must abort, not proceed blind')
-  assert.match(fn, /Reassign this work first, or it becomes nobody's/)
+  assert.match(fn, /They still own:/, 'the open work must be named, not just counted')
+  assert.match(fn, /Reassign this work first/)
   assert.match(fn, /Offboarding needs a reason on the record/)
   assert.match(fn, /apiSendJson\(`\/hr\/employees\/\$\{staffId\}\/offboard`/)
 })
