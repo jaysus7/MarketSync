@@ -2696,16 +2696,23 @@ function renderWsDiscoverabilityInspector() {
   const aiEvidenceType = aiBenchmark.run?.evidence_type || aiRecords[0]?.evidenceType || null;
   const aiMeasured = aiRecords.length > 0 && aiEvidenceType !== 'synthetic_test';
   const aiVisible = aiMeasured && aiRecords.some(item => item.dealershipMentioned === true || item.dealershipCited === true);
+  // Inspector reuses the same handlers as the main workspace so a fix
+  // is one tap away from either surface.
+  const editAction = { label: 'Edit in Builder', onclick: 'openWebsiteBuilder()' };
+  const scanAction = { label: 'Run public crawl', onclick: 'wsRunPublicCrawl(this)' };
+  const gscAction = { label: 'Connect Search Console', onclick: "switchPage('integrations')" };
+  const canonicalAction = { label: 'Set site address', onclick: "openSetupModal('domain')" };
+  const aiRefreshAction = { label: 'Refresh AI evidence', onclick: 'loadWebsiteDiscoverability(true)' };
   const checks = [
-    ['Title', title ? (title.length <= 60 ? 'pass' : 'fail') : 'fail', title ? `${title.length}/60 characters.` : 'Add a unique search title.'],
-    ['Meta', description ? (description.length <= 160 ? 'pass' : 'fail') : 'fail', description ? `${description.length}/160 characters.` : 'Add a useful search description.'],
-    ['H1', hasPrimaryHeading ? 'pass' : 'fail', hasPrimaryHeading ? 'A primary page heading exists in this draft.' : 'Add a hero or primary page heading.'],
-    ['Canonical', canonical ? 'pass' : 'unknown', canonical ? `Canonical site address: ${canonical}` : 'No canonical site address has been assigned.'],
-    ['Schema', schemaFindings.length ? 'fail' : measured ? 'pass' : 'unknown', schemaFindings.length ? `${schemaFindings.length} measured schema finding${schemaFindings.length === 1 ? '' : 's'}.` : measured ? 'No schema finding in the latest public rendered-page validation.' : 'No public rendered-page schema measurement is available.'],
-    ['Crawlability', measured ? 'pass' : live.status === 'failed' ? 'fail' : 'unknown', measured ? 'A public crawl completed.' : 'Run a public crawl before claiming crawlability.'],
-    ['Internal links', linkFindings.length ? 'fail' : measured ? 'pass' : 'unknown', linkFindings.length ? `${linkFindings.length} measured internal-link finding${linkFindings.length === 1 ? '' : 's'}.` : measured ? 'No link finding was reported by the latest public validation.' : 'Internal links have not been measured on the public site.'],
-    ['Search opportunity', opportunityCount ? 'pass' : 'unknown', opportunityCount ? `${opportunityCount} persisted Search Console opportunit${opportunityCount === 1 ? 'y' : 'ies'}.` : 'No measured search opportunity is available.'],
-    ['AI visibility', aiMeasured ? (aiVisible ? 'pass' : 'fail') : 'unknown', aiMeasured ? (aiVisible ? 'At least one measured provider response mentioned or cited the dealership.' : 'Measured provider responses did not mention or cite the dealership.') : aiEvidenceType === 'synthetic_test' ? 'Synthetic lab evidence is available, but it is not organic AI visibility.' : 'No measured AI citation evidence is available.'],
+    ['Title', title ? (title.length <= 60 ? 'pass' : 'fail') : 'fail', title ? `${title.length}/60 characters.` : 'Add a unique search title.', editAction],
+    ['Meta', description ? (description.length <= 160 ? 'pass' : 'fail') : 'fail', description ? `${description.length}/160 characters.` : 'Add a useful search description.', editAction],
+    ['H1', hasPrimaryHeading ? 'pass' : 'fail', hasPrimaryHeading ? 'A primary page heading exists in this draft.' : 'Add a hero or primary page heading.', editAction],
+    ['Canonical', canonical ? 'pass' : 'unknown', canonical ? `Canonical site address: ${canonical}` : 'No canonical site address has been assigned.', canonicalAction],
+    ['Schema', schemaFindings.length ? 'fail' : measured ? 'pass' : 'unknown', schemaFindings.length ? `${schemaFindings.length} measured schema finding${schemaFindings.length === 1 ? '' : 's'}.` : measured ? 'No schema finding in the latest public rendered-page validation.' : 'No public rendered-page schema measurement is available.', scanAction],
+    ['Crawlability', measured ? 'pass' : live.status === 'failed' ? 'fail' : 'unknown', measured ? 'A public crawl completed.' : 'Run a public crawl before claiming crawlability.', scanAction],
+    ['Internal links', linkFindings.length ? 'fail' : measured ? 'pass' : 'unknown', linkFindings.length ? `${linkFindings.length} measured internal-link finding${linkFindings.length === 1 ? '' : 's'}.` : measured ? 'No link finding was reported by the latest public validation.' : 'Internal links have not been measured on the public site.', scanAction],
+    ['Search opportunity', opportunityCount ? 'pass' : 'unknown', opportunityCount ? `${opportunityCount} persisted Search Console opportunit${opportunityCount === 1 ? 'y' : 'ies'}.` : 'No measured search opportunity is available.', gscAction],
+    ['AI visibility', aiMeasured ? (aiVisible ? 'pass' : 'fail') : 'unknown', aiMeasured ? (aiVisible ? 'At least one measured provider response mentioned or cited the dealership.' : 'Measured provider responses did not mention or cite the dealership.') : aiEvidenceType === 'synthetic_test' ? 'Synthetic lab evidence is available, but it is not organic AI visibility.' : 'No measured AI citation evidence is available.', aiRefreshAction],
   ];
   return `<div class="space-y-4 text-xs">
     <div><div class="text-[10px] uppercase tracking-wider font-black text-indigo-400">Current page</div><div class="mt-1 font-black text-slate-900 dark:text-white">${esc(wsAuditPageName(__wsTarget, __wsTarget === 'home'))}</div><p class="mt-1 text-[11px] text-slate-500">Draft checks and measured public evidence remain separate.</p></div>
@@ -3206,10 +3213,36 @@ function wsDiscoverability() {
   return `<div class="website-studio-view space-y-5"><div class="flex items-start justify-between gap-4 flex-wrap"><div><h2 class="text-xl font-black text-slate-950 dark:text-white">Discoverability</h2><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Deterministic website checks, measured search evidence, and governed recommendations.</p></div><button type="button" onclick="loadWebsiteDiscoverability(true)" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black">Refresh evidence</button></div><div id="ws-discoverability-root" class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 text-sm text-slate-500">Loading evidence…</div></div>`;
 }
 
-function wsDiscoveryCheck(label, status, detail) {
+function wsDiscoveryCheck(label, status, detail, action) {
   const tone = status === 'pass' ? 'text-emerald-600 bg-emerald-500/10 border-emerald-500/25' : status === 'fail' ? 'text-rose-600 bg-rose-500/10 border-rose-500/25' : 'text-slate-500 bg-slate-500/10 border-slate-500/20';
-  return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3"><div class="flex items-center justify-between gap-2"><span class="text-xs font-black text-slate-900 dark:text-white">${esc(label)}</span><span class="px-2 py-0.5 rounded-full border text-[9px] font-black uppercase ${tone}">${esc(status)}</span></div><p class="mt-1.5 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">${esc(detail)}</p></div>`;
+  // Every non-PASS row that has a real handler gets a compact fix button —
+  // "Unknown" rows previously left the user stranded ("what do I do about
+  // this?"). The label + onclick come from wsDiscoveryChecks / the inspector
+  // list, and every onclick calls a real function defined in this file.
+  const actionHtml = status !== 'pass' && action && action.onclick
+    ? `<button type="button" onclick="${esc(action.onclick)}" class="mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider">${esc(action.label || 'Fix')}</button>`
+    : '';
+  return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3"><div class="flex items-center justify-between gap-2"><span class="text-xs font-black text-slate-900 dark:text-white">${esc(label)}</span><span class="px-2 py-0.5 rounded-full border text-[9px] font-black uppercase ${tone}">${esc(status)}</span></div><p class="mt-1.5 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">${esc(detail)}</p>${actionHtml}</div>`;
 }
+
+// Public crawl trigger — POST /discoverability/validation/scan (routes/
+// discoverability.js:472) runs a fresh technical/data validation crawl.
+// Success repopulates the pillars.validation subtree so Schema, Crawlability
+// and Internal-links UNKNOWN checks flip to pass/fail on the next refresh.
+async function wsRunPublicCrawl(btn) {
+  const original = btn?.textContent || '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Scanning…'; }
+  try {
+    await apiSendJson('/discoverability/validation/scan', 'POST', {});
+    __wsDiscoveryData = null;
+    await loadWebsiteDiscoverability(true);
+    showToast('Public crawl completed — evidence refreshed', 'success');
+  } catch (e) {
+    showToast(e.message || 'Public crawl could not be run', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = original; }
+  }
+}
+window.wsRunPublicCrawl = wsRunPublicCrawl;
 
 function wsDiscoveryChecks(data = {}) {
   const contract = data.overview?.pillars?.websiteBuilder || {};
@@ -3225,17 +3258,45 @@ function wsDiscoveryChecks(data = {}) {
   const geoVisible = geoMeasured && geoRecords.some(item => item.dealershipMentioned === true || item.dealershipCited === true);
   const schemaMeasured = live.status === 'completed';
   const linkFindings = validationIssues.filter(item => /link/i.test(`${item.contract || ''} ${item.title || ''}`));
+  // Actions — every non-PASS row here has a real handler defined in this
+  // file or in the shared workspace. The user should never see "Unknown"
+  // without a next step.
+  const editAction = { label: 'Edit in Builder', onclick: 'openWebsiteBuilder()' };
+  const scanAction = { label: 'Run public crawl', onclick: 'wsRunPublicCrawl(this)' };
+  const gscAction = { label: 'Connect Search Console', onclick: "switchPage('integrations')" };
+  const canonicalAction = { label: 'Set site address', onclick: "openSetupModal('domain')" };
+  const aiRefreshAction = { label: 'Refresh AI evidence', onclick: 'loadWebsiteDiscoverability(true)' };
   return [
-    ['Title', has('seo-title') || has('page-title') ? 'fail' : 'pass', has('seo-title') ? 'One or more pages are missing an SEO title.' : 'Draft page titles satisfy the Website contract.'],
-    ['Meta', has('seo-description') ? 'fail' : 'pass', has('seo-description') ? 'One or more pages are missing a meta description.' : 'Draft meta descriptions satisfy the Website contract.'],
-    ['H1', has('heading-hierarchy') ? 'fail' : 'pass', has('heading-hierarchy') ? 'A page is missing a primary hero or H1.' : 'Every checked draft page has a primary topic heading.'],
-    ['Canonical', __siteCfg?.site_slug ? 'pass' : 'unknown', __siteCfg?.site_slug ? `Canonical site address is ${__siteCfg.site_slug}.` : 'A canonical site address has not been assigned.'],
-    ['Schema', schemaMeasured ? (validationIssues.some(item => /schema/i.test(`${item.contract || ''} ${item.title || ''}`)) ? 'fail' : 'pass') : 'unknown', schemaMeasured ? 'Based on the latest public rendered-page validation.' : 'No public rendered-page schema measurement is available.'],
-    ['Crawlability', live.status === 'completed' ? 'pass' : live.status === 'failed' ? 'fail' : 'unknown', live.status === 'completed' ? `${live.pageCount || 0} public page response${live.pageCount === 1 ? '' : 's'} observed.` : 'Run a public crawl before claiming crawlability.'],
-    ['Internal links', linkFindings.length ? 'fail' : schemaMeasured ? 'pass' : 'unknown', linkFindings.length ? `${linkFindings.length} observed link finding${linkFindings.length === 1 ? '' : 's'}.` : schemaMeasured ? 'No link finding in the measured public crawl.' : 'Internal links have not been measured on the public site.'],
-    ['Search opportunity', (search.opportunities || []).length ? 'pass' : 'unknown', (search.opportunities || []).length ? `${search.opportunities.length} persisted Search Console opportunit${search.opportunities.length === 1 ? 'y' : 'ies'}.` : 'No measured search opportunity is available.'],
-    ['AI visibility', geoMeasured ? (geoVisible ? 'pass' : 'fail') : 'unknown', geoMeasured ? (geoVisible ? 'Measured provider evidence includes a dealership mention or citation.' : 'Measured provider evidence includes no dealership mention or citation.') : geoEvidenceType === 'synthetic_test' ? 'Synthetic lab evidence remains separate from organic AI visibility.' : 'No measured AI citation evidence is available; readiness is not visibility.'],
+    ['Title', has('seo-title') || has('page-title') ? 'fail' : 'pass', has('seo-title') ? 'One or more pages are missing an SEO title.' : 'Draft page titles satisfy the Website contract.', editAction],
+    ['Meta', has('seo-description') ? 'fail' : 'pass', has('seo-description') ? 'One or more pages are missing a meta description.' : 'Draft meta descriptions satisfy the Website contract.', editAction],
+    ['H1', has('heading-hierarchy') ? 'fail' : 'pass', has('heading-hierarchy') ? 'A page is missing a primary hero or H1.' : 'Every checked draft page has a primary topic heading.', editAction],
+    ['Canonical', __siteCfg?.site_slug ? 'pass' : 'unknown', __siteCfg?.site_slug ? `Canonical site address is ${__siteCfg.site_slug}.` : 'A canonical site address has not been assigned.', canonicalAction],
+    ['Schema', schemaMeasured ? (validationIssues.some(item => /schema/i.test(`${item.contract || ''} ${item.title || ''}`)) ? 'fail' : 'pass') : 'unknown', schemaMeasured ? 'Based on the latest public rendered-page validation.' : 'No public rendered-page schema measurement is available.', scanAction],
+    ['Crawlability', live.status === 'completed' ? 'pass' : live.status === 'failed' ? 'fail' : 'unknown', live.status === 'completed' ? `${live.pageCount || 0} public page response${live.pageCount === 1 ? '' : 's'} observed.` : 'Run a public crawl before claiming crawlability.', scanAction],
+    ['Internal links', linkFindings.length ? 'fail' : schemaMeasured ? 'pass' : 'unknown', linkFindings.length ? `${linkFindings.length} observed link finding${linkFindings.length === 1 ? '' : 's'}.` : schemaMeasured ? 'No link finding in the measured public crawl.' : 'Internal links have not been measured on the public site.', scanAction],
+    ['Search opportunity', (search.opportunities || []).length ? 'pass' : 'unknown', (search.opportunities || []).length ? `${search.opportunities.length} persisted Search Console opportunit${search.opportunities.length === 1 ? 'y' : 'ies'}.` : 'No measured search opportunity is available.', gscAction],
+    ['AI visibility', geoMeasured ? (geoVisible ? 'pass' : 'fail') : 'unknown', geoMeasured ? (geoVisible ? 'Measured provider evidence includes a dealership mention or citation.' : 'Measured provider evidence includes no dealership mention or citation.') : geoEvidenceType === 'synthetic_test' ? 'Synthetic lab evidence remains separate from organic AI visibility.' : 'No measured AI citation evidence is available; readiness is not visibility.', aiRefreshAction],
   ];
+}
+
+// Derive "run a scan" recommendation cards for UNKNOWN checks that no
+// persisted engine recommendation covers. Every card here is grounded in a
+// real check tuple with a real handler — never a fabricated suggestion.
+function wsDeriveScanRecommendations(checkRows, existingRecs) {
+  const covered = new Set((existingRecs || []).flatMap(r => [
+    (r.title || '').toLowerCase(), (r.category || '').toLowerCase(), (r.pillar || '').toLowerCase(),
+  ]));
+  return checkRows.filter(([label, status, , action]) => status !== 'pass' && action && action.onclick)
+    .filter(([label]) => !covered.has(String(label).toLowerCase()))
+    .map(([label, status, detail, action]) => ({
+      _synthetic: true,
+      title: status === 'unknown' ? `Measure ${label.toLowerCase()}` : `Resolve ${label.toLowerCase()}`,
+      why_it_matters: detail,
+      execution_class: 'manual',
+      status: 'open',
+      priority: status === 'fail' ? 'high' : 'medium',
+      _action: action,
+    }));
 }
 
 function renderWebsiteDiscoverability() {
@@ -3247,8 +3308,12 @@ function renderWebsiteDiscoverability() {
   if (overview.entitled === false) { root.innerHTML = `<div class="text-sm text-slate-600 dark:text-slate-300">${esc(overview.message || 'Discoverability is not enabled for this account.')}</div>`; return; }
   const actionPlan = data.actions?.actionPlan || {};
   const persistedRecs = [...(actionPlan.quickWins?.recommendations || []), ...(actionPlan.needsReview?.recommendations || []), ...(actionPlan.manual?.recommendations || [])];
-  const recs = persistedRecs.length ? persistedRecs : (overview.recommendations || []).map(rec => ({ ...rec, _displayOnly: true }));
+  const basePersisted = persistedRecs.length ? persistedRecs : (overview.recommendations || []).map(rec => ({ ...rec, _displayOnly: true }));
   const checkRows = wsDiscoveryChecks(data);
+  // Merge synthesized "unknown-check → run a scan" recommendations so the
+  // recommendations panel actually recommends fixing what the check grid
+  // shows as unresolved.
+  const recs = [...basePersisted, ...wsDeriveScanRecommendations(checkRows, basePersisted)];
   const score = overview.pillars?.websiteBuilder?.score;
   const scoreLabel = score == null ? 'Not measured' : `${score}/100`;
   const searchRun = data.search?.run;
@@ -3261,7 +3326,7 @@ function renderWebsiteDiscoverability() {
   root.innerHTML = `<div class="space-y-6">
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">${[['Website contract',scoreLabel],['Open actions',actionPlan.summary?.totalOpen ?? recs.filter(r => r.status === 'open').length],['Search evidence',searchStatus],['AI evidence',aiStatus]].map(([label,value]) => `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-4"><div class="text-[10px] uppercase tracking-wider font-black text-slate-400">${esc(label)}</div><div class="mt-1 text-sm font-black text-slate-950 dark:text-white">${esc(String(value))}</div></div>`).join('')}</div>
     <section><div class="flex items-center justify-between gap-3 flex-wrap"><div><h3 class="font-black text-slate-950 dark:text-white">Page and evidence checks</h3><p class="text-xs text-slate-500">Unknown stays unknown until a public or provider measurement exists.</p></div></div><div class="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">${checkRows.map(row => wsDiscoveryCheck(...row)).join('')}</div></section>
-    <section class="rounded-2xl border border-slate-200 dark:border-slate-800 p-5"><div class="flex items-start justify-between gap-3 flex-wrap"><div><h3 class="font-black text-slate-950 dark:text-white">Recommendations</h3><p class="mt-1 text-xs text-slate-500">Deterministic findings remain authoritative. Approval-required work is never auto-applied.</p></div>${actionPlan.quickWins?.count ? `<button type="button" onclick="wsApplyAllSafeDiscoverability(this)" class="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black">Apply ${actionPlan.quickWins.count} safe fix${actionPlan.quickWins.count === 1 ? '' : 'es'}</button>` : ''}</div><div class="mt-4 space-y-2">${recs.length ? recs.slice(0,8).map(rec => `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3 flex items-start justify-between gap-3"><div><div class="flex gap-2 flex-wrap"><span class="text-xs font-black text-slate-950 dark:text-white">${esc(rec.title || rec.summary || 'Recommendation')}</span><span class="text-[9px] uppercase font-black text-slate-400">${esc(rec.execution_class || 'manual')}</span></div><p class="mt-1 text-[11px] text-slate-500">${esc(rec.why_it_matters || rec.summary || rec.evidence || 'Evidence is available in the recommendation detail.')}</p></div><div class="shrink-0">${rec._displayOnly ? '<span class="text-[10px] font-black text-slate-400">Finding only</span>' : rec.execution_class === 'auto_fixable' ? `<button type="button" onclick="wsApplyDiscoveryRecommendation('${esc(rec.id)}',this)" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[11px] font-black">Apply safe fix</button>` : rec.execution_class === 'approval_required' ? `<button type="button" onclick="wsApproveDiscoveryRecommendation('${esc(rec.id)}',this)" class="px-3 py-1.5 rounded-lg border border-amber-400/50 text-amber-700 dark:text-amber-300 text-[11px] font-black">Approve for execution</button>` : '<span class="text-[10px] font-black text-slate-400">Manual review</span>'}</div></div>`).join('') : '<div class="py-5 text-center text-xs text-slate-500">No open evidence-backed recommendations.</div>'}</div></section>
+    <section class="rounded-2xl border border-slate-200 dark:border-slate-800 p-5"><div class="flex items-start justify-between gap-3 flex-wrap"><div><h3 class="font-black text-slate-950 dark:text-white">Recommendations</h3><p class="mt-1 text-xs text-slate-500">Deterministic findings remain authoritative. Approval-required work is never auto-applied.</p></div>${actionPlan.quickWins?.count ? `<button type="button" onclick="wsApplyAllSafeDiscoverability(this)" class="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black">Apply ${actionPlan.quickWins.count} safe fix${actionPlan.quickWins.count === 1 ? '' : 'es'}</button>` : ''}</div><div class="mt-4 space-y-2">${recs.length ? recs.slice(0,8).map(rec => `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3 flex items-start justify-between gap-3"><div><div class="flex gap-2 flex-wrap"><span class="text-xs font-black text-slate-950 dark:text-white">${esc(rec.title || rec.summary || 'Recommendation')}</span><span class="text-[9px] uppercase font-black text-slate-400">${esc(rec.execution_class || 'manual')}</span></div><p class="mt-1 text-[11px] text-slate-500">${esc(rec.why_it_matters || rec.summary || rec.evidence || 'Evidence is available in the recommendation detail.')}</p></div><div class="shrink-0">${rec._synthetic && rec._action ? `<button type="button" onclick="${esc(rec._action.onclick)}" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-black">${esc(rec._action.label || 'Fix')}</button>` : rec._displayOnly ? '<span class="text-[10px] font-black text-slate-400">Finding only</span>' : rec.execution_class === 'auto_fixable' ? `<button type="button" onclick="wsApplyDiscoveryRecommendation('${esc(rec.id)}',this)" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[11px] font-black">Apply safe fix</button>` : rec.execution_class === 'approval_required' ? `<button type="button" onclick="wsApproveDiscoveryRecommendation('${esc(rec.id)}',this)" class="px-3 py-1.5 rounded-lg border border-amber-400/50 text-amber-700 dark:text-amber-300 text-[11px] font-black">Approve for execution</button>` : '<span class="text-[10px] font-black text-slate-400">Manual review</span>'}</div></div>`).join('') : '<div class="py-5 text-center text-xs text-slate-500">No open evidence-backed recommendations.</div>'}</div></section>
     <section class="rounded-2xl border border-indigo-500/25 bg-indigo-500/5 p-5"><div class="flex items-start justify-between gap-3 flex-wrap"><div><div class="text-[10px] uppercase tracking-wider font-black text-indigo-600">Discoverability Copilot</div><h3 class="mt-1 font-black text-slate-950 dark:text-white">Ask for an evidence-backed explanation</h3><p class="mt-1 text-xs text-slate-500">Copilot explains, prioritizes, and proposes. It does not invent rankings or publish changes.</p></div><button type="button" onclick="wsAskDiscoverabilityCopilot('What should I fix first?',this)" class="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black">Improve with AI</button></div><div class="mt-4 flex gap-2"><input id="ws-discovery-question" class="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm" placeholder="Why did visibility fall?"><button type="button" onclick="wsAskDiscoverabilityCopilot(document.getElementById('ws-discovery-question').value,this)" class="px-4 py-2 rounded-xl border border-indigo-500/40 text-indigo-700 dark:text-indigo-300 text-xs font-black">Ask</button></div><div class="mt-3 flex flex-wrap gap-2">${['Why did visibility fall?','Which pages have the biggest opportunity?','Why is Google not indexing these vehicles?','What can MarketSync safely fix automatically?','What page or content should be created next?'].map(q => `<button type="button" onclick="wsAskDiscoverabilityCopilot('${q}',this)" class="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">${q}</button>`).join('')}</div><div id="ws-discovery-copilot-answer" class="mt-4 text-sm text-slate-600 dark:text-slate-300"></div></section>
   </div>`;
 }
