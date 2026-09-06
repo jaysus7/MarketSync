@@ -163,6 +163,81 @@ export function normalizeStudioSpec(raw = {}) {
   return { format, width: w, height: h, background, accent, headline, subheadline, price, badge, cta, photo_url: photoUrl, logo_url: logoUrl }
 }
 
+/**
+ * The complete vocabulary of search terms the generated template catalogue can
+ * ask for. Every one of them names a vehicle or an RV.
+ *
+ * This is the whole mechanism behind "templates show only automotive and RV
+ * imagery". The old catalogue pinned Unsplash photo IDs by hand — an ID is
+ * opaque, nobody could check what it pointed at, and templates shipped showing
+ * a field of solar panels. Searching by an automotive term instead means the
+ * result is on-topic by construction, and a term that returns nothing simply
+ * leaves the slot to the drawn vehicle placeholder.
+ *
+ * Kept in step with the frontend factory's themes by
+ * test/studio-template-imagery.test.js — a term added there and not here would
+ * silently fall back to a drawing.
+ */
+export const TEMPLATE_IMAGE_QUERIES = [
+  'new car dealership lot',
+  'sedan on city street',
+  'used car showroom',
+  'car keys handover dealership',
+  'driver hands on steering wheel',
+  'car dealership finance desk',
+  'luxury car front grille',
+  'car dealership lot rows of cars',
+  'electric car charging station',
+  'pickup truck towing trailer',
+  'family suv on highway',
+  'auto service technician garage',
+  'car detailing polishing',
+  'car tire close up garage',
+  'customer receiving car keys',
+  'rv motorhome campsite',
+  'rv interior kitchen living space',
+  'travel trailer towed by truck',
+  'fifth wheel trailer rv park',
+  'camper van mountain road',
+  'rv service bay maintenance',
+  'rv parked winter storage',
+  'rv park sunset campfire',
+  'rv dealership lot rows'
+]
+
+const TEMPLATE_IMAGERY_TTL_MS = 6 * 60 * 60 * 1000
+const PHOTOS_PER_QUERY = 8
+let templateImageryCache = { at: 0, imagery: null }
+
+export function resetTemplateImageryCache() { templateImageryCache = { at: 0, imagery: null } }
+
+export function templateImageryIsFresh(now = Date.now(), cache = templateImageryCache) {
+  return !!cache.imagery && (now - cache.at) < TEMPLATE_IMAGERY_TTL_MS
+}
+
+/**
+ * Fetches one automotive query and returns its photo URLs. A query that fails
+ * returns an empty list rather than throwing: one dead term must not cost the
+ * whole pool, because the alternative is every template falling back to a
+ * drawing over a single upstream hiccup.
+ */
+export async function fetchTemplateImageryQuery(query, apiKey, fetchImpl = fetch) {
+  try {
+    const params = new URLSearchParams({ query, per_page: String(PHOTOS_PER_QUERY), page: '1' })
+    const response = await fetchImpl(`${pexelsSearchEndpoint('photo')}?${params}`, {
+      headers: { Authorization: apiKey, Accept: 'application/json' },
+      signal: AbortSignal.timeout(10000)
+    })
+    if (!response.ok) return []
+    const data = await response.json()
+    return (data.photos || [])
+      .map(photo => photo?.src?.large2x || photo?.src?.large || photo?.src?.original)
+      .filter(url => typeof url === 'string' && url.startsWith('https://'))
+  } catch (e) {
+    return []
+  }
+}
+
 export const STOCK_STUDIO_TEMPLATES = [
   {
     template_key: 'tmpl_new_arrival_square',
@@ -869,6 +944,30 @@ export function registerMarketingStudio(app) {
       }))
       res.json({ results, page: data.page || page, total_results: data.total_results || results.length, provider_url: 'https://www.pexels.com' })
     } catch (e) { res.status(500).json({ error: e.message }) }
+  })
+
+  // Warms the automotive/RV photo pool the generated templates draw from. One
+  // call fills every slot in the catalogue, instead of the grid firing a search
+  // per template. Cached per process for six hours because the pool only has to
+  // be representative, not fresh.
+  app.get('/marketing/studio/template-imagery', requireAuth, canView, async (req, res) => {
+    if (!guard(req, res)) return
+    if (templateImageryIsFresh()) return res.json({ imagery: templateImageryCache.imagery, cached: true })
+
+    const apiKey = pexelsApiKey()
+    // Not an error. Without a stock pool every photo slot renders as a drawn
+    // vehicle, which is a complete design — so this answers 200 and lets the
+    // Studio carry on rather than surfacing a failure the dealer cannot act on.
+    if (!apiKey) return res.json({ imagery: {}, configured: false })
+
+    try {
+      const entries = await Promise.all(TEMPLATE_IMAGE_QUERIES.map(async query => [query, await fetchTemplateImageryQuery(query, apiKey)]))
+      const imagery = Object.fromEntries(entries.filter(([, urls]) => urls.length))
+      if (Object.keys(imagery).length) templateImageryCache = { at: Date.now(), imagery }
+      res.json({ imagery, configured: true, cached: false })
+    } catch (e) {
+      res.json({ imagery: {}, configured: true, error: e.message })
+    }
   })
 
   app.post('/marketing/studio/library/import', requireAuth, requireMfa, canEdit, async (req, res) => {
