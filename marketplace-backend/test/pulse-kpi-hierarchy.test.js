@@ -9,6 +9,13 @@ const ds = readFileSync(path.join(FRONTEND, 'css', 'ms-design-system.css'), 'utf
 const theme = readFileSync(path.join(FRONTEND, 'css', 'marketsync-theme.css'), 'utf8')
 const part11 = readFileSync(path.join(FRONTEND, 'js', 'modules', 'dashboard-part11.js'), 'utf8')
 
+// Whitespace-normalised view of the design system. These tests assert what the
+// CSS *says* — selectors, properties, values — not how it is wrapped. The file
+// has since been reformatted to multi-line rules with no spaces around the
+// child combinator, which broke regexes pinned to the old one-line spacing
+// while the rules themselves were unchanged.
+const dsn = ds.replace(/\s+/g, ' ')
+
 const tileFn = part11.slice(part11.indexOf('const tile = (label, val, page'),
                             part11.indexOf('const now = new Date()'))
 
@@ -52,15 +59,15 @@ test('the lead tile is exactly two tracks and the grid grows a track to fit it',
     'no lead means five equal tiles in one clean row')
   assert.match(ds, /\.pulse-summary-grid:has\(\[data-emphasis="lead"\]\) \{\s*grid-template-columns: repeat\(6, minmax\(0, 1fr\)\)/,
     'a double-width lead needs a sixth track or the row leaves a dead one')
-  assert.match(ds, /\.pulse-summary-grid > \[data-emphasis="lead"\] \{ grid-column: span 2; \}/)
+  assert.match(dsn, /\.pulse-summary-grid\s*>\s*\[data-emphasis="lead"\] \{ grid-column: span 2; \}/)
 })
 
 test('narrow layouts give the first tile the whole row so five tiles still tile evenly', () => {
   for (const bp of ['@media (max-width: 1279px)', '@media (max-width: 767px)']) {
     const at = ds.indexOf(bp)
     assert.ok(at > 0, `${bp} must exist`)
-    const block = ds.slice(at, ds.indexOf('\n}', ds.indexOf('.pulse-summary-grid', at)) + 2)
-    assert.match(block, /\.pulse-summary-grid > :first-child \{ grid-column: 1 \/ -1; \}/,
+    const block = ds.slice(at, ds.indexOf('\n}', ds.indexOf('.pulse-summary-grid', at)) + 2).replace(/\s+/g, ' ')
+    assert.match(block, /\.pulse-summary-grid\s*>\s*:first-child \{ grid-column: 1 \/ -1; \}/,
       `${bp}: five tiles do not divide evenly, so the first must take the full row`)
   }
 })
@@ -113,7 +120,7 @@ test('KPI tiles are exempt from the board glass so their own borders paint', () 
 })
 
 test('the lead accent does not need !important to win', () => {
-  const lead = ds.match(/\.pulse-summary-grid > \[data-emphasis="lead"\] \{[^}]*box-shadow[^}]*\}/)
+  const lead = dsn.match(/\.pulse-summary-grid\s*>\s*\[data-emphasis="lead"\] \{[^}]*box-shadow[^}]*\}/)
   assert.ok(lead, 'the lead tile must carry an accent edge')
   assert.doesNotMatch(lead[0], /!important/,
     'the design system wins by cascade order; an !important here means the exemption above failed')
