@@ -34,7 +34,7 @@
     const style = document.createElement('style');
     style.id = 'studio-context-toolbar-css';
     style.textContent = `
-      #studio-context-toolbar{position:absolute;left:50%;bottom:86px;transform:translateX(-50%);z-index:80;display:none;align-items:center;gap:2px;max-width:calc(100% - 16px);overflow-x:auto;padding:6px 8px;border-radius:22px;background:rgba(15,23,42,.94);color:#fff;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+      #studio-context-toolbar{position:absolute;left:50%;bottom:var(--studio-ctx-bottom,86px);transform:translateX(-50%);z-index:80;display:none;align-items:center;gap:2px;max-width:calc(100% - 16px);overflow-x:auto;padding:6px 8px;border-radius:22px;background:rgba(15,23,42,.94);color:#fff;box-shadow:0 12px 40px rgba(0,0,0,.35)}
       #studio-context-toolbar.is-open{display:flex}
       #studio-context-toolbar button{flex:0 0 auto;min-width:58px;border:0;background:transparent;color:#e2e8f0;padding:6px 8px;border-radius:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font:700 10px/1.1 -apple-system,Segoe UI,sans-serif}
       #studio-context-toolbar button .ico{font-size:16px;line-height:1}
@@ -67,7 +67,7 @@
       .studio-motion-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
       .studio-motion-grid button{border:1px solid #334155;background:#1e293b;color:#e2e8f0;border-radius:14px;padding:10px 6px;font:800 11px/1.2 -apple-system,Segoe UI,sans-serif}
       .studio-motion-grid button[aria-current="true"]{border-color:#818cf8;background:#312e81;color:#fff}
-      @media (min-width:900px){#studio-context-toolbar{bottom:24px}}
+      @media (min-width:900px){#studio-context-toolbar{bottom:var(--studio-ctx-bottom,24px)}}
     `;
     document.head.appendChild(style);
   }
@@ -90,6 +90,36 @@
     };
   }
 
+  // The toolbar is absolutely positioned against the modal, and BELOW it sit the
+  // tool rail and the footer. The old hardcoded bottom:86px was smaller than the
+  // two of them together on a phone (a 64px rail plus a 50px footer = 114px), so
+  // the dark pill sat on top of the rail and swallowed its taps. Measure them
+  // instead of guessing: whatever the rail and footer actually are, the toolbar
+  // clears them.
+  function positionToolbar() {
+    const modal = document.getElementById('ms-studio-master-modal');
+    if (!modal) return;
+    const modalBox = modal.getBoundingClientRect();
+    let clearance = 0;
+    ['[data-studio-region="rail"]', ':scope > footer'].forEach(function (selector) {
+      const el = modal.querySelector(selector);
+      if (!el) return;
+      const box = el.getBoundingClientRect();
+      if (box.height <= 0) return;
+      // Full width is what tells a bottom bar from a side column. On a phone the
+      // rail is a full-width strip under the canvas and must be cleared; on a wide
+      // screen it is a narrow left-hand column that the toolbar sits beside, and
+      // counting its height would fling the toolbar off the top of the modal.
+      if (box.width >= modalBox.width * 0.9) clearance += box.height;
+    });
+    modal.style.setProperty('--studio-ctx-bottom', (clearance + 16) + 'px');
+  }
+
+  // Rail and footer heights change with orientation and with the desktop layout.
+  ['resize', 'orientationchange'].forEach(function (event) {
+    global.addEventListener(event, function () { positionToolbar(); });
+  });
+
   function tool(id, icon, label) {
     return '<button type="button" data-ctx-tool="' + id + '"><span class="ico">' + icon + '</span>' + label + '</button>';
   }
@@ -111,6 +141,7 @@
     const ui = ensure();
     if (!ui) return;
     ui.sheet.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h4>' + title + '</h4><button type="button" id="studio-ctx-close" aria-label="Close">&times;</button></div>' + html;
+    positionToolbar();
     ui.sheet.classList.add('is-open');
     ui.sheet.querySelector('#studio-ctx-close').onclick = function () { ui.sheet.classList.remove('is-open'); };
   }
@@ -245,6 +276,7 @@
       return;
     }
     ui.bar.innerHTML = toolsFor(kind);
+    positionToolbar();
     ui.bar.classList.add('is-open');
     ui.quick.innerHTML = '<button type="button" title="Duplicate" data-ctx-quick="dup">⧉</button><button type="button" title="Delete" data-ctx-quick="del">🗑</button>';
     ui.quick.classList.add('is-open');

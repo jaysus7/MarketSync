@@ -312,42 +312,55 @@ class StudioFabricAdapter {
     this.fabricCanvas.requestRenderAll();
   }
 
-  // Pinch-to-scale. Fabric's stock build ignores multi-touch entirely, so two
-  // fingers did nothing at all on the canvas — the other half of "transform does
-  // not work on mobile".
-  bindPinchToScale() {
+  // Two-finger scale AND rotate. Fabric's stock build ignores multi-touch
+  // entirely, so two fingers did nothing at all on the canvas.
+  //
+  // One gesture carries both: the distance between the fingers drives scale, the
+  // angle between them drives rotation, and each is applied from its own starting
+  // value so they never fight. A locked axis opts out of just that half — an
+  // object with lockRotation still pinches, it simply does not turn.
+  bindTouchGestures() {
     const el = this.fabricCanvas?.upperCanvasEl;
     if (!el || el.__msPinchBound) return;
     el.__msPinchBound = true;
-    const spread = (touches) => Math.hypot(
-      touches[0].clientX - touches[1].clientX,
-      touches[0].clientY - touches[1].clientY
-    );
+    const spread = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const bearing = (t) => Math.atan2(t[1].clientY - t[0].clientY, t[1].clientX - t[0].clientX) * 180 / Math.PI;
     let start = null;
     el.addEventListener('touchstart', (event) => {
       if (event.touches.length !== 2) return;
       const object = this.fabricCanvas.getActiveObject();
-      if (!object || object.lockScalingX || object.lockScalingY) return;
+      if (!object) return;
       start = {
         object,
         distance: spread(event.touches) || 1,
+        bearing: bearing(event.touches),
         scaleX: object.scaleX || 1,
         scaleY: object.scaleY || 1,
+        angle: object.angle || 0,
         left: object.left, top: object.top,
+        canScale: !object.lockScalingX && !object.lockScalingY,
+        canRotate: !object.lockRotation,
       };
-      this.fabricCanvas.setActiveObject(object);
+      if (!start.canScale && !start.canRotate) { start = null; return; }
       event.preventDefault();
     }, { passive: false });
     el.addEventListener('touchmove', (event) => {
       if (!start || event.touches.length !== 2) return;
       event.preventDefault();
-      const factor = Math.min(20, Math.max(0.05, spread(event.touches) / start.distance));
-      start.object.set({
-        scaleX: start.scaleX * factor,
-        scaleY: start.scaleY * factor,
-        // Scale about the object's own centre so it does not crawl across the page.
+      const next = {
+        // Scaling about the object's own centre, so it does not walk across the page.
         left: start.left, top: start.top,
-      });
+      };
+      if (start.canScale) {
+        const factor = Math.min(20, Math.max(0.05, spread(event.touches) / start.distance));
+        next.scaleX = start.scaleX * factor;
+        next.scaleY = start.scaleY * factor;
+      }
+      if (start.canRotate) {
+        // Turn the object by however far the fingers have twisted.
+        next.angle = start.angle + (bearing(event.touches) - start.bearing);
+      }
+      start.object.set(next);
       start.object.setCoords();
       this.fabricCanvas.requestRenderAll();
     }, { passive: false });
@@ -359,6 +372,65 @@ class StudioFabricAdapter {
     };
     el.addEventListener('touchend', finish);
     el.addEventListener('touchcancel', finish);
+  }
+
+  // Page background image. Stored as the source URL on the scene so the export
+  // service can re-render it server-side; fabric only ever holds the scaled copy.
+  applyBackgroundImage(src, fit = 'cover', width, height) {
+    const fabric = window.fabric;
+    if (!this.fabricCanvas || !fabric) return;
+    this.backgroundImageSrc = src || null;
+    this.backgroundImageFit = fit === 'contain' ? 'contain' : 'cover';
+    if (!src) {
+      this.fabricCanvas.setBackgroundImage(null, () => this.fabricCanvas.requestRenderAll());
+      return;
+    }
+    const pageWidth = width || this.fabricCanvas.getWidth();
+    const pageHeight = height || this.fabricCanvas.getHeight();
+    fabric.Image.fromURL(src, (image) => {
+      if (!image || !this.fabricCanvas) return;
+      if (this.backgroundImageSrc !== src) return;   // a newer background won the race
+      const scaleW = pageWidth / (image.width || pageWidth);
+      const scaleH = pageHeight / (image.height || pageHeight);
+      // cover fills the page and crops the overflow; contain fits it whole.
+      const scale = this.backgroundImageFit === 'contain'
+        ? Math.min(scaleW, scaleH)
+        : Math.max(scaleW, scaleH);
+      image.set({
+        originX: 'center', originY: 'center',
+        left: pageWidth / 2, top: pageHeight / 2,
+        scaleX: scale, scaleY: scale,
+        selectable: false, evented: false,
+      });
+      this.fabricCanvas.setBackgroundImage(image, () => this.fabricCanvas.requestRenderAll());
+    }, { crossOrigin: 'anonymous' });
+  }
+
+  // The one entry point the UI uses. Any field left undefined keeps its current
+  // value, so setting a colour cannot silently drop the image and vice versa.
+  setSceneBackground({ color, image, fit } = {}) {
+    if (!this.fabricCanvas) return false;
+    const scene = this.currentScene || {};
+    const page = Array.isArray(scene.pages) ? (scene.pages.find(p => p.id === this.activePageId) || scene.pages[0]) : null;
+    const target = page || scene;
+    target.background = { ...(target.background || {}) };
+    if (color !== undefined) {
+      target.background.color = color;
+      this.fabricCanvas.setBackgroundColor(color, () => this.fabricCanvas.requestRenderAll());
+    }
+    if (image !== undefined) target.background.image = image || null;
+    if (fit !== undefined) target.background.fit = fit;
+    if (image !== undefined || fit !== undefined) {
+      this.applyBackgroundImage(
+        target.background.image,
+        target.background.fit || 'cover',
+        target.width || scene.width,
+        target.height || scene.height
+      );
+    }
+    this.saveHistory();
+    this.onChange?.();
+    return true;
   }
 
   // Ends a preview early and restores the object, so a save, an export or a drag
@@ -494,6 +566,11 @@ class StudioFabricAdapter {
 
     this.fabricCanvas.clear();
     this.fabricCanvas.setBackgroundColor(pageBackground, () => this.fabricCanvas.renderAll());
+    // A background image sits behind every object and is not selectable, so it can
+    // never be picked up or dragged by accident while editing what is on top of it.
+    const pageBackgroundImage = page?.background?.image || scene.background?.image || null;
+    const pageBackgroundFit = page?.background?.fit || scene.background?.fit || 'cover';
+    this.applyBackgroundImage(pageBackgroundImage, pageBackgroundFit, pageWidth, pageHeight);
 
     const elements = [...(page?.objects || scene.elements || scene.layers || [])];
     const repeaters = Array.isArray(scene.components) ? scene.components.filter(component => component.type === 'repeater') : [];
@@ -612,7 +689,7 @@ class StudioFabricAdapter {
     // Handles must be re-sized for the zoom this page renders at, and the pinch
     // gesture bound once the upper canvas exists.
     this.applyControlSizing();
-    this.bindPinchToScale();
+    this.bindTouchGestures();
     const trimmed = msStudioTrimObjectCaches(this.fabricCanvas);
     if (trimmed && typeof window.studioDebugPush === 'function') {
       window.studioDebugPush(`object caches off for ${trimmed} large object(s)`);
@@ -725,7 +802,13 @@ class StudioFabricAdapter {
       format_key: this.currentScene.format_key || 'square',
       width: this.fabricCanvas.width,
       height: this.fabricCanvas.height,
-      background: { color: this.fabricCanvas.backgroundColor || '#0F172A' },
+      background: {
+        color: this.fabricCanvas.backgroundColor || '#0F172A',
+        // Keep the SOURCE url, never fabric's scaled image object — the scene has
+        // to stay renderable by the export service, which has no canvas.
+        image: this.backgroundImageSrc || null,
+        fit: this.backgroundImageFit || 'cover',
+      },
       elements,
       pages: this.currentScene.pages ? this.currentScene.pages.map(page => page.id === this.activePageId ? { ...page, objects: elements } : page) : undefined,
       breakpoint: this.activeBreakpoint,

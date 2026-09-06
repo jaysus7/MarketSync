@@ -1,9 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { stripComments } from './helpers/strip-comments.js'
 
 const shell = readFileSync(new URL('../../marketplace-frontend/js/modules/studio/studio-shell.js', import.meta.url), 'utf8')
-const code = shell.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^[ \t]*\/\/.*$/gm, ' ')
+const code = stripComments(shell)
 
 // The diagnostics panel is a debugging tool, not product surface. It used to mount
 // for every phone user — a floating button over the editor and a sheet across the

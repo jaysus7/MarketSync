@@ -347,9 +347,13 @@ function renderStudioReviewHtml(contact, options) {
   return `
     <div class="relative w-full max-w-xl bg-slate-900 text-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-800 overflow-hidden max-h-[95vh] my-4 mx-2 sm:mx-auto flex flex-col">
       <div class="flex items-center justify-between gap-2 p-4 border-b border-slate-800">
-        <h3 class="text-sm font-black uppercase tracking-wider text-white">${isViewingSent ? 'Sent Video Details' : 'Send video to customer'}</h3>
+        <h3 class="text-sm font-black uppercase tracking-wider text-white">${options.studioMode ? 'Recording saved' : (isViewingSent ? 'Sent Video Details' : 'Send video to customer')}</h3>
         <button onclick="vidCloseStudio()" class="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition">\u{2715}</button>
       </div>
+      ${options.studioMode ? `<div class="p-4 border-b border-slate-800 space-y-2">
+        <p class="text-xs text-slate-300">This recording is in your Studio library. Drop it straight onto the design you were working on, or close and add it later from Uploads.</p>
+        <button type="button" onclick="vidUseRecordingInDesign()" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-black">Use in my design</button>
+      </div>` : ''}
 
       <div class="p-4 space-y-4 overflow-y-auto">
         <!-- Sharing/sending needs step-up MFA, same as texting/social — this stays
@@ -451,8 +455,51 @@ function vidEnterReview() {
   const contact = window.__videoStudioState.currentContact || {};
   const options = window.__videoStudioState.optionsSnapshot || {};
   modal.innerHTML = renderStudioReviewHtml(contact, options);
-  vidAutoPrepareShareLink();
+  // A recording started from the Design Studio has no customer to send to — its
+  // whole purpose is to become an asset you can drop onto an ad. It used to sit
+  // in memory until a SHARE action uploaded it to /sales-videos as a customer
+  // video, so from the Studio's side it saved nowhere and never appeared in the
+  // media library. Put it in the library as soon as it exists.
+  if (options.studioMode) vidSaveRecordingToStudioLibrary();
+  else vidAutoPrepareShareLink();
 }
+
+// Uploads the recording to the marketing asset library — the same endpoint the
+// Studio's own "Upload video" button uses, so it lands beside everything else.
+async function vidSaveRecordingToStudioLibrary() {
+  const state = window.__videoStudioState;
+  const blob = state.lastRecordedBlob;
+  if (!blob) return null;
+  if (state.studioLibraryAsset) return state.studioLibraryAsset;   // already saved
+  try {
+    const form = new FormData();
+    form.append('file', blob, `studio-recording-${Date.now()}.webm`);
+    form.append('title', `Studio recording ${new Date().toLocaleString()}`);
+    const response = await fetch(`${API}/marketing/assets/video`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form,
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Could not save the recording');
+    state.studioLibraryAsset = data.asset || data;
+    if (typeof window.loadStudioUploadedVideos === 'function') window.loadStudioUploadedVideos();
+    if (typeof showToast === 'function') showToast('Recording saved to your Studio library', 'success');
+    return state.studioLibraryAsset;
+  } catch (error) {
+    if (typeof showToast === 'function') showToast(error.message || 'Recording could not be saved', 'error');
+    return null;
+  }
+}
+window.vidSaveRecordingToStudioLibrary = vidSaveRecordingToStudioLibrary;
+
+// "Use in my design": save it if that has not happened yet, then drop it straight
+// onto the artboard rather than making the user hunt for it in the library.
+window.vidUseRecordingInDesign = async function vidUseRecordingInDesign() {
+  const asset = await vidSaveRecordingToStudioLibrary();
+  const url = asset?.public_url || asset?.url;
+  if (!url) return;
+  if (typeof vidCloseStudio === 'function') vidCloseStudio();
+  if (typeof window.addLibraryVideoToCanvas === 'function') window.addLibraryVideoToCanvas(url, 'Studio recording');
+};
 
 // The share link is generated automatically the moment recording stops — it
 // should "just be there" when the rep looks at the Review screen, not gated
@@ -1826,6 +1873,7 @@ window.msSearchVideos = msSearchVideos;
 
 window.openStudioTeleprompterRecorder = function openStudioTeleprompterRecorder(script) {
   const text = (script || '').trim();
+  window.__videoStudioState.studioLibraryAsset = null;
   return openCustomerVideoStudio(null, {
     studioMode: true,
     scriptKey: 'social_ad',

@@ -1,9 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { stripComments } from './helpers/strip-comments.js'
 
 const src = readFileSync(new URL('../../marketplace-frontend/js/modules/studio/studio-context-toolbar.js', import.meta.url), 'utf8')
-const code = src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^[ \t]*\/\/.*$/gm, ' ')
+const code = stripComments(src)
 const css = src.match(/style\.textContent = `([\s\S]*?)`;/)?.[1] || ''
 
 test('the context sheet follows the app theme instead of forcing dark', () => {

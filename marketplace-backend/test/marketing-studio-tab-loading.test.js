@@ -1,12 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { stripComments } from './helpers/strip-comments.js'
 
 const ws = readFileSync(new URL('../../marketplace-frontend/js/modules/marketing-workspace.js', import.meta.url), 'utf8')
 const engine = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part10.js', import.meta.url), 'utf8')
 
 // Comments describing these rules mention the very things being asserted.
-const code = (src) => src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^[ \t]*\/\/.*$/gm, ' ')
+const code = (src) => stripComments(src)
 
 test('sizes and collections render without waiting on the template network call', () => {
   const fn = code(ws).match(/async function mktLoadStudioCreativeHome\(\)[\s\S]*?\nwindow\.mktLoadStudioCreativeHome/)?.[0] || ''

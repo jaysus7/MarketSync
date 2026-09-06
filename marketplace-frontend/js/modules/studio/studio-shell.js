@@ -1315,6 +1315,9 @@ function renderStudioWorkspaceHtml(designName, scene) {
           <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Templates
         </button>
         <button onclick="setDesignStudioTab('projects')" id="tool-btn-projects" data-studio-tool="projects" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base mb-0.5">▣</span>Projects</button>
+        <button onclick="setStudioTool('background')" id="tool-btn-background" data-studio-tool="background" aria-current="${window.__studioActiveTool === 'background' ? 'page' : 'false'}" class="studio-tool-rail-button">
+          <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Background
+        </button>
         <button onclick="setStudioTool('elements')" id="tool-btn-elements" data-studio-tool="elements" aria-current="false" class="studio-tool-rail-button"><span class="studio-tool-icon text-base mb-0.5">✦</span>Elements</button>
         <button onclick="setStudioTool('inventory')" id="tool-btn-inventory" data-studio-tool="inventory" aria-current="false" class="studio-tool-rail-button">
           <svg class="studio-tool-icon w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 17a2 2 0 100 4 2 2 0 000-4zm10 0a2 2 0 100 4 2 2 0 000-4zM4 9h16l-1.5 5H5.5L4 9z"/></svg>Inventory
@@ -2149,6 +2152,42 @@ function renderStudioTemplateCards(_filter = window.__studioTemplateFormat || 'c
 }
 
 function renderStudioToolPanelContent(tool) {
+  if (tool === 'background') {
+    const adapter = window.__studioAdapter;
+    const scene = adapter?.currentScene || {};
+    const page = Array.isArray(scene.pages) ? (scene.pages.find(p => p.id === adapter?.activePageId) || scene.pages[0]) : null;
+    const bg = (page || scene).background || {};
+    const current = bg.color || '#FFFFFF';
+    const fit = bg.fit === 'contain' ? 'contain' : 'cover';
+    const swatch = (hex) => `<button type="button" onclick="studioSetBackgroundColor('${hex}')" aria-pressed="${String(hex).toUpperCase() === String(current).toUpperCase()}" title="${hex}" class="studio-bg-swatch" style="background:${hex}"></button>`;
+    const colours = ['#FFFFFF','#F8FAFC','#E2E8F0','#94A3B8','#334155','#0F172A','#000000','#FEE2E2',
+                     '#FCA5A5','#EF4444','#B91C1C','#FFEDD5','#F97316','#FEF3C7','#F59E0B','#DCFCE7',
+                     '#22C55E','#15803D','#CCFBF1','#14B8A6','#DBEAFE','#3B82F6','#1D4ED8','#E0E7FF',
+                     '#6366F1','#4338CA','#F3E8FF','#A855F7','#7E22CE','#FCE7F3','#EC4899','#BE185D'];
+    return `<div class="p-4 space-y-4">
+      <div>
+        <h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Background</h3>
+        <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Applies to this page. A background image sits behind everything and cannot be selected by accident.</p>
+      </div>
+      <div>
+        <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Colour</div>
+        <div class="studio-bg-swatch-grid">${colours.map(swatch).join('')}</div>
+        <label class="mt-3 block text-[11px] font-bold text-slate-600 dark:text-slate-300">Custom
+          <input type="color" value="${escS(current)}" oninput="studioSetBackgroundColor(this.value)" class="mt-1 w-full h-10 rounded-lg bg-transparent cursor-pointer">
+        </label>
+      </div>
+      <div class="pt-3 border-t border-slate-200 dark:border-slate-700">
+        <div class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Image</div>
+        ${bg.image ? `<div class="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 mb-2"><img src="${escS(bg.image)}" alt="Current background" class="w-full h-24 object-cover"></div>` : '<p class="text-[11px] text-slate-500 dark:text-slate-400 mb-2">No background image.</p>'}
+        <label class="block px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-center text-xs font-black text-white cursor-pointer">${bg.image ? 'Replace image' : '+ Upload image'}<input type="file" accept="image/*" class="hidden" onchange="studioUploadBackgroundImage(this)"></label>
+        <div class="grid grid-cols-2 gap-2 mt-2">
+          <button type="button" onclick="studioSetBackgroundFit('cover')" aria-pressed="${fit === 'cover'}" class="studio-bg-fit">Fill page</button>
+          <button type="button" onclick="studioSetBackgroundFit('contain')" aria-pressed="${fit === 'contain'}" class="studio-bg-fit">Fit whole</button>
+        </div>
+        ${bg.image ? '<button type="button" onclick="studioClearBackgroundImage()" class="mt-2 w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-black text-slate-700 dark:text-slate-200">Remove image</button>' : ''}
+      </div>
+    </div>`;
+  }
   if (tool === 'media') {
     return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Media library</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Reusable dealership images and videos. Select an asset to place it on the artboard.</p></div><label class="block px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-center text-xs font-black text-white cursor-pointer">+ Upload image<input type="file" accept="image/*" class="hidden" onchange="uploadStudioImage(this)"></label><input id="studio-media-query" oninput="filterStudioMediaLibrary(this.value)" placeholder="Search your media…" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white"><div id="studio-media-library" class="grid grid-cols-2 gap-2"><div class="col-span-2 p-5 text-center text-xs text-slate-500">Loading media…</div></div></div>`;
   }
@@ -2214,7 +2253,7 @@ function renderStudioToolPanelContent(tool) {
   } else if (tool === 'videos') {
     return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Pexels Videos</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Search free video clips and place them on the canvas.</p></div><form onsubmit="event.preventDefault(); searchStudioVideos(document.getElementById('studio-video-query').value)" class="flex gap-2"><input id="studio-video-query" type="search" value="car dealership" placeholder="Search videos..." class="min-w-0 flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white"><button class="px-3 rounded-xl bg-blue-600 text-xs font-black">Search</button></form><div class="space-y-3" id="studio-video-results"><div class="p-5 text-center text-xs text-slate-500 dark:text-slate-400">Loading Pexels videos…</div></div><a href="https://www.pexels.com/videos/" target="_blank" rel="noopener" class="block text-center text-[10px] font-bold text-sky-400 hover:underline">Videos provided by Pexels</a></div>`;
   } else if (tool === 'uploads') {
-    return `<div class="studio-uploads-panel p-4 space-y-4"><div><div class="flex items-center gap-2"><span class="studio-panel-icon">↑</span><h3 class="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Uploads</h3></div><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Bring your own photos and videos into the Studio. They stay available in your Media library.</p></div><div class="studio-upload-dropzone"><div class="studio-upload-dropzone-icon">↑</div><div class="text-sm font-black text-slate-900 dark:text-white">Upload media</div><div class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">PNG, JPG, WebP, GIF, MP4 · up to 200 MB</div><div class="grid grid-cols-2 gap-2 mt-4"><label class="studio-upload-action studio-upload-action-primary"><span>Photo</span><input type="file" accept="image/*" class="hidden" onchange="uploadStudioImage(this)"></label><label class="studio-upload-action"><span>Video</span><input type="file" accept="video/*" class="hidden" onchange="uploadStudioVideo(this)"></label></div></div><div id="studio-upload-status" class="hidden text-xs text-center text-sky-500 dark:text-sky-300"></div><button type="button" onclick="setStudioTool('media')" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-black text-slate-800 dark:text-white hover:border-blue-500 transition">Open Media library →</button><div class="pt-2 border-t border-slate-200 dark:border-slate-700"><div class="flex items-center justify-between mb-2"><span class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Recent video uploads</span></div><div id="studio-uploaded-videos" class="space-y-3"><div class="p-5 text-center text-xs text-slate-500 dark:text-slate-400">Loading your videos…</div></div></div></div>`;
+    return `<div class="studio-uploads-panel p-4 space-y-4"><div><div class="flex items-center gap-2"><span class="studio-panel-icon">↑</span><h3 class="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Uploads</h3></div><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Bring your own photos and videos into the Studio. They stay available in your Media library.</p></div><div class="studio-upload-dropzone"><div class="studio-upload-dropzone-icon">↑</div><div class="text-sm font-black text-slate-900 dark:text-white">Upload media</div><div class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">PNG, JPG, WebP, GIF, MP4 · up to 200 MB</div><div class="grid grid-cols-2 gap-2 mt-4"><label class="studio-upload-action studio-upload-action-primary"><span>Photo</span><input type="file" accept="image/*" class="hidden" onchange="uploadStudioImage(this)"></label><label class="studio-upload-action"><span>Video</span><input type="file" accept="video/*" class="hidden" onchange="uploadStudioVideo(this)"></label></div></div><div id="studio-upload-status" class="hidden text-xs text-center text-sky-500 dark:text-sky-300"></div><button type="button" onclick="setStudioTool('media')" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-black text-slate-800 dark:text-white hover:border-blue-500 transition">Open Media library →</button><div class="pt-2 border-t border-slate-200 dark:border-slate-700"><div class="flex items-center justify-between mb-2"><span class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Recent photo uploads</span></div><div id="studio-uploaded-photos" class="grid grid-cols-3 gap-2 mb-4"><div class="col-span-3 p-4 text-center text-xs text-slate-500 dark:text-slate-400">Loading photos…</div></div></div><div class="pt-2 border-t border-slate-200 dark:border-slate-700"><div class="flex items-center justify-between mb-2"><span class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Recent video uploads</span></div><div id="studio-uploaded-videos" class="space-y-3"><div class="p-5 text-center text-xs text-slate-500 dark:text-slate-400">Loading your videos…</div></div></div></div>`;
   } else if (tool === 'record') {
     return `
       <div class="p-4 space-y-3">
@@ -2607,7 +2646,7 @@ function setStudioTool(tool) {
   if (tool === 'photos') setTimeout(() => searchStudioLibrary('car dealership'), 0);
   if (tool === 'videos') setTimeout(() => searchStudioVideos('car dealership'), 0);
   if (tool === 'inventory') setTimeout(() => searchStudioInventory(''), 0);
-  if (tool === 'uploads') setTimeout(loadStudioUploadedVideos, 0);
+  if (tool === 'uploads') setTimeout(() => { loadStudioUploadedVideos(); loadStudioMediaLibrary(); }, 0);
   if (tool === 'media') setTimeout(loadStudioMediaLibrary, 0);
   if (tool === 'text') setTimeout(loadStudioGoogleFonts, 0);
   if (tool === 'stickers') setTimeout(searchStudioGifs, 0);
@@ -2684,13 +2723,36 @@ window.saveStudioBrandKit = saveStudioBrandKit;
 
 let __studioMediaAssets = [];
 async function loadStudioMediaLibrary() {
-  const target = document.getElementById('studio-media-library'); if (!target) return;
+  // Fetch FIRST and render second. This used to return early whenever
+  // #studio-media-library was absent — which it is on the Uploads panel, the
+  // panel you actually upload from. So an upload refreshed nothing, and the
+  // library still held its pre-upload list when you switched over to it.
+  const target = document.getElementById('studio-media-library');
   try {
     const data = await apiGetJson('/marketing/assets');
     __studioMediaAssets = data?.assets || [];
-    filterStudioMediaLibrary(document.getElementById('studio-media-query')?.value || '');
-  } catch (_) { target.innerHTML = '<div class="col-span-2 p-4 text-center text-xs text-rose-400">Media library unavailable.</div>'; }
+    if (target) filterStudioMediaLibrary(document.getElementById('studio-media-query')?.value || '');
+    renderStudioUploadedPhotos();
+  } catch (_) {
+    if (target) target.innerHTML = '<div class="col-span-2 p-4 text-center text-xs text-rose-400">Media library unavailable.</div>';
+  }
 }
+
+// The Uploads panel listed recent VIDEOS only, so a photo uploaded there produced
+// a success toast and no visible change anywhere on screen — indistinguishable
+// from the upload having failed.
+function renderStudioUploadedPhotos() {
+  const host = document.getElementById('studio-uploaded-photos');
+  if (!host) return;
+  const photos = (__studioMediaAssets || []).filter(asset => asset.kind !== 'video').slice(0, 6);
+  host.innerHTML = photos.length
+    ? photos.map(asset => {
+        const src = asset.public_url || asset.url;
+        return `<button type="button" onclick="addLibraryImageToCanvas('${escS(src)}','${escS(asset.title || 'Photo')}')" class="overflow-hidden rounded-xl border border-slate-300 dark:border-slate-700 hover:border-indigo-500"><img src="${escS(src)}" alt="${escS(asset.title || 'Uploaded photo')}" class="w-full aspect-square object-cover"></button>`;
+      }).join('')
+    : '<div class="col-span-3 p-4 text-center text-xs text-slate-500 dark:text-slate-400">No photos uploaded yet.</div>';
+}
+window.renderStudioUploadedPhotos = renderStudioUploadedPhotos;
 function filterStudioMediaLibrary(query = '') {
   const target = document.getElementById('studio-media-library'); if (!target) return;
   const q = String(query).toLowerCase();
@@ -2704,8 +2766,55 @@ window.loadStudioMediaLibrary = loadStudioMediaLibrary;
 window.filterStudioMediaLibrary = filterStudioMediaLibrary;
 async function uploadStudioImage(input) {
   const file = input.files?.[0]; if (!file) return;
-  try { const form = new FormData(); form.append('file', file); form.append('title', file.name); const response = await fetch(`${API}/marketing/assets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }); const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Upload failed'); await loadStudioMediaLibrary(); if (typeof showToast === 'function') showToast('Image added to Media library', 'success'); } catch (error) { if (typeof showToast === 'function') showToast(error.message, 'error'); }
+  try { const form = new FormData(); form.append('file', file); form.append('title', file.name); const response = await fetch(`${API}/marketing/assets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }); const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Upload failed'); input.value = ''; await loadStudioMediaLibrary(); if (typeof showToast === 'function') showToast('Photo added to your library', 'success'); } catch (error) { if (typeof showToast === 'function') showToast(error.message, 'error'); }
 }
+function studioSetBackgroundColor(hex) {
+  if (!window.__studioAdapter?.setSceneBackground) return;
+  window.__studioAdapter.setSceneBackground({ color: hex });
+  if (window.__studioActiveTool === 'background') setStudioTool('background');
+}
+window.studioSetBackgroundColor = studioSetBackgroundColor;
+
+function studioSetBackgroundFit(fit) {
+  if (!window.__studioAdapter?.setSceneBackground) return;
+  window.__studioAdapter.setSceneBackground({ fit });
+  if (window.__studioActiveTool === 'background') setStudioTool('background');
+}
+window.studioSetBackgroundFit = studioSetBackgroundFit;
+
+function studioClearBackgroundImage() {
+  if (!window.__studioAdapter?.setSceneBackground) return;
+  window.__studioAdapter.setSceneBackground({ image: null });
+  if (window.__studioActiveTool === 'background') setStudioTool('background');
+  if (typeof showToast === 'function') showToast('Background image removed', 'success');
+}
+window.studioClearBackgroundImage = studioClearBackgroundImage;
+
+// Reuses the same POST /marketing/assets upload the Media library uses, so a
+// background image lands in the library too rather than becoming a one-off blob.
+async function studioUploadBackgroundImage(input) {
+  const file = input.files?.[0]; if (!file) return;
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('title', file.name);
+    const response = await fetch(`${API}/marketing/assets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Upload failed');
+    // POST /marketing/assets replies { ok: true, asset: {...} } and the URL is
+    // public_url — the same field the media library renders from.
+    const url = data.asset?.public_url || data.asset?.url;
+    if (!url) throw new Error('Upload succeeded but returned no image URL');
+    await loadStudioMediaLibrary();
+    window.__studioAdapter?.setSceneBackground({ image: url });
+    if (window.__studioActiveTool === 'background') setStudioTool('background');
+    if (typeof showToast === 'function') showToast('Background image applied', 'success');
+  } catch (error) {
+    if (typeof showToast === 'function') showToast(error.message, 'error');
+  }
+}
+window.studioUploadBackgroundImage = studioUploadBackgroundImage;
+
 window.uploadStudioImage = uploadStudioImage;
 async function archiveStudioMedia(assetId) {
   if (!assetId || !confirm('Archive this media asset?')) return;
@@ -2754,9 +2863,40 @@ function syncStudioPageUi() {
   if (label) label.textContent = active?.name || 'Page 1';
   if (select) { select.innerHTML = pages.map((page, index) => `<option value="${escS(page.id)}">${escS(page.name || `Page ${index + 1}`)}</option>`).join(''); select.value = window.__studioAdapter?.activePageId || pages[0]?.id || ''; }
 }
+// Duplicate the page AS IT IS ON SCREEN.
+//
+// This used to clone the page out of adapter.currentScene — the scene as it was
+// last LOADED. Objects you add live on the fabric canvas and do not write back to
+// currentScene, so on a design you had just been working on that source page was
+// still empty and "Duplicate" produced a blank page. exportScene() is the one that
+// reflects the canvas: it returns every page with the ACTIVE one's objects read
+// live off it. Clone from that.
 function duplicateStudioPage(pageId) {
-  const adapter = window.__studioAdapter; const current = adapter?.currentScene; const source = current?.pages?.find(page => page.id === pageId); if (!adapter || !current || !source || !window.msStudioSceneToDocument) return;
-  const doc = window.msStudioSceneToDocument(adapter.exportScene()); const copy = JSON.parse(JSON.stringify(source)); copy.id = `page_${Date.now()}`; copy.name = `${source.name || 'Page'} copy`; doc.pages.splice(doc.pages.findIndex(page => page.id === source.id) + 1, 0, copy); adapter.currentScene = window.msStudioDocumentToScene(doc); adapter.activePageId = copy.id; window.__studioDocument = doc; window.__msStudioStore?.update(doc); adapter.renderScene(adapter.currentScene); syncStudioPageUi(); if (typeof showToast === 'function') showToast('Page duplicated', 'success');
+  const adapter = window.__studioAdapter;
+  if (!adapter || !window.msStudioSceneToDocument) return;
+  const doc = window.msStudioSceneToDocument(adapter.exportScene());
+  const index = doc.pages?.findIndex(page => page.id === pageId) ?? -1;
+  if (index < 0) return;
+  const source = doc.pages[index];
+  const copy = JSON.parse(JSON.stringify(source));
+  copy.id = `page_${Date.now()}`;
+  copy.name = `${source.name || 'Page'} copy`;
+  // Fresh ids for the copied objects, or the two pages share them and editing one
+  // can follow through to the other.
+  (copy.objects || []).forEach((object, n) => {
+    if (object && typeof object === 'object') object.id = `el_${Date.now()}_${n}`;
+  });
+  doc.pages.splice(index + 1, 0, copy);
+  adapter.currentScene = window.msStudioDocumentToScene(doc);
+  adapter.activePageId = copy.id;
+  window.__studioDocument = doc;
+  window.__msStudioStore?.update(doc);
+  adapter.renderScene(adapter.currentScene);
+  syncStudioPageUi();
+  if (typeof showToast === 'function') {
+    const n = (copy.objects || []).length;
+    showToast(`Page duplicated — ${n} item${n === 1 ? '' : 's'} copied`, 'success');
+  }
 }
 function deleteStudioPage(pageId) {
   const adapter = window.__studioAdapter; const current = adapter?.currentScene; if (!adapter || !current?.pages || current.pages.length <= 1) { if (typeof showToast === 'function') showToast('Keep at least one page', 'info'); return; }
