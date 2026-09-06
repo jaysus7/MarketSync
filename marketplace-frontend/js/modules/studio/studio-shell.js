@@ -759,18 +759,32 @@ function studioMountDebugPanel() {
   panel.innerHTML = ''
     + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;">'
     + '<b style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#e2e8f0">Studio diagnostics</b>'
-    + '<button type="button" onclick="document.getElementById(\'studio-diag-panel\').hidden=true" style="background:none;border:0;color:#94a3b8;font-size:18px;cursor:pointer;line-height:1">×</button>'
+    + '<button type="button" id="studio-diag-close" style="background:none;border:0;color:#94a3b8;font-size:18px;cursor:pointer;line-height:1">×</button>'
     + '</div>'
-    // Raw Canvas Mode — user-invoked isolation per the render-layer plan.
-    // Turns off every responsive scaling / CSS transform / viewport transform
-    // and renders Fabric at raw 1080x1920 inside an overflow:auto wrapper so
-    // we can see whether the pixels themselves are missing or the fit layer
-    // is hiding them. Also dumps the full object + DOM-box diagnostics.
-    + '<div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem">'
-    + '<button type="button" id="studio-diag-raw-toggle" onclick="studioToggleRawCanvasMode()" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:11px;font-weight:900;padding:.35rem .6rem;border-radius:6px;cursor:pointer">Raw canvas mode: OFF</button>'
-    + '<button type="button" onclick="studioDumpRenderState()" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:11px;font-weight:900;padding:.35rem .6rem;border-radius:6px;cursor:pointer">Dump render state</button>'
-    + '</div>'
+    // Raw Canvas Mode + Dump — DIAGNOSTIC ONLY, per the render-layer plan.
+    // Buttons are real DOM elements wired with addEventListener (not inline
+    // onclick strings) so nothing — a strict CSP, a stale onclick handler,
+    // or a parent stopPropagation — can neuter the click.
+    + '<div id="studio-diag-controls" style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem"></div>'
     + '<div id="studio-diag-body"></div>';
+  const controls = panel.querySelector('#studio-diag-controls');
+  const closeBtn = panel.querySelector('#studio-diag-close');
+  if (closeBtn) closeBtn.addEventListener('click', () => { panel.hidden = true; });
+  // Raw canvas toggle — button state mirrors window.__studioRawCanvasMode.
+  const rawBtn = document.createElement('button');
+  rawBtn.type = 'button';
+  rawBtn.id = 'studio-diag-raw-toggle';
+  rawBtn.style.cssText = 'background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:11px;font-weight:900;padding:.35rem .6rem;border-radius:6px;cursor:pointer;pointer-events:auto;touch-action:manipulation';
+  rawBtn.textContent = window.__studioRawCanvasMode ? 'Raw canvas mode: ON' : 'Raw canvas mode: OFF';
+  rawBtn.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); studioToggleRawCanvasMode(); });
+  controls.appendChild(rawBtn);
+  const dumpBtn = document.createElement('button');
+  dumpBtn.type = 'button';
+  dumpBtn.id = 'studio-diag-dump';
+  dumpBtn.style.cssText = rawBtn.style.cssText;
+  dumpBtn.textContent = 'Dump render state';
+  dumpBtn.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); studioDumpRenderState(); });
+  controls.appendChild(dumpBtn);
   fab.onclick = () => { panel.hidden = !panel.hidden; if (!panel.hidden) studioDebugRefresh(); };
   document.body.appendChild(fab);
   document.body.appendChild(panel);
@@ -779,31 +793,39 @@ function studioMountDebugPanel() {
 window.studioMountDebugPanel = studioMountDebugPanel;
 
 // ── Raw Canvas Mode ──────────────────────────────────────────────────────────
-// User-invoked render-layer isolation. Turns off responsive fitting / CSS
-// transforms / Fabric viewport transforms so the artboard renders at raw
-// 1080x1920 inside an overflow:auto wrapper. If the objects appear here but
-// not in fitted mode, the fit layer is the bug. If they still don't appear,
-// dumpRenderState reveals which of {object coords, DOM box, covering white
-// layer, CSS} is at fault. Zero changes to template loading — pure viewport.
+// DIAGNOSTIC ONLY. Does not touch template loading, object creation, z-order
+// or scene JSON. Purely toggles the presentation layer so we can isolate
+// whether the blank canvas comes from (A) responsive fit/scale, (B) Fabric
+// DOM layering, or (C) a covering object in the stack.
+//
+// ON  — disables outer stage scaling, mobile artboard fit, viewport
+//       transforms; sets Fabric viewportTransform to identity; renders the
+//       artboard at true logical size inside a scrollable container.
+// OFF — restores every saved style so the normal fit/zoom behavior resumes.
+//       Does not reload the template, recreate the document, or touch
+//       unsaved changes.
 function studioToggleRawCanvasMode() {
-  const btn = document.getElementById('studio-diag-raw-toggle');
   const on = !window.__studioRawCanvasMode;
   window.__studioRawCanvasMode = on;
   const container = document.getElementById('studio-artboard-container');
   const viewport = document.getElementById('studio-canvas-viewport');
   const fc = window.__studioAdapter?.fabricCanvas;
   if (on) {
-    // Save prior transforms so OFF can restore them cleanly.
+    // Freeze the ResizeObserver so it can't re-fit us mid-inspection.
+    if (window.__studioFitObserver?.disconnect) {
+      try { window.__studioFitObserver.disconnect(); } catch (_) {}
+    }
     if (container && !container.__msRawSaved) {
       container.__msRawSaved = {
-        transform: container.style.transform,
-        left: container.style.left, top: container.style.top,
-        width: container.style.width, height: container.style.height,
-        position: container.style.position,
+        transform: container.style.transform, left: container.style.left,
+        top: container.style.top, width: container.style.width,
+        height: container.style.height, position: container.style.position,
       };
-      // Raw: put the artboard in a scrollable box at its true logical size.
+      // True logical size, no outer stage transform, static positioning so
+      // the scrollable parent can pan freely.
       container.style.position = 'static';
-      container.style.left = '0'; container.style.top = '0';
+      container.style.left = '0';
+      container.style.top = '0';
       container.style.transform = 'none';
       container.style.width = (fc?.getWidth?.() || 1080) + 'px';
       container.style.height = (fc?.getHeight?.() || 1920) + 'px';
@@ -812,8 +834,6 @@ function studioToggleRawCanvasMode() {
       viewport.__msRawSaved = { overflow: viewport.style.overflow };
       viewport.style.overflow = 'auto';
     }
-    // Freeze the fit observer so it doesn't re-scale us mid-inspection.
-    if (window.__studioFitObserver?.disconnect) { try { window.__studioFitObserver.disconnect(); } catch (_) {} }
     if (fc) {
       try {
         fc.setViewportTransform([1, 0, 0, 1, 0, 0]);
@@ -821,9 +841,6 @@ function studioToggleRawCanvasMode() {
         fc.requestRenderAll();
       } catch (_) {}
     }
-    if (btn) btn.textContent = 'Raw canvas mode: ON';
-    studioDebugPush('raw canvas mode ON');
-    studioDumpRenderState();
   } else {
     if (container?.__msRawSaved) {
       Object.assign(container.style, container.__msRawSaved);
@@ -833,65 +850,61 @@ function studioToggleRawCanvasMode() {
       viewport.style.overflow = viewport.__msRawSaved.overflow || '';
       delete viewport.__msRawSaved;
     }
+    // Rebuild the fit observer + rerun the normal fit path. Template state
+    // is untouched — no re-render, no scene reload.
     if (typeof zoomStudioFit === 'function') zoomStudioFit();
-    if (btn) btn.textContent = 'Raw canvas mode: OFF';
-    studioDebugPush('raw canvas mode OFF');
+    if (fc) {
+      try { fc.calcOffset(); fc.requestRenderAll(); } catch (_) {}
+    }
   }
+  const btn = document.getElementById('studio-diag-raw-toggle');
+  if (btn) btn.textContent = on ? 'Raw canvas mode: ON' : 'Raw canvas mode: OFF';
+  studioDebugPush(`rawCanvasMode=${on}`);
 }
 window.studioToggleRawCanvasMode = studioToggleRawCanvasMode;
 
-// Phase 2 (objects + canvas state) + Phase 3 (covering white top layer).
-// Renders inline in the diagnostics panel so a phone screenshot is enough.
+// Full render-state dump — every field the 8-point spec asks for. Writes
+// to the diagnostics feed so a phone screenshot captures the whole picture
+// in one turn. Never modifies the scene.
 function studioDumpRenderState() {
   const fc = window.__studioAdapter?.fabricCanvas;
   if (!fc) { studioDebugPush('dump: no fabric canvas'); return; }
   const w = fc.getWidth?.() || 0, h = fc.getHeight?.() || 0;
-  const objs = fc.getObjects() || [];
-  const vt = (fc.viewportTransform || []).map(n => +n.toFixed(2)).join(',');
-  studioDebugPush(`state count=${objs.length} bg=${fc.backgroundColor || '-'} zoom=${fc.getZoom?.() ?? '?'} vt=[${vt}] size=${w}x${h}`);
-  // Per-object dump (last 5 in stack order — the ones most likely on top).
-  objs.slice(-5).forEach((o, i) => {
-    const idx = objs.length - 5 + i;
-    const bw = Math.round((o.width || 0) * (o.scaleX || 1));
-    const bh = Math.round((o.height || 0) * (o.scaleY || 1));
-    const src = typeof o.getSrc === 'function' ? (o.getSrc() || '').slice(-40) : '';
-    studioDebugPush(`obj[${idx}] ${o.type} L=${Math.round(o.left)} T=${Math.round(o.top)} W=${bw} H=${bh} sc=${(o.scaleX || 1).toFixed(2)}x${(o.scaleY || 1).toFixed(2)} vis=${o.visible !== false} op=${o.opacity} fill=${(o.fill || '').toString().slice(0, 12)} src=${src}`);
-  });
-  // Phase 3 — hunt for a covering near-white top layer.
-  const NEAR_WHITE = /^(?:#f{3,6}|#f[0-9a-f]f[0-9a-f]f[0-9a-f]|rgba?\(\s*2[45][0-9]\s*,\s*2[45][0-9]\s*,\s*2[45][0-9])/i;
-  const covering = objs.filter(o => o.visible !== false && (o.opacity ?? 1) > 0 && (o.left || 0) <= 0 && (o.top || 0) <= 0
-    && ((o.width || 0) * (o.scaleX || 1)) >= w && ((o.height || 0) * (o.scaleY || 1)) >= h);
-  if (covering.length) {
-    const c = covering[covering.length - 1];
-    const isWhite = typeof c.fill === 'string' && NEAR_WHITE.test(c.fill);
-    studioDebugPush(`COVER obj[${objs.indexOf(c)}] ${c.type} fill=${(c.fill || '?').toString().slice(0, 14)}${isWhite ? ' NEAR-WHITE' : ''} — sits over full canvas`);
-    // Auto-hide it and re-render so a viewer sees whether the template is
-    // underneath. The template's fix is to move this into backgroundColor
-    // instead of stacking as a top-layer rect.
-    c.visible = false;
-    fc.requestRenderAll();
-    studioDebugPush('COVER hidden — if template now visible, that rect is the bug');
-  }
-  // DOM box dump — lower/upper canvas vs container vs wrapper.
+  const vt = (fc.viewportTransform || []).map(n => +Number(n).toFixed(3)).join(',');
+  const zoom = typeof fc.getZoom === 'function' ? fc.getZoom() : '?';
+  studioDebugPush(`vt=[${vt}] zoom=${zoom} size=${w}x${h} bg=${fc.backgroundColor || '-'}`);
+  // Fabric DOM chain: canvas-container / lower / upper — position, size,
+  // computed transform, z-index, opacity, visibility.
   const dom = (sel) => {
     const el = typeof sel === 'string' ? document.querySelector(sel) : sel;
-    if (!el) return `${sel}: missing`;
+    if (!el) { studioDebugPush(`${sel}: MISSING`); return; }
     const r = el.getBoundingClientRect();
     const s = getComputedStyle(el);
-    return `${sel} ${Math.round(r.width)}x${Math.round(r.height)} @${Math.round(r.left)},${Math.round(r.top)} ${s.display}/${s.visibility}/op${s.opacity}/z${s.zIndex} tf=${s.transform.slice(0, 20)}`;
+    studioDebugPush(`${sel} ${Math.round(r.width)}x${Math.round(r.height)} @${Math.round(r.left)},${Math.round(r.top)} disp=${s.display} vis=${s.visibility} op=${s.opacity} z=${s.zIndex} tf=${s.transform.slice(0, 24)}`);
   };
-  studioDebugPush(dom('#studio-artboard-container'));
-  studioDebugPush(dom('.canvas-container'));
-  studioDebugPush(dom('.lower-canvas'));
-  studioDebugPush(dom('.upper-canvas'));
-  // Phase 6 assertion — objects but nothing paintable inside the viewport?
-  const view = document.getElementById('studio-canvas-viewport');
-  const cont = document.getElementById('studio-artboard-container');
-  if (view && cont && objs.length > 0) {
-    const vr = view.getBoundingClientRect(), cr = cont.getBoundingClientRect();
-    const overlap = !(cr.right < vr.left || cr.left > vr.right || cr.bottom < vr.top || cr.top > vr.bottom);
-    if (!overlap) studioDebugPush('ASSERT container is OUTSIDE viewport bounds — fit layer at fault');
-    else if (cr.width < 8 || cr.height < 8) studioDebugPush('ASSERT container collapsed to zero size — CSS at fault');
+  dom('#studio-artboard-container');
+  dom('.canvas-container');
+  dom('.lower-canvas');
+  dom('.upper-canvas');
+  // Object stack — full list with bounds and z-order (top of stack last).
+  const objs = fc.getObjects() || [];
+  studioDebugPush(`objects: ${objs.length} (bottom → top)`);
+  objs.forEach((o, i) => {
+    const bw = Math.round((o.width || 0) * (o.scaleX || 1));
+    const bh = Math.round((o.height || 0) * (o.scaleY || 1));
+    const src = typeof o.getSrc === 'function' ? (o.getSrc() || '').slice(-32) : '';
+    const fill = (o.fill || '').toString().slice(0, 14);
+    studioDebugPush(`obj[${i}] ${o.type} L=${Math.round(o.left)} T=${Math.round(o.top)} W=${bw} H=${bh} sc=${(o.scaleX || 1).toFixed(2)}x${(o.scaleY || 1).toFixed(2)} vis=${o.visible !== false} op=${o.opacity ?? 1} fill=${fill}${src ? ' src=' + src : ''}`);
+  });
+  // Covering-object detector (Phase 3 in the render-layer plan). Never
+  // mutates the scene — reports only.
+  const covering = objs.filter(o => o.visible !== false && (o.opacity ?? 1) > 0
+    && (o.left || 0) <= 0 && (o.top || 0) <= 0
+    && ((o.width || 0) * (o.scaleX || 1)) >= w
+    && ((o.height || 0) * (o.scaleY || 1)) >= h);
+  if (covering.length) {
+    const c = covering[covering.length - 1];
+    studioDebugPush(`COVER obj[${objs.indexOf(c)}] ${c.type} fill=${(c.fill || '?').toString().slice(0, 14)} — spans full canvas`);
   }
 }
 window.studioDumpRenderState = studioDumpRenderState;
