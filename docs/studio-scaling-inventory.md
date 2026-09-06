@@ -100,14 +100,48 @@ axes the P0 note says must have only one owner.
 
 **Only observer today.** Raw Canvas Mode disconnects it when ON.
 
-## 6. Retina / DPR
+## 6. Retina / DPR — **this was the blank canvas** (fixed 2026-09-06)
 
-- No manual DPR math anywhere in the adapter. Fabric's
-  `enableRetinaScaling` (default true) does it internally. That is why
-  `cvs attr=3240×5760` on a 3× iPhone but the wrapper reports `1080×1920`.
+- Fabric's `enableRetinaScaling` (default true) multiplies the logical page
+  size by `fabric.devicePixelRatio`. That is why `cvs attr=3240×5760` while
+  the wrapper reports `1080×1920` on a 3× iPhone.
 
-**Keep implicit.** Do not add manual `Math.round(w * devicePixelRatio)`
-math anywhere — that is exactly the double-scaling the P0 note forbids.
+- **3240 × 5760 = 18.7M pixels.** WebKit — every browser on iOS plus desktop
+  Safari — refuses a canvas backing store above roughly 16.7M pixels, and it
+  refuses it *silently*: no exception, the element stays in the DOM, Fabric
+  keeps reporting its objects, every `renderAll()` returns cleanly, and not
+  one pixel is painted. That is the exact reported symptom (`canvas 15
+  objects`, `canvas el in DOM ✓`, blank white artboard) and it is why Raw
+  Canvas Mode ON did not bring the artwork back: Raw Mode only rewrites axis
+  2 and axis 3, and the failure was never in either.
+
+- Square pages (1080×1080 → 10.5M px) squeaked under the ceiling, so the bug
+  looked format-specific: stories and tall portraits blanked, squares mostly
+  did not.
+
+- **Fix:** `fabric-adapter.js` now caps the ratio it hands Fabric via
+  `msStudioApplyRetinaBudget(width, height)`, called immediately before the
+  `new fabric.Canvas(...)` constructor and before every `setDimensions()`.
+  The budget is 8.39M pixels per bitmap — half the WebKit ceiling, because
+  Fabric allocates three bitmaps per canvas (lower, upper, object cache).
+  A 1080×1920 story now renders at ratio 2 (2160×3840), a square at ~2.7.
+
+**Still no manual width/height math.** Fabric remains the single owner of the
+document coordinate system; the cap only changes the multiplier Fabric reads.
+Do not add `Math.round(w * devicePixelRatio)` anywhere — that would be the
+double-scaling the P0 note forbids.
+
+- Belt-and-braces: `verifyBitmapPainted()` samples the bitmap 260ms after a
+  render. If every sample is transparent while the scene has objects, the
+  allocation failed anyway (an older device with a lower ceiling), so the
+  adapter drops to a 1:1 bitmap and repaints — once per adapter, never
+  touching the scene. It gives up quietly on a canvas tainted by a non-CORS
+  photo, since `getImageData` throws there and a tainted canvas is one that
+  demonstrably painted.
+
+- The mobile diagnostics panel now carries a **bitmap** row showing the real
+  backing-store size and flagging anything over the iOS cap, so this failure
+  is one screenshot away from being named next time.
 
 ## 7. Studio zoom state (window global)
 
@@ -147,6 +181,14 @@ If Raw ON stays blank:
   `scale(0.55)` on line 1283 becomes strictly cosmetic and should still be
   removed to avoid a competing initial state.
 
-Do not touch anything on this list until the Raw Canvas Mode dump names the
-failing axis. The point of writing it down is to make sure the fix removes
-things instead of adding another layer.
+## Outcome (2026-09-06)
+
+Raw ON stayed blank, so the failure was axis 1 — but not layering and not a
+covering rect. It was the backing store itself: see section 6. Axis 2 was
+never at fault, which means **the 15 `zoomStudioFit` callers are still on the
+table as cleanup but are not a bug fix**. Collapse them in a separate pass
+with its own verification; do not fold that churn into the bitmap fix.
+
+The mount's hard-coded `scale(0.55)` stays for now on purpose: it is the
+pre-fit initial state, and removing it without replacing it makes a 1080px
+artboard flash at full size before the first fit runs.

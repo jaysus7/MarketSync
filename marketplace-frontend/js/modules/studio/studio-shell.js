@@ -732,6 +732,15 @@ function studioDebugRefresh() {
     ['active page', adapter?.activePageId || 'none'],
     ['zoom', canvas ? `${Math.round((canvas.getZoom() || 1) * 100)}%` : '—'],
     ['viewport', `${window.innerWidth}x${window.innerHeight}`],
+    // Bitmap row: the backing store WebKit was actually asked for. Anything
+    // over ~16.7M pixels is refused silently on iOS and paints nothing, which
+    // is why this is on the panel next to the object count.
+    ['bitmap', (() => {
+      const el = document.getElementById('studio-main-canvas');
+      if (!el || !el.width) return '—';
+      const mp = (el.width * el.height) / 1e6;
+      return `${el.width}x${el.height} (${mp.toFixed(1)}Mpx${mp > 16.7 ? ' ✗ over iOS cap' : ' ✓'})`;
+    })()],
   ];
   body.innerHTML = ''
     + '<div style="padding:.5rem 0;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:.5rem;">'
