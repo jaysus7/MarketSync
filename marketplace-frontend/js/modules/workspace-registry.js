@@ -104,7 +104,7 @@ const MS_WORKSPACES = {
     label: 'Marketing', icon: 'megaphone', accent: 'market', mgr: true,
     pages: [
       { page: 'website', label: 'Website Studio', anyFeature: ['os.website', 'website.builder', 'website.pages'] },
-      { page: 'studio', label: 'Design Studio', anyFeature: ['design.canvas', 'design.templates', 'os.marketing'] },
+      { page: 'marketing-overview', label: 'Design Studio', tab: 'studio', anyFeature: ['design.canvas', 'design.templates', 'os.marketing'] },
       { page: 'video-studio', label: 'Video Studio', anyFeature: ['video.library', 'video.record', 'os.marketing'] },
       { page: 'automation-builder', label: 'Email/SMS Studio', tab: 'campaigns', studio: 'email', anyFeature: ['os.email_marketing', 'email.campaigns', 'email.templates', 'email.audiences'] },
       { page: 'automation-builder', label: 'Automations Studio', tab: 'automations', studio: 'automation', anyFeature: ['os.automations', 'email.automations'] },

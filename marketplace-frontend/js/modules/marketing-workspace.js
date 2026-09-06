@@ -40,7 +40,7 @@ function buildMarketingSuiteConfig(key) {
       suiteItem('website', 'Website Studio', 'globe', { tab: 'overview' }),
       suiteItem('seo', 'MarketSync SEO', 'chart', { tab: 'overview' }),
       suiteItem('ai-home', 'AI Customer Agent', 'sparkles', { tab: 'conversations' }),
-      suiteItem('studio', 'Design Studio', 'camera', { studioLaunch: true }),
+      suiteItem('marketing-overview', 'Design Studio', 'camera', { tab: 'studio' }),
       suiteItem('social-scheduler', 'Social Studio & Scheduler', 'calendar'),
       suiteItem('video-studio', 'Video', 'video'),
       suiteItem('automation-builder', 'Automations', 'bolt', { tab: 'automations', studio: 'automation' }),
@@ -102,7 +102,7 @@ function buildMarketingSuiteConfig(key) {
     suiteItem('marketing-overview', 'Campaigns', 'megaphone', { tab: 'campaigns' }),
     suiteItem('marketing-overview', 'Templates', 'document', { tab: 'templates' }),
     suiteItem('marketing-overview', 'Audiences', 'users', { tab: 'audiences' }),
-    suiteItem('studio', 'Design Studio', 'camera', { studioLaunch: true }),
+    suiteItem('marketing-overview', 'Design Studio', 'camera', { tab: 'studio' }),
     suiteItem('social-scheduler', 'Social Studio & Scheduler', 'calendar'),
     suiteItem('video-studio', 'Video', 'video'),
     suiteItem('academy', 'Academy', 'sparkles'),
@@ -1225,7 +1225,10 @@ ENGINES['marketing-overview'] = {
     studio(body, d) {
       body.innerHTML = `
         <div class="space-y-4">
-          ${typeof mktSuiteBand === 'function' ? mktSuiteBand('Creative', 'Design Studio', 'Your saved projects, dealership assets, Brand Kit, and editable canvas in one workspace.', '<button type="button" onclick="openMarketSyncStudio()" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Create design</button>') : ''}
+          ${typeof mktSuiteBand === 'function' ? mktSuiteBand('Creative', 'Design Studio', 'Choose a format, template, design set, or saved project here. The full-screen Studio opens only for the actual canvas editor.', '<button type="button" onclick="mktOpenStudioSizePicker()" class="liquid-glass-btn px-4 py-2 rounded-xl text-sm font-black">Create design</button>') : ''}
+          <section id="mkt-studio-creative-home" class="studio-home min-h-64" aria-label="Design Studio formats and templates">
+            <div class="ms-c ms-c--standard ms-c--glass p-8 text-center text-sm text-slate-500 dark:text-slate-300">Loading formats, design sets, and matching templates…</div>
+          </section>
           <section class="ms-c ms-c--standard ms-c--glass p-4 md:p-5 space-y-4" aria-labelledby="mkt-studio-projects-heading">
             <div class="flex items-start justify-between gap-3 flex-wrap">
               <div>
@@ -1238,7 +1241,7 @@ ENGINES['marketing-overview'] = {
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5A2.5 2.5 0 015.5 5H10l2 2h6.5A2.5 2.5 0 0121 9.5v7A2.5 2.5 0 0118.5 19h-13A2.5 2.5 0 013 16.5v-9zM12 11v5m-2.5-2.5h5"/></svg>
                   New folder
                 </button>
-                <button type="button" onclick="openMarketSyncStudio()" class="liquid-glass-btn px-3 py-2 rounded-xl text-sm font-black inline-flex items-center gap-2">
+                <button type="button" onclick="mktOpenStudioSizePicker()" class="liquid-glass-btn px-3 py-2 rounded-xl text-sm font-black inline-flex items-center gap-2">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14"/></svg>
                   New design
                 </button>
@@ -1299,6 +1302,7 @@ ENGINES['marketing-overview'] = {
           </div>
         </div>`;
       if (typeof mktLoadStudioBrandAndAssets === 'function') mktLoadStudioBrandAndAssets();
+      if (typeof mktLoadStudioCreativeHome === 'function') mktLoadStudioCreativeHome();
     },
 
     // ── Website ──────────────────────────────────────────────────────────────
