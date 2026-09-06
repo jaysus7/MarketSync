@@ -1799,7 +1799,7 @@ const DEFAULT_COMMUNICATION_TEMPLATES = [
     channel: 'Email',
     desc: 'Seasonal inventory clearance showcase with 2-col truck & SUV grid, $1,000 extra trade bonus voucher, and VIP test drive reservation.',
     used_by: 4,
-    subject: '🔥 Summer Truck & SUV Clearance: Save up to $4,500 + $1,000 Extra Trade Bonus at {{dealership.name}}',
+    subject: 'Summer Truck & SUV Clearance: Save up to $4,500 + $1,000 Extra Trade Bonus at {{dealership.name}}',
     sms_message: "Summer Truck & SUV Clearance is live at {{dealership.name}}! Over 45 frontline 4x4 trucks & SUVs discounted with up to $1,000 extra trade bonus this week: {{inventory_url|view inventory}}",
     blocks: [
       { id: 'b1', type: 'logo', data: { align: 'center', logoUrl: '' } },
@@ -1823,7 +1823,7 @@ const DEFAULT_COMMUNICATION_TEMPLATES = [
     channel: 'Email + SMS',
     desc: 'Seasonal tire swap, 4-wheel brake inspection coupon ($89.95), alignment rebate, and online service bay scheduler.',
     used_by: 3,
-    subject: '🚗 Spring Tire Changeover & Complete Brake Inspection Package at {{dealership.name}}',
+    subject: 'Spring Tire Changeover & Complete Brake Inspection Package at {{dealership.name}}',
     sms_message: "Hi {{customer.first_name|there}}, get your {{vehicle.model|vehicle}} road-trip ready with our Spring Tire Swap & Brake Inspection Package ($89.95). Book online in 60s: {{service_url|our service page}}",
     blocks: [
       { id: 'b1', type: 'logo', data: { align: 'center' } },
@@ -1862,11 +1862,11 @@ const DEFAULT_COMMUNICATION_TEMPLATES = [
     channel: 'Email',
     desc: '1-year ownership milestone celebration with complimentary 27-point inspection, complimentary oil change certificate, and customer loyalty rewards.',
     used_by: 3,
-    subject: 'Happy 1-Year Anniversary with your {{vehicle.year}} {{vehicle.make}} {{vehicle.model}}! 🎉',
+    subject: 'Happy 1-Year Anniversary with your {{vehicle.year}} {{vehicle.make}} {{vehicle.model}}!',
     sms_message: "Happy 1-Year Anniversary with your {{vehicle.model}}, {{customer.first_name}}! To celebrate, your next routine maintenance is on us. Schedule anytime: {{service_url|our service page}}",
     blocks: [
       { id: 'b1', type: 'logo', data: { align: 'center' } },
-      { id: 'b2', type: 'heading', data: { text: 'Happy 1-Year Anniversary with Your {{vehicle.model}}! 🎉', level: 'h1', align: 'center' } },
+      { id: 'b2', type: 'heading', data: { text: 'Happy 1-Year Anniversary with Your {{vehicle.model}}!', level: 'h1', align: 'center' } },
       { id: 'b3', type: 'text', data: { text: 'Dear {{customer.first_name}},<br><br>It has been exactly one year since you drove home in your <strong>{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}</strong>! We hope you have loved every mile of ownership.<br><br>As a token of our appreciation for being part of our dealership family, please enjoy a complimentary anniversary maintenance visit on us:' } },
       { id: 'b4', type: 'vehicle_card', data: { title: 'Your Vehicle: {{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', price: '1-Year Milestone', vin: '{{vehicle.vin}}', stock: 'Delivered', exterior: '{{vehicle.exterior_color}}' } },
       { id: 'b5', type: 'service_offer', data: { headline: 'Complimentary Anniversary Maintenance Pass', discount: '100% FREE', desc: 'Includes full synthetic oil & filter change plus comprehensive multi-point safety inspection.', code: '1YR-VIP-FREE' } },
@@ -1882,7 +1882,7 @@ const DEFAULT_COMMUNICATION_TEMPLATES = [
     channel: 'Email + SMS',
     desc: 'Year-end manufacturer model blowout with 0% APR financing, $5,000 factory cash, and express digital pre-approval.',
     used_by: 2,
-    subject: '⚡ Year-End Clearance Event: 0% APR & Up to $5,000 Factory Cash at {{dealership.name}}',
+    subject: 'Year-End Clearance Event: 0% APR & Up to $5,000 Factory Cash at {{dealership.name}}',
     sms_message: "Year-End Clearance is on at {{dealership.name}}! 0% financing and up to $5,000 off remaining models this weekend only: {{clearance_url|view clearance}}",
     blocks: [
       { id: 'b1', type: 'logo', data: { align: 'center' } },
@@ -4954,7 +4954,7 @@ function renderCampaignBuilder() {
   : d.step === 2 ? `
     <label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">CRM audience</label>
     <div class="space-y-2">${CRM_AUDIENCE_SEGMENTS.map(s => `<button type="button" onclick="__campaignDraft.audience='${s.key}';__campaignDraft.audienceName='${esc(s.name)}';renderCampaignBuilder()" class="w-full flex items-center justify-between gap-3 p-3 rounded-xl border text-left ${d.audience === s.key ? 'border-indigo-500 bg-indigo-500/15' : 'border-slate-700 bg-slate-900/60'}"><span><b class="text-sm text-white">${esc(s.name)}</b><span class="block text-[11px] text-slate-400 mt-0.5">${esc(s.desc)}</span></span><span class="text-sm font-black text-indigo-300">${esc(audienceCountLabel(s))}</span></button>`).join('')}</div>`
-  : d.step === 3 ? `<label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">Delivery channels</label><div class="grid sm:grid-cols-2 gap-3">${[['email','Email'],['sms','SMS']].map(([v,l]) => `<button type="button" onclick="campaignToggleChannel('${v}')" class="p-4 rounded-xl border text-left ${d.channels.includes(v) ? 'border-indigo-500 bg-indigo-500/15' : 'border-slate-700 bg-slate-900/60'}"><span class="text-sm font-black text-white">${d.channels.includes(v) ? '✓ ' : ''}${l}</span><span class="block text-xs text-slate-400 mt-1">${v === 'email' ? 'Use a reusable Email Builder asset.' : 'Write a compliant follow-up message.'}</span></button>`).join('')}</div>`
+  : d.step === 3 ? `<label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">Delivery channels</label><div class="grid sm:grid-cols-2 gap-3">${[['email','Email'],['sms','SMS']].map(([v,l]) => `<button type="button" onclick="campaignToggleChannel('${v}')" class="p-4 rounded-xl border text-left ${d.channels.includes(v) ? 'border-indigo-500 bg-indigo-500/15' : 'border-slate-700 bg-slate-900/60'}"><span class="text-sm font-black text-white">${d.channels.includes(v) ? (typeof svgIcon === 'function' ? svgIcon('check', 'w-3.5 h-3.5 inline-block mr-1 -mt-0.5') : '') : ''}${l}</span><span class="block text-xs text-slate-400 mt-1">${v === 'email' ? 'Use a reusable Email Builder asset.' : 'Write a compliant follow-up message.'}</span></button>`).join('')}</div>`
   : d.step === 4 ? `<div class="space-y-4">${d.channels.includes('email') ? `<div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4"><div class="flex items-center justify-between"><div><div class="text-xs font-black uppercase tracking-wider text-indigo-300">Email content</div><div class="text-sm font-bold text-white mt-1">${tpl ? esc(tpl.name) : 'No email selected'}</div></div><button type="button" onclick="campaignSelectTemplate()" class="px-3 py-2 rounded-lg bg-slate-800 text-xs font-bold text-slate-200">Select template</button></div><button type="button" onclick="openEmailSmsBuilder({mode:'email',isNewTemplate:true,returnCampaign:true})" class="mt-3 w-full px-3 py-2.5 rounded-lg bg-indigo-600 text-white text-xs font-black">Create New Email</button></div>` : ''}${d.channels.includes('sms') ? `<div class="rounded-xl border border-slate-700 bg-slate-900/60 p-4"><label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1">SMS content</label><textarea id="cb-sms" rows="5" oninput="__campaignDraft.sms=this.value" class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-white" placeholder="Write the follow-up message…">${esc(d.sms)}</textarea><div class="text-right text-[11px] text-slate-400 mt-1">${d.sms.length}/320</div></div>` : ''}</div>`
   : d.step === 5 ? `<label class="block text-xs font-black uppercase tracking-wider text-slate-400 mb-1">Send time</label><select onchange="__campaignDraft.scheduledAt=this.value" class="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2.5 text-sm text-white"><option value="">Send now</option><option value="scheduled">Schedule for later</option></select><p class="text-xs text-slate-400 mt-3">Timezone and recipient count are confirmed during review. Recurring sends stay in Automations until production scheduling is enabled.</p>`
   : `<div class="space-y-3">${[['Campaign',d.name],['Goal',d.objective.replace(/_/g,' ')],['Audience',d.audienceName],['Channels',d.channels.join(' + ')],['Email',tpl?.name || (d.channels.includes('email') ? 'Not selected' : '—')],['SMS',d.channels.includes('sms') ? (d.sms ? 'Message ready' : 'Needs content') : '—'],['Schedule',d.scheduledAt === 'scheduled' ? 'Scheduled' : 'Send now']].map(([k,v]) => `<div class="flex items-center justify-between gap-4 py-2 border-b border-slate-800 last:border-0"><span class="text-xs uppercase tracking-wider text-slate-400">${k}</span><b class="text-sm text-white text-right capitalize">${esc(v)}</b></div>`).join('')}</div>`;

@@ -2560,7 +2560,7 @@ function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes, discRes, re
         </div>
         <div class="flex flex-wrap gap-2 shrink-0">
           <button type="button" onclick="if(typeof openWebsiteBuilder==='function')openWebsiteBuilder()" class="liquid-glass-btn px-4 py-2 rounded-xl text-xs font-black">Edit website</button>
-          ${publicUrl ? `<a href="${esc(publicUrl)}" target="_blank" rel="noopener noreferrer" class="liquid-glass-btn-secondary px-4 py-2 rounded-xl text-xs font-black">View live ↗</a>` : ''}
+          ${publicUrl ? `<a href="${esc(publicUrl)}" target="_blank" rel="noopener noreferrer" class="liquid-glass-btn-secondary px-4 py-2 rounded-xl text-xs font-black">View live</a>` : ''}
           ${hasDraftChanges ? `<button type="button" onclick="if(typeof openWebsiteBuilder==='function')openWebsiteBuilder()" class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-black">Publish changes</button>` : ''}
           <button type="button" onclick="if(typeof openSetupModal==='function')openSetupModal('domain')" class="liquid-glass-btn-secondary px-4 py-2 rounded-xl text-xs font-black">Manage domain</button>
         </div>
@@ -2590,7 +2590,7 @@ function renderWebsiteCommandCenter(site, blog, leadsRes, matrixRes, discRes, re
         <span class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-2">Quick actions</span>
         <button type="button" onclick="if(typeof openWebsiteBuilder==='function')openWebsiteBuilder()" class="liquid-glass-btn px-3 py-1.5 rounded-lg text-xs font-black">Edit website</button>
         <button type="button" onclick="if(typeof openWebsiteBuilder==='function')openWebsiteBuilder()" class="liquid-glass-btn-secondary px-3 py-1.5 rounded-lg text-xs font-black">Create page</button>
-        ${publicUrl ? `<a href="${esc(publicUrl)}" target="_blank" rel="noopener noreferrer" class="liquid-glass-btn-secondary px-3 py-1.5 rounded-lg text-xs font-black">View live ↗</a>` : ''}
+        ${publicUrl ? `<a href="${esc(publicUrl)}" target="_blank" rel="noopener noreferrer" class="liquid-glass-btn-secondary px-3 py-1.5 rounded-lg text-xs font-black">View live</a>` : ''}
         <button type="button" onclick="if(typeof switchPage==='function')switchPage('discoverability')" class="liquid-glass-btn-secondary px-3 py-1.5 rounded-lg text-xs font-black">View discoverability</button>
         <button type="button" onclick="if(typeof openSetupModal==='function')openSetupModal('domain')" class="liquid-glass-btn-secondary px-3 py-1.5 rounded-lg text-xs font-black">Manage domain</button>
       </div>
