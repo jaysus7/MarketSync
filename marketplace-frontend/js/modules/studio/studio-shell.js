@@ -2253,7 +2253,7 @@ function renderStudioToolPanelContent(tool) {
   } else if (tool === 'videos') {
     return `<div class="p-4 space-y-3"><div><h3 class="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Pexels Videos</h3><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Search free video clips and place them on the canvas.</p></div><form onsubmit="event.preventDefault(); searchStudioVideos(document.getElementById('studio-video-query').value)" class="flex gap-2"><input id="studio-video-query" type="search" value="car dealership" placeholder="Search videos..." class="min-w-0 flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white"><button class="px-3 rounded-xl bg-blue-600 text-xs font-black">Search</button></form><div class="space-y-3" id="studio-video-results"><div class="p-5 text-center text-xs text-slate-500 dark:text-slate-400">Loading Pexels videos…</div></div><a href="https://www.pexels.com/videos/" target="_blank" rel="noopener" class="block text-center text-[10px] font-bold text-sky-400 hover:underline">Videos provided by Pexels</a></div>`;
   } else if (tool === 'uploads') {
-    return `<div class="studio-uploads-panel p-4 space-y-4"><div><div class="flex items-center gap-2"><span class="studio-panel-icon">↑</span><h3 class="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Uploads</h3></div><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Bring your own photos and videos into the Studio. They stay available in your Media library.</p></div><div class="studio-upload-dropzone"><div class="studio-upload-dropzone-icon">↑</div><div class="text-sm font-black text-slate-900 dark:text-white">Upload media</div><div class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">PNG, JPG, WebP, GIF, MP4 · up to 200 MB</div><div class="grid grid-cols-2 gap-2 mt-4"><label class="studio-upload-action studio-upload-action-primary"><span>Photo</span><input type="file" accept="image/*" class="hidden" onchange="uploadStudioImage(this)"></label><label class="studio-upload-action"><span>Video</span><input type="file" accept="video/*" class="hidden" onchange="uploadStudioVideo(this)"></label></div></div><div id="studio-upload-status" class="hidden text-xs text-center text-sky-500 dark:text-sky-300"></div><button type="button" onclick="setStudioTool('media')" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-black text-slate-800 dark:text-white hover:border-blue-500 transition">Open Media library →</button><div class="pt-2 border-t border-slate-200 dark:border-slate-700"><div class="flex items-center justify-between mb-2"><span class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Recent video uploads</span></div><div id="studio-uploaded-videos" class="space-y-3"><div class="p-5 text-center text-xs text-slate-500 dark:text-slate-400">Loading your videos…</div></div></div></div>`;
+    return `<div class="studio-uploads-panel p-4 space-y-4"><div><div class="flex items-center gap-2"><span class="studio-panel-icon">↑</span><h3 class="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Uploads</h3></div><p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Bring your own photos and videos into the Studio. They stay available in your Media library.</p></div><div class="studio-upload-dropzone"><div class="studio-upload-dropzone-icon">↑</div><div class="text-sm font-black text-slate-900 dark:text-white">Upload media</div><div class="mt-1 text-[10px] text-slate-500 dark:text-slate-400">PNG, JPG, WebP, GIF, MP4 · up to 200 MB</div><div class="grid grid-cols-2 gap-2 mt-4"><label class="studio-upload-action studio-upload-action-primary"><span>Photo</span><input type="file" accept="image/*" class="hidden" onchange="uploadStudioImage(this)"></label><label class="studio-upload-action"><span>Video</span><input type="file" accept="video/*" class="hidden" onchange="uploadStudioVideo(this)"></label></div></div><div id="studio-upload-status" class="hidden text-xs text-center text-sky-500 dark:text-sky-300"></div><button type="button" onclick="setStudioTool('media')" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-black text-slate-800 dark:text-white hover:border-blue-500 transition">Open Media library →</button><div class="pt-2 border-t border-slate-200 dark:border-slate-700"><div class="flex items-center justify-between mb-2"><span class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Recent photo uploads</span></div><div id="studio-uploaded-photos" class="grid grid-cols-3 gap-2 mb-4"><div class="col-span-3 p-4 text-center text-xs text-slate-500 dark:text-slate-400">Loading photos…</div></div></div><div class="pt-2 border-t border-slate-200 dark:border-slate-700"><div class="flex items-center justify-between mb-2"><span class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Recent video uploads</span></div><div id="studio-uploaded-videos" class="space-y-3"><div class="p-5 text-center text-xs text-slate-500 dark:text-slate-400">Loading your videos…</div></div></div></div>`;
   } else if (tool === 'record') {
     return `
       <div class="p-4 space-y-3">
@@ -2646,7 +2646,7 @@ function setStudioTool(tool) {
   if (tool === 'photos') setTimeout(() => searchStudioLibrary('car dealership'), 0);
   if (tool === 'videos') setTimeout(() => searchStudioVideos('car dealership'), 0);
   if (tool === 'inventory') setTimeout(() => searchStudioInventory(''), 0);
-  if (tool === 'uploads') setTimeout(loadStudioUploadedVideos, 0);
+  if (tool === 'uploads') setTimeout(() => { loadStudioUploadedVideos(); loadStudioMediaLibrary(); }, 0);
   if (tool === 'media') setTimeout(loadStudioMediaLibrary, 0);
   if (tool === 'text') setTimeout(loadStudioGoogleFonts, 0);
   if (tool === 'stickers') setTimeout(searchStudioGifs, 0);
@@ -2723,13 +2723,36 @@ window.saveStudioBrandKit = saveStudioBrandKit;
 
 let __studioMediaAssets = [];
 async function loadStudioMediaLibrary() {
-  const target = document.getElementById('studio-media-library'); if (!target) return;
+  // Fetch FIRST and render second. This used to return early whenever
+  // #studio-media-library was absent — which it is on the Uploads panel, the
+  // panel you actually upload from. So an upload refreshed nothing, and the
+  // library still held its pre-upload list when you switched over to it.
+  const target = document.getElementById('studio-media-library');
   try {
     const data = await apiGetJson('/marketing/assets');
     __studioMediaAssets = data?.assets || [];
-    filterStudioMediaLibrary(document.getElementById('studio-media-query')?.value || '');
-  } catch (_) { target.innerHTML = '<div class="col-span-2 p-4 text-center text-xs text-rose-400">Media library unavailable.</div>'; }
+    if (target) filterStudioMediaLibrary(document.getElementById('studio-media-query')?.value || '');
+    renderStudioUploadedPhotos();
+  } catch (_) {
+    if (target) target.innerHTML = '<div class="col-span-2 p-4 text-center text-xs text-rose-400">Media library unavailable.</div>';
+  }
 }
+
+// The Uploads panel listed recent VIDEOS only, so a photo uploaded there produced
+// a success toast and no visible change anywhere on screen — indistinguishable
+// from the upload having failed.
+function renderStudioUploadedPhotos() {
+  const host = document.getElementById('studio-uploaded-photos');
+  if (!host) return;
+  const photos = (__studioMediaAssets || []).filter(asset => asset.kind !== 'video').slice(0, 6);
+  host.innerHTML = photos.length
+    ? photos.map(asset => {
+        const src = asset.public_url || asset.url;
+        return `<button type="button" onclick="addLibraryImageToCanvas('${escS(src)}','${escS(asset.title || 'Photo')}')" class="overflow-hidden rounded-xl border border-slate-300 dark:border-slate-700 hover:border-indigo-500"><img src="${escS(src)}" alt="${escS(asset.title || 'Uploaded photo')}" class="w-full aspect-square object-cover"></button>`;
+      }).join('')
+    : '<div class="col-span-3 p-4 text-center text-xs text-slate-500 dark:text-slate-400">No photos uploaded yet.</div>';
+}
+window.renderStudioUploadedPhotos = renderStudioUploadedPhotos;
 function filterStudioMediaLibrary(query = '') {
   const target = document.getElementById('studio-media-library'); if (!target) return;
   const q = String(query).toLowerCase();
@@ -2743,7 +2766,7 @@ window.loadStudioMediaLibrary = loadStudioMediaLibrary;
 window.filterStudioMediaLibrary = filterStudioMediaLibrary;
 async function uploadStudioImage(input) {
   const file = input.files?.[0]; if (!file) return;
-  try { const form = new FormData(); form.append('file', file); form.append('title', file.name); const response = await fetch(`${API}/marketing/assets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }); const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Upload failed'); await loadStudioMediaLibrary(); if (typeof showToast === 'function') showToast('Image added to Media library', 'success'); } catch (error) { if (typeof showToast === 'function') showToast(error.message, 'error'); }
+  try { const form = new FormData(); form.append('file', file); form.append('title', file.name); const response = await fetch(`${API}/marketing/assets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }); const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Upload failed'); input.value = ''; await loadStudioMediaLibrary(); if (typeof showToast === 'function') showToast('Photo added to your library', 'success'); } catch (error) { if (typeof showToast === 'function') showToast(error.message, 'error'); }
 }
 function studioSetBackgroundColor(hex) {
   if (!window.__studioAdapter?.setSceneBackground) return;
@@ -2778,8 +2801,11 @@ async function studioUploadBackgroundImage(input) {
     const response = await fetch(`${API}/marketing/assets`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Upload failed');
-    const url = data.asset?.url || data.url || data.asset?.file_url;
+    // POST /marketing/assets replies { ok: true, asset: {...} } and the URL is
+    // public_url — the same field the media library renders from.
+    const url = data.asset?.public_url || data.asset?.url;
     if (!url) throw new Error('Upload succeeded but returned no image URL');
+    await loadStudioMediaLibrary();
     window.__studioAdapter?.setSceneBackground({ image: url });
     if (window.__studioActiveTool === 'background') setStudioTool('background');
     if (typeof showToast === 'function') showToast('Background image applied', 'success');

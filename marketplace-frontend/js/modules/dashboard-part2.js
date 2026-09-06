@@ -2377,11 +2377,11 @@ function msLoadDesignStudioShell() {
       'js/design-studio/panels/layers-panel.js', 'js/design-studio/panels/properties-panel.js', 'js/design-studio/panels/assets-panel.js', 'js/design-studio/panels/templates-panel.js', 'js/design-studio/panels/brand-panel.js', 'js/design-studio/panels/pages-panel.js', 'js/design-studio/panels/history-panel.js',
       'js/design-studio/services/autosave-service.js', 'js/design-studio/services/version-service.js', 'js/design-studio/services/media-service.js', 'js/design-studio/services/export-service.js', 'js/design-studio/services/publishing-service.js', 'js/design-studio/services/ai-service.js', 'js/design-studio/studio-shell.js'
     ].map(path => window.msLoadScript(`${path}?${DS}`))))
-    .then(() => window.msLoadScript('js/modules/studio/document-model.js?v=20260906_ctx_position_v1'))
+    .then(() => window.msLoadScript('js/modules/studio/document-model.js?v=20260906_media_video_v1'))
     .then(() => window.msLoadScript('js/modules/studio/studio-store.js?v=20260906_studio_tab_v1'))
     .then(() => window.msLoadScript('js/modules/studio/studio-autosave.js?v=20260906_studio_tab_v1'))
-    .then(() => window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260906_ctx_position_v1'))
-    .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260906_ctx_position_v1'))
+    .then(() => window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260906_media_video_v1'))
+    .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260906_media_video_v1'))
     .then(() => typeof window.__msOpenStudioReal === 'function' || typeof window.openMarketSyncStudio === 'function')
     .catch((error) => { window.__msDesignStudioShellPromise = null; throw error })
   return window.__msDesignStudioShellPromise
@@ -2402,7 +2402,7 @@ window.msLoadDesignStudioShell = msLoadDesignStudioShell
     }
   }
   if (pageId === 'video-studio') {
-    Promise.resolve(window.msLoadScript ? window.msLoadScript('js/modules/video-studio.js?v=20260826_video_fix_v2') : null)
+    Promise.resolve(window.msLoadScript ? window.msLoadScript('js/modules/video-studio.js?v=20260906_media_video_v1') : null)
       .then(() => { if (typeof loadVideoStudioPage === 'function') loadVideoStudioPage(); });
   }
   if (pageId === 'academy') loadAcademyWorkspace();
