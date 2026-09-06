@@ -2863,9 +2863,40 @@ function syncStudioPageUi() {
   if (label) label.textContent = active?.name || 'Page 1';
   if (select) { select.innerHTML = pages.map((page, index) => `<option value="${escS(page.id)}">${escS(page.name || `Page ${index + 1}`)}</option>`).join(''); select.value = window.__studioAdapter?.activePageId || pages[0]?.id || ''; }
 }
+// Duplicate the page AS IT IS ON SCREEN.
+//
+// This used to clone the page out of adapter.currentScene — the scene as it was
+// last LOADED. Objects you add live on the fabric canvas and do not write back to
+// currentScene, so on a design you had just been working on that source page was
+// still empty and "Duplicate" produced a blank page. exportScene() is the one that
+// reflects the canvas: it returns every page with the ACTIVE one's objects read
+// live off it. Clone from that.
 function duplicateStudioPage(pageId) {
-  const adapter = window.__studioAdapter; const current = adapter?.currentScene; const source = current?.pages?.find(page => page.id === pageId); if (!adapter || !current || !source || !window.msStudioSceneToDocument) return;
-  const doc = window.msStudioSceneToDocument(adapter.exportScene()); const copy = JSON.parse(JSON.stringify(source)); copy.id = `page_${Date.now()}`; copy.name = `${source.name || 'Page'} copy`; doc.pages.splice(doc.pages.findIndex(page => page.id === source.id) + 1, 0, copy); adapter.currentScene = window.msStudioDocumentToScene(doc); adapter.activePageId = copy.id; window.__studioDocument = doc; window.__msStudioStore?.update(doc); adapter.renderScene(adapter.currentScene); syncStudioPageUi(); if (typeof showToast === 'function') showToast('Page duplicated', 'success');
+  const adapter = window.__studioAdapter;
+  if (!adapter || !window.msStudioSceneToDocument) return;
+  const doc = window.msStudioSceneToDocument(adapter.exportScene());
+  const index = doc.pages?.findIndex(page => page.id === pageId) ?? -1;
+  if (index < 0) return;
+  const source = doc.pages[index];
+  const copy = JSON.parse(JSON.stringify(source));
+  copy.id = `page_${Date.now()}`;
+  copy.name = `${source.name || 'Page'} copy`;
+  // Fresh ids for the copied objects, or the two pages share them and editing one
+  // can follow through to the other.
+  (copy.objects || []).forEach((object, n) => {
+    if (object && typeof object === 'object') object.id = `el_${Date.now()}_${n}`;
+  });
+  doc.pages.splice(index + 1, 0, copy);
+  adapter.currentScene = window.msStudioDocumentToScene(doc);
+  adapter.activePageId = copy.id;
+  window.__studioDocument = doc;
+  window.__msStudioStore?.update(doc);
+  adapter.renderScene(adapter.currentScene);
+  syncStudioPageUi();
+  if (typeof showToast === 'function') {
+    const n = (copy.objects || []).length;
+    showToast(`Page duplicated — ${n} item${n === 1 ? '' : 's'} copied`, 'success');
+  }
 }
 function deleteStudioPage(pageId) {
   const adapter = window.__studioAdapter; const current = adapter?.currentScene; if (!adapter || !current?.pages || current.pages.length <= 1) { if (typeof showToast === 'function') showToast('Keep at least one page', 'info'); return; }
