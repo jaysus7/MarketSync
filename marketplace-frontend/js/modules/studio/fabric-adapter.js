@@ -221,7 +221,6 @@ class StudioFabricAdapter {
 
     this.bindEvents();
     await this.renderScene(this.currentScene);
-    this.startAnimationLoop();
   }
 
   normalizeScene(scene) {
@@ -231,36 +230,162 @@ class StudioFabricAdapter {
     return scene || window.msCreateDefaultScene();
   }
 
-  startAnimationLoop() {
-    if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
-    const tick = (time) => {
-      const objects = this.fabricCanvas?.getObjects?.() || [];
-      objects.forEach(object => {
-        const animation = object.msData?.animation;
-        if (!animation || animation === 'none') return;
-        object.__animationBase ||= { left: object.left || 0, top: object.top || 0, angle: object.angle || 0, opacity: object.opacity ?? 1, scaleX: object.scaleX || 1, scaleY: object.scaleY || 1 };
-        const base = object.__animationBase;
-        const duration = Number(animation.duration || 1600);
-        const phase = (time % duration) / duration;
-        const wave = Math.sin(phase * Math.PI * 2);
-        if (animation.type === 'float') object.set({ top: base.top + wave * 12 });
-        else if (animation.type === 'pulse') object.set({ opacity: base.opacity * (0.78 + (wave + 1) * 0.11), scaleX: base.scaleX * (1 + wave * 0.035), scaleY: base.scaleY * (1 + wave * 0.035) });
-        else if (animation.type === 'spin') object.set({ angle: base.angle + phase * 360 });
-        else if (animation.type === 'bounce') object.set({ top: base.top - Math.max(0, wave) * 24 });
-        else if (animation.type === 'fade') object.set({ opacity: 0.45 + (wave + 1) * 0.25 });
-      });
-      this.fabricCanvas?.requestRenderAll();
-      this.animationFrame = requestAnimationFrame(tick);
+  // Animations are an EXPORT property, not an editor state. This used to run a
+  // permanent requestAnimationFrame loop that wrote straight onto the real object
+  // — left, top, angle, opacity, scaleX, scaleY — with the untouched values kept
+  // only in a non-persisted __animationBase. Saving while a loop was mid-cycle
+  // therefore wrote whatever frame it happened to be on into the scene, so a
+  // "float" element drifted a little further up every save. It also re-rendered
+  // every frame forever, which on a phone is a flat battery and a canvas that
+  // fights you while you drag.
+  //
+  // So the editor previews an animation ONCE when you apply it and then puts every
+  // value back exactly as it was. The saved scene keeps `msData.animation`, and the
+  // render service plays it on export.
+  previewAnimation(object, { loop = false } = {}) {
+    if (!object || !this.fabricCanvas) return;
+    const animation = object.msData?.animation;
+    if (!animation || animation === 'none' || !animation.type) return;
+    this.stopAnimationPreview();
+    const base = {
+      left: object.left || 0, top: object.top || 0, angle: object.angle || 0,
+      opacity: object.opacity ?? 1, scaleX: object.scaleX || 1, scaleY: object.scaleY || 1,
     };
-    this.animationFrame = requestAnimationFrame(tick);
+    const duration = Math.max(300, Number(animation.duration) || 1600);
+    const started = performance.now();
+    const restore = () => {
+      this.__animationPreview = null;
+      // Always exactly the values we started with — never a rounded frame.
+      object.set(base);
+      object.setCoords();
+      this.fabricCanvas?.requestRenderAll();
+    };
+    const tick = (now) => {
+      if (this.__animationPreview?.object !== object) return;
+      const elapsed = now - started;
+      if (!loop && elapsed >= duration) { restore(); return; }
+      const phase = (elapsed % duration) / duration;
+      const wave = Math.sin(phase * Math.PI * 2);
+      if (animation.type === 'float') object.set({ top: base.top + wave * 12 });
+      else if (animation.type === 'pulse') object.set({ opacity: base.opacity * (0.78 + (wave + 1) * 0.11), scaleX: base.scaleX * (1 + wave * 0.035), scaleY: base.scaleY * (1 + wave * 0.035) });
+      else if (animation.type === 'spin') object.set({ angle: base.angle + phase * 360 });
+      else if (animation.type === 'bounce') object.set({ top: base.top - Math.max(0, wave) * 24 });
+      else if (animation.type === 'fade') object.set({ opacity: 0.45 + (wave + 1) * 0.25 });
+      // The five motions the context toolbar offers. They used to live in a second
+      // perpetual loop inside studio-context-toolbar.js with its own copy of the
+      // base-value bug; there is one player now.
+      else if (animation.type === 'slide') object.set({ left: base.left + wave * 28 });
+      else if (animation.type === 'rise') object.set({ top: base.top - Math.max(0, wave) * 36, opacity: 0.55 + (wave + 1) * 0.22 });
+      else if (animation.type === 'shake') object.set({ left: base.left + Math.sin(phase * Math.PI * 8) * 10 });
+      else if (animation.type === 'wiggle') object.set({ angle: base.angle + Math.sin(phase * Math.PI * 6) * 8 });
+      else if (animation.type === 'pop') object.set({ scaleX: base.scaleX * (1 + Math.max(0, wave) * 0.12), scaleY: base.scaleY * (1 + Math.max(0, wave) * 0.12) });
+      this.fabricCanvas?.requestRenderAll();
+      this.__animationPreview.frame = requestAnimationFrame(tick);
+    };
+    this.__animationPreview = { object, base, restore, frame: requestAnimationFrame(tick) };
+  }
+
+  // Fabric draws selection handles in canvas pixels, and the artboard is then CSS
+  // scaled down to fit the phone — so at the 21-38% fit zoom the default 13px
+  // corner lands on screen at 3-5px. That is why the corners could not be grabbed
+  // on a phone: they were being drawn, just far too small to hit. Sizing them
+  // against the current zoom keeps them a constant finger-sized target instead.
+  applyControlSizing() {
+    const fabric = window.fabric;
+    if (!fabric || !this.fabricCanvas) return;
+    const zoom = Math.max(0.05, Number(window.__studioZoomLevel) || 0.55);
+    const corner = Math.round(14 / zoom);
+    const touch = Math.round(44 / zoom);
+    const style = {
+      cornerSize: corner,
+      touchCornerSize: touch,
+      cornerStyle: 'circle',
+      cornerColor: '#2563EB',
+      cornerStrokeColor: '#FFFFFF',
+      transparentCorners: false,
+      borderColor: '#2563EB',
+      borderScaleFactor: Math.max(1, Math.round(1.5 / zoom)),
+      padding: Math.round(6 / zoom),
+    };
+    Object.assign(fabric.Object.prototype, style);
+    this.fabricCanvas.getObjects().forEach(object => { object.set(style); object.setCoords(); });
+    this.fabricCanvas.requestRenderAll();
+  }
+
+  // Pinch-to-scale. Fabric's stock build ignores multi-touch entirely, so two
+  // fingers did nothing at all on the canvas — the other half of "transform does
+  // not work on mobile".
+  bindPinchToScale() {
+    const el = this.fabricCanvas?.upperCanvasEl;
+    if (!el || el.__msPinchBound) return;
+    el.__msPinchBound = true;
+    const spread = (touches) => Math.hypot(
+      touches[0].clientX - touches[1].clientX,
+      touches[0].clientY - touches[1].clientY
+    );
+    let start = null;
+    el.addEventListener('touchstart', (event) => {
+      if (event.touches.length !== 2) return;
+      const object = this.fabricCanvas.getActiveObject();
+      if (!object || object.lockScalingX || object.lockScalingY) return;
+      start = {
+        object,
+        distance: spread(event.touches) || 1,
+        scaleX: object.scaleX || 1,
+        scaleY: object.scaleY || 1,
+        left: object.left, top: object.top,
+      };
+      this.fabricCanvas.setActiveObject(object);
+      event.preventDefault();
+    }, { passive: false });
+    el.addEventListener('touchmove', (event) => {
+      if (!start || event.touches.length !== 2) return;
+      event.preventDefault();
+      const factor = Math.min(20, Math.max(0.05, spread(event.touches) / start.distance));
+      start.object.set({
+        scaleX: start.scaleX * factor,
+        scaleY: start.scaleY * factor,
+        // Scale about the object's own centre so it does not crawl across the page.
+        left: start.left, top: start.top,
+      });
+      start.object.setCoords();
+      this.fabricCanvas.requestRenderAll();
+    }, { passive: false });
+    const finish = () => {
+      if (!start) return;
+      start = null;
+      this.saveHistory();
+      this.onChange?.();
+    };
+    el.addEventListener('touchend', finish);
+    el.addEventListener('touchcancel', finish);
+  }
+
+  // Ends a preview early and restores the object, so a save, an export or a drag
+  // can never capture a half-played frame.
+  stopAnimationPreview() {
+    const preview = this.__animationPreview;
+    if (!preview) return;
+    cancelAnimationFrame(preview.frame);
+    this.__animationPreview = null;
+    preview.object.set(preview.base);
+    preview.object.setCoords();
+    this.fabricCanvas?.requestRenderAll();
   }
 
   setSelectedAnimation(type = 'none', duration = 1600) {
     const object = this.fabricCanvas?.getActiveObject();
     if (!object) return false;
-    if (type === 'none') { delete object.msData.animation; delete object.__animationBase; }
-    else { object.msData = { ...(object.msData || {}), animation: { type, duration: Math.max(300, Number(duration) || 1600) } }; object.__animationBase = { left: object.left || 0, top: object.top || 0, angle: object.angle || 0, opacity: object.opacity ?? 1, scaleX: object.scaleX || 1, scaleY: object.scaleY || 1 }; }
-    this.saveHistory(); this.fabricCanvas.requestRenderAll(); return true;
+    // Any preview still running would otherwise bake its current frame into what
+    // we save next.
+    this.stopAnimationPreview();
+    if (type === 'none') { delete object.msData.animation; }
+    else { object.msData = { ...(object.msData || {}), animation: { type, duration: Math.max(300, Number(duration) || 1600) } }; }
+    this.saveHistory();
+    this.fabricCanvas.requestRenderAll();
+    // Play it once so the choice is visible, then put everything back.
+    if (type !== 'none') this.previewAnimation(object);
+    return true;
   }
 
   nudgeSelected(dx = 0, dy = 0) {
@@ -484,6 +609,10 @@ class StudioFabricAdapter {
       }
     }
 
+    // Handles must be re-sized for the zoom this page renders at, and the pinch
+    // gesture bound once the upper canvas exists.
+    this.applyControlSizing();
+    this.bindPinchToScale();
     const trimmed = msStudioTrimObjectCaches(this.fabricCanvas);
     if (trimmed && typeof window.studioDebugPush === 'function') {
       window.studioDebugPush(`object caches off for ${trimmed} large object(s)`);

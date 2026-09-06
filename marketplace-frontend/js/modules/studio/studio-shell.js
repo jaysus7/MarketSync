@@ -605,6 +605,10 @@ function applyStudioZoom() {
   const display = document.getElementById('studio-zoom-display');
   if (container) {
     container.style.transform = `translate(-50%, -50%) scale(${window.__studioZoomLevel || 0.55})`;
+    // Selection handles are drawn in canvas pixels and then scaled by this
+    // transform, so they have to be re-sized whenever the zoom changes or they
+    // shrink out of reach on a phone.
+    if (typeof window.__studioAdapter?.applyControlSizing === 'function') window.__studioAdapter.applyControlSizing();
   }
   if (display) {
     display.textContent = `${Math.round((window.__studioZoomLevel || 0.55) * 100)}%`;

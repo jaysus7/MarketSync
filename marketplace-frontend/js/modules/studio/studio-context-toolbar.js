@@ -180,16 +180,15 @@
     if (!adapter || !obj) return;
     if (typeof adapter.setSelectedAnimation === 'function') adapter.setSelectedAnimation(type, duration || 1600);
     else if (typeof global.studioSetAnimation === 'function') global.studioSetAnimation(type);
-    if (obj) {
-      delete obj.__animationBase;
-      if (type === 'none') {
-        if (obj.msData) delete obj.msData.animation;
-      } else {
-        obj.msData = Object.assign({}, obj.msData || {}, { animation: { type: type, duration: duration || 1600 } });
-      }
+    // setSelectedAnimation already records msData.animation, previews it once and
+    // restores every value. Writing msData a second time here — and stamping
+    // __animationBase — is what let a half-played frame reach the saved scene.
+    if (typeof adapter.setSelectedAnimation !== 'function' && obj) {
+      if (type === 'none') { if (obj.msData) delete obj.msData.animation; }
+      else obj.msData = Object.assign({}, obj.msData || {}, { animation: { type: type, duration: duration || 1600 } });
+      if (typeof adapter.previewAnimation === 'function') adapter.previewAnimation(obj);
     }
-    if (typeof adapter.startAnimationLoop === 'function') adapter.startAnimationLoop();
-    if (typeof showToast === 'function') showToast(type === 'none' ? 'Animation removed' : type + ' animation playing', 'success');
+    if (typeof showToast === 'function') showToast(type === 'none' ? 'Animation removed' : type + ' animation previewed — it plays on export', 'success');
     openAnimateSheet();
   }
   global.studioApplyMotion = applyMotion;
@@ -201,7 +200,7 @@
     const grid = MOTIONS.map(function (item) {
       return '<button type="button" aria-current="' + (current === item[0]) + '" onclick="studioApplyMotion(\'' + item[0] + '\',' + duration + ')">' + item[1] + '<div>' + item[2] + '</div></button>';
     }).join('');
-    openSheet('Animate', '<div class="studio-motion-grid">' + grid + '</div><label>Speed<input type="range" min="400" max="4000" step="100" value="' + duration + '" oninput="studioApplyMotion(\'' + current + '\', Number(this.value))"></label><p style="font-size:11px;color:#94a3b8">Plays on the canvas and is included in animated exports.</p>');
+    openSheet('Animate', '<div class="studio-motion-grid">' + grid + '</div><label>Speed<input type="range" min="400" max="4000" step="100" value="' + duration + '" oninput="studioApplyMotion(\'' + current + '\', Number(this.value))"></label><p style="font-size:11px;color:#64748b">Previews once here. It plays in full on export.</p>');
   }
 
   function runTool(id) {
@@ -228,42 +227,10 @@
     }
   }
 
-  function applyExtraMotion(object, animation, time) {
-    if (!animation || !animation.type) return;
-    object.__animationBase = object.__animationBase || { left: object.left || 0, top: object.top || 0, angle: object.angle || 0, opacity: object.opacity == null ? 1 : object.opacity, scaleX: object.scaleX || 1, scaleY: object.scaleY || 1 };
-    const base = object.__animationBase;
-    const duration = Number(animation.duration || 1600);
-    const phase = (time % duration) / duration;
-    const wave = Math.sin(phase * Math.PI * 2);
-    const type = animation.type;
-    if (type === 'slide') object.set({ left: base.left + wave * 28 });
-    else if (type === 'rise') object.set({ top: base.top - Math.max(0, wave) * 36, opacity: 0.55 + (wave + 1) * 0.22 });
-    else if (type === 'shake') object.set({ left: base.left + Math.sin(phase * Math.PI * 8) * 10 });
-    else if (type === 'wiggle') object.set({ angle: base.angle + Math.sin(phase * Math.PI * 6) * 8 });
-    else if (type === 'pop') object.set({ scaleX: base.scaleX * (1 + Math.max(0, wave) * 0.12), scaleY: base.scaleY * (1 + Math.max(0, wave) * 0.12) });
-  }
-
-  function hookAnimations(adapter) {
-    if (!adapter || adapter.__motionHooked || typeof adapter.startAnimationLoop !== 'function') return;
-    const orig = adapter.startAnimationLoop.bind(adapter);
-    adapter.startAnimationLoop = function () {
-      orig();
-      const canvas = adapter.fabricCanvas;
-      if (!canvas || canvas.__msExtraMotion) return;
-      canvas.__msExtraMotion = true;
-      const tick = function (time) {
-        (canvas.getObjects && canvas.getObjects() || []).forEach(function (object) {
-          const animation = object.msData && object.msData.animation;
-          if (animation && animation.type && ['slide','rise','shake','wiggle','pop'].indexOf(animation.type) >= 0) applyExtraMotion(object, animation, time);
-        });
-        canvas.requestRenderAll && canvas.requestRenderAll();
-        canvas.__msExtraMotionFrame = requestAnimationFrame(tick);
-      };
-      canvas.__msExtraMotionFrame = requestAnimationFrame(tick);
-    };
-    adapter.__motionHooked = true;
-    adapter.startAnimationLoop();
-  }
+  // applyExtraMotion() and hookAnimations() lived here: a second requestAnimationFrame
+  // loop, running forever alongside the adapter's, writing the same object properties
+  // through its own __animationBase. Both are gone — StudioFabricAdapter.previewAnimation
+  // plays every motion type once and puts the values back.
 
   function render(selected) {
     const ui = ensure();
@@ -294,7 +261,6 @@
   function hookAdapter() {
     const adapter = global.__studioAdapter;
     if (!adapter) return;
-    hookAnimations(adapter);
     if (adapter.__ctxToolbarHooked) return;
     const orig = adapter.onSelectionChange.bind(adapter);
     adapter.onSelectionChange = function (selected) {
