@@ -30,5 +30,12 @@ test('every frontend asset edited by the staging repair has the release cache ve
   assert.ok(html.includes(`js/modules/dashboard-part17.js?v=${previewBootVersion}`), 'website preview cache version is stale')
 
   // studio-shell was rebumped for the Design Studio template + element fixes.
-  assert.equal((loader.match(/js\/modules\/studio\/studio-shell\.js\?v=20260906_studio_tab_v1/g) || []).length, 2)
+  // The script list is now defined ONCE in msLoadDesignStudioShell() and shared
+  // by every consumer, so the version appears once instead of being copied per
+  // caller. That is a stronger guarantee than counting copies: a stale consumer
+  // is no longer possible, because there is only one list to bump.
+  assert.equal((loader.match(/js\/modules\/studio\/studio-shell\.js\?v=20260906_studio_tab_v1/g) || []).length, 1)
+  assert.match(loader, /function msLoadDesignStudioShell/)
+  assert.ok((loader.match(/msLoadDesignStudioShell\(\)/g) || []).length >= 2,
+    'both in-dashboard consumers must go through the canonical loader')
 })

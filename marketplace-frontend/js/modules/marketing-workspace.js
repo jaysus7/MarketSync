@@ -2276,25 +2276,25 @@ window.mktLoadStudioBrandAndAssets = mktLoadStudioBrandAndAssets;
 // EDITOR opens full screen. Every card below ends in startStudioBlankDesign()
 // or openMarketSyncStudio(), which are the full-screen paths.
 
-const MKT_STUDIO_SCRIPTS = [
-  'js/modules/studio/fabric-adapter.js?v=20260906_studio_tab_v1',
-  'js/modules/studio/studio-shell.js?v=20260906_studio_tab_v1',
-]
-
-// Resolves once studio-shell.js is in the page. studio-shell.js is a classic
-// script, so its top-level function declarations (openStudioSizePicker,
-// renderStudioHomeFormatShortcuts, startStudioBlankDesign, …) are already
-// globals once it loads — no separate export step needed.
-let __mktStudioShellPromise = null
+// Resolves once the Design Studio shell is in the page.
+//
+// This MUST go through msLoadDesignStudioShell() (dashboard-part2.js) rather
+// than loading studio-shell.js directly. studio-shell.js does not stand alone:
+// it needs scene-model, the whole js/design-studio/* set, document-model,
+// studio-store and studio-autosave loaded first. An earlier version of this
+// function fetched only fabric-adapter + studio-shell, so studio-shell threw
+// while evaluating, openMarketSyncStudio was never defined, and this tab
+// reported "Design Studio could not be loaded" every time.
+//
+// studio-shell.js is a classic script, so once it evaluates its top-level
+// function declarations (openStudioSizePicker, renderStudioHomeFormatShortcuts,
+// startStudioBlankDesign, …) are globals — no separate export step needed.
 function mktEnsureStudioShell() {
-  if (typeof window.openMarketSyncStudio === 'function') return Promise.resolve(true)
-  if (__mktStudioShellPromise) return __mktStudioShellPromise
-  if (typeof window.msLoadScript !== 'function') return Promise.resolve(false)
-  __mktStudioShellPromise = MKT_STUDIO_SCRIPTS
-    .reduce((chain, src) => chain.then(() => window.msLoadScript(src)), Promise.resolve())
-    .then(() => typeof window.openMarketSyncStudio === 'function')
-    .catch(() => { __mktStudioShellPromise = null; return false })
-  return __mktStudioShellPromise
+  if (typeof window.openStudioSizePicker === 'function') return Promise.resolve(true)
+  if (typeof window.msLoadDesignStudioShell !== 'function') return Promise.resolve(false)
+  return window.msLoadDesignStudioShell()
+    .then(() => typeof window.openStudioSizePicker === 'function')
+    .catch(() => false)
 }
 window.mktEnsureStudioShell = mktEnsureStudioShell
 

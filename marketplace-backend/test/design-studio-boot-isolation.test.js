@@ -15,7 +15,12 @@ test('Design Studio boots independently from Social Scheduler', () => {
   const studioBranch = dashboardPart2.match(/if \(pageId === 'studio'[\s\S]+?\n  if \(pageId === 'social-scheduler'\)/)?.[0]
   assert.ok(studioBranch, 'Design Studio route branch should exist')
   assert.doesNotMatch(studioBranch, /studio-scheduler\.js/, 'scheduler must not be a Studio boot prerequisite')
-  assert.match(studioBranch, /studio-shell\.js\?v=20260906_studio_tab_v1/)
+  // The branch delegates to the one canonical boot chain rather than carrying
+  // its own copy of the script list — a second, shortened copy elsewhere is
+  // what broke the Design Studio tab in the Marketing dashboard.
+  assert.match(studioBranch, /msLoadDesignStudioShell\(\)/)
+  assert.match(dashboardPart2, /function msLoadDesignStudioShell/)
+  assert.match(dashboardPart2, /studio-shell\.js\?v=20260906_studio_tab_v1/)
   assert.match(studioBranch, /catch\(renderMarketSyncStudioBootError\)/)
 })
 

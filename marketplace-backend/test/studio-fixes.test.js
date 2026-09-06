@@ -242,10 +242,15 @@ test('cache-proof: inspector styles ship inline in the modal HTML + demo badge h
 })
 
 test('studio cache-bust bumped so the browser fetches the fixed bundle', () => {
-  // Two consumers load studio-shell.js via msLoadScript — both must
-  // request the new revision so a cached bundle can't hide the fixes.
+  // Every consumer loads studio-shell.js through the single
+  // msLoadDesignStudioShell() chain, so there is one URL to keep fresh rather
+  // than one per caller. Assert the chain exists, that more than one caller
+  // uses it, and that the URL it holds carries the current revision.
+  assert.match(part2, /function msLoadDesignStudioShell/, 'the canonical boot chain must exist')
+  assert.ok((part2.match(/msLoadDesignStudioShell\(\)/g) || []).length >= 2,
+    'more than one consumer must go through the canonical loader')
   const matches = part2.match(/studio-shell\.js\?v=([a-z0-9_]+)/g) || []
-  assert.ok(matches.length >= 2, 'must find both studio-shell references')
+  assert.ok(matches.length >= 1, 'must find the studio-shell reference')
   for (const m of matches) {
     assert.match(m, /studio-shell\.js\?v=20260906_studio_tab_v1/,
       `stale cache-bust: ${m}`)

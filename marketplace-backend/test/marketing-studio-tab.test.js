@@ -61,21 +61,48 @@ test('the constants the tab reads are exposed on window', () => {
   }
 })
 
-test('the tab loads the studio shell before using it, at the shipped version', () => {
-  // studio-shell.js is lazily loaded; on this tab it usually has not been
-  // fetched yet, which is why the tab needs wrappers rather than direct calls.
+test('the tab loads the studio shell through the one canonical boot chain', () => {
+  // studio-shell.js does not stand alone: it needs scene-model, the whole
+  // js/design-studio/* set, document-model, studio-store and studio-autosave
+  // first. An earlier version of this tab fetched only fabric-adapter +
+  // studio-shell, so studio-shell threw while evaluating and the tab reported
+  // "Design Studio could not be loaded" every time.
   assert.match(marketing, /function mktEnsureStudioShell/)
-  assert.match(marketing, /msLoadScript/)
+  assert.match(marketing, /window\.msLoadDesignStudioShell\(\)/,
+    'the tab must delegate to the canonical loader, never assemble its own script list')
+  assert.doesNotMatch(marketing, /js\/modules\/studio\/studio-shell\.js\?/,
+    'a second copy of the script list here is how this broke; there must be exactly one')
 
-  // The URLs must match the ones dashboard-part2.js uses exactly: msLoadScript
-  // dedupes by src string, so a different cache-bust would fetch the shell a
-  // second time and re-run it.
   const loader = read('dashboard-part2.js')
-  for (const file of ['fabric-adapter', 'studio-shell']) {
-    const url = marketing.match(new RegExp(`js/modules/studio/${file}\\.js\\?v=[A-Za-z0-9_]+`))?.[0]
-    assert.ok(url, `the tab should reference ${file}.js with a cache-bust`)
-    assert.ok(loader.includes(url), `${url} must match the URL dashboard-part2.js loads, or the shell loads twice`)
+  assert.match(loader, /function msLoadDesignStudioShell/, 'the canonical loader must exist')
+  // It has to carry the full prerequisite chain, not just the last two files.
+  for (const required of ['scene-model.js', 'design-studio/state/document-schema.js', 'document-model.js', 'studio-autosave.js', 'fabric-adapter.js', 'studio-shell.js']) {
+    assert.ok(loader.includes(required), `the canonical loader must load ${required}`)
   }
+})
+
+test('the boot chain is defined once, not copied per caller', () => {
+  const loader = read('dashboard-part2.js')
+  // scene-model.js is the first link in the chain; more than one occurrence
+  // means the list has been duplicated again.
+  const copies = (loader.match(/js\/modules\/studio\/scene-model\.js/g) || []).length
+  assert.equal(copies, 1, 'the Design Studio script list must appear exactly once')
+})
+
+test('readiness is probed with a symbol the shell actually defines', () => {
+  // window.openMarketSyncStudio is ALWAYS a function — dashboard-part2 assigns
+  // ensureOpenMarketSyncStudio to it as a lazy stub — so probing it returns
+  // true before anything is loaded and the tab then calls an undefined
+  // openStudioSizePicker. Probe a symbol only the real shell defines.
+  const fn = marketing.match(/function mktEnsureStudioShell[\s\S]+?\n\}/)?.[0] || ''
+  assert.ok(fn, 'mktEnsureStudioShell should exist')
+  assert.doesNotMatch(fn, /typeof window\.openMarketSyncStudio === 'function'/,
+    'openMarketSyncStudio is a lazy stub and is always defined — probing it short-circuits the load')
+  assert.match(fn, /typeof window\.openStudioSizePicker === 'function'/)
+
+  const loader = read('dashboard-part2.js')
+  assert.match(loader, /window\.openMarketSyncStudio = window\.ensureOpenMarketSyncStudio/,
+    'this test only matters while that stub assignment exists')
 })
 
 test('choosing a size opens the full-screen editor, not an in-tab canvas', () => {
