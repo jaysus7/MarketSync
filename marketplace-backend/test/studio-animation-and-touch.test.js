@@ -55,16 +55,41 @@ test('selection handles stay a finger-sized target at any zoom', () => {
   assert.match(code(adapter), /this\.applyControlSizing\(\)/, 'and a render must apply them')
 })
 
-test('two fingers scale the selected object', () => {
-  // Fabric's stock build ignores multi-touch, so a pinch previously did nothing.
-  const fn = code(adapter).match(/bindPinchToScale\(\)[\s\S]*?\n  \}/)?.[0] || ''
-  assert.ok(fn, 'bindPinchToScale must exist')
+test('two fingers scale AND rotate the selected object', () => {
+  // Fabric's stock build ignores multi-touch, so a pinch or twist previously did
+  // nothing. One gesture carries both: the distance between the fingers drives
+  // scale, the angle between them drives rotation.
+  const fn = code(adapter).match(/bindTouchGestures\(\)[\s\S]*?\n  \}/)?.[0] || ''
+  assert.ok(fn, 'bindTouchGestures must exist')
   assert.match(fn, /event\.touches\.length !== 2/, 'it must only act on a two-finger gesture')
   assert.match(fn, /Math\.hypot/, 'scale comes from the distance between the fingers')
+  assert.match(fn, /Math\.atan2/, 'rotation comes from the angle between them')
   assert.match(fn, /\{ passive: false \}/, 'the listener must be able to preventDefault')
   assert.match(fn, /event\.preventDefault\(\)/, 'or the page pinch-zooms instead of the object')
-  assert.match(fn, /lockScalingX \|\| object\.lockScalingY/, 'a locked object must stay locked')
   assert.match(fn, /left: start\.left, top: start\.top/, 'scaling must not walk the object across the page')
-  assert.match(fn, /this\.saveHistory\(\)/, 'a pinch must be undoable')
+  assert.match(fn, /this\.saveHistory\(\)/, 'a gesture must be undoable')
   assert.match(fn, /el\.__msPinchBound/, 'binding must happen once, not per render')
+
+  // Each half is applied from its OWN starting value, so scale and rotation
+  // cannot drift into each other over a long gesture.
+  assert.match(fn, /start\.scaleX \* factor/)
+  assert.match(fn, /start\.angle \+ \(bearing\(event\.touches\) - start\.bearing\)/)
+
+  // A lock opts out of only its own half: lockRotation still pinches.
+  assert.match(fn, /canScale: !object\.lockScalingX && !object\.lockScalingY/)
+  assert.match(fn, /canRotate: !object\.lockRotation/)
+  assert.match(fn, /if \(start\.canScale\)/)
+  assert.match(fn, /if \(start\.canRotate\)/)
+  assert.match(fn, /if \(!start\.canScale && !start\.canRotate\)/,
+    'an object locked both ways must not capture the gesture at all')
+})
+
+test('the rotation handle is finger-sized too', () => {
+  // applyControlSizing sets fabric.Object.prototype, which covers mtr (the
+  // rotation control) along with the corners — otherwise rotating by handle stays
+  // as impossible as resizing was.
+  const fn = code(adapter).match(/applyControlSizing\(\)[\s\S]*?\n  \}/)?.[0] || ''
+  assert.match(fn, /Object\.assign\(fabric\.Object\.prototype, style\)/,
+    'sizing must apply to every control, not just existing objects')
+  assert.match(fn, /getObjects\(\)\.forEach/, 'and to objects already on the canvas')
 })

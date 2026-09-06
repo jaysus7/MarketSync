@@ -312,42 +312,55 @@ class StudioFabricAdapter {
     this.fabricCanvas.requestRenderAll();
   }
 
-  // Pinch-to-scale. Fabric's stock build ignores multi-touch entirely, so two
-  // fingers did nothing at all on the canvas — the other half of "transform does
-  // not work on mobile".
-  bindPinchToScale() {
+  // Two-finger scale AND rotate. Fabric's stock build ignores multi-touch
+  // entirely, so two fingers did nothing at all on the canvas.
+  //
+  // One gesture carries both: the distance between the fingers drives scale, the
+  // angle between them drives rotation, and each is applied from its own starting
+  // value so they never fight. A locked axis opts out of just that half — an
+  // object with lockRotation still pinches, it simply does not turn.
+  bindTouchGestures() {
     const el = this.fabricCanvas?.upperCanvasEl;
     if (!el || el.__msPinchBound) return;
     el.__msPinchBound = true;
-    const spread = (touches) => Math.hypot(
-      touches[0].clientX - touches[1].clientX,
-      touches[0].clientY - touches[1].clientY
-    );
+    const spread = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const bearing = (t) => Math.atan2(t[1].clientY - t[0].clientY, t[1].clientX - t[0].clientX) * 180 / Math.PI;
     let start = null;
     el.addEventListener('touchstart', (event) => {
       if (event.touches.length !== 2) return;
       const object = this.fabricCanvas.getActiveObject();
-      if (!object || object.lockScalingX || object.lockScalingY) return;
+      if (!object) return;
       start = {
         object,
         distance: spread(event.touches) || 1,
+        bearing: bearing(event.touches),
         scaleX: object.scaleX || 1,
         scaleY: object.scaleY || 1,
+        angle: object.angle || 0,
         left: object.left, top: object.top,
+        canScale: !object.lockScalingX && !object.lockScalingY,
+        canRotate: !object.lockRotation,
       };
-      this.fabricCanvas.setActiveObject(object);
+      if (!start.canScale && !start.canRotate) { start = null; return; }
       event.preventDefault();
     }, { passive: false });
     el.addEventListener('touchmove', (event) => {
       if (!start || event.touches.length !== 2) return;
       event.preventDefault();
-      const factor = Math.min(20, Math.max(0.05, spread(event.touches) / start.distance));
-      start.object.set({
-        scaleX: start.scaleX * factor,
-        scaleY: start.scaleY * factor,
-        // Scale about the object's own centre so it does not crawl across the page.
+      const next = {
+        // Scaling about the object's own centre, so it does not walk across the page.
         left: start.left, top: start.top,
-      });
+      };
+      if (start.canScale) {
+        const factor = Math.min(20, Math.max(0.05, spread(event.touches) / start.distance));
+        next.scaleX = start.scaleX * factor;
+        next.scaleY = start.scaleY * factor;
+      }
+      if (start.canRotate) {
+        // Turn the object by however far the fingers have twisted.
+        next.angle = start.angle + (bearing(event.touches) - start.bearing);
+      }
+      start.object.set(next);
       start.object.setCoords();
       this.fabricCanvas.requestRenderAll();
     }, { passive: false });
@@ -612,7 +625,7 @@ class StudioFabricAdapter {
     // Handles must be re-sized for the zoom this page renders at, and the pinch
     // gesture bound once the upper canvas exists.
     this.applyControlSizing();
-    this.bindPinchToScale();
+    this.bindTouchGestures();
     const trimmed = msStudioTrimObjectCaches(this.fabricCanvas);
     if (trimmed && typeof window.studioDebugPush === 'function') {
       window.studioDebugPush(`object caches off for ${trimmed} large object(s)`);
