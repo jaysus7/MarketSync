@@ -2377,11 +2377,17 @@ function msLoadDesignStudioShell() {
       'js/design-studio/panels/layers-panel.js', 'js/design-studio/panels/properties-panel.js', 'js/design-studio/panels/assets-panel.js', 'js/design-studio/panels/templates-panel.js', 'js/design-studio/panels/brand-panel.js', 'js/design-studio/panels/pages-panel.js', 'js/design-studio/panels/history-panel.js',
       'js/design-studio/services/autosave-service.js', 'js/design-studio/services/version-service.js', 'js/design-studio/services/media-service.js', 'js/design-studio/services/export-service.js', 'js/design-studio/services/publishing-service.js', 'js/design-studio/services/ai-service.js', 'js/design-studio/studio-shell.js'
     ].map(path => window.msLoadScript(`${path}?${DS}`))))
-    .then(() => window.msLoadScript('js/modules/studio/document-model.js?v=20260906_studio_tab_gate_v1'))
+    .then(() => window.msLoadScript('js/modules/studio/document-model.js?v=20260906_auto_rv_templates_v1'))
     .then(() => window.msLoadScript('js/modules/studio/studio-store.js?v=20260906_studio_tab_v1'))
     .then(() => window.msLoadScript('js/modules/studio/studio-autosave.js?v=20260906_studio_tab_v1'))
-    .then(() => window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260906_studio_tab_gate_v1'))
-    .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260906_studio_tab_gate_v1'))
+    .then(() => window.msLoadScript('js/modules/studio/fabric-adapter.js?v=20260906_auto_rv_templates_v1'))
+    // The factory and the imagery resolver must be defined before the shell
+    // reads them at module scope (STUDIO_TEMPLATE_VARIANTS).
+    .then(() => Promise.all([
+      window.msLoadScript('js/modules/studio/studio-template-factory.js?v=20260906_auto_rv_templates_v1'),
+      window.msLoadScript('js/modules/studio/studio-template-imagery.js?v=20260906_auto_rv_templates_v1')
+    ]))
+    .then(() => window.msLoadScript('js/modules/studio/studio-shell.js?v=20260906_auto_rv_templates_v1'))
     .then(() => typeof window.__msOpenStudioReal === 'function' || typeof window.openMarketSyncStudio === 'function')
     .catch((error) => { window.__msDesignStudioShellPromise = null; throw error })
   return window.__msDesignStudioShellPromise

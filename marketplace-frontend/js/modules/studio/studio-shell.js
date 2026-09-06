@@ -87,6 +87,20 @@ const STUDIO_FORMAT_GROUPS = [
   { id: 'digital', label: 'Digital marketing', description: 'Marketplace, email, website and display advertising', keys: ['marketplace','email_hero','website_banner','display_300x250','display_728x90','display_160x600','landscape'] }
 ];
 
+// Automotive and RV search terms for the photo slots of the hand-written and
+// coordinated-collection scenes. Terms, never photo IDs — see
+// studio-template-imagery.js for why that distinction is the whole feature.
+const STUDIO_DESIGN_SET_QUERIES = [
+  'new car dealership lot', 'sedan on city street', 'used car showroom',
+  'car keys handover dealership', 'driver hands on steering wheel',
+  'luxury car front grille', 'car dealership lot rows of cars',
+  'electric car charging station', 'pickup truck towing trailer',
+  'family suv on highway', 'auto service technician garage',
+  'car detailing polishing', 'rv motorhome campsite',
+  'travel trailer towed by truck', 'fifth wheel trailer rv park',
+  'camper van mountain road'
+];
+
 const STUDIO_DESIGN_SETS = [
   { id: 'midnight_luxe', name: 'Midnight Luxe', eyebrow: 'Premium collection', description: 'Deep navy, warm gold and editorial spacing.', background: '#07111F', accent: '#D4A94F', secondary: '#DCE7F7', font: 'Playfair Display' },
   { id: 'electric_current', name: 'Electric Current', eyebrow: 'Modern collection', description: 'Electric blue, cyan highlights and energetic framing.', background: '#102A56', accent: '#2DD4BF', secondary: '#DBEAFE', font: 'Montserrat' },
@@ -1415,7 +1429,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       height: 1080,
       background: { color: '#0F172A' },
       elements: [
-        { id: 'el-bg-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&q=82', x: 0, y: 0, width: 1080, height: 720, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
+        { id: 'el-bg-photo', type: 'vehicle-image', src: null, image_query: 'new car dealership lot', x: 0, y: 0, width: 1080, height: 720, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
         { id: 'el-grad-overlay', type: 'shape', shapeType: 'rect', x: 0, y: 580, width: 1080, height: 500, fill: '#0F172A', opacity: 0.95, z: 2, name: 'Bottom Panel' },
         { id: 'el-badge', type: 'shape', shapeType: 'rect', x: 50, y: 50, width: 220, height: 50, fill: '#4F46E5', rx: 12, opacity: 1, z: 3, name: 'Badge Pill' },
         { id: 'el-badge-txt', type: 'text', x: 75, y: 65, text: 'JUST ARRIVED', fontSize: 18, fontWeight: '800', fill: '#FFFFFF', z: 4, name: 'Badge Text' },
@@ -1442,7 +1456,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       height: 1920,
       background: { color: '#18181B' },
       elements: [
-        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1600&q=88', x: 0, y: 0, width: 1080, height: 1410, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
+        { id: 'el-photo', type: 'vehicle-image', src: null, image_query: 'sedan on city street', x: 0, y: 0, width: 1080, height: 1410, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
         { id: 'el-photo-overlay', type: 'shape', shapeType: 'rect', x: 0, y: 0, width: 1080, height: 1410, fill: '#07111F', opacity: 0.34, z: 2, name: 'Photo Contrast Overlay' },
         { id: 'el-top-banner', type: 'shape', shapeType: 'badge', x: 70, y: 82, width: 330, height: 68, fill: '#EF4444', opacity: 1, rx: 34, z: 3, name: 'Price Reduction Banner' },
         { id: 'el-top-txt', type: 'text', x: 104, y: 102, width: 270, text: 'PRICE REDUCED', fontSize: 30, fontWeight: '900', fill: '#FFFFFF', z: 4, name: 'Banner Text' },
@@ -1474,7 +1488,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       height: 628,
       background: { color: '#0B0F19' },
       elements: [
-        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1562141961-b5d64a7b61c0?auto=format&fit=crop&w=1600&q=82', x: 0, y: 0, width: 620, height: 628, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
+        { id: 'el-photo', type: 'vehicle-image', src: null, image_query: 'car dealership lot rows of cars', x: 0, y: 0, width: 620, height: 628, fit: 'cover', opacity: 1, z: 1, name: 'Vehicle Photo' },
         { id: 'el-card', type: 'shape', shapeType: 'rect', x: 600, y: 0, width: 600, height: 628, fill: '#1E293B', opacity: 1, z: 2, name: 'Right Copy Panel' },
         { id: 'el-badge', type: 'text', x: 650, y: 60, text: 'WEEKEND SPECIAL', fontSize: 20, fontWeight: '800', fill: '#F59E0B', z: 3, name: 'Badge' },
         { id: 'el-title', type: 'text', x: 650, y: 110, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 36, fontWeight: '900', fill: '#FFFFFF', z: 4, name: 'Vehicle Name' },
@@ -1501,7 +1515,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       elements: [
         { id: 'el-top-pill', type: 'shape', shapeType: 'rect', x: 50, y: 40, width: 340, height: 50, fill: '#D97706', rx: 12, opacity: 1, z: 1, name: 'CPO Pill' },
         { id: 'el-top-txt', type: 'text', x: 80, y: 55, text: 'CERTIFIED PRE-OWNED', fontSize: 18, fontWeight: '800', fill: '#FFFFFF', z: 2, name: 'CPO Text' },
-        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1600&q=82', x: 0, y: 120, width: 1080, height: 780, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
+        { id: 'el-photo', type: 'vehicle-image', src: null, image_query: 'used car showroom', x: 0, y: 120, width: 1080, height: 780, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
         { id: 'el-card', type: 'shape', shapeType: 'rect', x: 40, y: 920, width: 1000, height: 380, fill: '#1E293B', rx: 24, opacity: 0.95, z: 4, name: 'Bottom Details Card' },
         { id: 'el-ymmt', type: 'text', x: 80, y: 970, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 42, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'Title' },
         { id: 'el-insp', type: 'text', x: 80, y: 1040, text: 'CERTIFICATION DETAILS AVAILABLE', fontSize: 22, fontWeight: '600', fill: '#94A3B8', z: 6, name: 'Inspection', approval_required: true },
@@ -1526,7 +1540,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       elements: [
         { id: 'el-hdr', type: 'text', x: 60, y: 80, text: 'TOP MARKET TRADE VALUE', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 1, name: 'Header' },
         { id: 'el-sub', type: 'text', x: 60, y: 150, text: 'We Need Used Inventory — Request Your Trade Appraisal', fontSize: 26, fontWeight: '700', fill: '#A7F3D0', z: 2, name: 'Subtitle' },
-        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=1600&q=82', x: 60, y: 220, width: 960, height: 560, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
+        { id: 'el-photo', type: 'vehicle-image', src: null, image_query: 'car keys handover dealership', x: 60, y: 220, width: 960, height: 560, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
         { id: 'el-btn', type: 'shape', shapeType: 'rect', x: 60, y: 840, width: 960, height: 160, fill: '#10B981', rx: 24, opacity: 1, z: 4, name: 'CTA Card' },
         { id: 'el-btn-txt', type: 'text', x: 180, y: 900, text: 'VALUE YOUR TRADE IN 60 SECONDS', fontSize: 32, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'CTA Text' }
       ]
@@ -1548,7 +1562,7 @@ const STUDIO_TEMPLATES_CATALOG = {
       elements: [
         { id: 'el-badge', type: 'shape', shapeType: 'rect', x: 60, y: 60, width: 360, height: 60, fill: '#06B6D4', rx: 16, opacity: 1, z: 1, name: 'EV Badge' },
         { id: 'el-badge-txt', type: 'text', x: 90, y: 78, text: 'NEXT-GEN ELECTRIC', fontSize: 22, fontWeight: '900', fill: '#FFFFFF', z: 2, name: 'EV Text' },
-        { id: 'el-photo', type: 'vehicle-image', src: 'https://images.unsplash.com/photo-1592833159155-c62df1b65634?auto=format&fit=crop&w=1600&q=82', x: 0, y: 160, width: 1080, height: 1100, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
+        { id: 'el-photo', type: 'vehicle-image', src: null, image_query: 'electric car charging station', x: 0, y: 160, width: 1080, height: 1100, fit: 'cover', opacity: 1, z: 3, name: 'Vehicle Photo' },
         { id: 'el-card', type: 'shape', shapeType: 'rect', x: 50, y: 1300, width: 980, height: 520, fill: '#0F172A', rx: 32, opacity: 0.95, z: 4, name: 'Card' },
         { id: 'el-title', type: 'text', x: 100, y: 1360, text: '{{vehicle.year}} {{vehicle.make}} {{vehicle.model}}', fontSize: 44, fontWeight: '900', fill: '#FFFFFF', z: 5, name: 'Title' },
         { id: 'el-rebate', type: 'text', x: 100, y: 1430, text: 'ASK ABOUT CURRENT EV PROGRAM ELIGIBILITY', fontSize: 24, fontWeight: '700', fill: '#38BDF8', z: 6, name: 'Rebate', approval_required: true },
@@ -1607,11 +1621,14 @@ function studioDesignSetScene(formatKey, format, set, setIndex, purpose) {
   const isLight = set.id === 'paper_ledger';
   const ink = isLight ? '#18181B' : '#FFFFFF', muted = isLight ? '#52525B' : set.secondary;
   const formatIndex = Math.max(0, Object.keys(STUDIO_SOCIAL_FORMATS).indexOf(formatKey));
-  const photo = STUDIO_FREE_PHOTOS[(setIndex * 4 + formatIndex) % STUDIO_FREE_PHOTOS.length].url;
+  // An automotive search term, not a photo ID. STUDIO_FREE_PHOTOS held
+  // hand-copied Unsplash IDs whose subjects nobody had verified, which is how a
+  // vehicle template shipped showing a field of solar panels.
+  const photo = STUDIO_DESIGN_SET_QUERIES[(setIndex * 4 + formatIndex) % STUDIO_DESIGN_SET_QUERIES.length];
   let z = 0;
   const shape = (name, x, y, width, height, fill, options = {}) => ({ id:`${baseId}-${name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-${++z}`, type:'shape', shapeType:options.shapeType || 'rect', name, x, y, width, height, fill, rx:options.rx || 0, opacity:options.opacity ?? 1, angle:options.angle || 0, z });
   const text = (name, value, x, y, width, height, fontSize, fill, options = {}) => ({ id:`${baseId}-${name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-${++z}`, type:'text', name, text:value, x, y, width, height, fontFamily:options.fontFamily || set.font, fontSize, fontWeight:options.fontWeight || '700', fill, lineHeight:options.lineHeight || 1.08, charSpacing:options.charSpacing || 0, textAlign:options.textAlign || 'left', z });
-  const image = (name, x, y, width, height, source = photo, options = {}) => ({ id:`${baseId}-${name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-${++z}`, type:'vehicle-image', name, src:source, x, y, width, height, fit:options.fit || 'cover', opacity:options.opacity ?? 1, z });
+  const image = (name, x, y, width, height, source = photo, options = {}) => ({ id:`${baseId}-${name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-${++z}`, type:'vehicle-image', name, src:null, image_query:source, x, y, width, height, fit:options.fit || 'cover', opacity:options.opacity ?? 1, z });
   const page = (suffix, name, objects, background = set.background) => ({ id:`${baseId}-${suffix}`, name, format_key:formatKey, width:w, height:h, background:{ color:background }, objects:JSON.parse(JSON.stringify(objects)), duration_ms:5000, transition:'none' });
   let elements = [], pages = [];
 
@@ -1850,6 +1867,108 @@ Object.entries(STUDIO_SOCIAL_FORMATS).forEach(([formatKey, format]) => {
   };
 });
 
+// ── Generated template catalogue ──────────────────────────────────────────────
+// The hand-written scenes above are a handful of starting points. The bulk of
+// the catalogue — a thousand designs for every output size — is produced by
+// studio-template-factory.js on demand.
+//
+// On demand is the whole point. Twenty-three sizes at a thousand each is 23,000
+// designs; materialising them into STUDIO_TEMPLATES_CATALOG would build 23,000
+// scene graphs before the grid could paint its first card, on a phone. So the
+// catalogue is addressed rather than stored: a key names a (size, index) pair,
+// listing builds only the cheap descriptor, and the scene is composed for the
+// forty-eight cards actually on screen.
+const STUDIO_GENERATED_PAGE = 48;
+const STUDIO_TEMPLATE_VARIANTS = (window.MS_STUDIO_TEMPLATE_FACTORY && window.MS_STUDIO_TEMPLATE_FACTORY.VARIANTS_PER_FORMAT) || 1000;
+
+function studioTemplateFactory() { return window.MS_STUDIO_TEMPLATE_FACTORY || null; }
+function studioTemplateImagery() { return window.MS_STUDIO_IMAGERY || null; }
+
+// auto_<formatKey>_<index>. The greedy group is deliberate: format keys contain
+// both underscores and digits ("display_300x250"), so only the trailing run of
+// digits is the index.
+function studioGeneratedKey(templateKey) {
+  const match = /^auto_(.+)_(\d+)$/.exec(String(templateKey || ''));
+  if (!match) return null;
+  const format = STUDIO_SOCIAL_FORMATS[match[1]];
+  const index = Number(match[2]);
+  if (!format || !Number.isFinite(index)) return null;
+  return { formatKey: match[1], format, index };
+}
+
+function studioResolveTemplateImagery(template) {
+  const imagery = studioTemplateImagery();
+  if (!imagery || !template || !template.scene) return template;
+  imagery.resolveScene(template.scene, {
+    palette: template.palette || {},
+    seed: Math.abs(Number(String(template.template_key || '').replace(/\D/g, '').slice(-4)) || 0),
+    inventoryPhotos: window.__studioInventoryPhotos || []
+  });
+  return template;
+}
+
+/**
+ * One lookup for every template in the product, hand-written or generated.
+ * Returns null for an unknown key rather than a stand-in, so a caller that was
+ * handed a bad key fails visibly instead of silently opening a different design.
+ */
+function studioTemplate(templateKey) {
+  const existing = STUDIO_TEMPLATES_CATALOG[templateKey];
+  if (existing) return existing;
+  const parts = studioGeneratedKey(templateKey);
+  const factory = studioTemplateFactory();
+  if (!parts || !factory) return null;
+  return studioResolveTemplateImagery(factory.template(parts.formatKey, parts.format, parts.index));
+}
+window.studioTemplate = studioTemplate;
+
+/**
+ * Descriptors for the generated catalogue, filtered and paged.
+ *
+ * Formats are walked round-robin rather than one after another, so "All sizes"
+ * opens on a spread of sizes instead of a thousand square posts followed by a
+ * thousand portraits. Scanning stops as soon as the requested page is full,
+ * which is what keeps a search over 23,000 designs from being a search over
+ * 23,000 built objects.
+ */
+function studioGeneratedDescriptors(query, formatFilter, offset, limit) {
+  const factory = studioTemplateFactory();
+  if (!factory) return [];
+  const formatKeys = formatFilter && formatFilter !== 'all'
+    ? (STUDIO_SOCIAL_FORMATS[formatFilter] ? [formatFilter] : [])
+    : Object.keys(STUDIO_SOCIAL_FORMATS);
+  if (!formatKeys.length) return [];
+  const needle = String(query || '').trim().toLowerCase();
+  const need = offset + limit;
+  const found = [];
+  for (let index = 0; index < factory.VARIANTS_PER_FORMAT && found.length < need; index++) {
+    for (const formatKey of formatKeys) {
+      if (found.length >= need) break;
+      const descriptor = factory.descriptor(formatKey, STUDIO_SOCIAL_FORMATS[formatKey], index);
+      if (needle && !`${descriptor.name} ${descriptor.desc} ${descriptor.keywords}`.toLowerCase().includes(needle)) continue;
+      found.push(descriptor);
+    }
+  }
+  return found.slice(offset, need);
+}
+
+function studioGeneratedTotal(formatFilter) {
+  const factory = studioTemplateFactory();
+  if (!factory) return 0;
+  const formats = formatFilter && formatFilter !== 'all' ? (STUDIO_SOCIAL_FORMATS[formatFilter] ? 1 : 0) : Object.keys(STUDIO_SOCIAL_FORMATS).length;
+  return formats * factory.VARIANTS_PER_FORMAT;
+}
+
+// Warms the automotive/RV stock pool once per session. Failure is silent by
+// design: every photo slot still renders, as a drawn vehicle.
+function studioWarmTemplateImagery() {
+  const imagery = studioTemplateImagery();
+  if (!imagery || window.__studioImageryWarmed) return;
+  window.__studioImageryWarmed = true;
+  try { imagery.warmPool(apiGetJson).then(() => renderStudioHomeTemplateGrid()); } catch (_) { /* drawn vehicles carry the grid */ }
+}
+window.studioWarmTemplateImagery = studioWarmTemplateImagery;
+
 async function loadStudioTemplateCatalog(force = false) {
   if (window.__studioTemplateCatalogLoaded && !force) return STUDIO_TEMPLATES_CATALOG;
   const response = await apiGetJson('/marketing/studio/templates');
@@ -1858,7 +1977,11 @@ async function loadStudioTemplateCatalog(force = false) {
     if (!key || !template.scene || typeof template.scene !== 'object') return;
     const scene = JSON.parse(JSON.stringify(template.scene));
     (scene.elements || []).forEach(element => {
-      if (element.type === 'vehicle-image' && !element.src) element.src = STUDIO_FREE_PHOTOS[index % STUDIO_FREE_PHOTOS.length].url;
+      // Leave the slot empty and tag it with an automotive term; the imagery
+      // resolver fills it further down, preferring the dealership's own photos.
+      if (element.type === 'vehicle-image' && !element.src && !element.image_query) {
+        element.image_query = STUDIO_DESIGN_SET_QUERIES[index % STUDIO_DESIGN_SET_QUERIES.length];
+      }
     });
     scene.format_key = scene.format_key || template.format_key || 'square';
     // Dealership templates intentionally override a global template with the same
@@ -1874,6 +1997,7 @@ async function loadStudioTemplateCatalog(force = false) {
         width: Number(template.width || template.scene.width) || 1080,
         height: Number(template.height || template.scene.height) || 1080,
       };
+      studioResolveTemplateImagery(STUDIO_TEMPLATES_CATALOG[key]);
     }
   });
   window.__studioTemplateCatalogLoaded = true;
@@ -1964,11 +2088,21 @@ function templatePreviewMarkup(tmpl) {
     if (element.type === 'text') { const fontSize = Number(element.fontSize || 24); const previewPx = Math.max(4, Math.min(30, fontSize * .18)); const previewCqw = Math.max(.6, fontSize / width * 100); return `<div style="${base}color:${escS(element.fill || '#fff')};font-size:${previewPx}px;font-size:${previewCqw}cqw;font-weight:${escS(element.fontWeight || '700')};font-family:'${escS(element.fontFamily || 'Manrope')}',Manrope,Arial,sans-serif;line-height:${Number(element.lineHeight || 1.05)};letter-spacing:${Number(element.charSpacing || 0) / 1000}em;text-align:${escS(element.textAlign || 'left')};white-space:pre-line;overflow:hidden;">${escS(previewText(element.text))}</div>`; }
     return '';
   }).join('');
-  return `<div class="studio-template-preview" style="aspect-ratio:${width}/${height};background:${escS(bgColor)};">${nodes}</div>`;
+  // container-type is inlined, not left to the stylesheet.
+  //
+  // Every font size in this thumbnail is expressed in `cqw` — a percentage of
+  // the CONTAINER's width — which is the only way one markup blob can render a
+  // 1080px design correctly at any card size. But `cqw` with no container query
+  // container above it does not fail loudly: it silently resolves against the
+  // viewport. The only rule declaring one was scoped to #ms-studio-master-modal,
+  // so inside the Studio modal thumbnails were right and on the Marketing tab —
+  // same cards, same code, no modal — a headline came out several times too big
+  // and ran off its own artboard. That is the sliced "VEHI" in the report.
+  return `<div class="studio-template-preview" style="container-type:inline-size;aspect-ratio:${width}/${height};background:${escS(bgColor)};">${nodes}</div>`;
 }
 
 function previewStudioTemplate(templateKey) {
-  const template = STUDIO_TEMPLATES_CATALOG[templateKey];
+  const template = studioTemplate(templateKey);
   if (!template) return;
   const encodedKey = encodeURIComponent(templateKey);
   const format = STUDIO_SOCIAL_FORMATS[template.format_key];
@@ -1982,24 +2116,64 @@ async function applyStudioTemplate(templateKey) {
 }
 window.applyStudioTemplate = applyStudioTemplate;
 
-function studioHomeTemplateCards(limit = 36) {
+function studioTemplateCardMarkup(template) {
+  // Hand-written and dealership templates carry empty photo slots too, so they
+  // go through the same resolver as the generated ones rather than falling back
+  // to a blank rectangle.
+  studioResolveTemplateImagery(template);
+  const key = encodeURIComponent(template.template_key);
+  const format = STUDIO_SOCIAL_FORMATS[template.format_key];
+  const width = Number(template.width || template.scene?.width) || 0;
+  const height = Number(template.height || template.scene?.height) || 0;
+  const pages = template.scene?.pages?.length > 1 ? `<span class="absolute right-2 top-2 rounded-lg bg-white/90 px-2 py-1 text-[9px] font-black text-slate-800">${template.scene.pages.length} pages</span>` : '';
+  return `<button type="button" onclick="startStudioTemplate(decodeURIComponent('${key}'))" class="studio-home-template-card group min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-400 hover:shadow-xl dark:border-white/10 dark:bg-slate-900"><div class="relative flex min-h-40 items-center justify-center overflow-hidden bg-slate-100 p-3 dark:bg-slate-950">${templatePreviewMarkup(template)}<span class="absolute left-2 top-2 rounded-lg bg-slate-950/80 px-2 py-1 text-[9px] font-black text-white">${width} × ${height}</span>${pages}</div><div class="p-3"><div class="truncate text-sm font-black text-slate-950 group-hover:text-indigo-700 dark:text-white dark:group-hover:text-indigo-300">${escS(template.name)}</div><div class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">${escS(format?.label || template.category || 'Editable design')}</div></div></button>`;
+}
+
+function studioHomeTemplateCards(limit) {
   const query = String(window.__studioHomeTemplateQuery || '').trim().toLowerCase();
   const setFilter = window.__studioHomeDesignSet || 'all';
   const formatFilter = window.__studioHomeFormat || 'all';
-  const templates = Object.values(STUDIO_TEMPLATES_CATALOG).filter(template => {
+  const shown = Math.max(STUDIO_GENERATED_PAGE, Number(limit) || Number(window.__studioHomeTemplateShown) || STUDIO_GENERATED_PAGE);
+
+  // The hand-written and dealership-owned templates lead, because a dealership's
+  // own saved template should never be buried under a generated one.
+  const curated = Object.values(STUDIO_TEMPLATES_CATALOG).filter(template => {
     const searchable = `${template.name || ''} ${template.desc || ''} ${template.category || ''} ${template.design_set || ''}`.toLowerCase();
     return (!query || searchable.includes(query)) && (setFilter === 'all' || template.design_set === setFilter) && (formatFilter === 'all' || template.format_key === formatFilter);
-  });
-  const cards = templates.slice(0, limit).map(template => {
-    const key = encodeURIComponent(template.template_key);
-    const format = STUDIO_SOCIAL_FORMATS[template.format_key];
-    return `<button type="button" onclick="startStudioTemplate(decodeURIComponent('${key}'))" class="studio-home-template-card group min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-400 hover:shadow-xl dark:border-white/10 dark:bg-slate-900"><div class="relative flex min-h-40 items-center justify-center overflow-hidden bg-slate-100 p-3 dark:bg-slate-950">${templatePreviewMarkup(template)}<span class="absolute left-2 top-2 rounded-lg bg-slate-950/80 px-2 py-1 text-[9px] font-black text-white">${Number(template.width || template.scene?.width)} × ${Number(template.height || template.scene?.height)}</span>${template.scene?.pages?.length > 1 ? `<span class="absolute right-2 top-2 rounded-lg bg-white/90 px-2 py-1 text-[9px] font-black text-slate-800">${template.scene.pages.length} pages</span>` : ''}</div><div class="p-3"><div class="truncate text-sm font-black text-slate-950 group-hover:text-indigo-700 dark:text-white dark:group-hover:text-indigo-300">${escS(template.name)}</div><div class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">${escS(format?.label || template.category || 'Editable design')}</div></div></button>`;
-  }).join('');
-  if (cards) return cards;
-  return '<div class="col-span-full rounded-3xl border border-dashed border-slate-300 px-6 py-12 text-center dark:border-slate-700"><h3 class="font-black text-slate-900 dark:text-white">No matching templates</h3><p class="mt-1 text-sm text-slate-500">Try another search, collection or output size.</p><button type="button" onclick="studioResetHomeTemplateFilters()" class="mt-4 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-black text-white">Show all templates</button></div>';
+  }).slice(0, shown);
+
+  // A design-set filter is a property of the coordinated collections only, so
+  // it excludes the generated catalogue rather than silently matching nothing.
+  const generated = setFilter === 'all'
+    ? studioGeneratedDescriptors(query, formatFilter, 0, Math.max(0, shown - curated.length)).map(descriptor => studioTemplate(descriptor.template_key)).filter(Boolean)
+    : [];
+
+  const templates = [...curated, ...generated];
+  if (!templates.length) {
+    return '<div class="col-span-full rounded-3xl border border-dashed border-slate-300 px-6 py-12 text-center dark:border-slate-700"><h3 class="font-black text-slate-900 dark:text-white">No matching templates</h3><p class="mt-1 text-sm text-slate-500">Try another search, collection or output size.</p><button type="button" onclick="studioResetHomeTemplateFilters()" class="mt-4 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-black text-white">Show all templates</button></div>';
+  }
+
+  const cards = templates.map(studioTemplateCardMarkup).join('');
+  const total = setFilter === 'all' && !query ? curated.length + studioGeneratedTotal(formatFilter) : 0;
+  const more = templates.length >= shown && (setFilter === 'all')
+    ? `<div class="col-span-full flex flex-col items-center gap-2 pt-2"><button type="button" onclick="studioShowMoreHomeTemplates()" class="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-black text-white hover:bg-indigo-500">Load more templates</button>${total ? `<div class="text-xs text-slate-500 dark:text-slate-400">Showing ${templates.length.toLocaleString()} of ${total.toLocaleString()} — ${STUDIO_TEMPLATE_VARIANTS.toLocaleString()} designs for every size</div>` : ''}</div>`
+    : '';
+  return cards + more;
 }
+window.studioHomeTemplateCards = studioHomeTemplateCards;
+
+function studioShowMoreHomeTemplates() {
+  window.__studioHomeTemplateShown = (Number(window.__studioHomeTemplateShown) || STUDIO_GENERATED_PAGE) + STUDIO_GENERATED_PAGE;
+  renderStudioHomeTemplateGrid();
+}
+window.studioShowMoreHomeTemplates = studioShowMoreHomeTemplates;
 
 function renderStudioHomeTemplateGrid() {
+  // Warms the automotive/RV stock pool the first time a grid paints, then
+  // repaints once it lands. Both surfaces that show templates — the Studio home
+  // and the Marketing tab's creative home — come through here, so this is the
+  // one place it needs to happen.
+  studioWarmTemplateImagery();
   const host = document.getElementById('studio-home-template-grid');
   if (host) host.innerHTML = studioHomeTemplateCards();
   document.querySelectorAll('[data-studio-home-set]').forEach(button => button.setAttribute('aria-pressed', String((window.__studioHomeDesignSet || 'all') === button.dataset.studioHomeSet)));
@@ -2109,19 +2283,19 @@ async function startStudioCustomDesign() {
 }
 
 async function startStudioTemplate(templateKey) {
-  const template = STUDIO_TEMPLATES_CATALOG[templateKey];
+  const template = studioTemplate(templateKey);
   if (!template) return;
   return window.openMarketSyncStudio(null, { formatKey: template.format_key, templateKey, bypassHome: true, tab: 'templates' });
 }
 
-function studioFilterHomeTemplates(value) { window.__studioHomeTemplateQuery = value || ''; renderStudioHomeTemplateGrid(); document.getElementById('studio-home-templates')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-function studioFilterHomeDesignSet(value) { window.__studioHomeDesignSet = window.__studioHomeDesignSet === value ? 'all' : value; renderStudioHomeTemplateGrid(); document.getElementById('studio-home-templates')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-function studioFilterHomeFormat(value) { window.__studioHomeFormat = value || 'all'; renderStudioHomeTemplateGrid(); }
-function studioResetHomeTemplateFilters() { window.__studioHomeTemplateQuery = ''; window.__studioHomeDesignSet = 'all'; window.__studioHomeFormat = 'all'; const search = document.querySelector('.studio-home input[type="search"]'); if (search) search.value = ''; renderStudioHomeTemplateGrid(); }
+function studioFilterHomeTemplates(value) { window.__studioHomeTemplateQuery = value || ''; window.__studioHomeTemplateShown = STUDIO_GENERATED_PAGE; renderStudioHomeTemplateGrid(); document.getElementById('studio-home-templates')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+function studioFilterHomeDesignSet(value) { window.__studioHomeDesignSet = window.__studioHomeDesignSet === value ? 'all' : value; window.__studioHomeTemplateShown = STUDIO_GENERATED_PAGE; renderStudioHomeTemplateGrid(); document.getElementById('studio-home-templates')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+function studioFilterHomeFormat(value) { window.__studioHomeFormat = value || 'all'; window.__studioHomeTemplateShown = STUDIO_GENERATED_PAGE; renderStudioHomeTemplateGrid(); }
+function studioResetHomeTemplateFilters() { window.__studioHomeTemplateQuery = ''; window.__studioHomeDesignSet = 'all'; window.__studioHomeFormat = 'all'; window.__studioHomeTemplateShown = STUDIO_GENERATED_PAGE; const search = document.querySelector('.studio-home input[type="search"]'); if (search) search.value = ''; renderStudioHomeTemplateGrid(); }
 function studioSetHomeFolder(folderId) { window.__studioHomeFolder = folderId || 'all'; renderStudioHomeProjects(); }
 async function createStudioHomeFolder() { const name = window.prompt('New folder name')?.trim(); if (!name) return; try { const response = await apiSendJson('/marketing/studio/folders', 'POST', { name, color: '#4F46E5' }); window.__studioHomeFolders = [...(window.__studioHomeFolders || []), response.folder]; window.__studioHomeFolder = response.folder.id; renderStudioHomeProjects(); if (typeof showToast === 'function') showToast(`${response.folder.name} folder created`, 'success'); } catch (error) { if (typeof showToast === 'function') showToast(error.message || 'Folder could not be created.', 'error'); } }
 
-Object.assign(window, { openStudioSizePicker, studioChooseFormat, startStudioBlankDesign, startStudioCustomDesign, startStudioTemplate, studioFilterHomeTemplates, studioFilterHomeDesignSet, studioFilterHomeFormat, studioResetHomeTemplateFilters, studioSetHomeFolder, createStudioHomeFolder });
+Object.assign(window, { openStudioSizePicker, studioChooseFormat, startStudioBlankDesign, startStudioCustomDesign, startStudioTemplate, studioFilterHomeTemplates, studioFilterHomeDesignSet, studioFilterHomeFormat, studioResetHomeTemplateFilters, studioSetHomeFolder, createStudioHomeFolder, studioShowMoreHomeTemplates });
 
 function studioTemplateSize(template) {
   return { width: Number(template?.scene?.width || template?.width) || 1080, height: Number(template?.scene?.height || template?.height) || 1080 };
@@ -2141,7 +2315,10 @@ function studioTemplateFitsCanvas(template, canvas = studioActiveCanvasSize()) {
 
 function renderStudioTemplateCards(_filter = window.__studioTemplateFormat || 'canvas', category = window.__studioTemplateCategory || 'all', limit = window.__studioTemplateLimit || 24) {
   const canvas = studioActiveCanvasSize();
-  const matches = Object.values(STUDIO_TEMPLATES_CATALOG).filter(t => studioTemplateFitsCanvas(t, canvas) && (category === 'all' || t.category === category));
+  const generated = studioGeneratedDescriptors('', canvas?.formatKey || 'all', 0, STUDIO_GENERATED_PAGE)
+    .filter(descriptor => category === 'all' || descriptor.category === category)
+    .map(descriptor => studioTemplate(descriptor.template_key)).filter(Boolean);
+  const matches = [...Object.values(STUDIO_TEMPLATES_CATALOG).filter(t => studioTemplateFitsCanvas(t, canvas) && (category === 'all' || t.category === category)), ...generated];
   const cards = matches.slice(0, limit).map(t => {
     const format = STUDIO_SOCIAL_FORMATS[t.format_key];
     const encodedKey = encodeURIComponent(t.template_key);
@@ -2921,8 +3098,20 @@ function studioVehiclePhoto(v) {
 }
 
 async function loadStudioTemplate(tmplKey) {
-  const tmpl = STUDIO_TEMPLATES_CATALOG[tmplKey] || STUDIO_TEMPLATES_CATALOG.tmpl_spotlight_square;
+  const tmpl = studioTemplate(tmplKey) || STUDIO_TEMPLATES_CATALOG.tmpl_spotlight_square;
   const scene = JSON.parse(JSON.stringify(tmpl.scene));
+  // Fill any photo slot that is still empty before the scene reaches the canvas.
+  // fabric-adapter.js draws a vehicle-image only when (el.src ||
+  // currentVehicle?.primary_photo_url) is truthy, so an unresolved slot is not a
+  // placeholder — it is a hole in the layout. A template can be opened without
+  // its card ever being rendered (the size picker, a deep link), so resolving in
+  // the grid alone is not enough.
+  if (window.MS_STUDIO_IMAGERY) {
+    window.MS_STUDIO_IMAGERY.resolveScene(scene, {
+      palette: tmpl.palette || {},
+      inventoryPhotos: window.__studioInventoryPhotos || []
+    });
+  }
   window.__studioAppliedTemplateKey = tmpl.template_key || tmplKey;
   window.__studioAppliedTemplateId = tmpl.template_id || tmpl.id || null;
 

@@ -5,16 +5,32 @@ import { readFileSync } from 'node:fs'
 const studio = readFileSync(new URL('../../marketplace-frontend/js/modules/studio/studio-shell.js', import.meta.url), 'utf8')
 const site = readFileSync(new URL('../../marketplace-frontend/js/modules/dashboard-part17.js', import.meta.url), 'utf8')
 
-test('every Design Studio vehicle-photo template ships with a real fallback image', () => {
-  // Without a src (or a bound vehicle), fabric-adapter.js's render condition for
-  // vehicle-image/image elements — (el.src || currentVehicle?.primary_photo_url) —
-  // is false and the whole photo slot renders as nothing: a blank hole in the layout.
+test('every Design Studio photo slot is filled before it reaches the canvas', () => {
+  // fabric-adapter.js draws a vehicle-image only when (el.src ||
+  // currentVehicle?.primary_photo_url) is truthy, so an unfilled slot is not a
+  // placeholder — it is a hole where the vehicle should be.
+  //
+  // This used to be guaranteed by pinning an Unsplash photo ID into every slot.
+  // That guarantee came at the cost of the templates showing whatever those
+  // opaque IDs happened to point at, which in at least one case was not a
+  // vehicle at all. Slots now name an automotive or RV SUBJECT and are filled at
+  // open time from the dealership's own photography, the automotive stock pool,
+  // or a drawn vehicle — so the slot is still never empty, and what fills it is
+  // always a vehicle.
   const catalog = studio.match(/const STUDIO_TEMPLATES_CATALOG = \{([\s\S]*?)\n\};/)?.[1] || ''
   const vehicleImageBlocks = [...catalog.matchAll(/\{ id: '[^']+', type: 'vehicle-image'[^}]*\}/g)].map(m => m[0])
   assert.equal(vehicleImageBlocks.length, 6, 'expected 6 named vehicle-photo templates')
   for (const block of vehicleImageBlocks) {
-    assert.match(block, /src: 'https:\/\/images\.unsplash\.com\//, `vehicle-image element missing a fallback src: ${block.slice(0, 60)}...`)
+    assert.doesNotMatch(block, /src: 'https:/, `a photo slot still pins a photo by URL: ${block.slice(0, 70)}...`)
+    assert.match(block, /image_query: '[^']+'/, `a photo slot names no subject: ${block.slice(0, 70)}...`)
   }
+
+  // And the open path fills them. Without this the six templates above would
+  // open with holes where the pinned photos used to be.
+  const open = studio.slice(studio.indexOf('async function loadStudioTemplate(tmplKey) {'))
+  const body = open.slice(0, open.indexOf('const boundScene'))
+  assert.match(body, /MS_STUDIO_IMAGERY[\s\S]*resolveScene\(scene/,
+    'loadStudioTemplate must resolve photo slots before the scene reaches the canvas')
 })
 
 test('newly added photo-centric website sections default to a library photo', () => {
